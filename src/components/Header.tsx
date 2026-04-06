@@ -48,6 +48,9 @@ export default function Header() {
               <Link href="/progress" className="text-slate-600 hover:text-primary-600 transition-colors font-medium">
                 Progress
               </Link>
+              <Link href="/must-know" className="text-slate-600 hover:text-primary-600 transition-colors font-medium">
+                Must Know
+              </Link>
             </nav>
 
             <div className="hidden md:flex items-center gap-4">
