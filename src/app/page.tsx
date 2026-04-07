@@ -1,6 +1,7 @@
 import TestCard from '@/components/TestCard';
+import TestPreview from '@/components/TestPreview';
 import ProgressStats from '@/components/ProgressStats';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, Lock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
@@ -39,6 +40,19 @@ export default function Home() {
     },
   ];
 
+  const previewTests: Array<{ type: 'focus-form' | 'focus-meaning'; title: string; description: string }> = [
+    {
+      type: 'focus-form',
+      title: 'Focus on Form',
+      description: 'Test your knowledge of grammatical structures, verb forms, and sentence patterns.',
+    },
+    {
+      type: 'focus-meaning',
+      title: 'Focus on Meaning',
+      description: 'Understand vocabulary meanings, synonyms, and contextual usage.',
+    },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Hero Section */}
@@ -55,8 +69,8 @@ export default function Home() {
           Comprehensive tests covering grammar, vocabulary, and listening skills aligned with CEFR standards.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/tests" className="btn-primary inline-flex items-center gap-2">
-            Start Testing
+          <Link href="/demo" className="btn-primary inline-flex items-center gap-2">
+            Try Demo Tests
             <ArrowRight className="w-5 h-5" />
           </Link>
           <Link href="/progress" className="btn-secondary">
@@ -71,10 +85,26 @@ export default function Home() {
         <ProgressStats />
       </section>
 
-      {/* Test Types */}
+      {/* Demo Preview Section */}
+      <section className="mb-12">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-slate-800">🎯 Try a Demo</h2>
+          <span className="text-sm text-slate-500 flex items-center gap-1">
+            <Lock className="w-3 h-3" />
+            No login required
+          </span>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {previewTests.map((test, index) => (
+            <TestPreview key={index} {...test} />
+          ))}
+        </div>
+      </section>
+
+      {/* Full Test Types */}
       <section>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">Test Categories</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Full Tests (Login Required)</h2>
           <Link href="/tests" className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
             View All
             <ArrowRight className="w-4 h-4" />
