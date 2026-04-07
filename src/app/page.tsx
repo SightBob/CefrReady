@@ -4,7 +4,7 @@ import { Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
-  const previewTests: Array<{ type: 'focus-form' | 'focus-meaning'; title: string; description: string }> = [
+  const previewTests: Array<{ type: 'focus-form' | 'focus-meaning' | 'form-meaning' | 'listening'; title: string; description: string }> = [
     {
       type: 'focus-form',
       title: 'Focus on Form',
@@ -14,6 +14,16 @@ export default function Home() {
       type: 'focus-meaning',
       title: 'Focus on Meaning',
       description: 'Understand vocabulary meanings, synonyms, and contextual usage.',
+    },
+    {
+      type: 'form-meaning',
+      title: 'Form & Meaning',
+      description: 'Combined assessment of both grammatical accuracy and semantic understanding.',
+    },
+    {
+      type: 'listening',
+      title: 'Listening Comprehension',
+      description: 'Comprehend spoken English through audio passages and conversations.',
     },
   ];
 
@@ -49,7 +59,7 @@ export default function Home() {
         <ProgressStats />
       </section>
 
-      {/* Demo Preview Section */}
+      {/* Demo Preview Section - All 4 Test Types */}
       <section className="mb-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-slate-800">🎯 Try a Demo</h2>
