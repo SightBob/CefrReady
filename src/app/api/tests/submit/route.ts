@@ -73,57 +73,80 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
 
-    // Save test attempt
-    const [newAttempt] = await db
-      .insert(testAttempts)
-      .values({
-        userId: user.id,
-        testTypeId,
-        score: score.toString(),
-        totalQuestions,
-        correctAnswers: correctCount,
-        startedAt: now,
-        completedAt: now,
-      })
-      .returning();
-
-    // Update or create user progress using upsert pattern
-    const existingProgress = await db
-      .select()
-      .from(userProgress)
-      .where(and(
-        eq(userProgress.userId, user.id),
-        eq(userProgress.testTypeId, testTypeId)
-      ));
-
-    if (existingProgress.length > 0) {
-      // Update existing progress
-      const progress = existingProgress[0];
-      const currentTestsTaken = progress.testsTaken || 0;
-      const newTestsTaken = currentTestsTaken + 1;
-      const currentAvgScore = parseFloat(progress.averageScore || '0') || 0;
-      const newAvgScore = ((currentAvgScore * currentTestsTaken) + score) / newTestsTaken;
-
-      await db
-        .update(userProgress)
-        .set({
-          averageScore: newAvgScore.toFixed(1),
-          testsTaken: newTestsTaken,
-          lastAttemptAt: now,
-          updatedAt: now,
+    // Save test attempt FIRST
+    let newAttempt;
+    try {
+      [newAttempt] = await db
+        .insert(testAttempts)
+        .values({
+          userId: user.id,
+          testTypeId,
+          score: score.toString(),
+          totalQuestions,
+          correctAnswers: correctCount,
+          startedAt: now,
+          completedAt: now,
         })
-        .where(eq(userProgress.id, progress.id));
-    } else {
-      // Create new progress record
-      await db.insert(userProgress).values({
-        userId: user.id,
-        testTypeId,
-        averageScore: score.toFixed(1),
-        testsTaken: 1,
-        lastAttemptAt: now,
-        createdAt: now,
-        updatedAt: now,
-      });
+        .returning();
+      console.log('Test attempt saved:', { attemptId: newAttempt?.id, userId: user.id, testTypeId, score });
+    } catch (error) {
+      console.error('Failed to save test attempt:', error);
+      throw error;
+    }
+
+    // Update or create user progress with proper upsert handling
+    try {
+      // First, try to find existing progress
+      const existingProgress = await db
+        .select()
+        .from(userProgress)
+        .where(and(
+          eq(userProgress.userId, user.id),
+          eq(userProgress.testTypeId, testTypeId)
+        ));
+
+      console.log('Existing progress found:', existingProgress.length, 'records');
+
+      if (existingProgress.length > 0) {
+        // Update existing progress
+        const progress = existingProgress[0];
+        const currentTestsTaken = progress.testsTaken || 0;
+        const newTestsTaken = currentTestsTaken + 1;
+        const currentAvgScore = parseFloat(progress.averageScore || '0') || 0;
+        const newAvgScore = ((currentAvgScore * currentTestsTaken) + score) / newTestsTaken;
+
+        await db
+          .update(userProgress)
+          .set({
+            averageScore: newAvgScore.toFixed(1),
+            testsTaken: newTestsTaken,
+            lastAttemptAt: now,
+            updatedAt: now,
+          })
+          .where(eq(userProgress.id, progress.id));
+
+        console.log('Progress updated:', { userId: user.id, testTypeId, newAvgScore: newAvgScore.toFixed(1), newTestsTaken });
+      } else {
+        // Create new progress record
+        await db.insert(userProgress).values({
+          userId: user.id,
+          testTypeId,
+          averageScore: score.toFixed(1),
+          testsTaken: 1,
+          lastAttemptAt: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        console.log('Progress created:', { userId: user.id, testTypeId, score, testsTaken: 1 });
+      }
+    } catch (error: any) {
+      console.error('Failed to update/create userProgress:', error);
+      // Log the specific error for debugging
+      if (error?.code === '23505') {
+        console.error('Unique constraint violation - this should not happen with proper upsert logic');
+      }
+      // Don't throw - we still want to return the test results even if progress tracking fails
     }
 
     return NextResponse.json({
