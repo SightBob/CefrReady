@@ -23,9 +23,12 @@ export const authOptions: NextAuthConfig = {
   pages: {
     signIn: '/',
   },
+  session: {
+    strategy: 'database',
+  },
   callbacks: {
-    async session({ session }) {
-      // Look up user in database to get the proper user ID
+    async session({ session, trigger }) {
+      // Look up user by email to get the database ID
       if (session.user?.email) {
         try {
           const dbUser = await db
@@ -41,6 +44,7 @@ export const authOptions: NextAuthConfig = {
           console.error('Error fetching user ID in session callback:', error);
         }
       }
+
       return session;
     },
   },
