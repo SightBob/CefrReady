@@ -264,7 +264,7 @@ export default function TestPreview({ type, title, description }: TestPreviewPro
       {/* Footer */}
       <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
         <p className="text-xs text-slate-500 text-center">
-          🔒 This is a demo preview. <span className="font-medium">Login</span> to access full tests with 20-30 questions and save your progress.
+          📝 This is a demo with {questions.length} sample questions. Full tests have 20-30 questions with progress tracking.
         </p>
       </div>
     </div>

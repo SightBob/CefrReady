@@ -1,45 +1,9 @@
-import TestCard from '@/components/TestCard';
 import TestPreview from '@/components/TestPreview';
 import ProgressStats from '@/components/ProgressStats';
-import { Sparkles, ArrowRight, Lock } from 'lucide-react';
+import { Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
-  const tests = [
-    {
-      type: 'focus-form' as const,
-      title: 'Focus on Form',
-      description: 'Test your knowledge of grammatical structures, verb forms, and sentence patterns.',
-      duration: '15 min',
-      questions: 20,
-      href: '/tests/focus-form',
-    },
-    {
-      type: 'focus-meaning' as const,
-      title: 'Focus on Meaning',
-      description: 'Understand vocabulary meanings, synonyms, and contextual usage.',
-      duration: '20 min',
-      questions: 25,
-      href: '/tests/focus-meaning',
-    },
-    {
-      type: 'form-meaning' as const,
-      title: 'Form & Meaning',
-      description: 'Combined assessment of both grammatical accuracy and semantic understanding.',
-      duration: '25 min',
-      questions: 30,
-      href: '/tests/form-meaning',
-    },
-    {
-      type: 'listening' as const,
-      title: 'Listening',
-      description: 'Comprehend spoken English through audio passages and conversations.',
-      duration: '30 min',
-      questions: 20,
-      href: '/tests/listening',
-    },
-  ];
-
   const previewTests: Array<{ type: 'focus-form' | 'focus-meaning'; title: string; description: string }> = [
     {
       type: 'focus-form',
@@ -89,10 +53,10 @@ export default function Home() {
       <section className="mb-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-slate-800">🎯 Try a Demo</h2>
-          <span className="text-sm text-slate-500 flex items-center gap-1">
-            <Lock className="w-3 h-3" />
-            No login required
-          </span>
+          <Link href="/demo" className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+            View All Demos
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {previewTests.map((test, index) => (
@@ -101,19 +65,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Full Test Types */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">Full Tests (Login Required)</h2>
-          <Link href="/tests" className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
-            View All
-            <ArrowRight className="w-4 h-4" />
+      {/* CTA Section */}
+      <section className="bg-gradient-to-r from-primary-500 to-accent-500 rounded-2xl p-8 text-center text-white">
+        <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready for the Full Experience?</h2>
+        <p className="text-white/90 mb-6 max-w-2xl mx-auto">
+          Access complete tests with 20-30 questions each, save your progress, and track your improvement over time.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link href="/tests" className="bg-white text-primary-600 px-6 py-3 rounded-lg font-medium hover:bg-primary-50 transition-colors inline-flex items-center justify-center gap-2">
+            Access Full Tests
+            <ArrowRight className="w-5 h-5" />
           </Link>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {tests.map((test, index) => (
-            <TestCard key={index} {...test} />
-          ))}
+          <Link href="/must-know" className="bg-white/20 text-white px-6 py-3 rounded-lg font-medium hover:bg-white/30 transition-colors inline-flex items-center justify-center gap-2">
+            Learn More
+          </Link>
         </div>
       </section>
     </div>
