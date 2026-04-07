@@ -10,7 +10,7 @@ import { eq } from 'drizzle-orm';
 export async function getCurrentUser() {
   const session = await auth();
 
-  if (!session?.user?.email) {
+  if (!session?.user?.id) {
     return null;
   }
 
@@ -18,7 +18,7 @@ export async function getCurrentUser() {
     const user = await db
       .select()
       .from(users)
-      .where(eq(users.email, session.user.email!))
+      .where(eq(users.id, session.user.id))
       .limit(1);
 
     return user.length > 0 ? user[0] : null;

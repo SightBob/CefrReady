@@ -1,5 +1,17 @@
 import GoogleProvider from 'next-auth/providers/google';
-import type { NextAuthConfig } from 'next-auth';
+import type { NextAuthConfig, DefaultSession } from 'next-auth';
+import { db } from '@/db';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+// Extend the session type to include user ID
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string;
+    } & DefaultSession['user'];
+  }
+}
 
 export const authOptions: NextAuthConfig = {
   providers: [
@@ -12,9 +24,22 @@ export const authOptions: NextAuthConfig = {
     signIn: '/',
   },
   callbacks: {
-    async session({ session, user }) {
-      if (session.user && user) {
-        session.user.id = user.id;
+    async session({ session }) {
+      // Look up user in database to get the proper user ID
+      if (session.user?.email) {
+        try {
+          const dbUser = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.email, session.user.email!))
+            .limit(1);
+
+          if (dbUser && dbUser.length > 0) {
+            session.user.id = dbUser[0].id;
+          }
+        } catch (error) {
+          console.error('Error fetching user ID in session callback:', error);
+        }
       }
       return session;
     },
