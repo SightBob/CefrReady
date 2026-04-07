@@ -6,9 +6,14 @@ import { getCurrentUser } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('=== TEST SUBMIT API CALLED ===');
+
     // Check authentication
     const user = await getCurrentUser();
+    console.log('getCurrentUser result:', user ? { id: user.id, email: user.email } : null);
+
     if (!user) {
+      console.log('Authentication failed - no user found');
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
@@ -17,8 +22,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { testTypeId, answers } = body;
+    console.log('Request body:', { testTypeId, answersCount: answers?.length });
 
     if (!testTypeId || !answers || !Array.isArray(answers)) {
+      console.log('Validation failed - missing fields');
       return NextResponse.json(
         { success: false, error: 'Missing required fields: testTypeId and answers array' },
         { status: 400 }

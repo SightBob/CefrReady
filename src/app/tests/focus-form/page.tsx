@@ -131,17 +131,24 @@ export default function FocusFormPage() {
         })),
       };
 
+      console.log('Submitting test:', payload);
+
       const res = await fetch('/api/tests/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
+      console.log('Response status:', res.status);
       const data = await res.json();
+      console.log('Response data:', data);
+
       if (data.success) {
         setScore(data.data.correctAnswers);
         setResults(data.data.results);
         setIsFinished(true);
+      } else {
+        console.error('Submit failed:', data.error);
       }
     } catch (error) {
       console.error('Error submitting test:', error);
