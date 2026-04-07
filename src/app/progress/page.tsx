@@ -1,23 +1,80 @@
 'use client';
 
-import { ArrowLeft, TrendingUp, Award, Target, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, TrendingUp, Award, Target, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import ProgressCard from '@/components/ProgressCard';
+import TestHistoryTable from '@/components/TestHistoryTable';
+
+interface ProgressData {
+  overall: {
+    testsTaken: number;
+    averageScore: number;
+  };
+  byCategory: Array<{
+    testTypeId: string;
+    averageScore: number;
+    testsTaken: number;
+  }>;
+  recentAttempts: Array<{
+    id: number;
+    testTypeId: string;
+    testTypeName: string;
+    score: number;
+    totalQuestions: number;
+    correctAnswers: number;
+    completedAt: string;
+  }>;
+}
 
 export default function ProgressPage() {
-  const recentTests = [
-    { name: 'Focus on Form', score: 85, total: 20, date: '2024-03-10', status: 'passed' },
-    { name: 'Focus on Meaning', score: 72, total: 25, date: '2024-03-09', status: 'passed' },
-    { name: 'Listening', score: 68, total: 20, date: '2024-03-08', status: 'failed' },
-    { name: 'Form & Meaning', score: 90, total: 30, date: '2024-03-07', status: 'passed' },
-  ];
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const overallStats = {
-    totalTests: 12,
-    averageScore: 78,
-    bestCategory: 'Focus on Form',
-    weakestCategory: 'Listening',
-    streak: 7,
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/');
+      return;
+    }
+    if (status === 'authenticated') {
+      fetchProgress();
+    }
+  }, [status, router]);
+
+  const fetchProgress = async () => {
+    try {
+      const res = await fetch('/api/progress');
+      const data = await res.json();
+      if (data.success) {
+        setProgress(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching progress:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-600">Loading your progress...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!progress) {
+    return null;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -39,7 +96,7 @@ export default function ProgressPage() {
             </div>
           </div>
           <p className="text-slate-500 text-sm mt-3">Total Tests</p>
-          <p className="text-2xl font-bold text-slate-800">{overallStats.totalTests}</p>
+          <p className="text-2xl font-bold text-slate-800">{progress.overall.testsTaken}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -49,7 +106,7 @@ export default function ProgressPage() {
             </div>
           </div>
           <p className="text-slate-500 text-sm mt-3">Average Score</p>
-          <p className="text-2xl font-bold text-slate-800">{overallStats.averageScore}%</p>
+          <p className="text-2xl font-bold text-slate-800">{progress.overall.averageScore}%</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -58,8 +115,12 @@ export default function ProgressPage() {
               <Award className="w-6 h-6 text-amber-600" />
             </div>
           </div>
-          <p className="text-slate-500 text-sm mt-3">Best Category</p>
-          <p className="text-lg font-bold text-slate-800">{overallStats.bestCategory}</p>
+          <p className="text-slate-500 text-sm mt-3">Best Score</p>
+          <p className="text-lg font-bold text-slate-800">
+            {progress.byCategory.length > 0
+              ? `${Math.max(...progress.byCategory.map(c => c.averageScore))}%`
+              : '-'}
+          </p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -68,40 +129,49 @@ export default function ProgressPage() {
               <Clock className="w-6 h-6 text-orange-600" />
             </div>
           </div>
-          <p className="text-slate-500 text-sm mt-3">Current Streak</p>
-          <p className="text-2xl font-bold text-slate-800">{overallStats.streak} days</p>
+          <p className="text-slate-500 text-sm mt-3">Categories</p>
+          <p className="text-2xl font-bold text-slate-800">{progress.byCategory.length}</p>
         </div>
       </div>
 
-      {/* Recent Tests */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      {/* Progress by Category */}
+      <section className="mb-8">
+        <h2 className="text-xl font-bold text-slate-800 mb-4">Progress by Category</h2>
+        {progress.byCategory.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {progress.byCategory.map((category) => (
+              <ProgressCard
+                key={category.testTypeId}
+                testTypeId={category.testTypeId}
+                testTypeName={category.testTypeId
+                  .split('-')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ')}
+                averageScore={category.averageScore}
+                testsTaken={category.testsTaken}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-8 text-center border border-slate-100">
+            <p className="text-slate-500">No progress yet. Start by taking a test!</p>
+            <Link href="/demo" className="btn-primary inline-flex items-center gap-2 mt-4">
+              Try Demo Tests
+            </Link>
+          </div>
+        )}
+      </section>
+
+      {/* Test History */}
+      <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-800">Recent Tests</h2>
+          <h2 className="text-xl font-bold text-slate-800">Test History</h2>
+          <p className="text-sm text-slate-500 mt-1">Your recent test attempts</p>
         </div>
-        <div className="divide-y divide-slate-100">
-          {recentTests.map((test, index) => (
-            <div key={index} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className={`p-2 rounded-full ${test.status === 'passed' ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                  {test.status === 'passed' ? (
-                    <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-red-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-800">{test.name}</p>
-                  <p className="text-sm text-slate-500">{test.date}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-slate-800">{test.score}%</p>
-                <p className="text-sm text-slate-500">{test.score * test.total / 100}/{test.total} correct</p>
-              </div>
-            </div>
-          ))}
+        <div className="p-6">
+          <TestHistoryTable attempts={progress.recentAttempts} />
         </div>
-      </div>
+      </section>
     </div>
   );
 }
