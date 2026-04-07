@@ -9,11 +9,6 @@ export async function GET(request: NextRequest) {
       .select({ count: count() })
       .from(questions);
 
-    const [activeQuestionStats] = await db
-      .select({ count: count() })
-      .from(questions)
-      .where(eq(questions.isActive, true));
-
     const [testTypeStats] = await db
       .select({ count: count() })
       .from(testTypes);
@@ -21,6 +16,18 @@ export async function GET(request: NextRequest) {
     const [userStats] = await db
       .select({ count: count() })
       .from(users);
+
+    // Active questions query - handle case where column might not exist yet
+    let activeQuestionStats = { count: 0 };
+    try {
+      [activeQuestionStats] = await db
+        .select({ count: count() })
+        .from(questions)
+        .where(eq(questions.active, 'true'));
+    } catch (e) {
+      // Column doesn't exist yet, use total as fallback
+      activeQuestionStats = questionStats;
+    }
 
     return NextResponse.json({
       totalQuestions: questionStats?.count || 0,

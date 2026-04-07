@@ -9,49 +9,53 @@ export async function GET(request: NextRequest) {
     const testTypeId = searchParams.get('testTypeId');
 
     let allQuestions;
-    
+
     if (testTypeId) {
       allQuestions = await db
         .select({
           id: questions.id,
           testTypeId: questions.testTypeId,
-          sentence: questions.sentence,
-          options: questions.options,
+          questionText: questions.questionText,
+          optionA: questions.optionA,
+          optionB: questions.optionB,
+          optionC: questions.optionC,
+          optionD: questions.optionD,
           correctAnswer: questions.correctAnswer,
           explanation: questions.explanation,
           difficulty: questions.difficulty,
           cefrLevel: questions.cefrLevel,
-          isActive: questions.isActive,
+          active: questions.active,
           orderIndex: questions.orderIndex,
           createdAt: questions.createdAt,
           testType: {
             id: testTypes.id,
-            title: testTypes.title,
-            slug: testTypes.slug,
+            name: testTypes.name,
           },
         })
         .from(questions)
         .leftJoin(testTypes, eq(questions.testTypeId, testTypes.id))
-        .where(eq(questions.testTypeId, parseInt(testTypeId)))
+        .where(eq(questions.testTypeId, testTypeId))
         .orderBy(desc(questions.createdAt));
     } else {
       allQuestions = await db
         .select({
           id: questions.id,
           testTypeId: questions.testTypeId,
-          sentence: questions.sentence,
-          options: questions.options,
+          questionText: questions.questionText,
+          optionA: questions.optionA,
+          optionB: questions.optionB,
+          optionC: questions.optionC,
+          optionD: questions.optionD,
           correctAnswer: questions.correctAnswer,
           explanation: questions.explanation,
           difficulty: questions.difficulty,
           cefrLevel: questions.cefrLevel,
-          isActive: questions.isActive,
+          active: questions.active,
           orderIndex: questions.orderIndex,
           createdAt: questions.createdAt,
           testType: {
             id: testTypes.id,
-            title: testTypes.title,
-            slug: testTypes.slug,
+            name: testTypes.name,
           },
         })
         .from(questions)
@@ -69,22 +73,25 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { testTypeId, sentence, options, correctAnswer, explanation, difficulty, cefrLevel, orderIndex } = body;
+    const { testTypeId, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, difficulty, cefrLevel, orderIndex } = body;
 
-    if (!testTypeId || !sentence || !options || correctAnswer === undefined || !explanation || !difficulty || !cefrLevel) {
+    if (!testTypeId || !questionText || !optionA || !optionB || !optionC || !optionD || !correctAnswer || !explanation || !difficulty || !cefrLevel) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     const [newQuestion] = await db.insert(questions).values({
       testTypeId,
-      sentence,
-      options,
+      questionText,
+      optionA,
+      optionB,
+      optionC,
+      optionD,
       correctAnswer,
       explanation,
       difficulty,
       cefrLevel,
       orderIndex: orderIndex || 0,
-      isActive: true,
+      active: 'true',
     }).returning();
 
     return NextResponse.json(newQuestion, { status: 201 });

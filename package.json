@@ -7,15 +7,21 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "npm run build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "npx tsx scripts/seed-admin.ts",
+    "db:cleanup": "npx tsx scripts/cleanup-tables.ts"
   },
   "dependencies": {
+    "@auth/drizzle-adapter": "^1.11.1",
+    "dotenv": "^17.4.1",
     "drizzle-orm": "^0.31.0",
     "lucide-react": "^0.378.0",
     "next": "14.2.3",
+    "next-auth": "^5.0.0-beta.30",
     "pg": "^8.11.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

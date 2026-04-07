@@ -29,19 +29,22 @@ export async function PUT(
   try {
     const questionId = parseInt(params.id);
     const body = await request.json();
-    const { testTypeId, sentence, options, correctAnswer, explanation, difficulty, cefrLevel, isActive, orderIndex } = body;
+    const { testTypeId, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, difficulty, cefrLevel, active, orderIndex } = body;
 
     const [updatedQuestion] = await db
       .update(questions)
       .set({
         testTypeId,
-        sentence,
-        options,
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
         correctAnswer,
         explanation,
         difficulty,
         cefrLevel,
-        isActive,
+        active,
         orderIndex,
       })
       .where(eq(questions.id, questionId))

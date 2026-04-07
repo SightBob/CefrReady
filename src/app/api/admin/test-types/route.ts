@@ -17,20 +17,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { slug, title, description, duration, icon, colorScheme } = body;
+    const { name, description, duration, icon, color, questionCount } = body;
 
-    if (!slug || !title || !description || !duration || !icon || !colorScheme) {
+    if (!name || !description) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     const [newTestType] = await db.insert(testTypes).values({
-      slug,
-      title,
+      name,
       description,
-      duration,
-      icon,
-      colorScheme,
-      isActive: true,
+      duration: duration ? parseInt(duration) : null,
+      icon: icon || null,
+      color: color || null,
+      questionCount: questionCount ? parseInt(questionCount) : null,
+      active: 'true',
     }).returning();
 
     return NextResponse.json(newTestType, { status: 201 });

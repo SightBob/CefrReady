@@ -3,25 +3,23 @@
 import Link from 'next/link';
 import { GraduationCap, Menu, X, User, LogOut, LogIn } from 'lucide-react';
 import { useState } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 
 export default function Header() {
+  const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-
-  const handleGoogleLogin = () => {
-    // Simulate Google login - in production, use NextAuth.js or Firebase Auth
-    setUser({ name: 'John Doe', email: 'john@example.com' });
-    setIsLoggedIn(true);
-    setIsAuthModalOpen(false);
-  };
 
   const handleLogout = () => {
-    setUser(null);
-    setIsLoggedIn(false);
+    signOut({ callbackUrl: '/' });
   };
+
+  const handleLogin = () => {
+    signIn('google', { callbackUrl: '/tests' });
+  };
+
+  const userName = session?.user?.name ?? session?.user?.email?.split('@')[0] ?? 'User';
 
   return (
     <>
@@ -54,15 +52,17 @@ export default function Header() {
             </nav>
 
             <div className="hidden md:flex items-center gap-4">
-              {isLoggedIn && user ? (
+              {status === 'loading' ? (
+                <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
+              ) : session?.user ? (
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 bg-slate-100 rounded-full pl-1 pr-3 py-1">
-                    <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                      {userName.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-sm font-medium text-slate-700">{user.name}</span>
+                    <span className="text-sm font-medium text-slate-700">{userName}</span>
                   </div>
-                  <button 
+                  <button
                     onClick={handleLogout}
                     className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                     title="Logout"
@@ -72,14 +72,14 @@ export default function Header() {
                 </div>
               ) : (
                 <>
-                  <button 
+                  <button
                     onClick={() => { setAuthMode('login'); setIsAuthModalOpen(true); }}
                     className="text-slate-600 hover:text-primary-600 transition-colors font-medium"
                   >
                     Login
                   </button>
-                  <button 
-                    onClick={() => { setAuthMode('register'); setIsAuthModalOpen(true); }}
+                  <button
+                    onClick={handleLogin}
                     className="btn-primary"
                   >
                     Register
@@ -110,15 +110,17 @@ export default function Header() {
                 <Link href="/progress" className="text-slate-600 hover:text-primary-600 transition-colors font-medium">
                   Progress
                 </Link>
-                {isLoggedIn && user ? (
+                {status === 'loading' ? (
+                  <div className="w-24 h-8 bg-slate-200 rounded animate-pulse" />
+                ) : session?.user ? (
                   <>
                     <div className="flex items-center gap-2 py-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-white" />
+                      <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        {userName.charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-sm font-medium text-slate-700">{user.name}</span>
+                      <span className="text-sm font-medium text-slate-700">{userName}</span>
                     </div>
-                    <button 
+                    <button
                       onClick={handleLogout}
                       className="flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors font-medium"
                     >
@@ -128,14 +130,14 @@ export default function Header() {
                   </>
                 ) : (
                   <>
-                    <button 
+                    <button
                       onClick={() => { setAuthMode('login'); setIsAuthModalOpen(true); setIsMenuOpen(false); }}
                       className="text-slate-600 hover:text-primary-600 transition-colors font-medium text-left"
                     >
                       Login
                     </button>
-                    <button 
-                      onClick={() => { setAuthMode('register'); setIsAuthModalOpen(true); setIsMenuOpen(false); }}
+                    <button
+                      onClick={handleLogin}
                       className="btn-primary text-center"
                     >
                       Register
@@ -153,7 +155,7 @@ export default function Header() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setIsAuthModalOpen(false)} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 animate-slide-up">
-            <button 
+            <button
               onClick={() => setIsAuthModalOpen(false)}
               className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-lg transition-colors"
             >
@@ -173,7 +175,7 @@ export default function Header() {
             </div>
 
             <button
-              onClick={handleGoogleLogin}
+              onClick={handleLogin}
               className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-slate-300 rounded-xl py-3 px-4 transition-all duration-200 mb-4"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -194,54 +196,8 @@ export default function Header() {
               </div>
             </div>
 
-            <form className="space-y-4">
-              {authMode === 'register' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-500 focus:outline-none transition-colors"
-                    placeholder="Your name"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                <input 
-                  type="email" 
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-500 focus:outline-none transition-colors"
-                  placeholder="you@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                <input 
-                  type="password" 
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-primary-500 focus:outline-none transition-colors"
-                  placeholder="••••••••"
-                />
-              </div>
-              <button type="button" className="w-full btn-primary">
-                {authMode === 'login' ? 'Sign In' : 'Create Account'}
-              </button>
-            </form>
-
-            <p className="text-center text-sm text-slate-500 mt-6">
-              {authMode === 'login' ? (
-                <>
-                  Don&apos;t have an account?{' '}
-                  <button onClick={() => setAuthMode('register')} className="text-primary-600 font-medium hover:underline">
-                    Register
-                  </button>
-                </>
-              ) : (
-                <>
-                  Already have an account?{' '}
-                  <button onClick={() => setAuthMode('login')} className="text-primary-600 font-medium hover:underline">
-                    Login
-                  </button>
-                </>
-              )}
+            <p className="text-center text-sm text-slate-500">
+              Use Google for quick and secure authentication
             </p>
           </div>
         </div>
