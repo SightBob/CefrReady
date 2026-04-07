@@ -10,11 +10,12 @@ async function seedAdminData() {
     console.log('🔄 Dropping existing tables...');
     await db.execute(sql`DROP TABLE IF EXISTS questions CASCADE`);
     await db.execute(sql`DROP TABLE IF EXISTS test_types CASCADE`);
-    await db.execute(sql`DROP TABLE IF EXISTS "userProgress" CASCADE`);
-    await db.execute(sql`DROP TABLE IF EXISTS "testAttempts" CASCADE`);
+    await db.execute(sql`DROP TABLE IF EXISTS user_progress CASCADE`);
+    await db.execute(sql`DROP TABLE IF EXISTS test_attempts CASCADE`);
     await db.execute(sql`DROP TABLE IF EXISTS sessions CASCADE`);
     await db.execute(sql`DROP TABLE IF EXISTS accounts CASCADE`);
     await db.execute(sql`DROP TABLE IF EXISTS verification_tokens CASCADE`);
+    await db.execute(sql`DROP TABLE IF EXISTS users CASCADE`);
 
     // Create NextAuth tables
     console.log('📝 Creating NextAuth tables...');
@@ -98,6 +99,39 @@ async function seedAdminData() {
         difficulty VARCHAR(20),
         active VARCHAR(5) DEFAULT 'true' NOT NULL,
         order_index INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    // Create user_progress table
+    console.log('📝 Creating user_progress table...');
+    await db.execute(sql`
+      CREATE TABLE user_progress (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        test_type_id VARCHAR(50) NOT NULL,
+        average_score VARCHAR(10),
+        tests_taken INTEGER DEFAULT 0,
+        last_attempt_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE (user_id, test_type_id)
+      )
+    `);
+
+    // Create test_attempts table
+    console.log('📝 Creating test_attempts table...');
+    await db.execute(sql`
+      CREATE TABLE test_attempts (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        test_type_id VARCHAR(50) NOT NULL,
+        score VARCHAR(10),
+        total_questions INTEGER,
+        correct_answers INTEGER,
+        started_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        completed_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       )

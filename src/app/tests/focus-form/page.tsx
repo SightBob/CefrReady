@@ -1,113 +1,87 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import TestLayout from '@/components/TestLayout';
 
 interface Question {
   id: number;
-  sentence: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
+  testTypeId: string;
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  cefrLevel: string;
+  difficulty: string;
+  orderIndex: number;
 }
 
-const sampleQuestions: Question[] = [
-  {
-    id: 1,
-    sentence: 'She ___ to the store yesterday.',
-    options: ['go', 'goes', 'went', 'going'],
-    correctAnswer: 2,
-    explanation: '"Yesterday" indicates past tense, so "went" is correct.',
-  },
-  {
-    id: 2,
-    sentence: 'They have ___ working all day.',
-    options: ['is', 'are', 'been', 'being'],
-    correctAnswer: 2,
-    explanation: 'Present perfect continuous uses "have been" + -ing form.',
-  },
-  {
-    id: 3,
-    sentence: 'If I ___ rich, I would travel the world.',
-    options: ['am', 'was', 'were', 'be'],
-    correctAnswer: 2,
-    explanation: 'Second conditional uses "were" for all subjects in the if-clause.',
-  },
-  {
-    id: 4,
-    sentence: 'The book ___ by millions of people.',
-    options: ['has read', 'has been read', 'have been read', 'is reading'],
-    correctAnswer: 1,
-    explanation: 'Passive voice in present perfect: has/have been + past participle.',
-  },
-  {
-    id: 5,
-    sentence: 'She made him ___ the truth.',
-    options: ['tell', 'to tell', 'telling', 'told'],
-    correctAnswer: 0,
-    explanation: 'Make + object + base form of verb (without "to").',
-  },
-  {
-    id: 6,
-    sentence: 'The children ___ playing in the garden when it started to rain.',
-    options: ['is', 'are', 'was', 'were'],
-    correctAnswer: 3,
-    explanation: 'Past continuous with plural subject requires "were".',
-  },
-  {
-    id: 7,
-    sentence: 'I wish I ___ speak French fluently.',
-    options: ['can', 'could', 'would', 'will'],
-    correctAnswer: 1,
-    explanation: '"Wish" for present situations takes "could" for abilities.',
-  },
-  {
-    id: 8,
-    sentence: 'Neither the teacher nor the students ___ present.',
-    options: ['is', 'are', 'was', 'were'],
-    correctAnswer: 1,
-    explanation: 'With "neither...nor", the verb agrees with the nearest subject.',
-  },
-  {
-    id: 9,
-    sentence: 'It\'s time we ___ home.',
-    options: ['go', 'went', 'going', 'gone'],
-    correctAnswer: 1,
-    explanation: '"It\'s time" is followed by past tense for present meaning.',
-  },
-  {
-    id: 10,
-    sentence: 'Had I known about the meeting, I ___ have attended.',
-    options: ['will', 'would', 'shall', 'can'],
-    correctAnswer: 1,
-    explanation: 'Third conditional: "would have" for hypothetical past situations.',
-  },
-];
+interface Answer {
+  questionId: number;
+  selectedAnswer: string;
+}
+
+interface QuestionResult {
+  questionId: number;
+  isCorrect: boolean;
+  userAnswer: string;
+  correctAnswer: string;
+  explanation: string | null;
+}
 
 export default function FocusFormPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [score, setScore] = useState(0);
-  const [isFinished, setIsFinished] = useState(false);
-  const [answers, setAnswers] = useState<(number | null)[]>(Array(sampleQuestions.length).fill(null));
+  const [answers, setAnswers] = useState<(string | null)[]>([]);
   const [flaggedQuestions, setFlaggedQuestions] = useState<number[]>([]);
+  const [isFinished, setIsFinished] = useState(false);
+  const [score, setScore] = useState(0);
+  const [results, setResults] = useState<QuestionResult[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAnswer = (answerIndex: number) => {
-    if (selectedAnswer !== null) return;
-    
-    setSelectedAnswer(answerIndex);
-    setShowExplanation(true);
-    
-    const newAnswers = [...answers];
-    newAnswers[currentQuestion] = answerIndex;
-    setAnswers(newAnswers);
-    
-    if (answerIndex === sampleQuestions[currentQuestion].correctAnswer) {
-      setScore(score + 1);
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/');
+      return;
     }
+    if (status === 'authenticated') {
+      fetchQuestions();
+    }
+  }, [status]);
+
+  const fetchQuestions = async () => {
+    try {
+      const res = await fetch('/api/tests/focus-form?count=10');
+      const data = await res.json();
+      if (data.success) {
+        setQuestions(data.data);
+        setAnswers(Array(data.data.length).fill(null));
+      }
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnswer = (answer: string) => {
+    if (selectedAnswer !== null) return;
+
+    setSelectedAnswer(answer);
+    setShowExplanation(true);
+
+    const newAnswers = [...answers];
+    newAnswers[currentQuestion] = answer;
+    setAnswers(newAnswers);
   };
 
   const handleQuestionSelect = (index: number) => {
@@ -125,7 +99,7 @@ export default function FocusFormPage() {
   };
 
   const handleNext = () => {
-    if (currentQuestion < sampleQuestions.length - 1) {
+    if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(answers[currentQuestion + 1]);
       setShowExplanation(answers[currentQuestion + 1] !== null);
@@ -140,27 +114,59 @@ export default function FocusFormPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const unanswered = answers.filter(a => a === null).length;
     if (unanswered > 0) {
       const confirm = window.confirm(`You have ${unanswered} unanswered questions. Are you sure you want to submit?`);
       if (!confirm) return;
     }
-    setIsFinished(true);
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        testTypeId: 'focus-form',
+        answers: questions.map((q, i) => ({
+          questionId: q.id,
+          selectedAnswer: answers[i] || 'A',
+        })),
+      };
+
+      const res = await fetch('/api/tests/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setScore(data.data.correctAnswers);
+        setResults(data.data.results);
+        setIsFinished(true);
+      }
+    } catch (error) {
+      console.error('Error submitting test:', error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleRestart = () => {
-    setCurrentQuestion(0);
-    setSelectedAnswer(null);
-    setShowExplanation(false);
-    setScore(0);
-    setIsFinished(false);
-    setAnswers(Array(sampleQuestions.length).fill(null));
-    setFlaggedQuestions([]);
+    router.push('/tests');
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading questions...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isFinished) {
-    const percentage = Math.round((score / sampleQuestions.length) * 100);
+    const percentage = Math.round((score / questions.length) * 100);
     const passed = percentage >= 70;
 
     return (
@@ -177,7 +183,7 @@ export default function FocusFormPage() {
               <XCircle className="w-12 h-12 text-red-600" />
             )}
           </div>
-          
+
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
             {passed ? 'Congratulations!' : 'Keep Practicing!'}
           </h1>
@@ -187,31 +193,34 @@ export default function FocusFormPage() {
 
           <div className="bg-slate-50 rounded-xl p-6 mb-6">
             <p className="text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
-            <p className="text-slate-500">{score} out of {sampleQuestions.length} correct</p>
+            <p className="text-slate-500">{score} out of {questions.length} correct</p>
           </div>
 
           <div className="flex gap-4 justify-center">
             <button onClick={handleRestart} className="btn-primary">
-              Try Again
-            </button>
-            <Link href="/tests" className="btn-secondary">
               Other Tests
-            </Link>
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  const question = sampleQuestions[currentQuestion];
+  const question = questions[currentQuestion];
+  const options = [
+    { key: 'A', value: question?.optionA },
+    { key: 'B', value: question?.optionB },
+    { key: 'C', value: question?.optionC },
+    { key: 'D', value: question?.optionD },
+  ];
 
   return (
     <TestLayout
       title="Focus on Form"
       duration="15 min"
-      totalQuestions={sampleQuestions.length}
+      totalQuestions={questions.length}
       currentQuestion={currentQuestion}
-      answers={answers}
+      answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}
       flaggedQuestions={flaggedQuestions}
       onQuestionSelect={handleQuestionSelect}
       onPrevious={handlePrevious}
@@ -222,18 +231,21 @@ export default function FocusFormPage() {
       {/* Question Card */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
         <p className="text-lg md:text-xl text-slate-800 mb-6 leading-relaxed">
-          {question.sentence}
+          {question?.questionText}
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {question.options.map((option, index) => {
+        <div className="grid grid-cols-1 gap-3">
+          {options.map((opt) => {
+            const isSelected = selectedAnswer === opt.key;
+            const isCorrect = opt.key === results[currentQuestion]?.correctAnswer;
+
             let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 ';
-            
+
             if (selectedAnswer === null) {
               buttonClass += 'border-slate-200 hover:border-primary-300 hover:bg-primary-50';
-            } else if (index === question.correctAnswer) {
+            } else if (isCorrect) {
               buttonClass += 'border-emerald-500 bg-emerald-50';
-            } else if (selectedAnswer === index) {
+            } else if (isSelected) {
               buttonClass += 'border-red-500 bg-red-50';
             } else {
               buttonClass += 'border-slate-200 opacity-50';
@@ -241,24 +253,31 @@ export default function FocusFormPage() {
 
             return (
               <button
-                key={index}
-                onClick={() => handleAnswer(index)}
-                disabled={selectedAnswer !== null}
+                key={opt.key}
+                onClick={() => handleAnswer(opt.key)}
+                disabled={selectedAnswer !== null || submitting}
                 className={buttonClass}
               >
-                <span className="font-medium text-slate-800">{option}</span>
+                <span className="font-medium text-slate-800">
+                  <span className="inline-block w-6 mr-2">{opt.key}.</span>
+                  {opt.value}
+                </span>
               </button>
             );
           })}
         </div>
 
         {/* Explanation */}
-        {showExplanation && (
-          <div className={`mt-6 p-4 rounded-xl ${selectedAnswer === question.correctAnswer ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+        {showExplanation && results[currentQuestion] && (
+          <div className={`mt-6 p-4 rounded-xl ${
+            results[currentQuestion].isCorrect
+              ? 'bg-emerald-50 border border-emerald-200'
+              : 'bg-amber-50 border border-amber-200'
+          }`}>
             <p className="font-medium text-slate-800 mb-1">
-              {selectedAnswer === question.correctAnswer ? '✓ Correct!' : '✗ Incorrect'}
+              {results[currentQuestion].isCorrect ? '✓ Correct!' : '✗ Incorrect'}
             </p>
-            <p className="text-slate-600">{question.explanation}</p>
+            <p className="text-slate-600">{results[currentQuestion].explanation}</p>
           </div>
         )}
       </div>
