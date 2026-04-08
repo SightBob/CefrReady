@@ -1,11 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ArrowLeft, Clock, ChevronRight, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import TestResults from '@/components/TestResults';
-import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
+
+interface ConversationLine {
+  speaker: string;
+  text: string;
+}
 
 interface Question {
   id: number;
@@ -21,15 +26,25 @@ interface Question {
   explanation: string | null;
 }
 
+interface TransformedQuestion {
+  id: number;
+  conversation: ConversationLine[];
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+}
+
 export default function FocusMeaningPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [transformedQuestions, setTransformedQuestions] = useState<TransformedQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [answers, setAnswers] = useState<(string | null)[]>([]);
+  const [answers, setAnswers] = useState<(number | null)[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -49,8 +64,20 @@ export default function FocusMeaningPage() {
       const res = await fetch('/api/tests/focus-meaning?count=10');
       const data = await res.json();
       if (data.success) {
-        setQuestions(data.data);
-        setAnswers(Array(data.data.length).fill(null));
+        const apiQuestions = data.data as Question[];
+        setQuestions(apiQuestions);
+
+        // Transform API data to match demo page structure
+        const transformed = apiQuestions.map((q) => ({
+          id: q.id,
+          conversation: [{ speaker: 'Context', text: q.questionText }],
+          question: 'What does this mean?',
+          options: [q.optionA, q.optionB, q.optionC, q.optionD],
+          correctAnswer: 0, // Will be updated after submission
+          explanation: q.explanation || '',
+        }));
+        setTransformedQuestions(transformed);
+        setAnswers(Array(apiQuestions.length).fill(null));
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
@@ -59,14 +86,14 @@ export default function FocusMeaningPage() {
     }
   };
 
-  const handleAnswer = (answer: string) => {
+  const handleAnswer = (answerIndex: number) => {
     if (selectedAnswer !== null) return;
 
-    setSelectedAnswer(answer);
+    setSelectedAnswer(answerIndex);
     setShowExplanation(true);
 
     const newAnswers = [...answers];
-    newAnswers[currentQuestion] = answer;
+    newAnswers[currentQuestion] = answerIndex;
     setAnswers(newAnswers);
   };
 
@@ -79,7 +106,7 @@ export default function FocusMeaningPage() {
   };
 
   const handleNext = () => {
-    if (currentQuestion < questions.length - 1) {
+    if (currentQuestion < transformedQuestions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(answers[currentQuestion + 1]);
       setShowExplanation(answers[currentQuestion + 1] !== null);
@@ -101,7 +128,7 @@ export default function FocusMeaningPage() {
         testTypeId: 'focus-meaning',
         answers: questions.map((q, i) => ({
           questionId: q.id,
-          selectedAnswer: answers[i] || 'A',
+          selectedAnswer: ['A', 'B', 'C', 'D'][answers[i] || 0],
         })),
       };
 
@@ -119,6 +146,15 @@ export default function FocusMeaningPage() {
 
       if (data.success) {
         setScore(data.data.correctAnswers);
+        // Update transformed questions with correct answers from results
+        const updatedQuestions = transformedQuestions.map((q, i) => {
+          const result = data.data.results.find((r: any) => r.questionId === q.id);
+          return {
+            ...q,
+            correctAnswer: result?.correctAnswer === 'A' ? 0 : result?.correctAnswer === 'B' ? 1 : result?.correctAnswer === 'C' ? 2 : 3,
+          };
+        });
+        setTransformedQuestions(updatedQuestions);
         setIsFinished(true);
       } else {
         console.error('Submit failed:', data.error);
@@ -155,32 +191,19 @@ export default function FocusMeaningPage() {
     );
   }
 
-  const question = questions[currentQuestion];
-  const options = [
-    { key: 'A', value: question?.optionA },
-    { key: 'B', value: question?.optionB },
-    { key: 'C', value: question?.optionC },
-    { key: 'D', value: question?.optionD },
-  ];
-
-  // Parse conversation from question text
-  const parseConversation = (text: string): { speaker: string; text: string }[] => {
-    // For now, we'll create a simple context-based conversation
-    return [{ speaker: 'Context', text }];
-  };
-
-  const conversation = parseConversation(question?.questionText || '');
-  const correctAnswer = answers[currentQuestion]; // This will be updated after submission
+  const question = transformedQuestions[currentQuestion];
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Link href="/tests" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
-          ← Back to Tests
+          <ArrowLeft className="w-5 h-5" />
+          Back to Tests
         </Link>
         <div className="flex items-center justify-between">
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Focus on Meaning</h1>
           <div className="flex items-center gap-2 text-slate-500">
+            <Clock className="w-5 h-5" />
             <span>20 min</span>
           </div>
         </div>
@@ -189,42 +212,93 @@ export default function FocusMeaningPage() {
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between text-sm text-slate-600 mb-2">
-          <span>Question {currentQuestion + 1} of {questions.length}</span>
-          <span>{Math.round(((currentQuestion + 1) / questions.length) * 100)}%</span>
+          <span>Question {currentQuestion + 1} of {transformedQuestions.length}</span>
+          <span>{Math.round(((currentQuestion + 1) / transformedQuestions.length) * 100)}%</span>
         </div>
         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300"
-            style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+            style={{ width: `${((currentQuestion + 1) / transformedQuestions.length) * 100}%` }}
           />
         </div>
       </div>
 
-      <FocusMeaningConversationCard
-        conversation={conversation}
-        questionText="What does this mean?"
-        options={options}
-        selectedAnswer={selectedAnswer}
-        correctAnswer={correctAnswer || null}
-        explanation={question?.explanation || null}
-        onAnswerSelect={handleAnswer}
-        disabled={submitting}
-      />
+      {/* Question Card - Same UI as demo page */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageCircle className="w-5 h-5 text-emerald-600" />
+          <span className="text-sm font-medium text-emerald-600">Conversation</span>
+        </div>
 
-      <div className="flex justify-between mt-6">
-        <button
-          onClick={handlePrevious}
-          disabled={currentQuestion === 0 || submitting}
-          className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Previous
-        </button>
+        {/* Conversation Display */}
+        <div className="bg-slate-50 rounded-xl p-4 mb-6 space-y-3">
+          {question.conversation.map((line, index) => (
+            <div key={index} className="flex gap-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                line.speaker === 'A'
+                  ? 'bg-primary-100 text-primary-700'
+                  : line.speaker === 'B'
+                  ? 'bg-accent-100 text-accent-700'
+                  : 'bg-slate-200 text-slate-700'
+              }`}>
+                {line.speaker}
+              </div>
+              <p className="flex-1 text-slate-700 leading-relaxed pt-1">{line.text}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-lg font-medium text-slate-800 mb-6">{question.question}</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {question.options.map((option, index) => {
+            let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 ';
+
+            if (selectedAnswer === null) {
+              buttonClass += 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50';
+            } else if (index === question.correctAnswer && showExplanation) {
+              buttonClass += 'border-emerald-500 bg-emerald-50';
+            } else if (selectedAnswer === index) {
+              buttonClass += 'border-red-500 bg-red-50';
+            } else {
+              buttonClass += 'border-slate-200 opacity-50';
+            }
+
+            return (
+              <button
+                key={index}
+                onClick={() => handleAnswer(index)}
+                disabled={selectedAnswer !== null || submitting}
+                className={buttonClass}
+              >
+                <span className="font-medium text-slate-800">{option}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {showExplanation && (
+          <div className={`mt-6 p-4 rounded-xl ${
+            selectedAnswer === question.correctAnswer
+              ? 'bg-emerald-50 border border-emerald-200'
+              : 'bg-amber-50 border border-amber-200'
+          }`}>
+            <p className="font-medium text-slate-800 mb-1">
+              {selectedAnswer === question.correctAnswer ? '✓ Correct!' : '✗ Incorrect'}
+            </p>
+            <p className="text-slate-600">{question.explanation}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end">
         <button
           onClick={handleNext}
           disabled={selectedAnswer === null || submitting}
           className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {currentQuestion < questions.length - 1 ? 'Next Question' : 'Finish Test'}
+          {currentQuestion < transformedQuestions.length - 1 ? 'Next Question' : 'Finish Test'}
+          <ChevronRight className="w-5 h-5" />
         </button>
       </div>
     </div>

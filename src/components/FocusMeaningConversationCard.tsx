@@ -8,25 +8,20 @@ interface ConversationLine {
   text: string;
 }
 
-interface Option {
-  key: string;
-  value: string;
-}
-
 interface FocusMeaningConversationCardProps {
   conversation: ConversationLine[];
-  questionText: string;
-  options: Option[];
-  selectedAnswer: string | null;
-  correctAnswer: string | null;
-  explanation: string | null;
-  onAnswerSelect: (answer: string) => void;
+  question: string;
+  options: string[];
+  selectedAnswer: number | null;
+  correctAnswer: number;
+  explanation: string;
+  onAnswerSelect: (answerIndex: number) => void;
   disabled?: boolean;
 }
 
 export default function FocusMeaningConversationCard({
   conversation,
-  questionText,
+  question,
   options,
   selectedAnswer,
   correctAnswer,
@@ -35,7 +30,7 @@ export default function FocusMeaningConversationCard({
   disabled = false,
 }: FocusMeaningConversationCardProps) {
   const isCorrect = selectedAnswer === correctAnswer;
-  const showExplanation = selectedAnswer !== null && explanation !== null;
+  const showExplanation = selectedAnswer !== null;
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
@@ -55,24 +50,24 @@ export default function FocusMeaningConversationCard({
                 ? 'bg-accent-100 text-accent-700'
                 : 'bg-slate-200 text-slate-700'
             }`}>
-              {line.speaker.charAt(0)}
+              {line.speaker}
             </div>
             <p className="flex-1 text-slate-700 leading-relaxed pt-1">{line.text}</p>
           </div>
         ))}
       </div>
 
-      <p className="text-lg font-medium text-slate-800 mb-6">{questionText}</p>
+      <p className="text-lg font-medium text-slate-800 mb-6">{question}</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {options.map((opt) => {
+        {options.map((option, index) => {
           let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 ';
 
           if (selectedAnswer === null) {
             buttonClass += 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50';
-          } else if (opt.key === correctAnswer) {
+          } else if (index === correctAnswer) {
             buttonClass += 'border-emerald-500 bg-emerald-50';
-          } else if (selectedAnswer === opt.key) {
+          } else if (selectedAnswer === index) {
             buttonClass += 'border-red-500 bg-red-50';
           } else {
             buttonClass += 'border-slate-200 opacity-50';
@@ -80,12 +75,12 @@ export default function FocusMeaningConversationCard({
 
           return (
             <button
-              key={opt.key}
-              onClick={() => onAnswerSelect(opt.key)}
+              key={index}
+              onClick={() => onAnswerSelect(index)}
               disabled={selectedAnswer !== null || disabled}
               className={buttonClass}
             >
-              <span className="font-medium text-slate-800">{opt.value}</span>
+              <span className="font-medium text-slate-800">{option}</span>
             </button>
           );
         })}
