@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { questions } from '@/db/schema';
+import { questions, testTypes } from '@/db/schema';
 import { eq, sql, and } from 'drizzle-orm';
 
 export async function GET(
@@ -8,15 +8,30 @@ export async function GET(
   { params }: { params: { type: string } }
 ) {
   try {
-    const testType = params.type;
+    const testTypeName = params.type;
     const searchParams = request.nextUrl.searchParams;
     const count = parseInt(searchParams.get('count') || '20');
     const cefrLevel = searchParams.get('cefrLevel');
 
+    // Find test type by name to get its ID
+    const testType = await db
+      .select({ id: testTypes.id })
+      .from(testTypes)
+      .where(eq(testTypes.name, testTypeName))
+      .limit(1)
+      .then(rows => rows[0]);
+
+    if (!testType) {
+      return NextResponse.json(
+        { success: false, error: 'Test type not found' },
+        { status: 404 }
+      );
+    }
+
     // Build query conditions
     const whereCondition = cefrLevel
-      ? and(eq(questions.testTypeId, testType), eq(questions.cefrLevel, cefrLevel))
-      : eq(questions.testTypeId, testType);
+      ? and(eq(questions.testTypeId, testType.id.toString()), eq(questions.cefrLevel, cefrLevel))
+      : eq(questions.testTypeId, testType.id.toString());
 
     // Fetch random questions, excluding correct_answer (will be shown after submission)
     const fetchedQuestions = await db

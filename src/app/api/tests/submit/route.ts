@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { questions, testAttempts, userProgress } from '@/db/schema';
+import { questions, testAttempts, userProgress, testTypes } from '@/db/schema';
 import { eq, inArray, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { testTypeId, answers } = body;
+    let { testTypeId, answers } = body;
     console.log('Request body:', { testTypeId, answersCount: answers?.length });
 
     if (!testTypeId || !answers || !Array.isArray(answers)) {
@@ -32,13 +32,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch questions with correct answers
+    // Convert test type name to ID (e.g., 'focus-form' -> '1')
+    const testTypeRecord = await db
+      .select({ id: testTypes.id })
+      .from(testTypes)
+      .where(eq(testTypes.name, testTypeId))
+      .limit(1)
+      .then(rows => rows[0]);
+
+    if (!testTypeRecord) {
+      console.log('Test type not found:', testTypeId);
+      return NextResponse.json(
+        { success: false, error: 'Invalid test type' },
+        { status: 400 }
+      );
+    }
+
+    const testTypeDbId = testTypeRecord.id.toString();
+    console.log('Test type ID resolved:', { name: testTypeId, dbId: testTypeDbId });
+
+    // Fetch questions with correct answers using the numeric ID
     const questionIds = answers.map((a: any) => a.questionId);
     const dbQuestions = await db
       .select()
       .from(questions)
       .where(and(
-        eq(questions.testTypeId, testTypeId),
+        eq(questions.testTypeId, testTypeDbId),
         inArray(questions.id, questionIds)
       ));
 
