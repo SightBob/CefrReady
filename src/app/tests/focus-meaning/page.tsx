@@ -12,6 +12,11 @@ interface ConversationLine {
   text: string;
 }
 
+interface ConversationLine {
+  speaker: string;
+  text: string;
+}
+
 interface Question {
   id: number;
   testTypeId: string;
@@ -24,6 +29,7 @@ interface Question {
   difficulty: string;
   orderIndex: number;
   explanation: string | null;
+  conversation?: ConversationLine[];
 }
 
 interface TransformedQuestion {
@@ -70,7 +76,7 @@ export default function FocusMeaningPage() {
         // Transform API data to match demo page structure
         const transformed = apiQuestions.map((q) => ({
           id: q.id,
-          conversation: [{ speaker: 'Context', text: q.questionText }],
+          conversation: q.conversation || [{ speaker: 'Context', text: q.questionText }],
           question: 'What does this mean?',
           options: [q.optionA, q.optionB, q.optionC, q.optionD],
           correctAnswer: 0, // Will be updated after submission

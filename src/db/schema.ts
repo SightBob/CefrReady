@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, varchar, integer, primaryKey, index } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, varchar, integer, primaryKey, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // User accounts table (NextAuth compatible)
@@ -59,12 +59,19 @@ export const questions = pgTable('questions', {
   id: serial('id').primaryKey(),
   testTypeId: varchar('test_type_id', { length: 50 }).notNull(),
   questionText: text('question_text').notNull(),
-  optionA: text('option_a').notNull(),
-  optionB: text('option_b').notNull(),
-  optionC: text('option_c').notNull(),
-  optionD: text('option_d').notNull(),
-  correctAnswer: varchar('correct_answer', { length: 1 }).notNull(),
+  optionA: text('option_a'),
+  optionB: text('option_b'),
+  optionC: text('option_c'),
+  optionD: text('option_d'),
+  correctAnswer: varchar('correct_answer', { length: 1 }),
   explanation: text('explanation'),
+
+  // Structured data for complex question types
+  conversation: jsonb('conversation'),  // focus-meaning: [{speaker, text}]
+  audioUrl: text('audio_url'),          // listening: audio file URL
+  transcript: text('transcript'),       // listening: audio transcript
+  article: jsonb('article'),            // form-meaning: {title, text, blanks[]}
+
   cefrLevel: varchar('cefr_level', { length: 10 }).notNull(),
   difficulty: varchar('difficulty', { length: 20 }),
   active: varchar('active', { length: 5 }).default('true').notNull(),

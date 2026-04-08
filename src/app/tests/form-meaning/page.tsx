@@ -1,11 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import TestResults from '@/components/TestResults';
-import FormMeaningFillBlank from '@/components/FormMeaningFillBlank';
+import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
+
+interface Blank {
+  id: number;
+  correctAnswer: string;
+  hint?: string;
+}
+
+interface Article {
+  title: string;
+  text: string;
+  blanks: Blank[];
+}
 
 interface Question {
   id: number;
@@ -16,6 +29,7 @@ interface Question {
   correctAnswer: string;
   explanation: string;
   orderIndex: number;
+  article?: Article;
 }
 
 export default function FormMeaningPage() {
@@ -53,11 +67,13 @@ export default function FormMeaningPage() {
     }
   };
 
-  const handleInputChange = (questionId: number, value: string) => {
-    setAnswers(prev => ({ ...prev, [questionId]: value.toLowerCase().trim() }));
+  const handleInputChange = (blankId: number, value: string) => {
+    setAnswers(prev => ({ ...prev, [blankId]: value.toLowerCase().trim() }));
   };
 
   const handleSubmit = async () => {
+    // For now, we'll handle form-meaning as single blank per question
+    // In the future, we can extend to support multiple blanks per question
     const unanswered = questions.filter(q => !answers[q.id]).length;
     if (unanswered > 0) {
       const confirm = window.confirm(`You have ${unanswered} unanswered questions. Are you sure you want to submit?`);
@@ -125,6 +141,10 @@ export default function FormMeaningPage() {
     );
   }
 
+  // For now, handle each question as a separate article with one blank
+  // This maintains compatibility with existing database structure
+  const hasArticleData = questions.some(q => q.article);
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
@@ -156,24 +176,71 @@ export default function FormMeaningPage() {
       {/* Questions */}
       <div className="space-y-6">
         {questions.map((question, index) => {
-          const isCorrect = isSubmitted && answers[question.id] === question.correctAnswer.toLowerCase();
-          const isWrong = isSubmitted && answers[question.id] !== question.correctAnswer.toLowerCase() && answers[question.id];
+          if (hasArticleData && question.article) {
+            // Use article format with multiple blanks
+            return (
+              <FormMeaningArticleCard
+                key={question.id}
+                article={question.article}
+                answers={answers}
+                isSubmitted={isSubmitted}
+                onInputChange={handleInputChange}
+                disabled={isSubmitted || submitting}
+              />
+            );
+          } else {
+            // Fallback to single blank format
+            const isCorrect = isSubmitted && answers[question.id] === question.correctAnswer.toLowerCase();
+            const isWrong = isSubmitted && answers[question.id] !== question.correctAnswer.toLowerCase() && answers[question.id];
 
-          return (
-            <FormMeaningFillBlank
-              key={question.id}
-              questionId={question.id}
-              questionNumber={index + 1}
-              questionText={question.questionText}
-              difficulty={question.difficulty}
-              value={answers[question.id] || ''}
-              isSubmitted={isSubmitted}
-              correctAnswer={isSubmitted ? question.correctAnswer : undefined}
-              explanation={isSubmitted ? question.explanation : undefined}
-              onInputChange={handleInputChange}
-              disabled={isSubmitted || submitting}
-            />
-          );
+            return (
+              <div key={question.id} className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-5 h-5 text-purple-600" />
+                  <span className="text-sm font-medium text-purple-600">Question {index + 1}</span>
+                </div>
+
+                <h2 className="text-lg font-medium text-slate-800 mb-4">{question.questionText}</h2>
+
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    className={`w-48 px-3 py-2 rounded border-2 text-center ${
+                      isSubmitted
+                        ? isCorrect
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : isWrong
+                          ? 'border-red-500 bg-red-50 text-red-700'
+                          : 'border-slate-300 bg-slate-50'
+                        : 'border-purple-300 focus:border-purple-500 focus:outline-none'
+                    }`}
+                    placeholder={question.difficulty ? `(${question.difficulty})` : 'Answer'}
+                    value={answers[question.id] || ''}
+                    onChange={(e) => handleInputChange(question.id, e.target.value)}
+                    disabled={isSubmitted || submitting}
+                  />
+                  {isSubmitted && isWrong && (
+                    <span className="text-sm text-emerald-600 font-medium">
+                      Correct: {question.correctAnswer}
+                    </span>
+                  )}
+                </div>
+
+                {isSubmitted && question.explanation && (
+                  <div className={`mt-4 p-4 rounded-xl ${
+                    isCorrect
+                      ? 'bg-emerald-50 border border-emerald-200'
+                      : 'bg-amber-50 border border-amber-200'
+                  }`}>
+                    <p className="font-medium text-slate-800 mb-1">
+                      {isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                    </p>
+                    <p className="text-slate-600">{question.explanation}</p>
+                  </div>
+                )}
+              </div>
+            );
+          }
         })}
       </div>
 

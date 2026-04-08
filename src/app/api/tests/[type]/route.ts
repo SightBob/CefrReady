@@ -33,7 +33,7 @@ export async function GET(
       ? and(eq(questions.testTypeId, testType.id.toString()), eq(questions.cefrLevel, cefrLevel))
       : eq(questions.testTypeId, testType.id.toString());
 
-    // Fetch random questions, excluding correct_answer (will be shown after submission)
+    // Fetch random questions with structured data fields
     const fetchedQuestions = await db
       .select({
         id: questions.id,
@@ -46,6 +46,11 @@ export async function GET(
         cefrLevel: questions.cefrLevel,
         difficulty: questions.difficulty,
         orderIndex: questions.orderIndex,
+        // Structured data fields for complex question types
+        conversation: questions.conversation,
+        audioUrl: questions.audioUrl,
+        transcript: questions.transcript,
+        article: questions.article,
       })
       .from(questions)
       .where(whereCondition)

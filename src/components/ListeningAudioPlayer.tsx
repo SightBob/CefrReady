@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Play, Pause, Volume2 } from 'lucide-react';
 
 interface Option {
@@ -9,6 +9,8 @@ interface Option {
 }
 
 interface ListeningAudioPlayerProps {
+  audioUrl?: string;
+  transcript: string;
   questionText: string;
   options: Option[];
   selectedAnswer: string | null;
@@ -22,6 +24,8 @@ interface ListeningAudioPlayerProps {
 }
 
 export default function ListeningAudioPlayer({
+  audioUrl,
+  transcript,
   questionText,
   options,
   selectedAnswer,
@@ -33,6 +37,34 @@ export default function ListeningAudioPlayer({
   onAnswerSelect,
   disabled = false,
 }: ListeningAudioPlayerProps) {
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      setAudioElement(audio);
+    }
+
+    return () => {
+      if (audioElement) {
+        audioElement.pause();
+      }
+    };
+  }, [audioUrl]);
+
+  const handlePlayAudio = () => {
+    if (audioElement) {
+      audioElement.play().catch(error => {
+        console.error('Error playing audio:', error);
+        // Fallback to simulated playback
+        onPlayAudio();
+      });
+    } else {
+      // Fallback to simulated playback
+      onPlayAudio();
+    }
+  };
+
   const isCorrect = selectedAnswer === correctAnswer;
   const showExplanation = selectedAnswer !== null && explanation !== null;
 
@@ -41,7 +73,7 @@ export default function ListeningAudioPlayer({
       {/* Audio Player */}
       <div className="flex items-center justify-center mb-6">
         <button
-          onClick={onPlayAudio}
+          onClick={handlePlayAudio}
           disabled={isPlaying}
           className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${
             isPlaying
@@ -68,7 +100,7 @@ export default function ListeningAudioPlayer({
       {showExplanation && (
         <div className="bg-slate-50 rounded-xl p-4 mb-6">
           <p className="text-sm font-medium text-slate-600 mb-2">Audio Transcript:</p>
-          <p className="text-slate-800 italic">"{questionText}"</p>
+          <p className="text-slate-800 italic">"{transcript || questionText}"</p>
         </div>
       )}
 

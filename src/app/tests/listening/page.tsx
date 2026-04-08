@@ -19,6 +19,8 @@ interface Question {
   difficulty: string;
   orderIndex: number;
   explanation: string | null;
+  audioUrl?: string;
+  transcript?: string;
 }
 
 export default function ListeningPage() {
@@ -207,6 +209,8 @@ export default function ListeningPage() {
       </div>
 
       <ListeningAudioPlayer
+        audioUrl={question?.audioUrl}
+        transcript={question?.transcript || question?.questionText}
         questionText={question?.questionText || ''}
         options={options}
         selectedAnswer={selectedAnswer}
