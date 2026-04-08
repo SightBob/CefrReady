@@ -1,44 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import TestLayout from '@/components/TestLayout';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import TestResults from '@/components/TestResults';
-
-interface Question {
-  id: number;
-  testTypeId: string;
-  questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  cefrLevel: string;
-  difficulty: string;
-  orderIndex: number;
-  explanation: string | null;
-}
-
-interface Answer {
-  questionId: number;
-  selectedAnswer: string;
-}
-
-interface QuestionResult {
-  questionId: number;
-  isCorrect: boolean;
-  userAnswer: string;
-  correctAnswer: string;
-  explanation: string | null;
-}
+import type { FocusFormQuestion, QuestionResult, Option } from '@/types/test';
 
 export default function FocusFormPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<FocusFormQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -133,17 +106,13 @@ export default function FocusFormPage() {
         })),
       };
 
-      console.log('Submitting test:', payload);
-
       const res = await fetch('/api/tests/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      console.log('Response status:', res.status);
       const data = await res.json();
-      console.log('Response data:', data);
 
       if (data.success) {
         setScore(data.data.correctAnswers);
@@ -185,11 +154,11 @@ export default function FocusFormPage() {
   }
 
   const question = questions[currentQuestion];
-  const options = [
-    { key: 'A', value: question?.optionA },
-    { key: 'B', value: question?.optionB },
-    { key: 'C', value: question?.optionC },
-    { key: 'D', value: question?.optionD },
+  const options: Option[] = [
+    { key: 'A', value: question.optionA },
+    { key: 'B', value: question.optionB },
+    { key: 'C', value: question.optionC },
+    { key: 'D', value: question.optionD },
   ];
 
   const correctAnswer = results[currentQuestion]?.correctAnswer || null;
@@ -210,7 +179,7 @@ export default function FocusFormPage() {
       onFlag={handleFlag}
     >
       <FocusFormQuestionCard
-        questionText={question?.questionText || ''}
+        questionText={question.questionText}
         options={options}
         selectedAnswer={selectedAnswer}
         correctAnswer={correctAnswer}

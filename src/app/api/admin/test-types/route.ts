@@ -17,13 +17,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, duration, icon, color, questionCount } = body;
+    const { id, name, description, duration, icon, color, questionCount } = body;
 
-    if (!name || !description) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!id || !name || !description) {
+      return NextResponse.json({ error: 'Missing required fields: id, name, and description are required' }, { status: 400 });
     }
 
     const [newTestType] = await db.insert(testTypes).values({
+      id, // String identifier like 'focus-form'
       name,
       description,
       duration: duration ? parseInt(duration) : null,

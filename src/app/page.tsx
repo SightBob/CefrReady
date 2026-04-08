@@ -1,6 +1,7 @@
 import DemoTestsSection from '@/components/DemoTestsSection';
 import ProgressStats from '@/components/ProgressStats';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, BookOpen } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -18,6 +19,13 @@ export default function Home() {
         <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-8">
           Comprehensive tests covering grammar, vocabulary, and listening skills aligned with CEFR standards.
         </p>
+        <Link
+          href="/must-know"
+          className="btn-primary inline-flex items-center gap-2 text-lg"
+        >
+          <BookOpen className="w-5 h-5" />
+          Must Know
+        </Link>
       </section>
 
       {/* Progress Stats */}

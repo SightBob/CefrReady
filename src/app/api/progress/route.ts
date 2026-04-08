@@ -35,23 +35,25 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(testAttempts.completedAt))
       .limit(10);
 
-    // Get test type details
+    // Get test type details - use id as key since testTypeId references id
     const testTypeMap = new Map<string, { name: string; icon: string }>();
     const allTestTypes = await db.select().from(testTypes);
     allTestTypes.forEach((tt) => {
-      testTypeMap.set(tt.name, { name: tt.name, icon: tt.icon || '' });
+      testTypeMap.set(tt.id, { name: tt.name, icon: tt.icon || '' });
     });
 
     // Calculate overall statistics
     let totalTests = 0;
     let totalScore = 0;
     const byCategory = progressByType.map((p) => {
-      totalTests += p.testsTaken || 0;
-      totalScore += (parseFloat(p.averageScore || '0') * (p.testsTaken || 0));
+      const testsTaken = p.testsTaken || 0;
+      const avgScore = typeof p.averageScore === 'string' ? parseFloat(p.averageScore) : (p.averageScore || 0);
+      totalTests += testsTaken;
+      totalScore += (avgScore * testsTaken);
       return {
         testTypeId: p.testTypeId,
-        averageScore: parseFloat(p.averageScore || '0'),
-        testsTaken: p.testsTaken || 0,
+        averageScore: avgScore,
+        testsTaken,
       };
     });
 
@@ -62,7 +64,7 @@ export async function GET(request: NextRequest) {
       id: attempt.id,
       testTypeId: attempt.testTypeId,
       testTypeName: testTypeMap.get(attempt.testTypeId)?.name || attempt.testTypeId,
-      score: attempt.score ? parseInt(attempt.score) : 0,
+      score: typeof attempt.score === 'string' ? parseFloat(attempt.score) : (attempt.score || 0),
       totalQuestions: attempt.totalQuestions || 0,
       correctAnswers: attempt.correctAnswers || 0,
       completedAt: attempt.completedAt,

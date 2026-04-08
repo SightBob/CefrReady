@@ -6,27 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import TestResults from '@/components/TestResults';
 import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
-
-interface Question {
-  id: number;
-  testTypeId: string;
-  questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  cefrLevel: string;
-  difficulty: string;
-  orderIndex: number;
-  explanation: string | null;
-  audioUrl?: string;
-  transcript?: string;
-}
+import type { ListeningQuestion, QuestionResult } from '@/types/test';
 
 export default function ListeningPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<ListeningQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -120,17 +105,13 @@ export default function ListeningPage() {
         })),
       };
 
-      console.log('Submitting test:', payload);
-
       const res = await fetch('/api/tests/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      console.log('Response status:', res.status);
       const data = await res.json();
-      console.log('Response data:', data);
 
       if (data.success) {
         setScore(data.data.correctAnswers);
@@ -172,13 +153,14 @@ export default function ListeningPage() {
 
   const question = questions[currentQuestion];
   const options = [
-    { key: 'A', value: question?.optionA },
-    { key: 'B', value: question?.optionB },
-    { key: 'C', value: question?.optionC },
-    { key: 'D', value: question?.optionD },
+    { key: 'A', value: question.optionA },
+    { key: 'B', value: question.optionB },
+    { key: 'C', value: question.optionC },
+    { key: 'D', value: question.optionD },
   ];
 
-  const correctAnswer = answers[currentQuestion]; // This will be updated after submission
+  // After submission, results will contain the correct answer
+  const correctAnswer = answers[currentQuestion];
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -209,13 +191,13 @@ export default function ListeningPage() {
       </div>
 
       <ListeningAudioPlayer
-        audioUrl={question?.audioUrl}
-        transcript={question?.transcript || question?.questionText}
-        questionText={question?.questionText || ''}
+        audioUrl={question.audioUrl || undefined}
+        transcript={question.transcript || question.questionText}
+        questionText={question.questionText}
         options={options}
         selectedAnswer={selectedAnswer}
         correctAnswer={correctAnswer || null}
-        explanation={question?.explanation || null}
+        explanation={question.explanation || null}
         isPlaying={isPlaying}
         hasPlayed={hasPlayed}
         onPlayAudio={handlePlayAudio}

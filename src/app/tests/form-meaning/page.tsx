@@ -1,47 +1,62 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import TestResults from '@/components/TestResults';
-import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
-
-interface Blank {
-  id: number;
-  correctAnswer: string;
-  hint?: string;
-}
-
-interface Article {
-  title: string;
-  text: string;
-  blanks: Blank[];
-}
-
-interface Question {
-  id: number;
-  testTypeId: string;
-  questionText: string;
-  cefrLevel: string;
-  difficulty: string;
-  correctAnswer: string;
-  explanation: string;
-  orderIndex: number;
-  article?: Article;
-}
+import type { FormMeaningQuestion, Blank } from '@/types/test';
 
 export default function FormMeaningPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<FormMeaningQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Combine all articles into one long article
+  const combinedArticle = useMemo(() => {
+    if (questions.length === 0) return null;
+
+    const allBlanks: Blank[] = [];
+    let combinedText = '';
+    let globalBlankId = 1;
+
+    questions.forEach((q, index) => {
+      if (q.article) {
+        // Renumber blanks to be globally unique
+        let text = q.article.text;
+        q.article.blanks.forEach((blank) => {
+          const oldPlaceholder = `{{${blank.id}}}`;
+          const newPlaceholder = `{{${globalBlankId}}}`;
+          text = text.replace(oldPlaceholder, newPlaceholder);
+          allBlanks.push({
+            id: globalBlankId,
+            correctAnswer: blank.correctAnswer,
+            hint: blank.hint,
+          });
+          globalBlankId++;
+        });
+
+        // Add paragraph break between articles (except first)
+        if (index > 0) {
+          combinedText += ' ';
+        }
+        combinedText += text;
+      }
+    });
+
+    return {
+      title: 'Reading Comprehension',
+      text: combinedText,
+      blanks: allBlanks,
+    };
+  }, [questions]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -67,30 +82,53 @@ export default function FormMeaningPage() {
     }
   };
 
+  // Map blank ID back to question ID for submission
+  const blankToQuestionMap = useMemo(() => {
+    const map = new Map<number, number>();
+    let blankId = 1;
+    questions.forEach((q) => {
+      if (q.article) {
+        q.article.blanks.forEach(() => {
+          map.set(blankId, q.id);
+          blankId++;
+        });
+      }
+    });
+    return map;
+  }, [questions]);
+
   const handleInputChange = (blankId: number, value: string) => {
     setAnswers(prev => ({ ...prev, [blankId]: value.toLowerCase().trim() }));
   };
 
   const handleSubmit = async () => {
-    // For now, we'll handle form-meaning as single blank per question
-    // In the future, we can extend to support multiple blanks per question
-    const unanswered = questions.filter(q => !answers[q.id]).length;
-    if (unanswered > 0) {
-      const confirm = window.confirm(`You have ${unanswered} unanswered questions. Are you sure you want to submit?`);
+    const totalBlanks = combinedArticle?.blanks.length || 0;
+    const answeredBlanks = Object.keys(answers).filter(k => answers[parseInt(k)]).length;
+
+    if (answeredBlanks < totalBlanks) {
+      const confirm = window.confirm(`You have ${totalBlanks - answeredBlanks} unanswered blanks. Are you sure you want to submit?`);
       if (!confirm) return;
     }
 
     setSubmitting(true);
     try {
+      // Map blank answers back to question answers
+      const questionAnswers = new Map<number, string>();
+      Object.entries(answers).forEach(([blankIdStr, answer]) => {
+        const blankId = parseInt(blankIdStr);
+        const questionId = blankToQuestionMap.get(blankId);
+        if (questionId !== undefined && answer) {
+          questionAnswers.set(questionId, answer);
+        }
+      });
+
       const payload = {
         testTypeId: 'form-meaning',
         answers: questions.map((q) => ({
           questionId: q.id,
-          selectedAnswer: answers[q.id] || '',
+          selectedAnswer: questionAnswers.get(q.id) || '',
         })),
       };
-
-      console.log('Submitting test:', payload);
 
       const res = await fetch('/api/tests/submit', {
         method: 'POST',
@@ -98,9 +136,7 @@ export default function FormMeaningPage() {
         body: JSON.stringify(payload),
       });
 
-      console.log('Response status:', res.status);
       const data = await res.json();
-      console.log('Response data:', data);
 
       if (data.success) {
         setScore(data.data.correctAnswers);
@@ -141,9 +177,58 @@ export default function FormMeaningPage() {
     );
   }
 
-  // For now, handle each question as a separate article with one blank
-  // This maintains compatibility with existing database structure
-  const hasArticleData = questions.some(q => q.article);
+  // Render article with inline blanks
+  const renderArticleWithBlanks = () => {
+    if (!combinedArticle) return null;
+
+    let text = combinedArticle.text;
+    const parts: React.ReactNode[] = [];
+    let keyIndex = 0;
+
+    combinedArticle.blanks.forEach((blank) => {
+      const placeholder = `{{${blank.id}}}`;
+      const splitIndex = text.indexOf(placeholder);
+
+      if (splitIndex !== -1) {
+        parts.push(<span key={keyIndex++}>{text.substring(0, splitIndex)}</span>);
+
+        const isCorrect = isSubmitted && answers[blank.id] === blank.correctAnswer.toLowerCase();
+        const isWrong = isSubmitted && answers[blank.id] !== blank.correctAnswer.toLowerCase() && answers[blank.id];
+
+        parts.push(
+          <span key={keyIndex++} className="inline-flex flex-col items-start mx-1">
+            <input
+              type="text"
+              className={`w-32 px-2 py-1 rounded border-2 text-center ${
+                isSubmitted
+                  ? isCorrect
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                    : isWrong
+                    ? 'border-red-500 bg-red-50 text-red-700'
+                    : 'border-slate-300 bg-slate-50'
+                  : 'border-purple-300 focus:border-purple-500 focus:outline-none'
+              }`}
+              placeholder={blank.hint?.split(' - ')[0] || 'Answer'}
+              value={answers[blank.id] || ''}
+              onChange={(e) => handleInputChange(blank.id, e.target.value)}
+              disabled={isSubmitted || submitting}
+            />
+            {isSubmitted && isWrong && (
+              <span className="text-xs text-emerald-600 mt-1">Correct: {blank.correctAnswer}</span>
+            )}
+          </span>
+        );
+
+        text = text.substring(splitIndex + placeholder.length);
+      }
+    });
+
+    parts.push(<span key={keyIndex}>{text}</span>);
+    return parts;
+  };
+
+  const totalBlanks = combinedArticle?.blanks.length || 0;
+  const answeredCount = Object.keys(answers).filter(k => answers[parseInt(k)]).length;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -162,93 +247,38 @@ export default function FormMeaningPage() {
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between text-sm text-slate-600 mb-2">
-          <span>Question {Object.keys(answers).length} of {questions.length}</span>
-          <span>{Math.round(((Object.keys(answers).length) / questions.length) * 100)}%</span>
+          <span>Blank {answeredCount} of {totalBlanks}</span>
+          <span>{totalBlanks > 0 ? Math.round((answeredCount / totalBlanks) * 100) : 0}%</span>
         </div>
         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
-            style={{ width: `${(Object.keys(answers).length / questions.length) * 100}%` }}
+            style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
           />
         </div>
       </div>
 
-      {/* Questions */}
-      <div className="space-y-6">
-        {questions.map((question, index) => {
-          if (hasArticleData && question.article) {
-            // Use article format with multiple blanks
-            return (
-              <FormMeaningArticleCard
-                key={question.id}
-                article={question.article}
-                answers={answers}
-                isSubmitted={isSubmitted}
-                onInputChange={handleInputChange}
-                disabled={isSubmitted || submitting}
-              />
-            );
-          } else {
-            // Fallback to single blank format
-            const isCorrect = isSubmitted && answers[question.id] === question.correctAnswer.toLowerCase();
-            const isWrong = isSubmitted && answers[question.id] !== question.correctAnswer.toLowerCase() && answers[question.id];
+      {/* Combined Article */}
+      {combinedArticle && (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-5 h-5 text-purple-600" />
+            <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
+          </div>
 
-            return (
-              <div key={question.id} className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <FileText className="w-5 h-5 text-purple-600" />
-                  <span className="text-sm font-medium text-purple-600">Question {index + 1}</span>
-                </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-6">{combinedArticle.title}</h2>
 
-                <h2 className="text-lg font-medium text-slate-800 mb-4">{question.questionText}</h2>
-
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    className={`w-48 px-3 py-2 rounded border-2 text-center ${
-                      isSubmitted
-                        ? isCorrect
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                          : isWrong
-                          ? 'border-red-500 bg-red-50 text-red-700'
-                          : 'border-slate-300 bg-slate-50'
-                        : 'border-purple-300 focus:border-purple-500 focus:outline-none'
-                    }`}
-                    placeholder={question.difficulty ? `(${question.difficulty})` : 'Answer'}
-                    value={answers[question.id] || ''}
-                    onChange={(e) => handleInputChange(question.id, e.target.value)}
-                    disabled={isSubmitted || submitting}
-                  />
-                  {isSubmitted && isWrong && (
-                    <span className="text-sm text-emerald-600 font-medium">
-                      Correct: {question.correctAnswer}
-                    </span>
-                  )}
-                </div>
-
-                {isSubmitted && question.explanation && (
-                  <div className={`mt-4 p-4 rounded-xl ${
-                    isCorrect
-                      ? 'bg-emerald-50 border border-emerald-200'
-                      : 'bg-amber-50 border border-amber-200'
-                  }`}>
-                    <p className="font-medium text-slate-800 mb-1">
-                      {isCorrect ? '✓ Correct!' : '✗ Incorrect'}
-                    </p>
-                    <p className="text-slate-600">{question.explanation}</p>
-                  </div>
-                )}
-              </div>
-            );
-          }
-        })}
-      </div>
+          <div className="text-lg text-slate-700 leading-relaxed">
+            {renderArticleWithBlanks()}
+          </div>
+        </div>
+      )}
 
       {!isSubmitted && (
         <div className="flex justify-end mt-8">
           <button
             onClick={handleSubmit}
-            disabled={Object.keys(answers).length < questions.length || submitting}
+            disabled={answeredCount < totalBlanks || submitting}
             className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Submit Answers

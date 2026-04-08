@@ -1,76 +1,54 @@
 'use client';
 
-import { useState } from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import TestLayout from '@/components/TestLayout';
-
-interface Question {
-  id: number;
-  sentence: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-}
-
-const demoQuestions: Question[] = [
-  {
-    id: 1,
-    sentence: 'She ___ to the store yesterday.',
-    options: ['go', 'goes', 'went', 'going'],
-    correctAnswer: 2,
-    explanation: '"Yesterday" indicates past tense, so "went" is correct.',
-  },
-  {
-    id: 2,
-    sentence: 'They have ___ working all day.',
-    options: ['is', 'are', 'been', 'being'],
-    correctAnswer: 2,
-    explanation: 'Present perfect continuous uses "have been" + -ing form.',
-  },
-  {
-    id: 3,
-    sentence: 'If I ___ rich, I would travel the world.',
-    options: ['am', 'was', 'were', 'be'],
-    correctAnswer: 2,
-    explanation: 'Second conditional uses "were" for all subjects in the if-clause.',
-  },
-  {
-    id: 4,
-    sentence: 'The book ___ by millions of people.',
-    options: ['has read', 'has been read', 'have been read', 'is reading'],
-    correctAnswer: 1,
-    explanation: 'Passive voice in present perfect: has/have been + past participle.',
-  },
-  {
-    id: 5,
-    sentence: 'She made him ___ the truth.',
-    options: ['tell', 'to tell', 'telling', 'told'],
-    correctAnswer: 0,
-    explanation: 'Make + object + base form of verb (without "to").',
-  },
-];
+import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
+import type { FocusFormQuestion, QuestionResult, Option } from '@/types/test';
 
 export default function DemoFocusFormPage() {
+  const [questions, setQuestions] = useState<FocusFormQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
-  const [answers, setAnswers] = useState<(number | null)[]>(Array(demoQuestions.length).fill(null));
+  const [answers, setAnswers] = useState<(string | null)[]>([]);
   const [flaggedQuestions, setFlaggedQuestions] = useState<number[]>([]);
 
-  const handleAnswer = (answerIndex: number) => {
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  const fetchQuestions = async () => {
+    try {
+      const res = await fetch('/api/tests/focus-form?count=5&demo=true');
+      const data = await res.json();
+      if (data.success) {
+        setQuestions(data.data);
+        setAnswers(Array(data.data.length).fill(null));
+      }
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnswer = (answer: string) => {
     if (selectedAnswer !== null) return;
-    
-    setSelectedAnswer(answerIndex);
+
+    setSelectedAnswer(answer);
     setShowExplanation(true);
-    
+
     const newAnswers = [...answers];
-    newAnswers[currentQuestion] = answerIndex;
+    newAnswers[currentQuestion] = answer;
     setAnswers(newAnswers);
-    
-    if (answerIndex === demoQuestions[currentQuestion].correctAnswer) {
+
+    // Find the question and check if correct
+    const question = questions[currentQuestion];
+    if (answer === question.correctAnswer) {
       setScore(score + 1);
     }
   };
@@ -90,7 +68,7 @@ export default function DemoFocusFormPage() {
   };
 
   const handleNext = () => {
-    if (currentQuestion < demoQuestions.length - 1) {
+    if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(answers[currentQuestion + 1]);
       setShowExplanation(answers[currentQuestion + 1] !== null);
@@ -120,12 +98,23 @@ export default function DemoFocusFormPage() {
     setShowExplanation(false);
     setScore(0);
     setIsFinished(false);
-    setAnswers(Array(demoQuestions.length).fill(null));
+    setAnswers(Array(questions.length).fill(null));
     setFlaggedQuestions([]);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading questions...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isFinished) {
-    const percentage = Math.round((score / demoQuestions.length) * 100);
+    const percentage = Math.round((score / questions.length) * 100);
     const passed = percentage >= 70;
 
     return (
@@ -136,13 +125,9 @@ export default function DemoFocusFormPage() {
 
         <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-8 text-center">
           <div className={`inline-flex p-4 rounded-full ${passed ? 'bg-emerald-50' : 'bg-red-50'} mb-6`}>
-            {passed ? (
-              <CheckCircle className="w-12 h-12 text-emerald-600" />
-            ) : (
-              <XCircle className="w-12 h-12 text-red-600" />
-            )}
+            {passed ? '✓' : '✗'}
           </div>
-          
+
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
             {passed ? 'Great Job!' : 'Keep Practicing!'}
           </h1>
@@ -152,7 +137,7 @@ export default function DemoFocusFormPage() {
 
           <div className="bg-slate-50 rounded-xl p-6 mb-6">
             <p className="text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
-            <p className="text-slate-500">{score} out of {demoQuestions.length} correct</p>
+            <p className="text-slate-500">{score} out of {questions.length} correct</p>
           </div>
 
           <div className="bg-primary-50 rounded-xl p-4 mb-6">
@@ -175,15 +160,25 @@ export default function DemoFocusFormPage() {
     );
   }
 
-  const question = demoQuestions[currentQuestion];
+  const question = questions[currentQuestion];
+  const options: Option[] = [
+    { key: 'A', value: question.optionA },
+    { key: 'B', value: question.optionB },
+    { key: 'C', value: question.optionC },
+    { key: 'D', value: question.optionD },
+  ];
+
+  // For demo mode, we have the correct answer from the API
+  const correctAnswer = question.correctAnswer;
+  const explanation = question.explanation;
 
   return (
     <TestLayout
       title="Focus on Form (Demo)"
       duration="5 min"
-      totalQuestions={demoQuestions.length}
+      totalQuestions={questions.length}
       currentQuestion={currentQuestion}
-      answers={answers}
+      answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}
       flaggedQuestions={flaggedQuestions}
       onQuestionSelect={handleQuestionSelect}
       onPrevious={handlePrevious}
@@ -191,49 +186,15 @@ export default function DemoFocusFormPage() {
       onSubmit={handleSubmit}
       onFlag={handleFlag}
     >
-      {/* Question Card */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
-        <p className="text-lg md:text-xl text-slate-800 mb-6 leading-relaxed">
-          {question.sentence}
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {question.options.map((option, index) => {
-            let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 ';
-            
-            if (selectedAnswer === null) {
-              buttonClass += 'border-slate-200 hover:border-primary-300 hover:bg-primary-50';
-            } else if (index === question.correctAnswer) {
-              buttonClass += 'border-emerald-500 bg-emerald-50';
-            } else if (selectedAnswer === index) {
-              buttonClass += 'border-red-500 bg-red-50';
-            } else {
-              buttonClass += 'border-slate-200 opacity-50';
-            }
-
-            return (
-              <button
-                key={index}
-                onClick={() => handleAnswer(index)}
-                disabled={selectedAnswer !== null}
-                className={buttonClass}
-              >
-                <span className="font-medium text-slate-800">{option}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Explanation */}
-        {showExplanation && (
-          <div className={`mt-6 p-4 rounded-xl ${selectedAnswer === question.correctAnswer ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
-            <p className="font-medium text-slate-800 mb-1">
-              {selectedAnswer === question.correctAnswer ? '✓ Correct!' : '✗ Incorrect'}
-            </p>
-            <p className="text-slate-600">{question.explanation}</p>
-          </div>
-        )}
-      </div>
+      <FocusFormQuestionCard
+        questionText={question.questionText}
+        options={options}
+        selectedAnswer={selectedAnswer}
+        correctAnswer={correctAnswer}
+        explanation={explanation}
+        onAnswerSelect={handleAnswer}
+        disabled={false}
+      />
     </TestLayout>
   );
 }
