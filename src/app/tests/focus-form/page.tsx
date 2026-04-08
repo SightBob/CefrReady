@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import TestLayout from '@/components/TestLayout';
+import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
+import TestResults from '@/components/TestResults';
 
 interface Question {
   id: number;
@@ -18,6 +19,7 @@ interface Question {
   cefrLevel: string;
   difficulty: string;
   orderIndex: number;
+  explanation: string | null;
 }
 
 interface Answer {
@@ -173,43 +175,12 @@ export default function FocusFormPage() {
   }
 
   if (isFinished) {
-    const percentage = Math.round((score / questions.length) * 100);
-    const passed = percentage >= 70;
-
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/tests" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
-          ← Back to Tests
-        </Link>
-
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-8 text-center">
-          <div className={`inline-flex p-4 rounded-full ${passed ? 'bg-emerald-50' : 'bg-red-50'} mb-6`}>
-            {passed ? (
-              <CheckCircle className="w-12 h-12 text-emerald-600" />
-            ) : (
-              <XCircle className="w-12 h-12 text-red-600" />
-            )}
-          </div>
-
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            {passed ? 'Congratulations!' : 'Keep Practicing!'}
-          </h1>
-          <p className="text-slate-600 mb-6">
-            {passed ? 'You passed the test!' : 'You need 70% to pass. Try again!'}
-          </p>
-
-          <div className="bg-slate-50 rounded-xl p-6 mb-6">
-            <p className="text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
-            <p className="text-slate-500">{score} out of {questions.length} correct</p>
-          </div>
-
-          <div className="flex gap-4 justify-center">
-            <button onClick={handleRestart} className="btn-primary">
-              Other Tests
-            </button>
-          </div>
-        </div>
-      </div>
+      <TestResults
+        score={score}
+        totalQuestions={questions.length}
+        onRestart={handleRestart}
+      />
     );
   }
 
@@ -220,6 +191,9 @@ export default function FocusFormPage() {
     { key: 'C', value: question?.optionC },
     { key: 'D', value: question?.optionD },
   ];
+
+  const correctAnswer = results[currentQuestion]?.correctAnswer || null;
+  const explanation = results[currentQuestion]?.explanation || null;
 
   return (
     <TestLayout
@@ -235,59 +209,15 @@ export default function FocusFormPage() {
       onSubmit={handleSubmit}
       onFlag={handleFlag}
     >
-      {/* Question Card */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
-        <p className="text-lg md:text-xl text-slate-800 mb-6 leading-relaxed">
-          {question?.questionText}
-        </p>
-
-        <div className="grid grid-cols-1 gap-3">
-          {options.map((opt) => {
-            const isSelected = selectedAnswer === opt.key;
-            const isCorrect = opt.key === results[currentQuestion]?.correctAnswer;
-
-            let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 ';
-
-            if (selectedAnswer === null) {
-              buttonClass += 'border-slate-200 hover:border-primary-300 hover:bg-primary-50';
-            } else if (isCorrect) {
-              buttonClass += 'border-emerald-500 bg-emerald-50';
-            } else if (isSelected) {
-              buttonClass += 'border-red-500 bg-red-50';
-            } else {
-              buttonClass += 'border-slate-200 opacity-50';
-            }
-
-            return (
-              <button
-                key={opt.key}
-                onClick={() => handleAnswer(opt.key)}
-                disabled={selectedAnswer !== null || submitting}
-                className={buttonClass}
-              >
-                <span className="font-medium text-slate-800">
-                  <span className="inline-block w-6 mr-2">{opt.key}.</span>
-                  {opt.value}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Explanation */}
-        {showExplanation && results[currentQuestion] && (
-          <div className={`mt-6 p-4 rounded-xl ${
-            results[currentQuestion].isCorrect
-              ? 'bg-emerald-50 border border-emerald-200'
-              : 'bg-amber-50 border border-amber-200'
-          }`}>
-            <p className="font-medium text-slate-800 mb-1">
-              {results[currentQuestion].isCorrect ? '✓ Correct!' : '✗ Incorrect'}
-            </p>
-            <p className="text-slate-600">{results[currentQuestion].explanation}</p>
-          </div>
-        )}
-      </div>
+      <FocusFormQuestionCard
+        questionText={question?.questionText || ''}
+        options={options}
+        selectedAnswer={selectedAnswer}
+        correctAnswer={correctAnswer}
+        explanation={explanation}
+        onAnswerSelect={handleAnswer}
+        disabled={submitting}
+      />
     </TestLayout>
   );
 }

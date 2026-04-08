@@ -1,16 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, FileText, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-
-interface Blank {
-  id: number;
-  correctAnswer: string;
-  hint?: string;
-}
+import TestResults from '@/components/TestResults';
+import FormMeaningFillBlank from '@/components/FormMeaningFillBlank';
 
 interface Question {
   id: number;
@@ -121,39 +116,12 @@ export default function FormMeaningPage() {
   }
 
   if (isFinished) {
-    const percentage = Math.round((score / questions.length) * 100);
-    const passed = percentage >= 70;
-
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/tests" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
-          ← Back to Tests
-        </Link>
-
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-8 text-center">
-          <div className={`inline-flex p-4 rounded-full ${passed ? 'bg-emerald-50' : 'bg-red-50'} mb-6`}>
-            <CheckCircle className={`w-12 h-12 ${passed ? 'text-emerald-600' : 'text-red-600'}`} />
-          </div>
-
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            {passed ? 'Congratulations!' : 'Keep Practicing!'}
-          </h1>
-          <p className="text-slate-600 mb-6">
-            {passed ? 'You passed the test!' : 'You need 70% to pass. Try again!'}
-          </p>
-
-          <div className="bg-slate-50 rounded-xl p-6 mb-6">
-            <p className="text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
-            <p className="text-slate-500">{score} out of {questions.length} correct</p>
-          </div>
-
-          <div className="flex gap-4 justify-center">
-            <button onClick={handleRestart} className="btn-primary">
-              Other Tests
-            </button>
-          </div>
-        </div>
-      </div>
+      <TestResults
+        score={score}
+        totalQuestions={questions.length}
+        onRestart={handleRestart}
+      />
     );
   }
 
@@ -166,7 +134,6 @@ export default function FormMeaningPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Form & Meaning</h1>
           <div className="flex items-center gap-2 text-slate-500">
-            <Clock className="w-5 h-5" />
             <span>25 min</span>
           </div>
         </div>
@@ -193,51 +160,19 @@ export default function FormMeaningPage() {
           const isWrong = isSubmitted && answers[question.id] !== question.correctAnswer.toLowerCase() && answers[question.id];
 
           return (
-            <div key={question.id} className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText className="w-5 h-5 text-purple-600" />
-                <span className="text-sm font-medium text-purple-600">Question {index + 1}</span>
-              </div>
-
-              <h2 className="text-lg font-medium text-slate-800 mb-4">{question.questionText}</h2>
-
-              <div className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  className={`w-48 px-3 py-2 rounded border-2 text-center ${
-                    isSubmitted
-                      ? isCorrect
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                        : isWrong
-                        ? 'border-red-500 bg-red-50 text-red-700'
-                        : 'border-slate-300 bg-slate-50'
-                      : 'border-purple-300 focus:border-purple-500 focus:outline-none'
-                  }`}
-                  placeholder={`(${question.difficulty})`}
-                  value={answers[question.id] || ''}
-                  onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  disabled={isSubmitted || submitting}
-                />
-                {isSubmitted && isWrong && (
-                  <span className="text-sm text-emerald-600 font-medium">
-                    Correct: {question.correctAnswer}
-                  </span>
-                )}
-              </div>
-
-              {isSubmitted && question.explanation && (
-                <div className={`mt-4 p-4 rounded-xl ${
-                  isCorrect
-                    ? 'bg-emerald-50 border border-emerald-200'
-                    : 'bg-amber-50 border border-amber-200'
-                }`}>
-                  <p className="font-medium text-slate-800 mb-1">
-                    {isCorrect ? '✓ Correct!' : '✗ Incorrect'}
-                  </p>
-                  <p className="text-slate-600">{question.explanation}</p>
-                </div>
-              )}
-            </div>
+            <FormMeaningFillBlank
+              key={question.id}
+              questionId={question.id}
+              questionNumber={index + 1}
+              questionText={question.questionText}
+              difficulty={question.difficulty}
+              value={answers[question.id] || ''}
+              isSubmitted={isSubmitted}
+              correctAnswer={isSubmitted ? question.correctAnswer : undefined}
+              explanation={isSubmitted ? question.explanation : undefined}
+              onInputChange={handleInputChange}
+              disabled={isSubmitted || submitting}
+            />
           );
         })}
       </div>

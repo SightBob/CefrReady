@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, MessageCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import TestResults from '@/components/TestResults';
+import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
 
 interface Question {
   id: number;
@@ -145,43 +146,12 @@ export default function FocusMeaningPage() {
   }
 
   if (isFinished) {
-    const percentage = Math.round((score / questions.length) * 100);
-    const passed = percentage >= 70;
-
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/tests" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
-          ← Back to Tests
-        </Link>
-
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-8 text-center">
-          <div className={`inline-flex p-4 rounded-full ${passed ? 'bg-emerald-50' : 'bg-red-50'} mb-6`}>
-            {passed ? (
-              <CheckCircle className="w-12 h-12 text-emerald-600" />
-            ) : (
-              <XCircle className="w-12 h-12 text-red-600" />
-            )}
-          </div>
-
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            {passed ? 'Congratulations!' : 'Keep Practicing!'}
-          </h1>
-          <p className="text-slate-600 mb-6">
-            {passed ? 'You passed the test!' : 'You need 70% to pass. Try again!'}
-          </p>
-
-          <div className="bg-slate-50 rounded-xl p-6 mb-6">
-            <p className="text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
-            <p className="text-slate-500">{score} out of {questions.length} correct</p>
-          </div>
-
-          <div className="flex gap-4 justify-center">
-            <button onClick={handleRestart} className="btn-primary">
-              Other Tests
-            </button>
-          </div>
-        </div>
-      </div>
+      <TestResults
+        score={score}
+        totalQuestions={questions.length}
+        onRestart={handleRestart}
+      />
     );
   }
 
@@ -193,14 +163,14 @@ export default function FocusMeaningPage() {
     { key: 'D', value: question?.optionD },
   ];
 
-  // Parse conversation from question text if it contains speaker format
-  const parseConversation = (text: string) => {
-    // For now, we'll just display the question as is
-    // In a real implementation, you might want to parse structured conversation data
+  // Parse conversation from question text
+  const parseConversation = (text: string): { speaker: string; text: string }[] => {
+    // For now, we'll create a simple context-based conversation
     return [{ speaker: 'Context', text }];
   };
 
   const conversation = parseConversation(question?.questionText || '');
+  const correctAnswer = answers[currentQuestion]; // This will be updated after submission
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -211,7 +181,6 @@ export default function FocusMeaningPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Focus on Meaning</h1>
           <div className="flex items-center gap-2 text-slate-500">
-            <Clock className="w-5 h-5" />
             <span>20 min</span>
           </div>
         </div>
@@ -231,72 +200,18 @@ export default function FocusMeaningPage() {
         </div>
       </div>
 
-      {/* Question Card */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <MessageCircle className="w-5 h-5 text-emerald-600" />
-          <span className="text-sm font-medium text-emerald-600">Context</span>
-        </div>
+      <FocusMeaningConversationCard
+        conversation={conversation}
+        questionText="What does this mean?"
+        options={options}
+        selectedAnswer={selectedAnswer}
+        correctAnswer={correctAnswer || null}
+        explanation={question?.explanation || null}
+        onAnswerSelect={handleAnswer}
+        disabled={submitting}
+      />
 
-        {/* Conversation Display */}
-        <div className="bg-slate-50 rounded-xl p-4 mb-6 space-y-3">
-          {conversation.map((line, index) => (
-            <div key={index} className="flex gap-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                line.speaker === 'A'
-                  ? 'bg-primary-100 text-primary-700'
-                  : line.speaker === 'B'
-                  ? 'bg-accent-100 text-accent-700'
-                  : 'bg-slate-200 text-slate-700'
-              }`}>
-                {line.speaker.charAt(0)}
-              </div>
-              <p className="flex-1 text-slate-700 leading-relaxed pt-1">{line.text}</p>
-            </div>
-          ))}
-        </div>
-
-        <p className="text-lg font-medium text-slate-800 mb-6">What does this mean?</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {options.map((option, index) => {
-            let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 ';
-
-            if (selectedAnswer === null) {
-              buttonClass += 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50';
-            } else if (selectedAnswer === option.key && showExplanation) {
-              // We'll get the correct answer from results later
-              buttonClass += 'border-emerald-500 bg-emerald-50';
-            } else if (selectedAnswer === option.key) {
-              buttonClass += 'border-red-500 bg-red-50';
-            } else {
-              buttonClass += 'border-slate-200 opacity-50';
-            }
-
-            return (
-              <button
-                key={option.key}
-                onClick={() => handleAnswer(option.key)}
-                disabled={selectedAnswer !== null || submitting}
-                className={buttonClass}
-              >
-                <span className="font-medium text-slate-800">{option.value}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {showExplanation && question.explanation && (
-          <div className={`mt-6 p-4 rounded-xl ${selectedAnswer === answers[currentQuestion] ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
-            <p className="font-medium text-slate-800 mb-1">
-              {selectedAnswer === answers[currentQuestion] ? '✓ Correct!' : '✗ Incorrect'}
-            </p>
-            <p className="text-slate-600">{question.explanation}</p>
-          </div>
-        )}
-      </div>
-
-      <div className="flex justify-between">
+      <div className="flex justify-between mt-6">
         <button
           onClick={handlePrevious}
           disabled={currentQuestion === 0 || submitting}
