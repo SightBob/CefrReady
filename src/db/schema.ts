@@ -91,7 +91,7 @@ export const questions = pgTable('questions', {
   active: varchar('active', { length: 5 }).default('true').notNull(),
   orderIndex: integer('order_index').default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   testTypeIdx: index('questions_test_type_idx').on(table.testTypeId),
   cefrIdx: index('questions_cefr_idx').on(table.cefrLevel),

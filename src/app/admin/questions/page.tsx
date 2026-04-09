@@ -17,32 +17,34 @@ import {
 
 interface Question {
   id: number;
-  testTypeId: number;
-  sentence: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-  difficulty: string;
+  testTypeId: string;
+  questionText: string;
+  optionA: string | null;
+  optionB: string | null;
+  optionC: string | null;
+  optionD: string | null;
+  correctAnswer: string | null;
+  explanation: string | null;
+  difficulty: string | null;
   cefrLevel: string;
-  isActive: boolean;
+  active: string;
   orderIndex: number;
   createdAt: string;
   testType?: {
-    id: number;
-    title: string;
-    slug: string;
+    id: string;
+    name: string;
   };
 }
 
 interface TestType {
-  id: number;
-  slug: string;
-  title: string;
-  description: string;
-  duration: string;
-  icon: string;
-  colorScheme: string;
-  isActive: boolean;
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  duration: number | null;
+  questionCount: number | null;
+  active: string;
 }
 
 export default function QuestionsManagement() {
@@ -115,7 +117,7 @@ export default function QuestionsManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...question,
-          isActive: !question.isActive,
+          active: question.active === 'true' ? 'false' : 'true',
         }),
       });
 
@@ -129,7 +131,7 @@ export default function QuestionsManagement() {
   };
 
   const filteredQuestions = questions.filter(q => {
-    const matchesSearch = q.sentence.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = q.questionText.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDifficulty = !selectedDifficulty || q.difficulty === selectedDifficulty;
     return matchesSearch && matchesDifficulty;
   });
@@ -179,7 +181,7 @@ export default function QuestionsManagement() {
             >
               <option value="">ประเภทข้อสอบทั้งหมด</option>
               {testTypes.map(type => (
-                <option key={type.id} value={type.id}>{type.title}</option>
+                <option key={type.id} value={type.id}>{type.name}</option>
               ))}
             </select>
 
@@ -240,32 +242,40 @@ export default function QuestionsManagement() {
                         <td className="px-6 py-4">
                           <div className="max-w-md">
                             <p className="text-sm font-medium text-slate-900 line-clamp-2">
-                              {question.sentence}
+                              {question.questionText}
                             </p>
-                            <div className="flex items-center gap-2 mt-2">
-                              {question.options.map((opt, idx) => (
-                                <span
-                                  key={idx}
-                                  className={`text-xs px-2 py-1 rounded ${
-                                    idx === question.correctAnswer
-                                      ? 'bg-emerald-100 text-emerald-700 font-medium'
-                                      : 'bg-slate-100 text-slate-600'
-                                  }`}
-                                >
-                                  {opt}
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              {question.optionA && (
+                                <span className={`text-xs px-2 py-1 rounded ${question.correctAnswer === 'A' ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-slate-100 text-slate-600'}`}>
+                                  A: {question.optionA}
                                 </span>
-                              ))}
+                              )}
+                              {question.optionB && (
+                                <span className={`text-xs px-2 py-1 rounded ${question.correctAnswer === 'B' ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-slate-100 text-slate-600'}`}>
+                                  B: {question.optionB}
+                                </span>
+                              )}
+                              {question.optionC && (
+                                <span className={`text-xs px-2 py-1 rounded ${question.correctAnswer === 'C' ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-slate-100 text-slate-600'}`}>
+                                  C: {question.optionC}
+                                </span>
+                              )}
+                              {question.optionD && (
+                                <span className={`text-xs px-2 py-1 rounded ${question.correctAnswer === 'D' ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-slate-100 text-slate-600'}`}>
+                                  D: {question.optionD}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-sm text-slate-600">
-                            {question.testType?.title || 'N/A'}
+                            {question.testType?.name || 'N/A'}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${difficultyColors[question.difficulty] || 'bg-slate-100 text-slate-700'}`}>
-                            {question.difficulty}
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${question.difficulty ? (difficultyColors[question.difficulty] || 'bg-slate-100 text-slate-700') : 'bg-slate-100 text-slate-700'}`}>
+                            {question.difficulty || 'N/A'}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -277,12 +287,12 @@ export default function QuestionsManagement() {
                           <button
                             onClick={() => toggleActive(question)}
                             className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                              question.isActive
+                              question.active === 'true'
                                 ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             }`}
                           >
-                            {question.isActive ? (
+                            {question.active === 'true' ? (
                               <>
                                 <CheckCircle className="w-3 h-3" />
                                 ใช้งาน

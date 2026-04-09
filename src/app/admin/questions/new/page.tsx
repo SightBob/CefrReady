@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 
 interface TestType {
-  id: number;
-  slug: string;
-  title: string;
-  description: string;
+  id: string;
+  name: string;
+  description: string | null;
 }
 
 export default function NewQuestion() {
@@ -18,9 +17,12 @@ export default function NewQuestion() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     testTypeId: '',
-    sentence: '',
-    options: ['', '', '', ''],
-    correctAnswer: 0,
+    questionText: '',
+    optionA: '',
+    optionB: '',
+    optionC: '',
+    optionD: '',
+    correctAnswer: 'A',
     explanation: '',
     difficulty: 'medium',
     cefrLevel: 'B1',
@@ -45,8 +47,8 @@ export default function NewQuestion() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.testTypeId || !formData.sentence || formData.options.some(opt => !opt.trim())) {
+
+    if (!formData.testTypeId || !formData.questionText || !formData.optionA || !formData.optionB || !formData.optionC || !formData.optionD || !formData.correctAnswer) {
       alert('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
@@ -57,10 +59,7 @@ export default function NewQuestion() {
       const response = await fetch('/api/admin/questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          testTypeId: parseInt(formData.testTypeId),
-        }),
+        body: JSON.stringify(formData),
       });
 
       if (response.ok) {
@@ -78,27 +77,8 @@ export default function NewQuestion() {
     }
   };
 
-  const handleOptionChange = (index: number, value: string) => {
-    const newOptions = [...formData.options];
-    newOptions[index] = value;
-    setFormData({ ...formData, options: newOptions });
-  };
-
-  const addOption = () => {
-    setFormData({ ...formData, options: [...formData.options, ''] });
-  };
-
-  const removeOption = (index: number) => {
-    if (formData.options.length <= 2) {
-      alert('ต้องมีตัวเลือกอย่างน้อย 2 ตัวเลือก');
-      return;
-    }
-    const newOptions = formData.options.filter((_, i) => i !== index);
-    setFormData({ 
-      ...formData, 
-      options: newOptions,
-      correctAnswer: formData.correctAnswer >= newOptions.length ? 0 : formData.correctAnswer
-    });
+  const handleOptionChange = (field: 'optionA' | 'optionB' | 'optionC' | 'optionD', value: string) => {
+    setFormData({ ...formData, [field]: value });
   };
 
   return (
@@ -117,7 +97,7 @@ export default function NewQuestion() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-6">ข้อมูลพื้นฐาน</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -131,7 +111,7 @@ export default function NewQuestion() {
                 >
                   <option value="">เลือกประเภทข้อสอบ</option>
                   {testTypes.map(type => (
-                    <option key={type.id} value={type.id}>{type.title}</option>
+                    <option key={type.id} value={type.id}>{type.name}</option>
                   ))}
                 </select>
               </div>
@@ -141,11 +121,10 @@ export default function NewQuestion() {
                   โจทย์ข้อสอบ <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  value={formData.sentence}
-                  onChange={(e) => setFormData({ ...formData, sentence: e.target.value })}
+                  value={formData.questionText}
+                  onChange={(e) => setFormData({ ...formData, questionText: e.target.value })}
                   className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   rows={3}
-                  placeholder="She ___ to the store yesterday."
                   required
                 />
               </div>
@@ -203,47 +182,88 @@ export default function NewQuestion() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">ตัวเลือกคำตอบ</h2>
-              <button
-                type="button"
-                onClick={addOption}
-                className="btn-secondary inline-flex items-center gap-2 text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                เพิ่มตัวเลือก
-              </button>
-            </div>
+            <h2 className="text-xl font-bold text-slate-900 mb-6">ตัวเลือกคำตอบ</h2>
 
             <div className="space-y-3">
-              {formData.options.map((option, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="correctAnswer"
-                    checked={formData.correctAnswer === index}
-                    onChange={() => setFormData({ ...formData, correctAnswer: index })}
-                    className="w-5 h-5 text-primary-600 focus:ring-primary-500"
-                  />
-                  <input
-                    type="text"
-                    value={option}
-                    onChange={(e) => handleOptionChange(index, e.target.value)}
-                    className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder={`ตัวเลือกที่ ${index + 1}`}
-                    required
-                  />
-                  {formData.options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOption(index)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {/* Option A */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'A'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'A' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">A</span>
+                <input
+                  type="text"
+                  value={formData.optionA}
+                  onChange={(e) => handleOptionChange('optionA', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก A"
+                  required
+                />
+              </div>
+
+              {/* Option B */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'B'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'B' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">B</span>
+                <input
+                  type="text"
+                  value={formData.optionB}
+                  onChange={(e) => handleOptionChange('optionB', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก B"
+                  required
+                />
+              </div>
+
+              {/* Option C */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'C'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'C' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">C</span>
+                <input
+                  type="text"
+                  value={formData.optionC}
+                  onChange={(e) => handleOptionChange('optionC', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก C"
+                  required
+                />
+              </div>
+
+              {/* Option D */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'D'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'D' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">D</span>
+                <input
+                  type="text"
+                  value={formData.optionD}
+                  onChange={(e) => handleOptionChange('optionD', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก D"
+                  required
+                />
+              </div>
             </div>
             <p className="text-sm text-slate-500 mt-4">
               เลือกวงกลมเพื่อระบุคำตอบที่ถูกต้อง
@@ -252,7 +272,7 @@ export default function NewQuestion() {
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-6">คำอธิบาย</h2>
-            
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 คำอธิบายเฉลย <span className="text-red-500">*</span>
@@ -262,7 +282,6 @@ export default function NewQuestion() {
                 onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
                 className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 rows={4}
-                placeholder='"Yesterday" indicates past tense, so "went" is correct.'
                 required
               />
             </div>

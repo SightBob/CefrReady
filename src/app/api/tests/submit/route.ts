@@ -4,6 +4,8 @@ import { questions, testAttempts, userAnswers, userProgress, testTypes } from '@
 import { eq, inArray, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/tests/submit
  * Submit test answers and calculate/store results.

@@ -6,22 +6,24 @@ import Link from 'next/link';
 import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
 
 interface TestType {
-  id: number;
-  slug: string;
-  title: string;
-  description: string;
+  id: string;
+  name: string;
+  description: string | null;
 }
 
 interface Question {
   id: number;
-  testTypeId: number;
-  sentence: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-  difficulty: string;
+  testTypeId: string;
+  questionText: string;
+  optionA: string | null;
+  optionB: string | null;
+  optionC: string | null;
+  optionD: string | null;
+  correctAnswer: string | null;
+  explanation: string | null;
+  difficulty: string | null;
   cefrLevel: string;
-  isActive: boolean;
+  active: string;
   orderIndex: number;
 }
 
@@ -29,19 +31,22 @@ export default function EditQuestion() {
   const router = useRouter();
   const params = useParams();
   const questionId = params.id as string;
-  
+
   const [testTypes, setTestTypes] = useState<TestType[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [formData, setFormData] = useState({
     testTypeId: '',
-    sentence: '',
-    options: ['', '', '', ''],
-    correctAnswer: 0,
+    questionText: '',
+    optionA: '',
+    optionB: '',
+    optionC: '',
+    optionD: '',
+    correctAnswer: '',
     explanation: '',
     difficulty: 'medium',
     cefrLevel: 'B1',
-    isActive: true,
+    active: 'true',
     orderIndex: 0,
   });
 
@@ -68,14 +73,17 @@ export default function EditQuestion() {
       if (response.ok) {
         const data: Question = await response.json();
         setFormData({
-          testTypeId: data.testTypeId.toString(),
-          sentence: data.sentence,
-          options: data.options,
-          correctAnswer: data.correctAnswer,
-          explanation: data.explanation,
-          difficulty: data.difficulty,
+          testTypeId: data.testTypeId,
+          questionText: data.questionText,
+          optionA: data.optionA || '',
+          optionB: data.optionB || '',
+          optionC: data.optionC || '',
+          optionD: data.optionD || '',
+          correctAnswer: data.correctAnswer || '',
+          explanation: data.explanation || '',
+          difficulty: data.difficulty || 'medium',
           cefrLevel: data.cefrLevel,
-          isActive: data.isActive,
+          active: data.active,
           orderIndex: data.orderIndex,
         });
       } else {
@@ -92,8 +100,8 @@ export default function EditQuestion() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.testTypeId || !formData.sentence || formData.options.some(opt => !opt.trim())) {
+
+    if (!formData.testTypeId || !formData.questionText || !formData.optionA || !formData.optionB || !formData.optionC || !formData.optionD || !formData.correctAnswer) {
       alert('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
@@ -106,7 +114,6 @@ export default function EditQuestion() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          testTypeId: parseInt(formData.testTypeId),
         }),
       });
 
@@ -125,27 +132,8 @@ export default function EditQuestion() {
     }
   };
 
-  const handleOptionChange = (index: number, value: string) => {
-    const newOptions = [...formData.options];
-    newOptions[index] = value;
-    setFormData({ ...formData, options: newOptions });
-  };
-
-  const addOption = () => {
-    setFormData({ ...formData, options: [...formData.options, ''] });
-  };
-
-  const removeOption = (index: number) => {
-    if (formData.options.length <= 2) {
-      alert('ต้องมีตัวเลือกอย่างน้อย 2 ตัวเลือก');
-      return;
-    }
-    const newOptions = formData.options.filter((_, i) => i !== index);
-    setFormData({ 
-      ...formData, 
-      options: newOptions,
-      correctAnswer: formData.correctAnswer >= newOptions.length ? 0 : formData.correctAnswer
-    });
+  const handleOptionChange = (field: 'optionA' | 'optionB' | 'optionC' | 'optionD', value: string) => {
+    setFormData({ ...formData, [field]: value });
   };
 
   if (fetching) {
@@ -189,7 +177,7 @@ export default function EditQuestion() {
                 >
                   <option value="">เลือกประเภทข้อสอบ</option>
                   {testTypes.map(type => (
-                    <option key={type.id} value={type.id}>{type.title}</option>
+                    <option key={type.id} value={type.id}>{type.name}</option>
                   ))}
                 </select>
               </div>
@@ -199,8 +187,8 @@ export default function EditQuestion() {
                   โจทย์ข้อสอบ <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  value={formData.sentence}
-                  onChange={(e) => setFormData({ ...formData, sentence: e.target.value })}
+                  value={formData.questionText}
+                  onChange={(e) => setFormData({ ...formData, questionText: e.target.value })}
                   className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   rows={3}
                   required
@@ -263,8 +251,8 @@ export default function EditQuestion() {
                     สถานะ
                   </label>
                   <select
-                    value={formData.isActive ? 'true' : 'false'}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.value === 'true' })}
+                    value={formData.active}
+                    onChange={(e) => setFormData({ ...formData, active: e.target.value })}
                     className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
                     <option value="true">ใช้งาน</option>
@@ -276,47 +264,88 @@ export default function EditQuestion() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">ตัวเลือกคำตอบ</h2>
-              <button
-                type="button"
-                onClick={addOption}
-                className="btn-secondary inline-flex items-center gap-2 text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                เพิ่มตัวเลือก
-              </button>
-            </div>
+            <h2 className="text-xl font-bold text-slate-900 mb-6">ตัวเลือกคำตอบ</h2>
 
             <div className="space-y-3">
-              {formData.options.map((option, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="correctAnswer"
-                    checked={formData.correctAnswer === index}
-                    onChange={() => setFormData({ ...formData, correctAnswer: index })}
-                    className="w-5 h-5 text-primary-600 focus:ring-primary-500"
-                  />
-                  <input
-                    type="text"
-                    value={option}
-                    onChange={(e) => handleOptionChange(index, e.target.value)}
-                    className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder={`ตัวเลือกที่ ${index + 1}`}
-                    required
-                  />
-                  {formData.options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOption(index)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {/* Option A */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'A'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'A' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">A</span>
+                <input
+                  type="text"
+                  value={formData.optionA}
+                  onChange={(e) => handleOptionChange('optionA', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก A"
+                  required
+                />
+              </div>
+
+              {/* Option B */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'B'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'B' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">B</span>
+                <input
+                  type="text"
+                  value={formData.optionB}
+                  onChange={(e) => handleOptionChange('optionB', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก B"
+                  required
+                />
+              </div>
+
+              {/* Option C */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'C'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'C' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">C</span>
+                <input
+                  type="text"
+                  value={formData.optionC}
+                  onChange={(e) => handleOptionChange('optionC', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก C"
+                  required
+                />
+              </div>
+
+              {/* Option D */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'D'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'D' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">D</span>
+                <input
+                  type="text"
+                  value={formData.optionD}
+                  onChange={(e) => handleOptionChange('optionD', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก D"
+                  required
+                />
+              </div>
             </div>
             <p className="text-sm text-slate-500 mt-4">
               เลือกวงกลมเพื่อระบุคำตอบที่ถูกต้อง

@@ -4,6 +4,8 @@ import { userProgress, testAttempts, testTypes } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
