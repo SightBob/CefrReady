@@ -15,6 +15,17 @@ import {
   XCircle
 } from 'lucide-react';
 
+interface ConversationLine {
+  speaker: string;
+  text: string;
+}
+
+interface Article {
+  title: string;
+  text: string;
+  blanks: { id: number; correctAnswer: string; hint?: string }[];
+}
+
 interface Question {
   id: number;
   testTypeId: string;
@@ -30,6 +41,8 @@ interface Question {
   active: string;
   orderIndex: number;
   createdAt: string;
+  conversation?: ConversationLine[] | null;
+  article?: Article | null;
   testType?: {
     id: string;
     name: string;
@@ -244,6 +257,44 @@ export default function QuestionsManagement() {
                             <p className="text-sm font-medium text-slate-900 line-clamp-2">
                               {question.questionText}
                             </p>
+                            {question.testTypeId === 'focus-meaning' && (
+                              <div className="mt-2">
+                                {question.conversation && question.conversation.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {question.conversation.slice(0, 3).map((line, i) => (
+                                      <p key={i} className="text-xs text-slate-600">
+                                        <span className="font-semibold text-primary-600">{line.speaker}:</span> {line.text}
+                                      </p>
+                                    ))}
+                                    {question.conversation.length > 3 && (
+                                      <p className="text-xs text-slate-400">
+                                        ...และอีก {question.conversation.length - 3} บรรทัด
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 font-medium">
+                                    ยังไม่มีบทสนทนา
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {question.testTypeId === 'form-meaning' && (
+                              <div className="mt-2">
+                                {question.article ? (
+                                  <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-purple-700">{question.article.title}</p>
+                                    <p className="text-xs text-slate-500 line-clamp-1">{question.article.text}</p>
+                                    <p className="text-xs text-purple-600">{question.article.blanks?.length || 0} ช่องว่าง</p>
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 font-medium">
+                                    ยังไม่มีบทความ
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {question.testTypeId !== 'form-meaning' && (
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
                               {question.optionA && (
                                 <span className={`text-xs px-2 py-1 rounded ${question.correctAnswer === 'A' ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-slate-100 text-slate-600'}`}>
@@ -266,6 +317,7 @@ export default function QuestionsManagement() {
                                 </span>
                               )}
                             </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4">

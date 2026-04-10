@@ -3,12 +3,30 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Upload, X } from 'lucide-react';
+import ArticleEditor from '@/components/ArticleEditor';
 
 interface TestType {
   id: string;
   name: string;
   description: string | null;
+}
+
+interface ConversationLine {
+  speaker: string;
+  text: string;
+}
+
+interface Blank {
+  id: number;
+  correctAnswer: string;
+  hint?: string;
+}
+
+interface Article {
+  title: string;
+  text: string;
+  blanks: Blank[];
 }
 
 interface Question {
@@ -25,6 +43,10 @@ interface Question {
   cefrLevel: string;
   active: string;
   orderIndex: number;
+  conversation?: ConversationLine[] | null;
+  audioUrl?: string | null;
+  transcript?: string | null;
+  article?: Article | null;
 }
 
 export default function EditQuestion() {
@@ -35,6 +57,7 @@ export default function EditQuestion() {
   const [testTypes, setTestTypes] = useState<TestType[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [audioUploading, setAudioUploading] = useState(false);
   const [formData, setFormData] = useState({
     testTypeId: '',
     questionText: '',
@@ -48,6 +71,10 @@ export default function EditQuestion() {
     cefrLevel: 'B1',
     active: 'true',
     orderIndex: 0,
+    conversation: [] as ConversationLine[],
+    audioUrl: '',
+    transcript: '',
+    article: { title: '', text: '', blanks: [] } as Article,
   });
 
   useEffect(() => {
@@ -85,6 +112,10 @@ export default function EditQuestion() {
           cefrLevel: data.cefrLevel,
           active: data.active,
           orderIndex: data.orderIndex,
+          conversation: data.conversation || [],
+          audioUrl: data.audioUrl || '',
+          transcript: data.transcript || '',
+          article: data.article || { title: '', text: '', blanks: [] },
         });
       } else {
         alert('ไม่พบข้อสอบ');
@@ -101,20 +132,58 @@ export default function EditQuestion() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.testTypeId || !formData.questionText || !formData.optionA || !formData.optionB || !formData.optionC || !formData.optionD || !formData.correctAnswer) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+    const isFormMeaning = formData.testTypeId === 'form-meaning';
+    const isFocusMeaning = formData.testTypeId === 'focus-meaning';
+    const isMcq = !isFormMeaning;
+
+    if (!formData.testTypeId || !formData.questionText) {
+      alert('กรุณากรอกประเภทข้อสอบและโจทย์');
+      return;
+    }
+
+    if (isMcq) {
+      if (!formData.optionA || !formData.optionB || !formData.optionC || !formData.correctAnswer) {
+        alert('กรุณากรอกตัวเลือก A, B, C และคำตอบที่ถูกต้อง');
+        return;
+      }
+      if (isFocusMeaning && formData.conversation.length === 0) {
+        alert('กรุณาเพิ่มบทสนทนาอย่างน้อย 1 บรรทัด');
+        return;
+      }
+      if (!isFocusMeaning && !formData.optionD) {
+        alert('กรุณากรอกตัวเลือก D');
+        return;
+      }
+    }
+
+    if (isFormMeaning && (!formData.article.title || !formData.article.text)) {
+      alert('กรุณากรอกชื่อบทความและเนื้อหา');
+      return;
+    }
+
+    if (isFormMeaning && formData.article.blanks.some(b => !b.correctAnswer)) {
+      alert('กรุณากรอกคำตอบให้ครบทุกช่องว่าง');
       return;
     }
 
     setLoading(true);
 
     try {
+      const payload: Record<string, unknown> = { ...formData };
+      if (formData.testTypeId !== 'focus-meaning') {
+        delete payload.conversation;
+      }
+      if (formData.testTypeId !== 'listening') {
+        delete payload.audioUrl;
+        delete payload.transcript;
+      }
+      if (formData.testTypeId !== 'form-meaning') {
+        delete payload.article;
+      }
       const response = await fetch(`/api/admin/questions/${questionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -134,6 +203,55 @@ export default function EditQuestion() {
 
   const handleOptionChange = (field: 'optionA' | 'optionB' | 'optionC' | 'optionD', value: string) => {
     setFormData({ ...formData, [field]: value });
+  };
+
+  const addConversationLine = () => {
+    setFormData({
+      ...formData,
+      conversation: [...formData.conversation, { speaker: 'A', text: '' }],
+    });
+  };
+
+  const removeConversationLine = (index: number) => {
+    setFormData({
+      ...formData,
+      conversation: formData.conversation.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateConversationLine = (index: number, field: 'speaker' | 'text', value: string) => {
+    const updated = [...formData.conversation];
+    updated[index] = { ...updated[index], [field]: value };
+    setFormData({ ...formData, conversation: updated });
+  };
+
+  const uploadAudio = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAudioUploading(true);
+    try {
+      const uploadData = new FormData();
+      uploadData.append('audio', file);
+
+      const res = await fetch('/api/admin/upload-audio', {
+        method: 'POST',
+        body: uploadData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFormData({ ...formData, audioUrl: data.url });
+      } else {
+        const err = await res.json();
+        alert(`อัพโหลดไฟล์เสียงล้มเหลว: ${err.error}`);
+      }
+    } catch (error) {
+      console.error('Error uploading audio:', error);
+      alert('เกิดข้อผิดพลาดในการอัพโหลดไฟล์เสียง');
+    } finally {
+      setAudioUploading(false);
+    }
   };
 
   if (fetching) {
@@ -263,6 +381,80 @@ export default function EditQuestion() {
             </div>
           </div>
 
+          {formData.testTypeId === 'focus-meaning' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-slate-900">บทสนทนา</h2>
+                <button
+                  type="button"
+                  onClick={addConversationLine}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  เพิ่มบรรทัด
+                </button>
+              </div>
+
+              {formData.conversation.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-lg">
+                  <p className="text-slate-500 mb-2">ยังไม่มีบทสนทนา</p>
+                  <button
+                    type="button"
+                    onClick={addConversationLine}
+                    className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    + เพิ่มบรรทัดสนทนา
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {formData.conversation.map((line, index) => (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-500 mt-2 shrink-0">{index + 1}.</span>
+                      <div className="flex-1 grid grid-cols-[80px_1fr] gap-3">
+                        <select
+                          value={line.speaker}
+                          onChange={(e) => updateConversationLine(index, 'speaker', e.target.value)}
+                          className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                        >
+                          <option value="A">A</option>
+                          <option value="B">B</option>
+                          <option value="C">C</option>
+                          <option value="D">D</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={line.text}
+                          onChange={(e) => updateConversationLine(index, 'text', e.target.value)}
+                          className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                          placeholder="ข้อความ..."
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeConversationLine(index)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {formData.testTypeId === 'form-meaning' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+              <h2 className="text-xl font-bold text-slate-900 mb-6">บทความ (Fill in the blanks)</h2>
+              <ArticleEditor
+                article={formData.article}
+                onChange={(article) => setFormData({ ...formData, article })}
+              />
+            </div>
+          )}
+
+          {formData.testTypeId !== 'form-meaning' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-6">ตัวเลือกคำตอบ</h2>
 
@@ -327,7 +519,8 @@ export default function EditQuestion() {
                 />
               </div>
 
-              {/* Option D */}
+              {/* Option D - optional for focus-meaning */}
+              {formData.testTypeId !== 'focus-meaning' ? (
               <div className="flex items-center gap-3">
                 <input
                   type="radio"
@@ -346,11 +539,115 @@ export default function EditQuestion() {
                   required
                 />
               </div>
+              ) : (
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="correctAnswer"
+                  checked={formData.correctAnswer === 'D'}
+                  onChange={() => setFormData({ ...formData, correctAnswer: 'D' })}
+                  className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="w-8 font-bold text-slate-700">D</span>
+                <input
+                  type="text"
+                  value={formData.optionD}
+                  onChange={(e) => handleOptionChange('optionD', e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="ตัวเลือก D (ไม่จำเป็น)"
+                />
+              </div>
+              )}
             </div>
             <p className="text-sm text-slate-500 mt-4">
               เลือกวงกลมเพื่อระบุคำตอบที่ถูกต้อง
             </p>
           </div>
+          )}
+
+          {formData.testTypeId === 'listening' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+              <h2 className="text-xl font-bold text-slate-900 mb-6">ไฟล์เสียงและคำบรรยาย</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    อัพโหลดไฟล์เสียง
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed transition-colors cursor-pointer ${
+                      audioUploading
+                        ? 'border-slate-300 bg-slate-50 cursor-not-allowed'
+                        : 'border-slate-200 hover:border-primary-400 hover:bg-primary-50'
+                    }`}>
+                      <Upload className="w-4 h-4" />
+                      <span className="text-sm font-medium text-slate-600">
+                        {audioUploading ? 'กำลังอัพโหลด...' : 'เลือกไฟล์ .mp3'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="audio/mpeg,.mp3"
+                        onChange={uploadAudio}
+                        disabled={audioUploading}
+                        className="hidden"
+                      />
+                    </label>
+                    {formData.audioUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, audioUrl: '' })}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="ลบไฟล์เสียง"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  {audioUploading && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-500" />
+                      กำลังอัพโหลดไฟล์เสียง...
+                    </div>
+                  )}
+                </div>
+
+                {formData.audioUrl && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      ตัวอย่างเสียง
+                    </label>
+                    <audio controls src={formData.audioUrl} className="w-full max-w-md" />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    หรือใส่ Audio URL ด้วยตนเอง
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.audioUrl}
+                    onChange={(e) => setFormData({ ...formData, audioUrl: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="https://example.com/audio.mp3 หรือ /audio/listening/file.mp3"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    คำบรรยาย (Transcript)
+                  </label>
+                  <textarea
+                    value={formData.transcript}
+                    onChange={(e) => setFormData({ ...formData, transcript: e.target.value })}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    rows={4}
+                    placeholder="คำบรรยายเสียง..."
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-6">คำอธิบาย</h2>

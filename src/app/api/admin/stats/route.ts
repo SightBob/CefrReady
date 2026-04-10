@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, users } from '@/db/schema';
 import { eq, count } from 'drizzle-orm';
+import { requireAdmin } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
   try {
     const [questionStats] = await db
       .select({ count: count() })

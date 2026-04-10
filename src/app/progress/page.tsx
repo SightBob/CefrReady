@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, TrendingUp, Award, Target, Clock } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Award, Target, Clock, LogIn } from 'lucide-react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useSession, signIn } from 'next-auth/react';
 import ProgressCard from '@/components/ProgressCard';
 import TestHistoryTable from '@/components/TestHistoryTable';
 
@@ -31,19 +30,18 @@ interface ProgressData {
 
 export default function ProgressPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/');
+      setLoading(false);
       return;
     }
     if (status === 'authenticated') {
       fetchProgress();
     }
-  }, [status, router]);
+  }, [status]);
 
   const fetchProgress = async () => {
     try {
@@ -66,6 +64,33 @@ export default function ProgressPage() {
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-slate-600">Loading your progress...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="inline-flex bg-gradient-to-br from-primary-500 to-accent-500 p-4 rounded-xl mb-6">
+              <TrendingUp className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              กรุณาเข้าสู่ระบบก่อนใช้งาน
+            </h2>
+            <p className="text-slate-500 mb-6">
+              เข้าสู่ระบบเพื่อดูความก้าวหน้าในการเรียนของคุณ
+            </p>
+            <button
+              onClick={() => signIn('google', { callbackUrl: '/progress' })}
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              <LogIn className="w-5 h-5" />
+              เข้าสู่ระบบ
+            </button>
           </div>
         </div>
       </div>

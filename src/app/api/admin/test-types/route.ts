@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testTypes } from '@/db/schema';
 import { desc } from 'drizzle-orm';
+import { requireAdmin } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
   try {
     const allTestTypes = await db.select().from(testTypes).orderBy(desc(testTypes.createdAt));
 
@@ -15,6 +18,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
   try {
     const body = await request.json();
     const { id, name, description, duration, icon, color, questionCount } = body;

@@ -13,7 +13,7 @@ export const TEST_TYPE_IDS: TestTypeId[] = [
   'listening',
 ];
 
-export type CefrLevel = 'A2' | 'B1' | 'B2' | 'C1';
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 // --- Structured Data Types ---

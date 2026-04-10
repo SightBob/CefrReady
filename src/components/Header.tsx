@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { GraduationCap, Menu, X, User, LogOut, LogIn } from 'lucide-react';
+import { GraduationCap, Menu, X, User, LogOut, LogIn, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
@@ -49,6 +49,12 @@ export default function Header() {
               <Link href="/must-know" className="text-slate-600 hover:text-primary-600 transition-colors font-medium">
                 Must Know
               </Link>
+              {session?.user?.isAdmin && (
+                <Link href="/admin" className="inline-flex items-center gap-1.5 text-slate-600 hover:text-primary-600 transition-colors font-medium">
+                  <Shield className="w-4 h-4" />
+                  Admin
+                </Link>
+              )}
             </nav>
 
             <div className="hidden md:flex items-center gap-4">
@@ -110,6 +116,12 @@ export default function Header() {
                 <Link href="/progress" className="text-slate-600 hover:text-primary-600 transition-colors font-medium">
                   Progress
                 </Link>
+                {session?.user?.isAdmin && (
+                  <Link href="/admin" className="inline-flex items-center gap-1.5 text-slate-600 hover:text-primary-600 transition-colors font-medium">
+                    <Shield className="w-4 h-4" />
+                    Admin
+                  </Link>
+                )}
                 {status === 'loading' ? (
                   <div className="w-24 h-8 bg-slate-200 rounded animate-pulse" />
                 ) : session?.user ? (

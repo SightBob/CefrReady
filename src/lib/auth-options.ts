@@ -4,11 +4,14 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-// Extend the session type to include user ID
+const ADMIN_EMAIL = 'pawatsaekoo@gmail.com';
+
+// Extend the session type to include user ID and admin role
 declare module 'next-auth' {
   interface Session {
     user: {
       id: string;
+      isAdmin: boolean;
     } & DefaultSession['user'];
   }
 }
@@ -40,6 +43,9 @@ export const authOptions: NextAuthConfig = {
           if (dbUser && dbUser.length > 0) {
             session.user.id = dbUser[0].id;
           }
+
+          // Set admin role based on email
+          session.user.isAdmin = session.user.email === ADMIN_EMAIL;
         } catch (error) {
           console.error('Error fetching user ID in session callback:', error);
         }
