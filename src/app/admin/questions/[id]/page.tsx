@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Plus, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Upload, X, LayoutList } from 'lucide-react';
 import ArticleEditor from '@/components/ArticleEditor';
+import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
 
 interface TestType {
   id: string;
@@ -58,6 +59,8 @@ export default function EditQuestion() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [audioUploading, setAudioUploading] = useState(false);
+  const [assignedSets, setAssignedSets] = useState<{ id: number; name: string; sectionId: string; orderIndex: number }[]>([]);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     testTypeId: '',
     questionText: '',
@@ -98,7 +101,8 @@ export default function EditQuestion() {
     try {
       const response = await fetch(`/api/admin/questions/${questionId}`);
       if (response.ok) {
-        const data: Question = await response.json();
+        const data: Question & { testSets?: { id: number; name: string; sectionId: string; orderIndex: number }[] } = await response.json();
+        if (data.testSets) setAssignedSets(data.testSets);
         setFormData({
           testTypeId: data.testTypeId,
           questionText: data.questionText,
@@ -126,6 +130,17 @@ export default function EditQuestion() {
       alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
       setFetching(false);
+    }
+  };
+
+  const handleRemoveFromSet = async (testSetId: number) => {
+    try {
+      const res = await fetch(`/api/admin/test-sets/${testSetId}/questions/${questionId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAssignedSets(assignedSets.filter(ts => ts.id !== testSetId));
+      }
+    } catch (err) {
+      console.error('Error removing from test set:', err);
     }
   };
 
@@ -666,6 +681,46 @@ export default function EditQuestion() {
             </div>
           </div>
 
+          {/* Test Sets Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <LayoutList className="w-5 h-5 text-indigo-600" />
+                Test Sets
+              </h2>
+              <button
+                type="button"
+                onClick={() => setAssignModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                เพิ่มลงใน Test Set
+              </button>
+            </div>
+            {assignedSets.length === 0 ? (
+              <p className="text-sm text-slate-400">ยังไม่ได้เพิ่มใน Test Set ใด</p>
+            ) : (
+              <div className="space-y-2">
+                {assignedSets.map(ts => (
+                  <div key={ts.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{ts.name}</p>
+                      <p className="text-xs text-slate-400">Section: {ts.sectionId} | Order: {ts.orderIndex}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFromSet(ts.id)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="นำออกจากชุด"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-end gap-4">
             <Link href="/admin/questions" className="btn-secondary">
               ยกเลิก
@@ -689,6 +744,22 @@ export default function EditQuestion() {
             </button>
           </div>
         </form>
+
+        <AssignToTestSetModal
+          isOpen={assignModalOpen}
+          onClose={() => setAssignModalOpen(false)}
+          questionIds={[Number(questionId)]}
+          alreadyAssignedSetIds={assignedSets.map(ts => ts.id)}
+          filterSectionId={formData.testTypeId}
+          onAssignmentComplete={async () => {
+            setAssignModalOpen(false);
+            const res = await fetch(`/api/admin/questions/${questionId}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.testSets) setAssignedSets(data.testSets);
+            }
+          }}
+        />
       </div>
     </div>
   );

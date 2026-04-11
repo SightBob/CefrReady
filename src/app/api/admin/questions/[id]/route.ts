@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { questions } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { questions, testSetQuestions, testSets } from '@/db/schema';
+import { eq, sql, asc } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export async function GET(
@@ -18,7 +18,20 @@ export async function GET(
       return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
 
-    return NextResponse.json(question);
+    // Fetch test set memberships for this question
+    const memberships = await db
+      .select({
+        setId: testSets.id,
+        setName: testSets.name,
+        sectionId: testSets.sectionId,
+        orderIndex: testSetQuestions.orderIndex,
+      })
+      .from(testSetQuestions)
+      .innerJoin(testSets, eq(testSetQuestions.testSetId, testSets.id))
+      .where(eq(testSetQuestions.questionId, questionId))
+      .orderBy(asc(testSetQuestions.orderIndex));
+
+    return NextResponse.json({ ...question, testSets: memberships });
   } catch (error) {
     console.error('Error fetching question:', error);
     return NextResponse.json({ error: 'Failed to fetch question' }, { status: 500 });

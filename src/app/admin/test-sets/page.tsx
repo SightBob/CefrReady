@@ -199,9 +199,9 @@ export default function AdminTestSetsPage() {
                               <Link
                                 href={`/admin/test-sets/${ts.id}`}
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                title="จัดการคำถาม"
+                                title="จัดการข้อสอบในชุด"
                               >
-                                <Plus className="w-4 h-4" />
+                                <BookOpen className="w-4 h-4" />
                               </Link>
                               <button
                                 onClick={() => { setEditSet(ts); setEditName(ts.name); setEditDesc(ts.description ?? ''); }}

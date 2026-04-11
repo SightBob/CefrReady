@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { questions, testTypes } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { questions, testTypes, testSetQuestions, testSets } from '@/db/schema';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest) {
@@ -74,7 +74,36 @@ export async function GET(request: NextRequest) {
         .orderBy(desc(questions.createdAt));
     }
 
-    return NextResponse.json(allQuestions);
+    // Fetch test set memberships for all returned questions
+    const questionIds = allQuestions.map((q) => q.id);
+    let membershipMap: Record<number, { id: number; name: string; sectionId: string }[]> = {};
+    if (questionIds.length > 0) {
+      const memberships = await db
+        .select({
+          questionId: testSetQuestions.questionId,
+          setId: testSets.id,
+          setName: testSets.name,
+          sectionId: testSets.sectionId,
+        })
+        .from(testSetQuestions)
+        .innerJoin(testSets, eq(testSetQuestions.testSetId, testSets.id))
+        .where(inArray(testSetQuestions.questionId, questionIds));
+      membershipMap = memberships.reduce(
+        (acc, m) => {
+          if (!acc[m.questionId]) acc[m.questionId] = [];
+          acc[m.questionId].push({ id: m.setId, name: m.setName, sectionId: m.sectionId });
+          return acc;
+        },
+        {} as Record<number, { id: number; name: string; sectionId: string }[]>
+      );
+    }
+
+    const questionsWithSets = allQuestions.map((q) => ({
+      ...q,
+      testSets: membershipMap[q.id] || [],
+    }));
+
+    return NextResponse.json(questionsWithSets);
   } catch (error) {
     console.error('Error fetching questions:', error);
     return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 });
