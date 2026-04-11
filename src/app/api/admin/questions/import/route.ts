@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { questions } from '@/db/schema';
+import { questions, testSetQuestions, testSets } from '@/db/schema';
+import { eq, count as drizzleCount, and } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,7 @@ interface ImportQuestion {
   explanation: string;
   cefrLevel: string;
   difficulty: string;
+  testSetId?: number;
 }
 
 interface ValidationResult {
@@ -57,6 +59,14 @@ function validateQuestion(row: Record<string, string>, index: number): Validatio
   const validDifficulties = ['easy', 'medium', 'hard'];
   if (row.difficulty && !validDifficulties.includes(row.difficulty.toLowerCase())) {
     warnings.push(`Row ${index + 1}: Unknown difficulty "${row.difficulty}". Using default`);
+  }
+
+  // Validate testSetId (optional)
+  if (row.testSetId && row.testSetId.trim()) {
+    const setId = parseInt(row.testSetId.trim());
+    if (isNaN(setId)) {
+      errors.push(`Row ${index + 1}: Invalid testSetId "${row.testSetId}". Must be a number.`);
+    }
   }
 
   return { valid: errors.length === 0, errors, warnings };
@@ -135,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Import valid questions
-    const questionsToInsert: ImportQuestion[] = rows.map(row => ({
+    const questionsToInsert = rows.map(row => ({
       testTypeId: row.testTypeId,
       questionText: row.questionText,
       optionA: row.optionA,
@@ -150,10 +160,50 @@ export async function POST(request: NextRequest) {
 
     const inserted = await db.insert(questions).values(questionsToInsert).returning();
 
+    // Auto-assign to test sets if testSetId is provided
+    let assignedCount = 0;
+    const assignments: { questionId: number; testSetId: number }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.testSetId?.trim()) {
+        const setId = parseInt(row.testSetId.trim());
+        if (!isNaN(setId) && inserted[i]) {
+          // Verify set exists
+          const [set] = await db.select().from(testSets).where(eq(testSets.id, setId)).limit(1);
+          if (set) {
+            // Check for duplicate
+            const [existing] = await db.select()
+              .from(testSetQuestions)
+              .where(and(eq(testSetQuestions.testSetId, setId), eq(testSetQuestions.questionId, inserted[i].id)));
+
+            if (!existing) {
+              // Get next order index
+              const [countRow] = await db
+                .select({ cnt: drizzleCount() })
+                .from(testSetQuestions)
+                .where(eq(testSetQuestions.testSetId, setId));
+              const nextOrder = countRow?.cnt ?? 0;
+
+              assignments.push({ questionId: inserted[i].id, testSetId: setId, ...{ orderIndex: nextOrder } } as never);
+            }
+          } else {
+            allWarnings.push(`Row ${i + 2}: testSetId ${setId} not found, skipping assignment`);
+          }
+        }
+      }
+    }
+
+    if (assignments.length > 0) {
+      await db.insert(testSetQuestions).values(assignments);
+      assignedCount = assignments.length;
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Successfully imported ${inserted.length} questions`,
+      message: `Successfully imported ${inserted.length} questions${assignedCount > 0 ? ` and assigned ${assignedCount} to test sets` : ''}`,
       importedCount: inserted.length,
+      assignedCount,
       warnings: allWarnings,
     });
   } catch (error) {
@@ -164,11 +214,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   // Return CSV template
-  const template = `testTypeId,questionText,optionA,optionB,optionC,optionD,correctAnswer,explanation,cefrLevel,difficulty
-focus-form,Choose the correct form: She ___ to school every day.,go,goes,going,gone,B,Present simple with third person singular,B1,medium
-focus-meaning,"A: What time is it? B: ___",It's morning.,It's 3 o'clock.,It's Monday.,It's sunny.,B,Asking about time,A1,easy
-form-meaning,The ___ is very large. (animal),cat,elephant,mouse,bird,B,Vocabulary - animals,A1,easy
-listening,You will hear: "The meeting starts at 9." What time does the meeting start?,8:00,9:00,10:00,11:00,B,Listening comprehension,B1,medium
+  const template = `testTypeId,questionText,optionA,optionB,optionC,optionD,correctAnswer,explanation,cefrLevel,difficulty,testSetId
+focus-form,Choose the correct form: She ___ to school every day.,go,goes,going,gone,B,Present simple with third person singular,B1,medium,
+focus-meaning,"A: What time is it? B: ___",It's morning.,It's 3 o'clock.,It's Monday.,It's sunny.,B,Asking about time,A1,easy,
+form-meaning,The ___ is very large. (animal),cat,elephant,mouse,bird,B,Vocabulary - animals,A1,easy,
+listening,You will hear: "The meeting starts at 9." What time does the meeting start?,8:00,9:00,10:00,11:00,B,Listening comprehension,B1,medium,
 `;
 
   return new NextResponse(template, {
