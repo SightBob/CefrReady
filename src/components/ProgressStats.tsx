@@ -14,9 +14,7 @@ function StatCard({ icon, label, value, trend, color }: StatCardProps) {
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
       <div className="flex items-center gap-3">
-        <div className={`${color} p-3 rounded-xl`}>
-          {icon}
-        </div>
+        <div className={`${color} p-3 rounded-xl`}>{icon}</div>
         <div>
           <p className="text-slate-500 text-sm">{label}</p>
           <p className="text-2xl font-bold text-slate-800">{value}</p>
@@ -32,26 +30,29 @@ function StatCard({ icon, label, value, trend, color }: StatCardProps) {
   );
 }
 
-export default function ProgressStats() {
+interface ProgressStatsProps {
+  testsTaken?: number;
+  averageScore?: number;
+}
+
+export default function ProgressStats({ testsTaken = 0, averageScore = 0 }: ProgressStatsProps) {
   const stats = [
     {
       icon: <Target className="w-6 h-6 text-blue-600" />,
       label: 'Tests Completed',
-      value: 12,
-      trend: '+3 this week',
+      value: testsTaken > 0 ? testsTaken : '—',
       color: 'bg-blue-50',
     },
     {
       icon: <Award className="w-6 h-6 text-amber-600" />,
       label: 'Average Score',
-      value: '78%',
-      trend: '+5% improvement',
+      value: averageScore > 0 ? `${averageScore}%` : '—',
       color: 'bg-amber-50',
     },
     {
       icon: <Flame className="w-6 h-6 text-orange-600" />,
-      label: 'Current Streak',
-      value: '7 days',
+      label: 'Keep Going!',
+      value: testsTaken > 0 ? '🔥 Active' : 'Start now',
       color: 'bg-orange-50',
     },
   ];
@@ -64,3 +65,4 @@ export default function ProgressStats() {
     </div>
   );
 }
+

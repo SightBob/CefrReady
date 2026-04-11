@@ -98,11 +98,44 @@ export const questions = pgTable('questions', {
   activeIdx: index('questions_active_idx').on(table.active),
 }));
 
+// ============================================================
+// Test Set Tables (Section → Test Set → Questions)
+// ============================================================
+
+// Test sets: a named group of 20 questions within a section
+export const testSets = pgTable('test_sets', {
+  id: serial('id').primaryKey(),
+  sectionId: varchar('section_id', { length: 50 }).notNull().references(() => testTypes.id),
+  name: varchar('name', { length: 100 }).notNull(),
+  description: text('description'),
+  orderIndex: integer('order_index').default(0).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+}, (table) => ({
+  sectionIdx: index('test_sets_section_idx').on(table.sectionId),
+  orderIdx: index('test_sets_order_idx').on(table.sectionId, table.orderIndex),
+}));
+
+// Junction: links questions to test sets (1 question can be in multiple sets)
+export const testSetQuestions = pgTable('test_set_questions', {
+  id: serial('id').primaryKey(),
+  testSetId: integer('test_set_id').notNull().references(() => testSets.id, { onDelete: 'cascade' }),
+  questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  orderIndex: integer('order_index').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  setIdx: index('tsq_set_idx').on(table.testSetId),
+  uniqueSetQuestion: index('tsq_unique').on(table.testSetId, table.questionId),
+}));
+
 // Test attempts: score stored as string (percentage with 2 decimal places)
 export const testAttempts = pgTable('test_attempts', {
   id: serial('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   testTypeId: varchar('test_type_id', { length: 50 }).notNull().references(() => testTypes.id),
+  // testSetId is nullable — old attempts (random) have null; new set-based attempts have a value
+  testSetId: integer('test_set_id').references(() => testSets.id, { onDelete: 'set null' }),
   score: varchar('score', { length: 10 }),
   totalQuestions: integer('total_questions'),
   correctAnswers: integer('correct_answers'),
@@ -113,6 +146,7 @@ export const testAttempts = pgTable('test_attempts', {
 }, (table) => ({
   userIdIdx: index('test_attempts_user_id_idx').on(table.userId),
   testTypeIdx: index('test_attempts_test_type_idx').on(table.testTypeId),
+  testSetIdx: index('test_attempts_set_idx').on(table.testSetId),
 }));
 
 // Per-question answers: stored for review and analytics
@@ -160,3 +194,7 @@ export type DbTestAttempt = typeof testAttempts.$inferSelect;
 export type NewTestAttempt = typeof testAttempts.$inferInsert;
 export type DbUserAnswer = typeof userAnswers.$inferSelect;
 export type NewUserAnswer = typeof userAnswers.$inferInsert;
+export type DbTestSet = typeof testSets.$inferSelect;
+export type NewTestSet = typeof testSets.$inferInsert;
+export type DbTestSetQuestion = typeof testSetQuestions.$inferSelect;
+export type NewTestSetQuestion = typeof testSetQuestions.$inferInsert;

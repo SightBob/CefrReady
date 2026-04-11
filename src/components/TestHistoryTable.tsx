@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 interface TestAttempt {
   id: number;
   testTypeId: string;
@@ -51,6 +53,7 @@ export default function TestHistoryTable({ attempts }: TestHistoryTableProps) {
             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Correct</th>
             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Date</th>
             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
+            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600"></th>
           </tr>
         </thead>
         <tbody>
@@ -88,6 +91,14 @@ export default function TestHistoryTable({ attempts }: TestHistoryTableProps) {
                 }`}>
                   {getScoreLabel(attempt.score)}
                 </span>
+              </td>
+              <td className="py-3 px-4">
+                <Link
+                  href={`/review/${attempt.id}`}
+                  className="text-sm text-primary-600 hover:text-primary-800 font-medium"
+                >
+                  Review
+                </Link>
               </td>
             </tr>
           ))}
