@@ -350,7 +350,7 @@ export default function SetQuizPage() {
           testSetId: setId,
           answers: setData.questions.map((q, i) => ({
             questionId: q.id,
-            selectedAnswer: answers[i] || 'A',
+            selectedAnswer: answers[i] || '',
           })),
         }),
       });
@@ -485,6 +485,7 @@ export default function SetQuizPage() {
   if (sectionId === 'focus-meaning') {
     const optionKeys = ['A', 'B', 'C', 'D'];
     const selectedIndex = selectedAnswer ? optionKeys.indexOf(selectedAnswer) : null;
+    const correctIndex = question.correctAnswer ? optionKeys.indexOf(question.correctAnswer) : -1;
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
@@ -516,7 +517,7 @@ export default function SetQuizPage() {
             question.optionD ?? '',
           ]}
           selectedAnswer={selectedIndex}
-          correctAnswer={0}
+          correctAnswer={correctIndex}
           explanation={question.explanation ?? ''}
           onAnswerSelect={(idx) => handleAnswer(optionKeys[idx])}
           disabled={submitting}

@@ -47,7 +47,7 @@ export function calculateScore(
       };
     }
 
-    const isCorrect = answer.selectedAnswer === question.correctAnswer;
+    const isCorrect = answer.selectedAnswer.toLowerCase().trim() === (question.correctAnswer ?? '').toLowerCase().trim();
     if (isCorrect) correctCount++;
 
     return {
