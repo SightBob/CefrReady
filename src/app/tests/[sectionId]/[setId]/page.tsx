@@ -74,6 +74,7 @@ function FormMeaningQuiz({
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
 
   // Combine all articles into one, re-numbering blanks globally
   const combinedArticle = useMemo(() => {
@@ -142,7 +143,7 @@ function FormMeaningQuiz({
       const data = await res.json();
       if (data.success) {
         setIsSubmitted(true);
-        onFinish(data.data.correctAnswers);
+        setCorrectCount(data.data.correctAnswers);
       }
     } finally {
       setSubmitting(false);
@@ -160,6 +161,7 @@ function FormMeaningQuiz({
         parts.push(<span key={key++}>{text.substring(0, idx)}</span>);
         const isCorrect = isSubmitted && answers[blank.id]?.toLowerCase() === blank.correctAnswer.toLowerCase();
         const isWrong = isSubmitted && !isCorrect && answers[blank.id];
+        const isEmpty = isSubmitted && !answers[blank.id];
         parts.push(
           <span key={key++} className="inline-flex flex-col items-start mx-1">
             <input
@@ -169,7 +171,9 @@ function FormMeaningQuiz({
                   ? isCorrect
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                     : isWrong
-                    ? 'border-red-500 bg-red-50 text-red-700'
+                    ? 'border-red-500 bg-red-50 text-red-700 line-through'
+                    : isEmpty
+                    ? 'border-amber-400 bg-amber-50 text-amber-600'
                     : 'border-slate-300 bg-slate-50'
                   : 'border-purple-300 focus:border-purple-500 focus:outline-none'
               }`}
@@ -181,7 +185,18 @@ function FormMeaningQuiz({
               disabled={isSubmitted || submitting}
             />
             {isSubmitted && isWrong && (
-              <span className="text-xs text-emerald-600 mt-1">Correct: {blank.correctAnswer}</span>
+              <span className="flex items-center gap-1 mt-1">
+                <span className="text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                  {blank.correctAnswer}
+                </span>
+              </span>
+            )}
+            {isSubmitted && isEmpty && (
+              <span className="flex items-center gap-1 mt-1">
+                <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                  Answer: {blank.correctAnswer}
+                </span>
+              </span>
             )}
           </span>
         );
@@ -223,6 +238,25 @@ function FormMeaningQuiz({
         <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
       </div>
 
+      {isSubmitted && (
+        <div className={`p-4 rounded-xl mb-6 ${
+          correctCount === totalBlanks
+            ? 'bg-emerald-50 border border-emerald-200'
+            : correctCount >= totalBlanks * 0.7
+            ? 'bg-amber-50 border border-amber-200'
+            : 'bg-red-50 border border-red-200'
+        }`}>
+          <p className="font-medium text-slate-800 mb-1">
+            Score: {correctCount} out of {totalBlanks}
+          </p>
+          <p className="text-sm text-slate-600">
+            {correctCount === totalBlanks
+              ? 'Perfect! All blanks filled correctly.'
+              : 'Review your answers above — wrong blanks are highlighted in red with the correct answer shown below.'}
+          </p>
+        </div>
+      )}
+
       {!isSubmitted && (
         <div className="flex justify-end mt-8">
           <button
@@ -231,6 +265,17 @@ function FormMeaningQuiz({
             className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Submit Answers
+          </button>
+        </div>
+      )}
+
+      {isSubmitted && (
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => onFinish(correctCount)}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            View Results
           </button>
         </div>
       )}
@@ -262,9 +307,8 @@ export default function SetQuizPage() {
   const [score, setScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  // Listening state
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [hasPlayed, setHasPlayed] = useState(false);
+  // Listening state: track per-question whether audio has finished playing
+  const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -304,7 +348,9 @@ export default function SetQuizPage() {
   const handleQuestionSelect = (index: number) => {
     setCurrentQuestion(index);
     setSelectedAnswer(answers[index]);
-    setHasPlayed(answers[index] !== null);
+    if (answers[index] !== null && !audioPlayedMap[index]) {
+      setAudioPlayedMap(prev => ({ ...prev, [index]: true }));
+    }
   };
 
   const handlePrevious = () => {
@@ -312,7 +358,9 @@ export default function SetQuizPage() {
       const prev = currentQuestion - 1;
       setCurrentQuestion(prev);
       setSelectedAnswer(answers[prev]);
-      setHasPlayed(answers[prev] !== null);
+      if (answers[prev] !== null && !audioPlayedMap[prev]) {
+        setAudioPlayedMap(map => ({ ...map, [prev]: true }));
+      }
     }
   };
 
@@ -322,7 +370,9 @@ export default function SetQuizPage() {
       const next = currentQuestion + 1;
       setCurrentQuestion(next);
       setSelectedAnswer(answers[next]);
-      setHasPlayed(answers[next] !== null);
+      if (answers[next] !== null && !audioPlayedMap[next]) {
+        setAudioPlayedMap(prev => ({ ...prev, [next]: true }));
+      }
     }
   };
 
@@ -451,12 +501,7 @@ export default function SetQuizPage() {
           selectedAnswer={selectedAnswer}
           correctAnswer={results[currentQuestion]?.correctAnswer ?? null}
           explanation={results[currentQuestion]?.explanation ?? null}
-          isPlaying={isPlaying}
-          hasPlayed={hasPlayed}
-          onPlayAudio={() => {
-            setIsPlaying(true);
-            setTimeout(() => { setIsPlaying(false); setHasPlayed(true); }, 3000);
-          }}
+          onAudioPlayed={() => setAudioPlayedMap(prev => ({ ...prev, [currentQuestion]: true }))}
           onAnswerSelect={handleAnswer}
           disabled={submitting}
         />
@@ -471,7 +516,7 @@ export default function SetQuizPage() {
           </button>
           <button
             onClick={currentQuestion < setData.questions.length - 1 ? handleNext : handleSubmit}
-            disabled={selectedAnswer === null || !hasPlayed || submitting}
+            disabled={selectedAnswer === null || !audioPlayedMap[currentQuestion] || submitting}
             className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {currentQuestion < setData.questions.length - 1 ? 'Next Question' : 'Finish Test'}

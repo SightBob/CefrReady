@@ -19,12 +19,8 @@ interface Stats {
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<Stats>({
-    totalQuestions: 0,
-    totalUsers: 0,
-    totalTests: 0,
-    activeQuestions: 0,
-  });
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStats();
@@ -39,6 +35,8 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,7 +48,7 @@ export default function AdminDashboard() {
       href: '/admin/questions',
       color: 'from-blue-500 to-cyan-500',
       bgColor: 'bg-blue-50',
-      count: stats.totalQuestions,
+      count: stats?.totalQuestions ?? 0,
     },
     {
       title: 'ประเภทข้อสอบ',
@@ -59,7 +57,7 @@ export default function AdminDashboard() {
       href: '/admin/test-types',
       color: 'from-emerald-500 to-teal-500',
       bgColor: 'bg-emerald-50',
-      count: stats.totalTests,
+      count: stats?.totalTests ?? 0,
     },
     {
       title: 'ผู้ใช้งาน',
@@ -68,7 +66,7 @@ export default function AdminDashboard() {
       href: '/admin/users',
       color: 'from-purple-500 to-pink-500',
       bgColor: 'bg-purple-50',
-      count: stats.totalUsers,
+      count: stats?.totalUsers ?? 0,
     },
     {
       title: 'รายงาน',
@@ -95,53 +93,31 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-500 text-sm">ข้อสอบทั้งหมด</p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">{stats.totalQuestions}</p>
+          {[
+            { label: 'ข้อสอบทั้งหมด', value: stats?.totalQuestions, icon: FileQuestion, bg: 'bg-blue-50', color: 'text-blue-600' },
+            { label: 'ข้อสอบที่ใช้งาน', value: stats?.activeQuestions, icon: Settings, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+            { label: 'ประเภทข้อสอบ', value: stats?.totalTests, icon: LayoutDashboard, bg: 'bg-purple-50', color: 'text-purple-600' },
+            { label: 'ผู้ใช้งาน', value: stats?.totalUsers, icon: Users, bg: 'bg-orange-50', color: 'text-orange-600' },
+          ].map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-slate-500 text-sm">{card.label}</p>
+                    {loading ? (
+                      <div className="h-8 w-16 bg-slate-200 rounded animate-pulse mt-1" />
+                    ) : (
+                      <p className="text-3xl font-bold text-slate-900 mt-1">{card.value}</p>
+                    )}
+                  </div>
+                  <div className={`${card.bg} p-3 rounded-lg`}>
+                    <Icon className={`w-6 h-6 ${card.color}`} />
+                  </div>
+                </div>
               </div>
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <FileQuestion className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-500 text-sm">ข้อสอบที่ใช้งาน</p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">{stats.activeQuestions}</p>
-              </div>
-              <div className="bg-emerald-50 p-3 rounded-lg">
-                <Settings className="w-6 h-6 text-emerald-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-500 text-sm">ประเภทข้อสอบ</p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">{stats.totalTests}</p>
-              </div>
-              <div className="bg-purple-50 p-3 rounded-lg">
-                <LayoutDashboard className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-500 text-sm">ผู้ใช้งาน</p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">{stats.totalUsers}</p>
-              </div>
-              <div className="bg-orange-50 p-3 rounded-lg">
-                <Users className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

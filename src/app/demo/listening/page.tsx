@@ -14,8 +14,7 @@ export default function DemoListeningPage() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [hasPlayed, setHasPlayed] = useState(false);
+  const [hasPlayedMap, setHasPlayedMap] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     fetchQuestions();
@@ -35,14 +34,6 @@ export default function DemoListeningPage() {
     }
   };
 
-  const handlePlayAudio = () => {
-    setIsPlaying(true);
-    setTimeout(() => {
-      setIsPlaying(false);
-      setHasPlayed(true);
-    }, 3000);
-  };
-
   const handleAnswer = (answer: string) => {
     if (selectedAnswer !== null) return;
 
@@ -60,7 +51,6 @@ export default function DemoListeningPage() {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
-      setHasPlayed(false);
     } else {
       setIsFinished(true);
     }
@@ -72,7 +62,7 @@ export default function DemoListeningPage() {
     setShowExplanation(false);
     setScore(0);
     setIsFinished(false);
-    setHasPlayed(false);
+    setHasPlayedMap({});
   };
 
   if (loading) {
@@ -189,9 +179,7 @@ export default function DemoListeningPage() {
         selectedAnswer={selectedAnswer}
         correctAnswer={question.correctAnswer}
         explanation={question.explanation || null}
-        isPlaying={isPlaying}
-        hasPlayed={hasPlayed}
-        onPlayAudio={handlePlayAudio}
+        onAudioPlayed={() => setHasPlayedMap(prev => ({ ...prev, [currentQuestion]: true }))}
         onAnswerSelect={handleAnswer}
         disabled={false}
       />

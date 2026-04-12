@@ -13,7 +13,7 @@ interface FocusMeaningConversationCardProps {
   question: string;
   options: string[];
   selectedAnswer: number | null;
-  correctAnswer: number;
+  correctAnswer: number | null;
   explanation: string;
   onAnswerSelect: (answerIndex: number) => void;
   disabled?: boolean;
@@ -29,7 +29,7 @@ export default function FocusMeaningConversationCard({
   onAnswerSelect,
   disabled = false,
 }: FocusMeaningConversationCardProps) {
-  const isCorrect = selectedAnswer === correctAnswer;
+  const isCorrect = correctAnswer !== null && selectedAnswer === correctAnswer;
   const showExplanation = selectedAnswer !== null;
 
   return (
@@ -65,7 +65,7 @@ export default function FocusMeaningConversationCard({
 
           if (selectedAnswer === null) {
             buttonClass += 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50';
-          } else if (index === correctAnswer) {
+          } else if (correctAnswer !== null && index === correctAnswer) {
             buttonClass += 'border-emerald-500 bg-emerald-50';
           } else if (selectedAnswer === index) {
             buttonClass += 'border-red-500 bg-red-50';

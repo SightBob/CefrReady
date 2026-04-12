@@ -272,7 +272,7 @@ function ReviewQuestionCard({
           question={q.questionText}
           options={options}
           selectedAnswer={selectedIndex >= 0 ? selectedIndex : null}
-          correctAnswer={correctIndex >= 0 ? correctIndex : selectedIndex >= 0 ? selectedIndex : 0}
+          correctAnswer={correctIndex >= 0 ? correctIndex : null}
           explanation={q.explanation || ''}
           onAnswerSelect={() => {}}
           disabled
@@ -345,9 +345,7 @@ function ReviewQuestionCard({
           selectedAnswer={item.userAnswer}
           correctAnswer={q.correctAnswer}
           explanation={q.explanation}
-          isPlaying={false}
-          hasPlayed
-          onPlayAudio={() => {}}
+          onAudioPlayed={() => {}}
           onAnswerSelect={onAnswerSelect}
           disabled
         />

@@ -140,7 +140,8 @@ export async function POST(request: NextRequest) {
           typeof progress.averageScore === 'string'
             ? parseFloat(progress.averageScore)
             : progress.averageScore || 0;
-        const newAvgScore = (currentAvgScore * currentTestsTaken + score) / newTestsTaken;
+        const safeAvg = Number.isFinite(currentAvgScore) ? currentAvgScore : 0;
+        const newAvgScore = (safeAvg * currentTestsTaken + score) / newTestsTaken;
 
         await db
           .update(userProgress)
