@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Clock, 
@@ -68,6 +68,25 @@ export default function TestLayout({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'unanswered' | 'flagged'>('all');
+
+  // Timer state (20 minutes = 1200 seconds)
+  const EXAM_DURATION = 20 * 60;
+  const [timeLeft, setTimeLeft] = useState(EXAM_DURATION);
+  const isTimeWarning = timeLeft <= 120; // warn when <= 2 min
+
+  useEffect(() => {
+    if (isSubmitted) return;
+    const interval = setInterval(() => {
+      setTimeLeft(prev => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSubmitted]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
   
@@ -151,6 +170,14 @@ export default function TestLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Top Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
+        <div
+          className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all duration-300"
+          style={{ width: `${((currentQuestion + 1) / totalQuestions) * 100}%` }}
+        />
+      </div>
+
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-16 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -171,7 +198,18 @@ export default function TestLayout({
             </div>
 
             {/* Desktop Stats */}
-            <div className="hidden md:flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-4">
+              {/* Timer */}
+              {!isSubmitted && (
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-mono font-bold transition-colors ${
+                  isTimeWarning
+                    ? 'bg-red-100 text-red-700 animate-pulse'
+                    : 'bg-slate-100 text-slate-700'
+                }`}>
+                  <Clock className="w-4 h-4" />
+                  {formatTime(timeLeft)}
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-emerald-500" />
                 <span className="text-sm text-slate-600">{answeredCount}/{totalQuestions}</span>
@@ -185,7 +223,7 @@ export default function TestLayout({
                 disabled={answeredCount < totalQuestions}
                 className="btn-primary text-sm py-2 px-4 disabled:opacity-50"
               >
-                Submit
+                ส่งข้อสอบ
               </button>
             </div>
 

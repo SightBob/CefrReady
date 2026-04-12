@@ -1,9 +1,10 @@
 'use client';
 
-import { ArrowLeft, TrendingUp, Award, Target, Clock } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Award, Target, Clock, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import ProgressCard from '@/components/ProgressCard';
 import TestHistoryTable from '@/components/TestHistoryTable';
+import { estimateCefrLevel, CEFR_COLORS, CEFR_GRADIENT, CEFR_DESCRIPTIONS, SCORE_RANGES } from '@/lib/cefr-estimator';
 
 interface ProgressData {
   overall: {
@@ -41,6 +42,31 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
         <p className="text-slate-600 mt-2">Track your learning journey and performance</p>
       </div>
 
+      {/* CEFR Level Banner */}
+      {progress.overall.testsTaken > 0 && (() => {
+        const level = estimateCefrLevel(progress.overall.averageScore);
+        return (
+          <div className={`relative overflow-hidden rounded-2xl p-6 mb-8 bg-gradient-to-r ${CEFR_GRADIENT[level]} shadow-lg`}>
+            <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-12 translate-x-12" />
+            <div className="relative flex items-center gap-6">
+              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30">
+                <span className="text-5xl font-black text-white">{level}</span>
+              </div>
+              <div className="text-white">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles className="w-4 h-4" />
+                  <span className="text-sm font-medium opacity-80">ระดับ CEFR ที่ประเมิน</span>
+                </div>
+                <p className="text-xl font-bold">{CEFR_DESCRIPTIONS[level]}</p>
+                <p className="text-sm opacity-75 mt-1">
+                  จากคะแนนเฉลี่ย {progress.overall.averageScore}% • ช่วงคะแนน {SCORE_RANGES[level]}
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Overall Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -49,7 +75,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
               <Target className="w-6 h-6 text-blue-600" />
             </div>
           </div>
-          <p className="text-slate-500 text-sm mt-3">Total Tests</p>
+          <p className="text-slate-500 text-sm mt-3">ทำข้อสอบทั้งหมด</p>
           <p className="text-2xl font-bold text-slate-800">{progress.overall.testsTaken}</p>
         </div>
 
@@ -59,7 +85,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
               <TrendingUp className="w-6 h-6 text-emerald-600" />
             </div>
           </div>
-          <p className="text-slate-500 text-sm mt-3">Average Score</p>
+          <p className="text-slate-500 text-sm mt-3">คะแนนเฉลี่ย</p>
           <p className="text-2xl font-bold text-slate-800">{progress.overall.averageScore}%</p>
         </div>
 
@@ -69,7 +95,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
               <Award className="w-6 h-6 text-amber-600" />
             </div>
           </div>
-          <p className="text-slate-500 text-sm mt-3">Best Score</p>
+          <p className="text-slate-500 text-sm mt-3">คะแนนสูงสุด</p>
           <p className="text-lg font-bold text-slate-800">
             {progress.byCategory.length > 0
               ? `${Math.max(...progress.byCategory.map((c) => c.averageScore))}%`
@@ -83,7 +109,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
               <Clock className="w-6 h-6 text-orange-600" />
             </div>
           </div>
-          <p className="text-slate-500 text-sm mt-3">Categories</p>
+          <p className="text-slate-500 text-sm mt-3">ทักษะที่ฝึกแล้ว</p>
           <p className="text-2xl font-bold text-slate-800">{progress.byCategory.length}</p>
         </div>
       </div>

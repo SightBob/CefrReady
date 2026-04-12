@@ -9,6 +9,7 @@ import {
   TrendingDown,
   Minus
 } from 'lucide-react';
+import { estimateCefrLevel, CEFR_COLORS } from '@/lib/cefr-estimator';
 
 interface ProgressCardProps {
   testTypeId: string;
@@ -83,8 +84,18 @@ export default function ProgressCard({
           <Icon className={`w-6 h-6 bg-gradient-to-br ${gradient} bg-clip-text text-transparent`} />
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-slate-800">{testTypeName || testTypeId}</h3>
-          <p className="text-sm text-slate-500">{testsTaken} {testsTaken === 1 ? 'test' : 'tests'} taken</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-semibold text-slate-800">{testTypeName || testTypeId}</h3>
+            {testsTaken > 0 && (() => {
+              const level = estimateCefrLevel(averageScore);
+              return (
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${CEFR_COLORS[level]}`}>
+                  {level}
+                </span>
+              );
+            })()}
+          </div>
+          <p className="text-sm text-slate-500">{testsTaken} {testsTaken === 1 ? 'ครั้ง' : 'ครั้ง'} ที่ทำ</p>
         </div>
         {getTrendIcon()}
       </div>

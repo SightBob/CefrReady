@@ -6,8 +6,8 @@ import SectionCard, { type SectionData } from '@/components/SectionCard';
 import TestsLoginPrompt from './TestsLoginPrompt';
 
 export const metadata: Metadata = {
-  title: 'Full Tests | CEFR Ready',
-  description: 'ทดสอบภาษาอังกฤษแบบเต็มรูปแบบ Focus on Form, Focus on Meaning, และ Listening พร้อมบันทึกผล',
+  title: 'ข้อสอบ CEFR | CEFR Ready',
+  description: 'เลือกทำข้อสอบ CEFR ที่ตรงกับระดับของคุณ ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2',
 };
 
 async function getSections(): Promise<SectionData[]> {

@@ -7,8 +7,8 @@ import {
   FileQuestion, 
   Users, 
   BarChart3,
-  Plus,
-  Settings
+  Settings,
+  AlertTriangle
 } from 'lucide-react';
 
 interface Stats {
@@ -16,6 +16,11 @@ interface Stats {
   totalUsers: number;
   totalTests: number;
   activeQuestions: number;
+  hardestQuestions: Array<{
+    questionId: number;
+    questionText: string;
+    wrongCount: number;
+  }>;
 }
 
 export default function AdminDashboard() {
@@ -155,6 +160,31 @@ export default function AdminDashboard() {
             );
           })}
         </div>
+
+        {/* Most Missed Questions */}
+        {stats?.hardestQuestions && stats.hardestQuestions.length > 0 && (
+          <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-500" />
+              ข้อสอบที่นักเรียนตอบผิดมากที่สุด
+            </h2>
+            <div className="space-y-3">
+              {stats.hardestQuestions.map((q, i) => (
+                <div key={q.questionId} className="flex items-center gap-4 p-3 bg-orange-50 rounded-xl border border-orange-100">
+                  <span className="text-3xl font-black text-orange-200 w-8 text-center shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 truncate">{q.questionText}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Question ID: {q.questionId}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-lg font-bold text-orange-600">{q.wrongCount}</p>
+                    <p className="text-xs text-orange-400">ครั้งที่ตอบผิด</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

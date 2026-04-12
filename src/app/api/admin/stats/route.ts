@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { questions, testTypes, users } from '@/db/schema';
-import { eq, count } from 'drizzle-orm';
+import { questions, testTypes, users, userAnswers } from '@/db/schema';
+import { eq, count, desc } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest) {
@@ -20,16 +20,39 @@ export async function GET(request: NextRequest) {
       .select({ count: count() })
       .from(users);
 
-    // Active questions query - handle case where column might not exist yet
+    // Active questions query
     let activeQuestionStats = { count: 0 };
     try {
       [activeQuestionStats] = await db
         .select({ count: count() })
         .from(questions)
         .where(eq(questions.active, 'true'));
-    } catch (e) {
-      // Column doesn't exist yet, use total as fallback
+    } catch {
       activeQuestionStats = questionStats;
+    }
+
+    // Hardest questions: top 5 most-missed questions
+    let hardestQuestions: Array<{ questionId: number; questionText: string; wrongCount: number }> = [];
+    try {
+      const rows = await db
+        .select({
+          questionId: userAnswers.questionId,
+          questionText: questions.questionText,
+          wrongCount: count(userAnswers.id),
+        })
+        .from(userAnswers)
+        .innerJoin(questions, eq(userAnswers.questionId, questions.id))
+        .where(eq(userAnswers.isCorrect, false))
+        .groupBy(userAnswers.questionId, questions.questionText)
+        .orderBy(desc(count(userAnswers.id)))
+        .limit(5);
+      hardestQuestions = rows.map(r => ({
+        questionId: r.questionId,
+        questionText: r.questionText,
+        wrongCount: Number(r.wrongCount),
+      }));
+    } catch {
+      // userAnswers may be empty — non-fatal
     }
 
     return NextResponse.json({
@@ -37,6 +60,7 @@ export async function GET(request: NextRequest) {
       activeQuestions: activeQuestionStats?.count || 0,
       totalTests: testTypeStats?.count || 0,
       totalUsers: userStats?.count || 0,
+      hardestQuestions,
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
@@ -45,6 +69,7 @@ export async function GET(request: NextRequest) {
       activeQuestions: 0,
       totalTests: 0,
       totalUsers: 0,
+      hardestQuestions: [],
     });
   }
 }

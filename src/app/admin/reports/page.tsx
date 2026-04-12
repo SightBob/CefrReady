@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, BarChart3, Users, Target, TrendingUp,
-  Award, Loader2, RefreshCw
+  Award, Loader2, RefreshCw, Download
 } from 'lucide-react';
 
 interface ReportData {
@@ -90,14 +90,24 @@ export default function AdminReportsPage() {
                 : 'สถิติการทดสอบและผลลัพธ์ของผู้ใช้ทั้งหมด'}
             </p>
           </div>
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 shadow-sm transition-colors text-sm font-medium"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            รีเฟรช
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href="/api/admin/export"
+              download
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition-colors text-sm font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </a>
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 shadow-sm transition-colors text-sm font-medium"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              รีเฟรช
+            </button>
+          </div>
         </div>
 
         {loading && !data ? (
