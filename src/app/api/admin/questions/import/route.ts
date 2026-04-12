@@ -16,8 +16,10 @@ interface ImportQuestion {
   correctAnswer: string;
   explanation: string;
   cefrLevel: string;
-  difficulty: string;
-  testSetId?: number;
+  conversation?: string;
+  article?: string;
+  audioUrl?: string;
+  transcript?: string;
 }
 
 interface ValidationResult {
@@ -90,7 +92,13 @@ function parseCSV(text: string): Record<string, string>[] {
     for (let j = 0; j < line.length; j++) {
       const char = line[j];
       if (char === '"') {
-        inQuotes = !inQuotes;
+        if (j + 1 < line.length && line[j + 1] === '"') {
+          // CSV escaped quote "" → literal "
+          current += '"';
+          j++; // skip next quote
+        } else {
+          inQuotes = !inQuotes;
+        }
       } else if (char === ',' && !inQuotes) {
         values.push(current.trim());
         current = '';
@@ -145,18 +153,42 @@ export async function POST(request: NextRequest) {
     }
 
     // Import valid questions
-    const questionsToInsert = rows.map(row => ({
-      testTypeId: row.testTypeId,
-      questionText: row.questionText,
-      optionA: row.optionA,
-      optionB: row.optionB,
-      optionC: row.optionC,
-      optionD: row.optionD,
-      correctAnswer: row.correctAnswer.toUpperCase(),
-      explanation: row.explanation || '',
-      cefrLevel: row.cefrLevel,
-      difficulty: row.difficulty?.toLowerCase() || 'medium',
-    }));
+    const questionsToInsert = rows.map(row => {
+      let conversationData = null;
+      if (row.conversation) {
+        try {
+          conversationData = JSON.parse(row.conversation);
+        } catch(e) {
+          console.error(`Invalid JSON in conversation for row:`, row.conversation);
+        }
+      }
+
+      let articleData = null;
+      if (row.article) {
+        try {
+          articleData = JSON.parse(row.article);
+        } catch(e) {
+          console.error(`Invalid JSON in article for row:`, row.article);
+        }
+      }
+      
+      return {
+        testTypeId: row.testTypeId,
+        questionText: row.questionText,
+        optionA: row.optionA,
+        optionB: row.optionB,
+        optionC: row.optionC,
+        optionD: row.optionD,
+        correctAnswer: row.correctAnswer.toUpperCase(),
+        explanation: row.explanation || '',
+        cefrLevel: row.cefrLevel,
+        difficulty: row.difficulty?.toLowerCase() || 'medium',
+        conversation: conversationData,
+        article: articleData,
+        audioUrl: row.audioUrl || null,
+        transcript: row.transcript || null,
+      };
+    });
 
     const inserted = await db.insert(questions).values(questionsToInsert).returning();
 
