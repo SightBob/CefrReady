@@ -65,7 +65,7 @@ export default function FormMeaningArticleCard({
                     : 'border-slate-300 bg-slate-50'
                   : 'border-purple-300 focus:border-purple-500 focus:outline-none'
               }`}
-              placeholder={blank.hint?.split(' - ')[0] || 'Answer'}
+              placeholder=""
               value={answers[blank.id] || ''}
               onChange={(e) => onInputChange(blank.id, e.target.value)}
               disabled={isSubmitted || disabled}

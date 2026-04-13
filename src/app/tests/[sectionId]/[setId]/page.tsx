@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, ChevronRight } from 'lucide-react';
 
 import TestLayout from '@/components/TestLayout';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
@@ -235,6 +235,7 @@ function FormMeaningQuiz({
           <FileText className="w-5 h-5 text-purple-600" />
           <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
         </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-6">{combinedArticle.title}</h2>
         <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
       </div>
 
@@ -595,8 +596,8 @@ export default function SetQuizPage() {
     { key: 'C', value: question.optionC ?? '' },
     { key: 'D', value: question.optionD ?? '' },
   ];
-  const correctAnswer = results[currentQuestion]?.correctAnswer ?? null;
-  const explanation = results[currentQuestion]?.explanation ?? null;
+  const correctAnswer = question.correctAnswer ?? results[currentQuestion]?.correctAnswer ?? null;
+  const explanation = question.explanation ?? results[currentQuestion]?.explanation ?? null;
 
   return (
     <TestLayout
@@ -618,9 +619,32 @@ export default function SetQuizPage() {
         selectedAnswer={selectedAnswer}
         correctAnswer={correctAnswer}
         explanation={explanation}
+        conversation={question.conversation ?? null}
         onAnswerSelect={handleAnswer}
         disabled={submitting}
       />
+
+      {selectedAnswer !== null && (
+        <div className="mt-6 flex justify-end">
+          {currentQuestion < setData.questions.length - 1 ? (
+            <button
+              onClick={handleNext}
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 active:translate-y-[1px] active:shadow-sm transition-all shadow-lg shadow-primary-600/20"
+            >
+              Next Question
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 active:translate-y-[1px] active:shadow-sm transition-all shadow-lg shadow-primary-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? 'Submitting...' : 'Finish Test'}
+            </button>
+          )}
+        </div>
+      )}
     </TestLayout>
   );
 }

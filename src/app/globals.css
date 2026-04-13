@@ -13,6 +13,22 @@
   }
 }
 
+@keyframes staggerFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-animate {
+  opacity: 0;
+  animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @layer components {
   .btn-primary {
     @apply bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5;

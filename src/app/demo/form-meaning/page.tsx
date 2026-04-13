@@ -168,7 +168,7 @@ export default function DemoFormMeaningPage() {
             <input
               type="text"
               className="w-48 px-3 py-2 rounded border-2 border-purple-300 focus:border-purple-500 focus:outline-none text-center"
-              placeholder="Answer"
+              placeholder=""
               value={answers[question.id] || ''}
               onChange={(e) => handleInputChange(question.id, e.target.value)}
               disabled={isSubmitted}

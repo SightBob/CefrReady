@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ArrowLeft, CheckCircle, XCircle, Trophy, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Trophy, Clock, Loader2, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
@@ -55,6 +55,8 @@ interface ReviewResponse {
   };
 }
 
+type FilterMode = 'all' | 'correct' | 'incorrect';
+
 export default function ReviewPage() {
   const params = useParams();
   const router = useRouter();
@@ -63,6 +65,7 @@ export default function ReviewPage() {
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterMode>('all');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -93,12 +96,34 @@ export default function ReviewPage() {
     }
   };
 
+  // ─── Loading Skeleton ──────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading review...</p>
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-8">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-slate-200 rounded-lg animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-5 w-40 bg-slate-200 rounded animate-pulse" />
+              <div className="h-4 w-60 bg-slate-100 rounded animate-pulse" />
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="h-20 bg-white rounded-xl border border-slate-100 animate-pulse" />
+            ))}
+          </div>
+          {[1,2,3].map(i => (
+            <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 space-y-3 animate-pulse">
+              <div className="h-4 w-3/4 bg-slate-100 rounded" />
+              <div className="h-4 w-1/2 bg-slate-100 rounded" />
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                {[1,2,3,4].map(j => (
+                  <div key={j} className="h-12 bg-slate-50 rounded-xl" />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -106,7 +131,7 @@ export default function ReviewPage() {
 
   if (error || !attempt) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
         <div className="text-center">
           <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <p className="text-slate-600">{error || 'Review not found'}</p>
@@ -127,10 +152,27 @@ export default function ReviewPage() {
   const correctCount = reviewItems.filter(i => i.isCorrect).length;
   const wrongCount = reviewItems.filter(i => !i.isCorrect).length;
 
+  // Time taken
+  const timeTaken = attempt.startedAt && attempt.completedAt
+    ? Math.round((new Date(attempt.completedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000)
+    : null;
+  const formatDuration = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
+
+  // Filter
+  const filteredItems = filter === 'all'
+    ? reviewItems
+    : filter === 'correct'
+    ? reviewItems.filter(i => i.isCorrect)
+    : reviewItems.filter(i => !i.isCorrect);
+
   const noOp = () => {};
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-16 z-40">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -143,7 +185,7 @@ export default function ReviewPage() {
                 <h1 className="font-bold text-slate-900">Test Review</h1>
                 <div className="flex items-center gap-2 text-sm text-slate-500">
                   <span>{attempt.testTypeName}</span>
-                  <span className="mx-1">•</span>
+                  <span className="mx-1">|</span>
                   <Clock className="w-3.5 h-3.5" />
                   <span>
                     {attempt.completedAt
@@ -153,19 +195,44 @@ export default function ReviewPage() {
                         })
                       : 'N/A'}
                   </span>
+                  {timeTaken !== null && (
+                    <>
+                      <span className="mx-1">|</span>
+                      <span>Time: {formatDuration(timeTaken)}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${scoreColor}`}>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border ${scoreColor}`}>
               {attempt.score}%
             </span>
           </div>
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        {/* Pass/Fail Banner */}
+        {attempt.score >= 70 ? (
+          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6">
+            <Trophy className="w-6 h-6 text-emerald-600 shrink-0" />
+            <div>
+              <p className="font-semibold text-emerald-800">Passed!</p>
+              <p className="text-sm text-emerald-600">You scored {attempt.score}% — keep up the great work.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+            <RotateCcw className="w-6 h-6 text-amber-600 shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-800">Not quite there yet</p>
+              <p className="text-sm text-amber-600">You need 70% to pass. Review the incorrect answers below.</p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 text-center">
             <div className="text-2xl font-bold text-slate-900">{attempt.totalQuestions}</div>
             <div className="text-sm text-slate-500">Total</div>
@@ -178,36 +245,76 @@ export default function ReviewPage() {
             <div className="text-2xl font-bold text-red-700">{wrongCount}</div>
             <div className="text-sm text-red-600">Incorrect</div>
           </div>
+          <div className="bg-slate-50 rounded-xl p-4 shadow-sm border border-slate-200 text-center">
+            <div className="text-2xl font-bold text-slate-900">{timeTaken !== null ? formatDuration(timeTaken) : '-'}</div>
+            <div className="text-sm text-slate-500">Time</div>
+          </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1 mb-6 bg-white rounded-xl border border-slate-100 p-1">
+          <button
+            onClick={() => setFilter('all')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            All ({reviewItems.length})
+          </button>
+          <button
+            onClick={() => setFilter('correct')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filter === 'correct' ? 'bg-emerald-600 text-white' : 'text-emerald-600 hover:bg-emerald-50'
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Correct ({correctCount})
+          </button>
+          <button
+            onClick={() => setFilter('incorrect')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filter === 'incorrect' ? 'bg-red-600 text-white' : 'text-red-600 hover:bg-red-50'
+            }`}
+          >
+            <XCircle className="w-4 h-4" />
+            Incorrect ({wrongCount})
+          </button>
         </div>
 
         {/* Question List */}
         <div className="space-y-6">
-          {reviewItems.map((item, index) => (
-            <div key={item.questionId} className="flex gap-4">
-              {/* Question number badge */}
-              <div className="flex flex-col items-center pt-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  item.isCorrect
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-red-100 text-red-700'
-                }`}>
-                  {index + 1}
-                </div>
-                {item.isCorrect
-                  ? <CheckCircle className="w-4 h-4 text-emerald-500 mt-1" />
-                  : <XCircle className="w-4 h-4 text-red-500 mt-1" />
-                }
-              </div>
-
-              {/* Question content */}
-              <div className="flex-1 min-w-0">
-                <ReviewQuestionCard
-                  item={item}
-                  onAnswerSelect={noOp}
-                />
-              </div>
+          {filteredItems.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-100 p-8 text-center text-slate-500">
+              No questions match this filter.
             </div>
-          ))}
+          ) : (
+            filteredItems.map((item, index) => (
+              <div key={item.questionId} className="flex gap-4">
+                {/* Question number badge */}
+                <div className="flex flex-col items-center pt-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    item.isCorrect
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  {item.isCorrect
+                    ? <CheckCircle className="w-4 h-4 text-emerald-500 mt-1" />
+                    : <XCircle className="w-4 h-4 text-red-500 mt-1" />
+                  }
+                </div>
+
+                {/* Question content */}
+                <div className="flex-1 min-w-0">
+                  <ReviewQuestionCard
+                    item={item}
+                    onAnswerSelect={noOp}
+                  />
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Back to Progress */}
@@ -256,6 +363,7 @@ function ReviewQuestionCard({
           selectedAnswer={item.userAnswer}
           correctAnswer={q.correctAnswer}
           explanation={q.explanation}
+          conversation={q.conversation ?? null}
           onAnswerSelect={onAnswerSelect}
           disabled
         />

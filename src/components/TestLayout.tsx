@@ -220,10 +220,12 @@ export default function TestLayout({
               </div>
               <button
                 onClick={onSubmit}
-                disabled={answeredCount < totalQuestions}
-                className="btn-primary text-sm py-2 px-4 disabled:opacity-50"
+                disabled={unansweredCount > 0}
+                className="btn-primary text-sm py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                ส่งข้อสอบ
+                {unansweredCount > 0
+                  ? `ส่งข้อสอบ (เหลือ ${unansweredCount})`
+                  : 'ส่งข้อสอบ'}
               </button>
             </div>
 
@@ -566,9 +568,12 @@ export default function TestLayout({
                     )}
                     <button
                       onClick={onSubmit}
-                      className="w-full btn-primary"
+                      disabled={unansweredCount > 0}
+                      className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Submit Test
+                      {unansweredCount > 0
+                        ? `ส่งข้อสอบ (เหลือ ${unansweredCount} ข้อ)`
+                        : 'ส่งข้อสอบ'}
                     </button>
                   </div>
                 )}

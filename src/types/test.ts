@@ -60,6 +60,7 @@ export interface FocusFormQuestion extends BaseQuestion {
   optionC: string;
   optionD: string;
   correctAnswer: string;
+  conversation?: ConversationLine[] | null;
 }
 
 /** Conversation-based MCQ (3–4 options) */
