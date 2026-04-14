@@ -1,0 +1,108 @@
+{
+  "title": "Admin Users and Reporting System",
+  "description": "Implement admin users management page and reporting/analytics system with proper access control",
+  "userStories": [
+    {
+      "id": "1.1",
+      "title": "Database Schema - Add role column to users table",
+      "description": "Add role column to users table to support admin/user roles",
+      "acceptanceCriteria": [
+        "users table has role column with default 'user'",
+        "role column accepts 'admin' or 'user' values",
+        "existing users get 'user' role by default",
+        "database migration script created"
+      ],
+      "passes": false
+    },
+    {
+      "id": "1.2",
+      "title": "Auth System - Update session callback for role",
+      "description": "Update auth session callback to include role from database",
+      "acceptanceCriteria": [
+        "session.user.role contains user's role from database",
+        "TypeScript types updated to include role",
+        "Existing authentication flow unchanged"
+      ],
+      "passes": false
+    },
+    {
+      "id": "2.1",
+      "title": "Admin Users API - GET /api/admin/users",
+      "description": "Create API endpoint to list all users with filters",
+      "acceptanceCriteria": [
+        "Returns paginated list of users with email, name, role, last login",
+        "Supports filtering by role (admin/user)",
+        "Supports search by email/name",
+        "Requires admin authentication",
+        "Returns 403 for non-admin users"
+      ],
+      "passes": false
+    },
+    {
+      "id": "2.2",
+      "title": "Admin Users API - PUT /api/admin/users/{id}",
+      "description": "Create API endpoint to update user role",
+      "acceptanceCriteria": [
+        "Updates user role (admin/user) by ID",
+        "Validates role is either 'admin' or 'user'",
+        "Prevents self-demotion (admin cannot remove own admin role)",
+        "Requires admin authentication",
+        "Returns updated user object"
+      ],
+      "passes": false
+    },
+    {
+      "id": "3.1",
+      "title": "Admin Users Page - UI Implementation",
+      "description": "Create /admin/users page with user management UI",
+      "acceptanceCriteria": [
+        "Shows table of users with email, name, role, last activity",
+        "Includes role filter dropdown (All, Admin, User)",
+        "Includes search input for email/name",
+        "Shows role as badge (green for admin, gray for user)",
+        "Has edit button to change user role",
+        "Only accessible to admin users"
+      ],
+      "passes": false
+    },
+    {
+      "id": "4.1",
+      "title": "Admin Reports API - GET /api/admin/reports/overview",
+      "description": "Create API endpoint for admin overview reports",
+      "acceptanceCriteria": [
+        "Returns total users, active questions, test attempts stats",
+        "Returns question distribution by test type",
+        "Returns user activity metrics (last 30 days)",
+        "Requires admin authentication",
+        "Data formatted for charting"
+      ],
+      "passes": false
+    },
+    {
+      "id": "4.2",
+      "title": "Admin Reports Page - UI Implementation",
+      "description": "Create /admin/reports page with analytics dashboard",
+      "acceptanceCriteria": [
+        "Shows key metrics cards (total users, questions, attempts)",
+        "Shows question distribution chart by test type",
+        "Shows user activity timeline (last 30 days)",
+        "Responsive design for desktop/mobile",
+        "Only accessible to admin users"
+      ],
+      "passes": false
+    },
+    {
+      "id": "5.1",
+      "title": "Integration and Testing",
+      "description": "Ensure all components work together with proper error handling",
+      "acceptanceCriteria": [
+        "Admin menu shows Users and Reports links for admin users",
+        "Non-admin users cannot access /admin/users or /admin/reports",
+        "All API endpoints have proper validation and error handling",
+        "TypeScript compiles without errors",
+        "UI handles loading and error states gracefully"
+      ],
+      "passes": false
+    }
+  ]
+}

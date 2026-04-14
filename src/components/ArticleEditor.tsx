@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Plus, Trash2, Eye, EyeOff, Type } from 'lucide-react';
@@ -138,14 +138,14 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
       {/* Title */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">
-          ชื่อบทความ <span className="text-red-500">*</span>
+          เธเธทเนเธญเธเธ—เธเธงเธฒเธก <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           value={article.title}
           onChange={(e) => updateTitle(e.target.value)}
           className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          placeholder="ชื่อบทความ..."
+          placeholder="เธเธทเนเธญเธเธ—เธเธงเธฒเธก..."
         />
       </div>
 
@@ -153,7 +153,7 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-sm font-medium text-slate-700">
-            เนื้อหาบทความ <span className="text-red-500">*</span>
+            เน€เธเธทเนเธญเธซเธฒเธเธ—เธเธงเธฒเธก <span className="text-red-500">*</span>
           </label>
           <button
             type="button"
@@ -161,7 +161,7 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            แทรกช่องว่าง
+            เนเธ—เธฃเธเธเนเธญเธเธงเนเธฒเธ
           </button>
         </div>
         <textarea
@@ -170,10 +170,10 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
           onChange={(e) => updateText(e.target.value)}
           className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
           rows={8}
-          placeholder="เขียนเนื้อหาบทความที่นี่... ใช้ปุ่ม 'แทรกช่องว่าง' เพื่อเพิ่มช่องว่างลงในข้อความ&#10;&#10;ตัวอย่าง: The cat sat on the {{1}} and looked at the {{2}}."
+          placeholder="เน€เธเธตเธขเธเน€เธเธทเนเธญเธซเธฒเธเธ—เธเธงเธฒเธกเธ—เธตเนเธเธตเน... เนเธเนเธเธธเนเธก 'เนเธ—เธฃเธเธเนเธญเธเธงเนเธฒเธ' เน€เธเธทเนเธญเน€เธเธดเนเธกเธเนเธญเธเธงเนเธฒเธเธฅเธเนเธเธเนเธญเธเธงเธฒเธก&#10;&#10;เธ•เธฑเธงเธญเธขเนเธฒเธ: The cat sat on the {{1}} and looked at the {{2}}."
         />
         <p className="text-xs text-slate-400 mt-1">
-          วาง cursor ในตำแหน่งที่ต้องการ แล้วกดปุ่ม &quot;แทรกช่องว่าง&quot; — ช่องว่างจะแสดงเป็น {'{{1}}'}, {'{{2}}'}, ฯลฯ
+          เธงเธฒเธ cursor เนเธเธ•เธณเนเธซเธเนเธเธ—เธตเนเธ•เนเธญเธเธเธฒเธฃ เนเธฅเนเธงเธเธ”เธเธธเนเธก &quot;เนเธ—เธฃเธเธเนเธญเธเธงเนเธฒเธ&quot; โ€” เธเนเธญเธเธงเนเธฒเธเธเธฐเนเธชเธ”เธเน€เธเนเธ {'{{1}}'}, {'{{2}}'}, เธฏเธฅเธฏ
         </p>
       </div>
 
@@ -182,14 +182,14 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
         <div className="flex items-center gap-2 mb-3">
           <Type className="w-4 h-4 text-purple-600" />
           <h3 className="text-sm font-semibold text-slate-700">
-            ช่องว่าง ({article.blanks.length})
+            เธเนเธญเธเธงเนเธฒเธ ({article.blanks.length})
           </h3>
         </div>
 
         {article.blanks.length === 0 ? (
           <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg">
-            <p className="text-slate-500 text-sm">ยังไม่มีช่องว่าง</p>
-            <p className="text-slate-400 text-xs mt-1">เขียนข้อความแล้วกด &quot;แทรกช่องว่าง&quot; เพื่อเพิ่ม</p>
+            <p className="text-slate-500 text-sm">เธขเธฑเธเนเธกเนเธกเธตเธเนเธญเธเธงเนเธฒเธ</p>
+            <p className="text-slate-400 text-xs mt-1">เน€เธเธตเธขเธเธเนเธญเธเธงเธฒเธกเนเธฅเนเธงเธเธ” &quot;เนเธ—เธฃเธเธเนเธญเธเธงเนเธฒเธ&quot; เน€เธเธทเนเธญเน€เธเธดเนเธก</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -201,26 +201,26 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">
-                      คำตอบที่ถูกต้อง <span className="text-red-500">*</span>
+                      เธเธณเธ•เธญเธเธ—เธตเนเธ–เธนเธเธ•เนเธญเธ <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={blank.correctAnswer}
                       onChange={(e) => updateBlank(blank.id, 'correctAnswer', e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                      placeholder="คำตอบ..."
+                      placeholder="เธเธณเธ•เธญเธ..."
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">
-                      คำใบ้ (ไม่จำเป็น)
+                      เธเธณเนเธเน (เนเธกเนเธเธณเน€เธเนเธ)
                     </label>
                     <input
                       type="text"
                       value={blank.hint || ''}
                       onChange={(e) => updateBlank(blank.id, 'hint', e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                      placeholder="คำใบ้..."
+                      placeholder="เธเธณเนเธเน..."
                     />
                   </div>
                 </div>
@@ -228,7 +228,7 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
                   type="button"
                   onClick={() => removeBlank(blank.id)}
                   className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors shrink-0"
-                  title="ลบช่องว่าง"
+                  title="เธฅเธเธเนเธญเธเธงเนเธฒเธ"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -247,7 +247,7 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 mb-3"
           >
             {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            {showPreview ? 'ซ่อนตัวอย่าง' : 'แสดงตัวอย่าง'}
+            {showPreview ? 'เธเนเธญเธเธ•เธฑเธงเธญเธขเนเธฒเธ' : 'เนเธชเธ”เธเธ•เธฑเธงเธญเธขเนเธฒเธ'}
           </button>
           {showPreview && (
             <div className="bg-white border border-slate-200 rounded-lg p-6">

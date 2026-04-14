@@ -1,4 +1,5 @@
 import { pgTable, serial, text, timestamp, varchar, integer, boolean, numeric, primaryKey, index, jsonb } from 'drizzle-orm/pg-core';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ============================================================
@@ -179,6 +180,37 @@ export const userProgress = pgTable('user_progress', {
 }));
 
 // ============================================================
+// Articles (Grammar/Vocabulary Knowledge Base)
+// ============================================================
+
+export const articles = pgTable('articles', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  slug: varchar('slug', { length: 200 }).unique(),
+  content: text('content').notNull().default(''),
+  category: varchar('category', { length: 50 }),  // 'grammar' | 'vocabulary'
+  cefrLevel: varchar('cefr_level', { length: 10 }),
+  tags: text('tags').array(),                       // e.g. ['subject-verb', 'present-tense']
+  isPublished: boolean('is_published').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+}, (table) => ({
+  slugIdx: index('articles_slug_idx').on(table.slug),
+  categoryIdx: index('articles_category_idx').on(table.category),
+  publishedIdx: index('articles_published_idx').on(table.isPublished),
+}));
+
+// Optional link: article ↔ question (for showing related article during review)
+export const articleQuestions = pgTable('article_questions', {
+  id: serial('id').primaryKey(),
+  articleId: integer('article_id').notNull().references(() => articles.id, { onDelete: 'cascade' }),
+  questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+}, (table) => ({
+  articleIdx: index('aq_article_idx').on(table.articleId),
+  questionIdx: index('aq_question_idx').on(table.questionId),
+}));
+
+// ============================================================
 // Drizzle-inferred types (for DB layer use)
 // ============================================================
 
@@ -198,3 +230,7 @@ export type DbTestSet = typeof testSets.$inferSelect;
 export type NewTestSet = typeof testSets.$inferInsert;
 export type DbTestSetQuestion = typeof testSetQuestions.$inferSelect;
 export type NewTestSetQuestion = typeof testSetQuestions.$inferInsert;
+export type DbArticle = typeof articles.$inferSelect;
+export type NewArticle = typeof articles.$inferInsert;
+export type DbArticleQuestion = typeof articleQuestions.$inferSelect;
+export type NewArticleQuestion = typeof articleQuestions.$inferInsert;

@@ -8,7 +8,8 @@ import {
   Users, 
   BarChart3,
   Settings,
-  AlertTriangle
+  AlertTriangle,
+  BookOpen
 } from 'lucide-react';
 
 interface Stats {
@@ -80,6 +81,15 @@ export default function AdminDashboard() {
       href: '/admin/reports',
       color: 'from-orange-500 to-amber-500',
       bgColor: 'bg-orange-50',
+      count: 0,
+    },
+    {
+      title: 'บทความ',
+      description: 'จัดการบทความไวยากรณ์และคำศัพท์',
+      icon: BookOpen,
+      href: '/admin/articles',
+      color: 'from-indigo-500 to-violet-500',
+      bgColor: 'bg-indigo-50',
       count: 0,
     },
   ];

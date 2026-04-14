@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "mcp__context7__resolve-library-id",
+      "Bash(node -e ':*)",
+      "Bash(npm test:*)",
+      "Bash(psql \"postgresql://postgres:JpgC2CWLqh!@localhost:5432/CEFR_DB\" -c \"\\\\d test_types\")",
+      "Bash(psql \"postgresql://postgres:JpgC2CWLqh!@localhost:5432/CEFR_DB\" -c \"\\\\dt\")",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(PGPASSWORD=\"JpgC2CWLqh!\" psql:*)",
+      "Bash(curl -s http://localhost:3000/api/debug-db)",
+      "Bash(curl -s \"http://localhost:3000/api/tests/focus-meaning?count=1\")",
+      "Bash(npx tsx:*)",
+      "Bash(git commit:*)",
+      "Bash(curl -s \"http://localhost:3000/api/tests/focus-meaning?count=10\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(json.dumps\\([q for q in data['data'] if q.get\\('conversation'\\)], indent=2\\)[:2000]\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/tests/form-meaning?count=10\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(json.dumps\\([q for q in data['data'] if q.get\\('article'\\)], indent=2\\)[:2000]\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/tests/listening?count=10\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(json.dumps\\([q for q in data['data'] if q.get\\('audioUrl'\\)], indent=2\\)[:2000]\\)\")",
+      "mcp__plugin_oh-my-claudecode_t__state_clear",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(npm audit:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

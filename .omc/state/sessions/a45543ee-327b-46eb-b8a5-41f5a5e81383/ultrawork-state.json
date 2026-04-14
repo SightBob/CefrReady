@@ -1,0 +1,9 @@
+{
+  "active": true,
+  "started_at": "2026-04-10T09:14:37.676Z",
+  "original_prompt": "/ralph\n\nreview current project\n\nchoose highest impact feature from:\n- review\n- roles\n- scoring\n- mobile\n- analytics\n\npick one only\nexplain why\nbuild it completely\n\ndo not switch task",
+  "session_id": "a45543ee-327b-46eb-b8a5-41f5a5e81383",
+  "project_path": "C:\\Code\\CefrReady\\CefrReady",
+  "reinforcement_count": 0,
+  "last_checked_at": "2026-04-10T09:14:37.676Z"
+}

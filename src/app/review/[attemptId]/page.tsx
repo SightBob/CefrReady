@@ -9,6 +9,7 @@ import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
 import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
 import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
+import RelatedArticlesPanel from '@/components/RelatedArticlesPanel';
 import type { TestTypeId, Option, ConversationLine, Article, Blank } from '@/types/test';
 
 interface AttemptData {
@@ -55,6 +56,15 @@ interface ReviewResponse {
   };
 }
 
+interface ArticleSummary {
+  id: number;
+  title: string;
+  slug: string | null;
+  category: string | null;
+  cefrLevel: string | null;
+  tags: string[] | null;
+}
+
 type FilterMode = 'all' | 'correct' | 'incorrect';
 
 export default function ReviewPage() {
@@ -66,6 +76,8 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>('all');
+  const [grammarArticles, setGrammarArticles] = useState<ArticleSummary[]>([]);
+  const [vocabularyArticles, setVocabularyArticles] = useState<ArticleSummary[]>([]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -74,8 +86,21 @@ export default function ReviewPage() {
     }
     if (status === 'authenticated' && params.attemptId) {
       fetchReviewData();
+      fetchArticles();
     }
   }, [status, params.attemptId]);
+
+  const fetchArticles = async () => {
+    try {
+      const res = await fetch('/api/articles');
+      const json = await res.json();
+      if (json.success) {
+        const all: ArticleSummary[] = json.data;
+        setGrammarArticles(all.filter(a => a.category === 'grammar').slice(0, 3));
+        setVocabularyArticles(all.filter(a => a.category === 'vocabulary').slice(0, 3));
+      }
+    } catch { /* non-critical */ }
+  };
 
   const fetchReviewData = async () => {
     try {
@@ -310,6 +335,8 @@ export default function ReviewPage() {
                   <ReviewQuestionCard
                     item={item}
                     onAnswerSelect={noOp}
+                    grammarArticles={grammarArticles}
+                    vocabularyArticles={vocabularyArticles}
                   />
                 </div>
               </div>
@@ -336,9 +363,13 @@ export default function ReviewPage() {
 function ReviewQuestionCard({
   item,
   onAnswerSelect,
+  grammarArticles,
+  vocabularyArticles,
 }: {
   item: ReviewItem;
   onAnswerSelect: (answer: string) => void;
+  grammarArticles: ArticleSummary[];
+  vocabularyArticles: ArticleSummary[];
 }) {
   const q = item.question;
   if (!q) {
@@ -349,24 +380,33 @@ function ReviewQuestionCard({
     );
   }
 
+  // Pick related articles based on test type
+  const relatedArticles: ArticleSummary[] =
+    q.testTypeId === 'focus-form' ? grammarArticles
+    : q.testTypeId === 'focus-meaning' ? vocabularyArticles
+    : [];
+
   switch (q.testTypeId) {
     case 'focus-form':
       return (
-        <FocusFormQuestionCard
-          questionText={q.questionText}
-          options={[
-            { key: 'A', value: q.optionA || '' },
-            { key: 'B', value: q.optionB || '' },
-            { key: 'C', value: q.optionC || '' },
-            { key: 'D', value: q.optionD || '' },
-          ]}
-          selectedAnswer={item.userAnswer}
-          correctAnswer={q.correctAnswer}
-          explanation={q.explanation}
-          conversation={q.conversation ?? null}
-          onAnswerSelect={onAnswerSelect}
-          disabled
-        />
+        <>
+          <FocusFormQuestionCard
+            questionText={q.questionText}
+            options={[
+              { key: 'A', value: q.optionA || '' },
+              { key: 'B', value: q.optionB || '' },
+              { key: 'C', value: q.optionC || '' },
+              { key: 'D', value: q.optionD || '' },
+            ]}
+            selectedAnswer={item.userAnswer}
+            correctAnswer={q.correctAnswer}
+            explanation={q.explanation}
+            conversation={q.conversation ?? null}
+            onAnswerSelect={onAnswerSelect}
+            disabled
+          />
+          <RelatedArticlesPanel articles={relatedArticles} isCorrect={item.isCorrect} />
+        </>
       );
 
     case 'focus-meaning': {
@@ -375,16 +415,19 @@ function ReviewQuestionCard({
       const correctIndex = q.correctAnswer ? ['A', 'B', 'C', 'D'].indexOf(q.correctAnswer) : -1;
 
       return (
-        <FocusMeaningConversationCard
-          conversation={q.conversation || []}
-          question={q.questionText}
-          options={options}
-          selectedAnswer={selectedIndex >= 0 ? selectedIndex : null}
-          correctAnswer={correctIndex >= 0 ? correctIndex : null}
-          explanation={q.explanation || ''}
-          onAnswerSelect={() => {}}
-          disabled
-        />
+        <>
+          <FocusMeaningConversationCard
+            conversation={q.conversation || []}
+            question={q.questionText}
+            options={options}
+            selectedAnswer={selectedIndex >= 0 ? selectedIndex : null}
+            correctAnswer={correctIndex >= 0 ? correctIndex : null}
+            explanation={q.explanation || ''}
+            onAnswerSelect={() => {}}
+            disabled
+          />
+          <RelatedArticlesPanel articles={relatedArticles} isCorrect={item.isCorrect} />
+        </>
       );
     }
 

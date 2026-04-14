@@ -1,0 +1,496 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1775994282420,
+  "projectRoot": "C:\\Code\\CefrReady\\CefrReady",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "next",
+        "version": "14.2.3",
+        "category": "fullstack"
+      },
+      {
+        "name": "react",
+        "version": "18.3.1",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "18.3.1",
+        "category": "frontend"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": "npm test",
+    "lintCommand": "npm run lint",
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "next lint",
+      "test": "npm run build",
+      "db:generate": "drizzle-kit generate",
+      "db:migrate": "drizzle-kit migrate",
+      "db:push": "drizzle-kit push",
+      "db:studio": "drizzle-kit studio",
+      "db:seed": "npx tsx scripts/seed-admin.ts",
+      "db:cleanup": "npx tsx scripts/cleanup-tables.ts",
+      "db:add-questions": "npx tsx scripts/add-sample-questions.ts"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": "type-based"
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "public",
+      "scripts",
+      "src"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [
+    {
+      "timestamp": 1775798895515,
+      "source": "manual",
+      "category": "architecture",
+      "content": "Auth system: NextAuth v5 (beta) with Google OAuth, database sessions via Drizzle adapter. Session callback in auth-options.ts adds user.id to session. Middleware checks session cookie for protected routes. No role system currently - will use email-based admin check (pawatsaekoo@gmail.com)."
+    }
+  ],
+  "directoryMap": {
+    "csv_data": {
+      "path": "csv_data",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1775994282398,
+      "keyFiles": [
+        "formatted-questions.csv",
+        "sample-questions.csv",
+        "ข้อสอบจริง ล่าสุด cefr - focus on form.csv"
+      ]
+    },
+    "drizzle": {
+      "path": "drizzle",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775994282399,
+      "keyFiles": [
+        "0000_illegal_sunset_bain.sql"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 0,
+      "lastAccessed": 1775994282405,
+      "keyFiles": []
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 9,
+      "lastAccessed": 1775994282405,
+      "keyFiles": [
+        "add-extended-schema.ts",
+        "add-sample-questions.ts",
+        "check-db-state.ts",
+        "check-questions.ts",
+        "cleanup-empty-set.ts"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1775994282405,
+      "keyFiles": [
+        "middleware.ts"
+      ]
+    },
+    "state": {
+      "path": "state",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775994282405,
+      "keyFiles": [
+        "cancel-signal-state.json"
+      ]
+    },
+    "src\\app": {
+      "path": "src\\app",
+      "purpose": "Application code",
+      "fileCount": 7,
+      "lastAccessed": 1775994282406,
+      "keyFiles": [
+        "error.tsx",
+        "global-error.tsx",
+        "globals.css"
+      ]
+    },
+    "src\\components": {
+      "path": "src\\components",
+      "purpose": "UI components",
+      "fileCount": 18,
+      "lastAccessed": 1775994282406,
+      "keyFiles": [
+        "ArticleEditor.tsx",
+        "DemoTestsSection.tsx",
+        "FocusFormQuestionCard.tsx"
+      ]
+    },
+    "src\\lib": {
+      "path": "src\\lib",
+      "purpose": "Library code",
+      "fileCount": 6,
+      "lastAccessed": 1775994282407,
+      "keyFiles": [
+        "admin-auth.ts",
+        "auth-utils.ts",
+        "auth.config.ts"
+      ]
+    },
+    "src\\types": {
+      "path": "src\\types",
+      "purpose": "Type definitions",
+      "fileCount": 1,
+      "lastAccessed": 1775994282407,
+      "keyFiles": [
+        "test.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src\\app\\tests\\[sectionId]\\[setId]\\page.tsx",
+      "accessCount": 54,
+      "lastAccessed": 1776073744873,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 49,
+      "lastAccessed": 1776057761353,
+      "type": "directory"
+    },
+    {
+      "path": "src",
+      "accessCount": 23,
+      "lastAccessed": 1776057770572,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\admin\\questions\\page.tsx",
+      "accessCount": 19,
+      "lastAccessed": 1775951802919,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\questions\\[id]\\page.tsx",
+      "accessCount": 14,
+      "lastAccessed": 1775951805523,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\review\\[attemptId]\\page.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1776066138044,
+      "type": "file"
+    },
+    {
+      "path": "src\\db\\schema.ts",
+      "accessCount": 12,
+      "lastAccessed": 1776058033620,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\questions\\import\\route.ts",
+      "accessCount": 11,
+      "lastAccessed": 1776057770544,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\questions\\route.ts",
+      "accessCount": 10,
+      "lastAccessed": 1775951846680,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\tests\\submit\\route.ts",
+      "accessCount": 10,
+      "lastAccessed": 1776054785902,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\FocusMeaningConversationCard.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1776057775242,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\admin\\test-sets\\page.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1775951802876,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\score-utils.ts",
+      "accessCount": 8,
+      "lastAccessed": 1776054800548,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\questions\\[id]\\route.ts",
+      "accessCount": 6,
+      "lastAccessed": 1775951846745,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\test-sets\\[id]\\route.ts",
+      "accessCount": 5,
+      "lastAccessed": 1775901945337,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\test-sets\\route.ts",
+      "accessCount": 5,
+      "lastAccessed": 1775901945370,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\test-sets\\[id]\\questions\\route.ts",
+      "accessCount": 4,
+      "lastAccessed": 1775901945350,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\test-sets\\[id]\\route.ts",
+      "accessCount": 4,
+      "lastAccessed": 1776057770531,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\test-sets\\[id]\\questions\\[qid]\\route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1775901955763,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\test-sets\\[id]\\page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1775902157936,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\questions\\new\\page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1775951805415,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\tests\\page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1775951810287,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\tests\\layout.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1775951819638,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\admin-auth.ts",
+      "accessCount": 3,
+      "lastAccessed": 1775951944509,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\questions\\import\\page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1775980435314,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\SectionCard.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1775994569156,
+      "type": "file"
+    },
+    {
+      "path": "scripts\\create-test-sets.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775887433214,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\sections\\route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775888530698,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\users\\page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775896066409,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\admin\\AssignToTestSetModal.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775897399613,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\auth.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775951559950,
+      "type": "file"
+    },
+    {
+      "path": "src\\middleware.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775951563948,
+      "type": "file"
+    },
+    {
+      "path": "drizzle.config.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775951564013,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\auth.config.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775951571304,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\tests\\[sectionId]\\page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775951785985,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\tests\\attempts\\[attemptId]\\route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775951810295,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\upload-audio\\route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775951839429,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\layout.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775953879974,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\TestSetCard.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1775883411988,
+      "type": "file"
+    },
+    {
+      "path": "drizzle\\0000_illegal_sunset_bain.sql",
+      "accessCount": 1,
+      "lastAccessed": 1775886244620,
+      "type": "file"
+    },
+    {
+      "path": "scripts\\migrate-test-sets-db.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775886512121,
+      "type": "file"
+    },
+    {
+      "path": "scripts\\check-db-state.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775887371860,
+      "type": "file"
+    },
+    {
+      "path": "scripts\\cleanup-empty-set.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775887492042,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\users\\route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775888526258,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\reports\\route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775888530786,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\auth-utils.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775888541875,
+      "type": "file"
+    },
+    {
+      "path": "src\\db",
+      "accessCount": 1,
+      "lastAccessed": 1775896037215,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\admin\\test-sets",
+      "accessCount": 1,
+      "lastAccessed": 1775896080410,
+      "type": "directory"
+    },
+    {
+      "path": "scripts\\check-questions.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775898076282,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\test-sets\\[id]\\questions\\create\\route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775902040908,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}
