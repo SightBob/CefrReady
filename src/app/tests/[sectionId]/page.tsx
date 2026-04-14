@@ -26,15 +26,15 @@ const SECTION_BG: Record<string, string> = {
   'listening': 'bg-orange-50',
 };
 
+import { fetchSectionsFromDb } from '@/lib/sections';
+
 async function getSectionWithSets(sectionId: string): Promise<SectionWithSets | null> {
   try {
-    const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/sections`, { cache: 'no-store' });
-    const json = await res.json();
-    if (!json.success) return null;
-    const sections: SectionWithSets[] = json.sections;
+    const rawSections = await fetchSectionsFromDb();
+    const sections: SectionWithSets[] = rawSections as any;
     return sections.find((s) => s.id === sectionId) ?? null;
-  } catch {
+  } catch (err) {
+    console.error('[tests/sectionId] Failed to fetch section:', err);
     return null;
   }
 }

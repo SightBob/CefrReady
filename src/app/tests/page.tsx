@@ -10,12 +10,17 @@ export const metadata: Metadata = {
   description: 'เลือกทำข้อสอบ CEFR ที่ตรงกับระดับของคุณ ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2',
 };
 
+import { fetchSectionsFromDb } from '@/lib/sections';
+
 async function getSections(): Promise<SectionData[]> {
   try {
-    const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/sections`, { cache: 'no-store' });
-    const json = await res.json();
-    if (json.success) return json.sections as SectionData[];
+    const rawSections = await fetchSectionsFromDb();
+    // Convert to SectionData format expected by frontend
+    return rawSections.map(s => ({
+      ...s,
+      icon: s.icon as any,
+      color: s.color as any,
+    }));
   } catch (err) {
     console.error('[tests/page] Failed to fetch sections:', err);
   }
