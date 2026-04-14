@@ -43,6 +43,15 @@ export default function ListeningAudioPlayer({
   const playedCallbackRef = useRef(false);
 
   useEffect(() => {
+    // Reset state for new audio
+    setIsPlaying(false);
+    setHasPlayed(false);
+    setProgress(0);
+    setCurrentTime(0);
+    setDuration(0);
+    setError(null);
+    playedCallbackRef.current = false;
+
     if (!audioUrl) return;
 
     const audio = new Audio(audioUrl);
@@ -119,6 +128,41 @@ export default function ListeningAudioPlayer({
   const isCorrect = selectedAnswer === correctAnswer;
   const showExplanation = selectedAnswer !== null && explanation !== null;
 
+  const renderTranscript = (text: string) => {
+    if (!text) return null;
+    // Splitting by literal "\n" or actual newline
+    const lines = text.split(/\\n|\\r\\n|\r\n|\n/);
+    return lines.map((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed) return null;
+      
+      const match = trimmed.match(/^(M|F|Male|Female|Man|Woman):\s*(.*)/i);
+      if (match) {
+        const speaker = match[1].toUpperCase();
+        const content = match[2];
+        const isMale = speaker.startsWith('M');
+        const speakerColor = isMale 
+          ? 'text-blue-700 bg-blue-100' 
+          : 'text-pink-700 bg-pink-100';
+        
+        return (
+          <div key={idx} className="mb-3 flex gap-3 items-start">
+            <span className={`px-2 py-1 rounded text-xs font-bold mt-0.5 shrink-0 w-8 text-center ${speakerColor}`}>
+              {speaker.charAt(0)}
+            </span>
+            <span className="text-slate-800 leading-relaxed">{content}</span>
+          </div>
+        );
+      }
+      
+      return (
+        <p key={idx} className="mb-2 text-slate-800 leading-relaxed last:mb-0">
+          {trimmed}
+        </p>
+      );
+    });
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
       {/* Audio Player */}
@@ -177,9 +221,11 @@ export default function ListeningAudioPlayer({
 
       {/* Show transcript after answering */}
       {showExplanation && (
-        <div className="bg-slate-50 rounded-xl p-4 mb-6">
-          <p className="text-sm font-medium text-slate-600 mb-2">Audio Transcript:</p>
-          <p className="text-slate-800 italic">"{transcript || questionText}"</p>
+        <div className="bg-slate-50 rounded-xl p-5 mb-6 border border-slate-200">
+          <p className="text-sm font-semibold text-slate-500 mb-4 uppercase tracking-wider">Audio Transcript</p>
+          <div className="text-base">
+            {renderTranscript(transcript || questionText)}
+          </div>
         </div>
       )}
 
@@ -204,7 +250,7 @@ export default function ListeningAudioPlayer({
               <button
                 key={opt.key}
                 onClick={() => onAnswerSelect(opt.key)}
-                disabled={selectedAnswer !== null || !hasPlayed || disabled}
+                disabled={selectedAnswer !== null || disabled}
                 className={buttonClass}
               >
                 <span className="font-medium text-slate-800">{opt.value}</span>

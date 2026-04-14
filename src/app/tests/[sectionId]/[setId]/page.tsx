@@ -500,8 +500,8 @@ export default function SetQuizPage() {
             { key: 'D', value: question.optionD ?? '' },
           ]}
           selectedAnswer={selectedAnswer}
-          correctAnswer={results[currentQuestion]?.correctAnswer ?? null}
-          explanation={results[currentQuestion]?.explanation ?? null}
+          correctAnswer={selectedAnswer !== null ? (question.correctAnswer ?? null) : null}
+          explanation={selectedAnswer !== null ? (question.explanation || 'See transcript above.') : null}
           onAudioPlayed={() => setAudioPlayedMap(prev => ({ ...prev, [currentQuestion]: true }))}
           onAnswerSelect={handleAnswer}
           disabled={submitting}
@@ -517,7 +517,7 @@ export default function SetQuizPage() {
           </button>
           <button
             onClick={currentQuestion < setData.questions.length - 1 ? handleNext : handleSubmit}
-            disabled={selectedAnswer === null || !audioPlayedMap[currentQuestion] || submitting}
+            disabled={selectedAnswer === null || submitting}
             className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {currentQuestion < setData.questions.length - 1 ? 'Next Question' : 'Finish Test'}

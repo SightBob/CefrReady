@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-prompt)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-pridi)', 'ui-serif', 'Georgia', 'serif'],
+      },
       colors: {
         primary: {
           50: '#f0f9ff',
@@ -50,5 +54,8 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+    require('tailwindcss-animate')
+  ],
 };

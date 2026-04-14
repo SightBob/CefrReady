@@ -39,7 +39,7 @@ export default function TestResults({ score, totalQuestions, isDemo = false, onR
         </p>
 
         <div className="bg-slate-50 rounded-xl p-6 mb-6">
-          <p className="text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
+          <p className="text-4xl sm:text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
           <p className="text-slate-500">{score} out of {totalQuestions} correct</p>
         </div>
 

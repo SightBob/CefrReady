@@ -73,13 +73,13 @@ export default async function Home() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* HERO — Split layout */}
-      <section className="min-h-[85dvh] flex items-center relative overflow-hidden">
+      <section className="min-h-[70dvh] md:min-h-[80dvh] lg:min-h-[85dvh] flex items-center relative overflow-hidden">
         {/* Background atmosphere */}
         <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-br from-primary-50/50 to-accent-50/30 -z-10" />
         <div className="absolute top-20 right-20 w-96 h-96 bg-primary-100/40 rounded-full blur-3xl -z-10" />
         <div className="absolute bottom-20 left-20 w-64 h-64 bg-accent-100/30 rounded-full blur-3xl -z-10" />
 
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center w-full">
           {/* Left: Copy */}
           <div className="space-y-8">
             <div
@@ -91,7 +91,7 @@ export default async function Home() {
             </div>
 
             <h1
-              className="text-5xl md:text-6xl lg:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight stagger-animate"
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight stagger-animate"
               style={{ animationDelay: '100ms' }}
             >
               เตรียมพร้อม
@@ -144,8 +144,8 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* Right: Test types grid */}
-          <div className="hidden lg:grid grid-cols-2 gap-4 stagger-animate" style={{ animationDelay: '500ms' }}>
+          {/* Right: Test types grid (desktop side, mobile below) */}
+          <div className="grid grid-cols-2 gap-4 stagger-animate" style={{ animationDelay: '500ms' }}>
             {TEST_TYPES.map((type) => {
               const Icon = type.icon;
               return (

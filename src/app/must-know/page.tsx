@@ -2,8 +2,14 @@ import { db } from '@/db';
 import { articles } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import MustKnowClient, { DbArticle } from '@/components/MustKnowClient';
+import type { Metadata } from 'next';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // ISR caching
+
+export const metadata: Metadata = {
+  title: 'Must Know — หลักไวยากรณ์ภาษาอังกฤษที่ต้องรู้',
+  description: 'บทความสรุปไวยากรณ์ภาษาอังกฤษที่สำคัญ สำหรับเตรียมสอบ CEFR',
+};
 
 export default async function MustKnowPage() {
   const data = await db

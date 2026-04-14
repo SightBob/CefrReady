@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 import { requireAdmin } from '@/lib/admin-auth';
+import { uploadToR2 } from '@/lib/r2';
 
 export async function POST(request: NextRequest) {
   const { error } = await requireAdmin();
@@ -19,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only audio files are allowed' }, { status: 400 });
     }
 
-    const MAX_SIZE = 10 * 1024 * 1024;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
     if (file.size > MAX_SIZE) {
       return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 });
     }
@@ -29,15 +28,9 @@ export async function POST(request: NextRequest) {
 
     const timestamp = Date.now();
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filename = `${timestamp}-${sanitizedName}`;
+    const key = `audio/listening/${timestamp}-${sanitizedName}`;
 
-    const uploadDir = path.join(process.cwd(), 'public', 'audio', 'listening');
-    await mkdir(uploadDir, { recursive: true });
-
-    const filepath = path.join(uploadDir, filename);
-    await writeFile(filepath, buffer);
-
-    const audioUrl = `/audio/listening/${filename}`;
+    const audioUrl = await uploadToR2(key, buffer, file.type);
 
     return NextResponse.json({ url: audioUrl });
   } catch (err) {

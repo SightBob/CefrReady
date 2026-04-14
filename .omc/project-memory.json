@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775994282420,
+  "lastScanned": 1776147344747,
   "projectRoot": "C:\\Code\\CefrReady\\CefrReady",
   "techStack": {
     "languages": [
@@ -92,19 +92,21 @@
     "csv_data": {
       "path": "csv_data",
       "purpose": null,
-      "fileCount": 3,
-      "lastAccessed": 1775994282398,
+      "fileCount": 8,
+      "lastAccessed": 1776147344726,
       "keyFiles": [
+        "focus-on-form-ready.csv",
+        "formatted-form-meaning.csv",
+        "formatted-listening.csv",
         "formatted-questions.csv",
-        "sample-questions.csv",
-        "ข้อสอบจริง ล่าสุด cefr - focus on form.csv"
+        "questions_with_audio_mapping.txt"
       ]
     },
     "drizzle": {
       "path": "drizzle",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1775994282399,
+      "lastAccessed": 1776147344727,
       "keyFiles": [
         "0000_illegal_sunset_bain.sql"
       ]
@@ -113,27 +115,27 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 0,
-      "lastAccessed": 1775994282405,
+      "lastAccessed": 1776147344732,
       "keyFiles": []
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
-      "fileCount": 9,
-      "lastAccessed": 1775994282405,
+      "fileCount": 19,
+      "lastAccessed": 1776147344732,
       "keyFiles": [
         "add-extended-schema.ts",
         "add-sample-questions.ts",
         "check-db-state.ts",
-        "check-questions.ts",
-        "cleanup-empty-set.ts"
+        "check-form-meaning.js",
+        "check-questions.ts"
       ]
     },
     "src": {
       "path": "src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1775994282405,
+      "lastAccessed": 1776147344732,
       "keyFiles": [
         "middleware.ts"
       ]
@@ -142,7 +144,7 @@
       "path": "state",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1775994282405,
+      "lastAccessed": 1776147344732,
       "keyFiles": [
         "cancel-signal-state.json"
       ]
@@ -151,7 +153,7 @@
       "path": "src\\app",
       "purpose": "Application code",
       "fileCount": 7,
-      "lastAccessed": 1775994282406,
+      "lastAccessed": 1776147344733,
       "keyFiles": [
         "error.tsx",
         "global-error.tsx",
@@ -161,8 +163,8 @@
     "src\\components": {
       "path": "src\\components",
       "purpose": "UI components",
-      "fileCount": 18,
-      "lastAccessed": 1775994282406,
+      "fileCount": 20,
+      "lastAccessed": 1776147344734,
       "keyFiles": [
         "ArticleEditor.tsx",
         "DemoTestsSection.tsx",
@@ -173,7 +175,7 @@
       "path": "src\\lib",
       "purpose": "Library code",
       "fileCount": 6,
-      "lastAccessed": 1775994282407,
+      "lastAccessed": 1776147344734,
       "keyFiles": [
         "admin-auth.ts",
         "auth-utils.ts",
@@ -184,7 +186,7 @@
       "path": "src\\types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1775994282407,
+      "lastAccessed": 1776147344734,
       "keyFiles": [
         "test.ts"
       ]
@@ -193,8 +195,8 @@
   "hotPaths": [
     {
       "path": "src\\app\\tests\\[sectionId]\\[setId]\\page.tsx",
-      "accessCount": 54,
-      "lastAccessed": 1776073744873,
+      "accessCount": 55,
+      "lastAccessed": 1776148182724,
       "type": "file"
     },
     {
@@ -205,8 +207,8 @@
     },
     {
       "path": "src",
-      "accessCount": 23,
-      "lastAccessed": 1776057770572,
+      "accessCount": 30,
+      "lastAccessed": 1776152240024,
       "type": "directory"
     },
     {
@@ -234,6 +236,12 @@
       "type": "file"
     },
     {
+      "path": "src\\components\\FocusMeaningConversationCard.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1776148306578,
+      "type": "directory"
+    },
+    {
       "path": "src\\app\\api\\admin\\questions\\import\\route.ts",
       "accessCount": 11,
       "lastAccessed": 1776057770544,
@@ -250,12 +258,6 @@
       "accessCount": 10,
       "lastAccessed": 1776054785902,
       "type": "file"
-    },
-    {
-      "path": "src\\components\\FocusMeaningConversationCard.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1776057775242,
-      "type": "directory"
     },
     {
       "path": "src\\app\\admin\\test-sets\\page.tsx",
@@ -288,6 +290,12 @@
       "type": "file"
     },
     {
+      "path": "src\\app\\tests\\page.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1776148284926,
+      "type": "file"
+    },
+    {
       "path": "src\\app\\api\\admin\\test-sets\\[id]\\questions\\route.ts",
       "accessCount": 4,
       "lastAccessed": 1775901945350,
@@ -297,6 +305,18 @@
       "path": "src\\app\\api\\test-sets\\[id]\\route.ts",
       "accessCount": 4,
       "lastAccessed": 1776057770531,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\tests\\layout.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1776148127455,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\SectionCard.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1776148127498,
       "type": "file"
     },
     {
@@ -318,18 +338,6 @@
       "type": "file"
     },
     {
-      "path": "src\\app\\tests\\page.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1775951810287,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\tests\\layout.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1775951819638,
-      "type": "file"
-    },
-    {
       "path": "src\\lib\\admin-auth.ts",
       "accessCount": 3,
       "lastAccessed": 1775951944509,
@@ -342,9 +350,21 @@
       "type": "file"
     },
     {
-      "path": "src\\components\\SectionCard.tsx",
+      "path": "src\\app\\admin\\layout.tsx",
       "accessCount": 3,
-      "lastAccessed": 1775994569156,
+      "lastAccessed": 1776148127506,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\tests\\[sectionId]\\page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1776148149767,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\TestSetCard.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1776148317848,
       "type": "file"
     },
     {
@@ -396,12 +416,6 @@
       "type": "file"
     },
     {
-      "path": "src\\app\\tests\\[sectionId]\\page.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1775951785985,
-      "type": "file"
-    },
-    {
       "path": "src\\app\\api\\tests\\attempts\\[attemptId]\\route.ts",
       "accessCount": 2,
       "lastAccessed": 1775951810295,
@@ -411,18 +425,6 @@
       "path": "src\\app\\api\\admin\\upload-audio\\route.ts",
       "accessCount": 2,
       "lastAccessed": 1775951839429,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\admin\\layout.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1775953879974,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\TestSetCard.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1775883411988,
       "type": "file"
     },
     {

@@ -1,11 +1,22 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Prompt, Pridi } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { SessionProvider } from 'next-auth/react';
 import { Suspense } from 'react';
 
-const inter = Inter({ subsets: ['latin'] });
+const prompt = Prompt({ 
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['latin', 'thai'], 
+  variable: '--font-prompt' 
+});
+
+const pridi = Pridi({ 
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['latin', 'thai'], 
+  variable: '--font-pridi' 
+});
 
 export const metadata: Metadata = {
   title: 'CEFR Ready — ฝึกภาษาอังกฤษ มาตรฐาน CEFR',
@@ -19,15 +30,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className={inter.className}>
+      <body className={`${prompt.variable} ${pridi.variable} font-sans`}>
         <SessionProvider>
-          <div className="min-h-screen flex flex-col">
+          <div className="min-h-screen flex flex-col font-sans">
             <Header />
             <main className="flex-1">
               <Suspense>
                 {children}
               </Suspense>
             </main>
+            <Footer />
           </div>
         </SessionProvider>
       </body>

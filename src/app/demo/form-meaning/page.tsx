@@ -96,7 +96,7 @@ export default function DemoFormMeaningPage() {
           </p>
 
           <div className="bg-slate-50 rounded-xl p-6 mb-6">
-            <p className="text-5xl font-bold text-slate-900 mb-2">{Math.round((score / totalBlanks) * 100)}%</p>
+            <p className="text-4xl sm:text-5xl font-bold text-slate-900 mb-2">{Math.round((score / totalBlanks) * 100)}%</p>
             <p className="text-slate-500">{score} out of {totalBlanks} correct</p>
           </div>
 

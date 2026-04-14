@@ -54,7 +54,7 @@ export default function FormMeaningArticleCard({
           <span key={keyIndex++} className="inline-flex flex-col items-start mx-1">
             <input
               type="text"
-              className={`w-32 px-2 py-1 rounded border-2 text-center ${
+              className={`w-24 sm:w-32 px-2 py-1 rounded border-2 text-center ${
                 isSubmitted
                   ? isCorrect
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700'

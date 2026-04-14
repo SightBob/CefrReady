@@ -244,7 +244,7 @@ export default function TestLayout({
       {showMobileNav && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileNav(false)}>
           <div 
-            className="absolute right-0 top-0 h-full w-80 bg-white shadow-xl overflow-y-auto"
+            className="absolute right-0 top-0 h-full w-72 bg-white shadow-xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 border-b border-slate-200">

@@ -156,7 +156,7 @@ export default function DemoFocusFormPage() {
 
             {/* Score */}
             <div className="p-8 text-center border-b border-slate-100">
-              <p className="text-6xl font-bold tracking-tight text-slate-900 mb-1">{percentage}%</p>
+              <p className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-slate-900 mb-1">{percentage}%</p>
               <p className="text-slate-500 text-sm">{score} of {questions.length} correct</p>
             </div>
 
