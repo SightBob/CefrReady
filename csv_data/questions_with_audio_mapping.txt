@@ -1,0 +1,726 @@
+[Q1] = Q1.mp3
+
+Script:
+F: My friend and I went to the new show at that science museum downtown.
+M: That's one of my favorite places. What was the exhibit like?
+F: To be honest, I'm generally more of a fan of art museums, but this time I found myself fascinated.
+M: Oh, interesting. Why do you think that was?
+F: It must've been how the show was organized. When I looked at my watch, I couldn't believe two hours had passed.
+
+Question: A man and a woman are talking about a museum. What does the woman say about the exhibit?
+- A She prefers art museums.
+- B The exhibit was better than she had expected.
+- C She wishes the exhibit had been organized better.
+- D She wants to visit the exhibit again with her family.
+
+Correct Answer: B
+Explanation: ผู้หญิงบอกว่าปกติเธอชอบพิพิธภัณฑ์ศิลปะมากกว่า แต่คราวนี้เธอรู้สึกหลงใหลเพราะการจัดแสดงน่าสนใจและทำให้เวลาผ่านไปเร็ว
+
+---
+
+
+[Q2] = Q2.mp3
+
+Script:
+F: I'm not sure who I'll vote for next week. I don't like either candidate.
+M: I don't know either, but my problem is that each candidate has some positions I like.
+F: Maybe we shouldn't vote for either one. Why support someone with a lot of bad ideas.
+M: I have to vote. I think it's a really important responsibility.
+
+Question: Two friends are talking about an election. What does the man say he's unsure about?
+- A who he will vote for
+- B whether he will vote
+- C who the candidates are
+- D what positions the candidates have
+
+Correct Answer: A
+Explanation: ผู้ชายบอกว่าเขาไม่แน่ใจว่าจะโหวตให้ใครเหมือนกัน ("I do not know either") เพราะผู้สมัครแต่ละคนก็มีนโยบายที่เขาชอบ
+
+---
+
+
+[Q3] = Q3.mp3
+
+Script:
+F: Excuse me, could you tell me where the nearest post office is?
+M: Yes, it's down the high street across the road from the newsagents.
+F: Is it the building next to the shoe shop?
+M: No, that's the cinema. The post office is between the bank and the supermarket.
+
+Question: A woman is asking where the post office is. The post office is opposite ...
+- A the bank.
+- B the cinema.
+- C the newsagent.
+- D the supermarket.
+
+Correct Answer: C
+Explanation: ผู้ชายบอกว่าที่ทำการไปรษณีย์อยู่ฝั่งตรงข้าม (across the road) กับร้านขายหนังสือพิมพ์ (newsagents)
+
+---
+
+
+[Q4] = Q4.mp3
+
+Script:
+F: Can I help you?
+M: I've just come to pick up my son - he's got a dental appointment.
+F: Would you like me to send a note to his classroom?
+M: No, that's OK thanks - his teacher knows.
+F: OK.
+M: I think they've been doing sports, but I'm sure he'll be along in a minute.
+
+Question: A man and a woman are talking. Where are they?
+- A in a school
+- B at the dentist's
+- C at a sports centre
+- D at the woman's house
+
+Correct Answer: A
+Explanation: ผู้ชายมารับลูกชาย และผู้หญิงถามว่าจะให้ส่งข้อความไปที่ "ห้องเรียน (classroom)" ของเขาไหม แสดงว่าอยู่ที่โรงเรียน
+
+---
+
+
+[Q5] = Q5.mp3
+
+Script:
+M: Have you got a big family?
+F: Yes, I suppose so. Two sons and three daughters.
+M: Five kids! That sounds hard. Is it?
+F: No, not really. It's not cheap, but I'm never bored.
+
+Question: A woman is talking about her family life. She says it's ...
+- A noisy.
+- B boring.
+- C difficult.
+- D expensive.
+
+Correct Answer: D
+Explanation: ผู้หญิงบอกว่าการมีลูก 5 คนนั้น "not cheap" (ไม่ถูก) ซึ่งตรงกับคำว่า expensive (แพง)
+
+---
+
+
+[Q6] = Q6.mp3
+
+Script:
+M: Thanks for meeting with me to talk about the new job.
+F: Thank you, too. We will decide next week.
+M: Great. Could you call to let me know?
+F: Yes, I have your number from your form.
+
+Question: A man and a woman are talking. The woman ...
+- A needs the man's number.
+- B offers the man a job.
+- C wants to get a job.
+- D will call the man.
+
+Correct Answer: D
+Explanation: ผู้ชายขอให้ผู้หญิงโทรบอกผล เมื่อได้ข้อสรุป และผู้หญิงตอบตกลงว่าจะโทรหา
+
+---
+
+
+[Q7] = Q7.mp3
+
+Script:
+M: Oh, hi, Mary, it's great to see you here!
+F: Hi, Dave! Yeah, it's great to see you, too. I didn't know you were coming to the party.
+M: Yeah, I wasn't sure I'd come. But then I decided it would be fun to see all our old school friends again.
+F: Well, I'm glad you did. It's been quite a few years now since we went to the same college. What have you been doing?
+
+Question: A man and a woman are talking. Several years ago, they ...
+- A went on the same school trip.
+- B stayed at the same hospital.
+- C worked at the same office.
+- D went to the same college.
+
+Correct Answer: D
+Explanation: ผู้หญิงบอกว่าผ่านมาหลายปีแล้วตั้งแต่พวกเขาเรียนวิทยาลัย (college) เดียวกัน
+
+---
+
+
+[Q8] = Q8.mp3
+
+Script:
+M: Look at these kittens, Emma. Which one do you like?
+F: Oh, they are all so cute! What about that little grey one?
+M: The grey kitten is adorable, but it has a lot of energy. It might be better as an outdoor cat. Plus, it's not very gentle when playing.
+F: Is it healthy?
+M: Yes, very healthy. But actually, looking at the sign, it seems that someone has already bought that one. We'll have to pick another.
+
+Question: A man and his daughter are talking about pets. The man says that the grey kitten ...
+- A is already sold.
+- B is very healthy.
+- C is an outdoor cat.
+- D is gentle with children.
+
+Correct Answer: A
+Explanation: ผู้ชายบอกว่ามีคนซื้อแมวสีเทาตัวนั้นไปแล้ว ("someone has already bought that one")
+
+---
+
+
+[Q9] = Q9.mp3
+
+Script:
+F: Hi Sue, it's me, Tina. Listen, I know we had plans to watch a movie together at your house, but I don't think I can come. I don't feel too well. I finally finished working on my project, but now I have a headache. I think I will have some chicken soup and then go to bed early. It's nothing serious, but I think I just need some rest.
+
+Question: A woman is leaving a phone message for her friend. What is the woman planning to do tonight?
+- A watch a movie
+- B go to sleep early
+- C buy a birthday gift
+- D work on her project
+
+Correct Answer: B
+Explanation: ผู้หญิงบอกว่าเธอรู้สึกไม่ค่อยสบาย จึงจะกินซุปไก่แล้วเข้านอนเร็ว ("go to bed early")
+
+---
+
+
+[Q10] = Q10.mp3
+
+Script:
+F: Hey, Sue, it's Jane calling. I was hoping to talk to you about this weekend, but I guess you're not home tonight. I had told you I wasn't sure about the weekend because of the work project I needed to finish, but I was able to finish it up early. I thought of just staying home after all the work, or going to a movie, but now I don't know. I feel great about finishing my project, so let's plan something fun. The weather is supposed to be really nice, so how about a trip to the beach?
+
+Question: A woman is leaving a phone message. This weekend, the woman wants to ...
+- A see a movie.
+- B stay at home.
+- C finish a project.
+- D go to the beach.
+
+Correct Answer: D
+Explanation: ผู้หญิงชวนเพื่อนไปเที่ยวทะเล (beach) ในช่วงสุดสัปดาห์ เพราะอากาศน่าจะดี
+
+---
+
+
+[Q11] = Q11.mp3
+
+Script:
+M: This book about the presidents in the United States has some interesting information about their marriages and their hobbies.
+F: Really? Is that what it's mainly about, facts like that?
+M: No. Actually it's mostly about their decisions as presidents. That's the focus.
+F: Does it tell you about their childhoods? You know, like how they were brought up?
+M: No, it doesn't, but I'd really like to find out more about that.
+F: Sounds like a good read. Can I borrow it when you're done?
+
+Question: A man is telling his friend about a book on the US presidents. What does he now want to learn more about?
+- A who their wives were
+- B what their early lives were like
+- C what they did when they were president
+- D which presidents had interesting hobbies
+
+Correct Answer: B
+Explanation: ผู้ชายบอกว่าหนังสือไม่ได้พูดถึงวัยเด็กของประธานาธิบดีแบบที่ผู้หญิงถาม แต่เขาอยากศึกษาเพิ่มเติมเกี่ยวกับเรื่องนี้ (วัยเด็ก หรือ early lives)
+
+---
+
+
+[Q12] = Q12.mp3
+
+Script:
+F: Morning George, sorry I'm late.
+M: Traffic?
+F: No, the car wouldn't start so I took a taxi.
+M: That can't have been cheap.
+F: It wasn't, but the buses are never on time.
+
+Question: A man and a woman are talking at work. The woman is late because ...
+- A the bus was late.
+- B there was a lot of traffic.
+- C her car has broken down.
+- D the taxis were too expensive.
+
+Correct Answer: C
+Explanation: ผู้หญิงมาสายเพราะว่ารถยนต์ของเธอสตาร์ทไม่ติด ("the car would not start") จึงต้องนั่งแท็กซี่มา
+
+---
+
+
+[Q13] = Q13.mp3
+
+Script:
+M: I heard you're moving to Japan soon.
+F: Yes, we're going there for my husband's job, but I'll miss living in England.
+M: Are you originally from Japan?
+F: No, my husband's from Canada and I'm from Spain.
+
+Question: A man and a woman are talking about moving. The woman is going to ...
+- A Spain.
+- B Japan.
+- C Canada.
+- D England.
+
+Correct Answer: B
+Explanation: ผู้ชายถามว่าเธอจะย้ายไปญี่ปุ่น (Japan) เร็วๆ นี้ใช่ไหม และผู้หญิงก็ตอบยืนยัน
+
+---
+
+
+[Q14] = Q14.mp3
+
+Script:
+F: I went to that new shopping centre last week. You know the one, on London Road?
+M: Oh, did you like it?
+F: Yeah, it's not bad. I expected it to be quite small, but it's not.
+M: And the shops?
+F: There are a lot, but most of them are a bit expensive for me.
+M: What did you like the best?
+F: There are some great cafes. We had lunch in one of them.
+M: Yeah?
+F: The food was lovely, and it was quite cheap.
+M: It sounds nice. Maybe I'll go there next weekend.
+F: What's it called?
+M: 'Franco's', I think. It's on the second floor.
+
+Question: A woman is talking about a new shopping centre. She says ...
+- A it isn't very big.
+- B the shops are cheap.
+- C there aren't many shops.
+- D there are nice places to eat.
+
+Correct Answer: D
+Explanation: ผู้หญิงบอกว่าที่ศูนย์การค้ามีคาเฟ่ดีๆ และอาหารอร่อย แถมราคาค่อนข้างถูก จึงเป็นสถานที่ทานอาหารที่ดี
+
+---
+
+
+[Q15] = Q15.mp3
+
+Script:
+M: Hello, Mr. Kent. I'm getting back to you about available apartments. Let me tell you about two excellent possibilities. First, we have an apartment in the town center, right by the river. It has one bedroom, a living room, a kitchen, and one full bathroom. Of course, it has an amazing view! And even more, it has a big pool in front of the building! It's perfect for young professionals who love the fast speed and energy of city life. Another possibility is something larger. It's great for a couple, especially if you sometimes have guests staying overnight. It has two bedrooms, two bathrooms, a living room and an open, sunny kitchen. It's on a quiet street in a nice residential area near the park. It's also near the bus station. Call me back when you get a chance.
+
+Question: A man is leaving a phone message about two apartments for rent. The apartment with a great view also ...
+- A is located downtown.
+- B is on a quiet street.
+- C is close to a park.
+- D has a pool.
+
+Correct Answer: D
+Explanation: อพาร์ตเมนต์แรกที่ผู้ชายพูดถึงมีวิวสวยงาม (amazing view) และมีสระว่ายน้ำใหญ่ (big pool) อยู่หน้าตึกด้วย
+
+---
+
+
+[Q16] = Q16.mp3
+
+Script:
+F: Many people have a love-hate relationship with their work but I'm lucky. During the past eight years, I've been able to create a business doing something that I find satisfying - and with people I like. Before that, I'd spent about three years after university just messing around doing jobs I wasn't interested in at all. Then I got together with my friend Jenny and we set up a website aimed at students who wanted to go and work in another country. At the moment, I'm working four days a week, which gives me a day off to do other things. People often complain to me about their jobs. It's natural to do that, I suppose. But I think work gives our daily lives meaning and structure. It puts us in contact with other people we can learn from and socialise with. It develops our skills - and it makes us feel that we're contributing to society in some way. Obviously, work is necessary for most of us financially. But emotionally we couldn't do without it either.
+
+Question: A woman is talking about her work. What does the woman say about her work?
+- A She doesn't really find it interesting.
+- B She sometimes loves it but also hates it.
+- C She has enjoyed setting up her business.
+- D She is happy to do as little work as possible.
+
+Correct Answer: C
+Explanation: ผู้หญิงบอกว่าในช่วง 8 ปีที่ผ่านมา เธอรู้สึกพึงพอใจกับการสร้างธุรกิจทำในสิ่งที่เธอชอบร่วมกับเพื่อน
+
+---
+
+
+[Q17] = Q17.mp3
+
+Script:
+F: I would like to work at this restaurant. I have worked in several other restaurants, so I have the experience that you need. I do more than just bring the customers food. Because I always talk to customers, many of them are now my friends. I love talking to people, but I am also a serious worker. This restaurant is very special to me. I started coming here when I was a little girl. I have some great memories of my birthday parties here and the delicious cake we ate. I would really love to work here. I am available to work during the day and at night, on any day of the week. I live close to here, so it's easy for me to come to work anytime. Here's my resume, and I hope to hear from you soon.
+
+Question: A woman is applying for a job as a waitress. The restaurant is special to her because she ...
+- A is friends with many of the customers.
+- B wants to open a similar restaurant.
+- C worked here many years ago.
+- D has good memories of it.
+
+Correct Answer: D
+Explanation: ร้านอาหารนี้พิเศษสำหรับเธอเพราะเธอมีความทรงจำที่ดี (great memories) ในวัยเด็กเกี่ยวกับการมาจัดงานวันเกิดที่นี่
+
+---
+
+
+[Q18] = Q18.mp3
+
+Script:
+M: I heard you're moving abroad soon! Are you going to Japan like you planned?
+F: I was hoping to, but the job offer there fell through.
+M: Oh, I'm sorry to hear that. So where are you heading? England?
+F: Actually, I got a great opportunity in Spain. I leave next month! Canada was my second choice, but I prefer the warm weather.
+
+Question: A man and a woman are talking about moving. The woman is going to ...
+- A Spain.
+- B Japan.
+- C Canada.
+- D England.
+
+Correct Answer: A
+Explanation: ตอนแรกผู้หญิงตั้งใจจะไปญี่ปุ่นแต่งานถูกยกเลิก เธอจึงจะย้ายไปที่สเปน (Spain) แทนในเดือนหน้า
+
+---
+
+
+[Q19] = Q19.mp3
+
+Script:
+M: Do you have any plans for the weekend? I was thinking of going to the movies.
+F: I'd love to join you, but I've already made plans to go camping with my family.
+M: That sounds fun. Are you going to the mountains?
+F: No, we're heading to a campsite near the lake. We might even go bike riding there.
+
+Question: Two friends are talking about the weekend. The woman is going to go ...
+- A camping.
+- B bike riding.
+- C to the movies.
+- D to the mountains.
+
+Correct Answer: A
+Explanation: ผู้หญิงปฏิเสธคำชวนไปดูหนัง เพราะเธอวางแผนที่จะไปตั้งแคมป์ (camping) กับครอบครัวไว้แล้ว
+
+---
+
+
+[Q20] = Q20.mp3
+
+Script:
+F: I'm feeling really frustrated at work lately. I do so much, but I don't get recognized.
+M: Have you thought about speaking to the manager? You really deserve to ask for a promotion.
+F: I don't know, I'm worried they might say no. Maybe I should just find another job.
+M: I wouldn't do that. Just tell them what you're worth. You won't lose your job for asking.
+
+Question: Two people are talking about work. What is the man trying to do?
+- A advise the woman to ask for promotion
+- B persuade the woman to find another job
+- C warn the woman about the dangers of losing her job
+- D find out some information about the woman's job
+
+Correct Answer: A
+Explanation: ผู้ชายแนะนำให้ผู้หญิงพูดกับผู้จัดการเพื่อขอเลื่อนตำแหน่ง (ask for a promotion) แทนที่จะหางานใหม่
+
+---
+
+
+[Q21] = Q21.mp3
+
+Script:
+M: Getting to work is such a hassle these days. I tried taking the train, but it's always delayed.
+F: I know. I gave up driving my car because the traffic was making me crazy.
+M: I saw you getting off the bus yesterday. Is that better?
+F: It's okay, but honestly, riding a bicycle has completely changed my commute. It's fast, free, and I get some exercise!
+
+Question: Two friends are talking about how they get to work. They think the best way is ...
+- A driving a car.
+- B taking the bus.
+- C taking the train.
+- D riding a bicycle.
+
+Correct Answer: D
+Explanation: ผู้หญิงบอกว่าการปั่นจักรยาน (riding a bicycle) เป็นวิธีเดินทางที่ดีเพราะรวดเร็ว ฟรี และได้ออกกำลังกาย
+
+---
+
+
+[Q22] = Q22.mp3
+
+Script:
+M: Hello, can I help you?
+F: Yes, I bought this paint here yesterday, but I need to exchange it.
+M: Usually people want a different colour, or maybe a bigger tin?
+F: Oh, the colour and size are fine. And the price was affordable. But I'm painting my garden fence, and this one is only for indoor painting. I need something that can handle the rain.
+M: Ah, I see. You need a tin for outside use.
+
+Question: A woman is talking to a man in a shop. The woman wants a tin of paint that is ...
+- A bigger.
+- B for outside use.
+- C less expensive.
+- D a different colour.
+
+Correct Answer: B
+Explanation: ผู้หญิงต้องการสีทาภายนอกสำหรับทารั้วสวน ที่สามารถทนฝนได้ (for outside use)
+
+---
+
+
+[Q23] = Q23.mp3
+
+Script:
+M: We should go swimming this weekend. The weather's going to be so hot.
+F: That sounds nice, but I don't really want to go to the local pool.
+M: Why not? The water is perfectly warm, and it's not very expensive.
+F: I know, and it's only a short walk from my house. But on weekends, everybody else has the same idea. There's just no space to swim properly.
+
+Question: Two people are talking about going swimming. What is the problem with the swimming pool?
+- A It's very expensive.
+- B It's a long way away.
+- C The water's too cold.
+- D Too many people go there.
+
+Correct Answer: D
+Explanation: ผู้หญิงบอกว่าในวันหยุดสุดสัปดาห์คนอื่นก็คิดเหมือนกัน ทำให้คนไปสระว่ายน้ำเยอะมากจนแทบไม่มีที่
+
+---
+
+
+[Q24] = Q24.mp3
+
+Script:
+F: I really like your new house! Did you move in recently?
+M: Thanks! Yes, just last month. It's bigger than my old place.
+F: That's great. Did you move in with your friends? I know you were looking for roommates.
+M: I was, but then my brother needed a place to stay, so we decided to share it instead. My parents will visit us next week.
+
+Question: A man and a woman are talking about the man's house. He lives with his ...
+- A sister.
+- B friends.
+- C brother.
+- D parents.
+
+Correct Answer: C
+Explanation: ผู้ชายบอกว่าในตอนแรกจะหาเพื่อนร่วมห้อง แต่น้องชาย/พี่ชาย (brother) ต้องการที่พัก จึงตัดสินใจอยู่ด้วยกัน
+
+---
+
+
+[Q25] = Q25.mp3
+
+Script:
+M: So, what do you think of this art exhibition?
+F: Well, I was really excited about coming here today, but I'm quite disappointed.
+M: Really? Look at that big red painting over there. Isn't it wonderful?
+F: It's okay, I suppose. But most of the other paintings are dull. To be honest, I'm kind of bored and I'd really just like to leave now.
+
+Question: Two people are talking about an art exhibition. How does the woman feel?
+- A She wants to leave now.
+- B She's happy to be there.
+- C She likes the red painting.
+- D She dislikes all the paintings.
+
+Correct Answer: A
+Explanation: ผู้หญิงรู้สึกผิดหวังและเบื่อกับนิทรรศการ และบอกตามตรงว่าเธอแค่อยากจะกลับตอนนี้ (leave now)
+
+---
+
+
+[Q26] = Q26.mp3
+
+Script:
+M: Good afternoon, Madam. You called about the dining table you ordered?
+F: Yes, I wanted to change the delivery date.
+M: Certainly. Before we proceed, I need to verify your details. I have your home address here on the system.
+F: Okay. Do you need my email address?
+M: Not right now. But I see the contact number we have is for your office. Could you please give me your home telephone number as well, in case the driver needs to reach you?
+
+Question: A woman is phoning a shop about a table. What does the shop assistant ask her for?
+- A her home address
+- B her email address
+- C her work telephone number
+- D her home telephone number
+
+Correct Answer: D
+Explanation: พนักงานร้านค้าขอรับเบอร์โทรศัพท์บ้าน (home telephone number) ของเธอ เผื่อกรณีที่พนักงานส่งของต้องติดต่อ
+
+---
+
+
+[Q27] = Q27.mp3
+
+Script:
+F: Have you heard about the new changes the manager is making to the restaurant?
+M: Yes, I read the notice. They're adding a whole new section to the menu.
+F: That's exciting! I guess it means the restaurant will be busier, so we might make more money from tips.
+M: True, but we'll be serving more customers every night. I'm already exhausted by the end of my shift. Working even harder is going to be really tough on me.
+
+Question: Two people are talking about changes in the restaurant where they work. What problem does the man have?
+- A He is earning less money now.
+- B He wants to cook different foods.
+- C He is very tired from working hard.
+- D He wants to know about new changes.
+
+Correct Answer: C
+Explanation: ผู้ชายบ่นว่าตอนนี้พอจบกะก็เหนื่อยล้ามากอยู่แล้ว (exhausted) ถ้าต้องทำงานหนักกว่าเดิมจากการที่ลูกค้ามากขึ้นคงจะรับไม่ไหว
+
+---
+
+
+[Q28] = Q28.mp3
+
+Script:
+F: Do you ever get a break from your work?
+M: It's difficult. Even when I go home and sit down for dinner with my family, my parents are always asking about my projects at the office.
+F: Oh dear. My family talks about school, or sometimes we discuss exercise and healthy cooking. We never mention our jobs.
+M: That sounds nice. I wish we could talk about anything else except what I do for a living.
+
+Question: Two people are talking about the man's life. What does his family talk about at dinner?
+- A work
+- B school
+- C cooking
+- D exercise
+
+Correct Answer: A
+Explanation: ผู้ชายเล่าว่าแม้แต่ตอนทานมื้อค่ำ ครอบครัวก็มักจะถามเรื่องงาน (work) ของเขาที่ออฟฟิศ
+
+---
+
+
+[Q29] = Q29.mp3
+
+Script:
+M: How was your holiday? Didn't you go on a cycling trip?
+F: Yes, I did! It was fantastic.
+M: What made you choose a cycling holiday? Was it to save money?
+F: Not really, it wasn't a cheap holiday. And my sister always recommended relaxing at the beach.
+M: Did you want to improve your fitness?
+F: Getting fit was a bonus, but honestly, I'd just been doing the same beach trips for years. I simply wanted to experience something totally new for a change.
+
+Question: A woman is talking to a man about her recent holiday. Why did the woman decide to go on a cycling holiday?
+- A She wanted a cheap holiday.
+- B Her sister recommended it to her.
+- C She thought it would help her get fit.
+- D She was keen to try something different.
+
+Correct Answer: D
+Explanation: ผู้หญิงอยากไปเที่ยวแบบขี่จักรยานเพื่อหาประสบการณ์แปลกใหม่ (experience something totally new) จากเดิมที่เคยไปแต่ทะเล
+
+---
+
+
+[Q30] = Q30.mp3
+
+Script:
+F: Please welcome the author of our new favorite book. Tell us, why did you decide to become a writer?
+M: Thank you. Well, growing up, my brothers and sisters were always the ones writing beautiful stories. I actually wanted to be a doctor.
+F: Really? What changed your mind?
+M: Sadly, my grades in science weren't good enough for medical school. So, I couldn't pursue that path. I started writing to pass the time instead, and that became my career.
+
+Question: A man is telling an audience about his book. Why did he decide to become a writer?
+- A He was not able to become a doctor.
+- B He wanted to share his family's story.
+- C His father had been a writer in America.
+- D His brothers and sisters wrote beautiful letters.
+
+Correct Answer: A
+Explanation: ผู้ชายเคยอยากเป็นหมอ แต่ผลการเรียนวิชาวิทยาศาสตร์ไม่ดีพอเรียนแพทย์ได้ เขาจึงเริ่มเขียนหนังสือจนยึดเป็นอาชีพ
+
+---
+
+
+[Q31] = Q31.mp3
+
+Script:
+F: Hi, it's me. I'm really sorry to ask, but I won't be able to make it to college today. I'm feeling quite unwell and I have a doctor's appointment this afternoon. Could you do me a huge favor and speak to our tutor? Just let them know my situation and the reason I won't be in class today.
+
+Question: A woman is leaving a message on an answering machine. The woman asks her friend to ...
+- A arrange a doctor's appointment.
+- B get some work from the teacher.
+- C tell the college why she is absent.
+- D buy some food and other basic things.
+
+Correct Answer: C
+Explanation: ผู้หญิงฝากให้เพื่อนช่วยบอกอาจารย์ให้ทราบถึงเหตุผลที่เธอไม่สามารถไปเรียนได้วันนี้ (tell the college why she is absent)
+
+---
+
+
+[Q32] = Q32.mp3
+
+Script:
+M: Did you see that documentary about Brian Williams on television last night?
+F: Yes, I did. His trip to Africa looked incredible. But it seemed really hard for him.
+M: I know. Was it because he had to stay there for such a long time?
+F: Actually, he enjoys the hot weather and long trips. But it was just so sad for him to see all those wild animals losing their habitats. It really affected him emotionally.
+
+Question: A woman is talking about a television programme. Africa was difficult for Brian Williams because ...
+- A he was alone.
+- B it was very hot.
+- C it was very sad.
+- D he was there a long time.
+
+Correct Answer: C
+Explanation: ผู้หญิงบอกว่าการไปแอฟริกาเป็นเรื่องยากสำหรับเขา เพราะเป็นเรื่องที่น่าเศร้ามาก (very sad) ที่สัตว์ป่าสูญเสียที่อยู่อาศัย
+
+---
+
+
+[Q33] = Q33.mp3
+
+Script:
+F: Hey, Sue, it's Jane calling. I was hoping to talk to you about this weekend, but I guess you're not home tonight. I had told you I wasn't sure about the weekend because of the work project I needed to finish, but I was able to finish it up early. I thought of just staying home after all the work, or going to a movie, but now I don't know. I feel great about finishing my project, so let's plan something fun. The weather is supposed to be really nice, so how about a trip to the beach?
+
+Question: A woman is leaving a phone message. This weekend, the woman wants to ...
+- A see a movie.
+- B stay at home.
+- C finish a project.
+- D go to the beach.
+
+Correct Answer: D
+Explanation: ผู้หญิงชวนเพื่อนไปเที่ยวทะเล (beach) ในช่วงสุดสัปดาห์นี้เพราะอากาศน่าจะดีมาก
+
+---
+
+
+[Q34] = Q34.mp3
+
+Script:
+M: Did you learn a lot from your mother when you helped out at the family shop?
+F: Absolutely. She ran the business completely on her own, and she was very focused.
+M: I suppose she worked hard to keep customers happy so they'd return?
+F: Actually, she didn't spend much time chatting or trying to build relationships with regulars. Her main priority was making sure everything moved quickly without any delays. She firmly believed in serving every customer as swiftly and efficiently as possible.
+
+Question: A woman is talking about the influence her mother had on her. How did the woman's mother feel about the family business?
+- A She was scrupulously honest when dealing with customers.
+- B She realised that business always had to come before pleasure.
+- C She insisted that customers were served as efficiently as possible.
+- D She was aware of how important it was to build relationships with customers.
+
+Correct Answer: C
+Explanation: แม่ของเธอเชื่อมั่นในการให้บริการลูกค้าอย่างรวดเร็วและมีประสิทธิภาพมากที่สุดเท่าที่จะเป็นไปได้ โดยไม่ได้เน้นการพูดคุย
+
+---
+
+
+[Q35] = Q35.mp3
+
+Script:
+M: Let's talk about the sights in our wonderful city. If you love modern architecture, The Waterton Tower is fantastic, and The Eagle Cinema is a beautifully designed historic building. Now, The Bay Hotel provides excellent service, but honestly, looking from the outside, it is a very ugly concrete block. It is definitely not pleasing to the eye. The Hadden Leisure Centre, on the other hand, looks quite impressive.
+
+Question: A travel agent is talking about the attractions in a city. Which of the buildings is unattractive?
+- A The Bay Hotel.
+- B The Eagle Cinema.
+- C The Waterton Tower.
+- D The Hadden Leisure Centre.
+
+Correct Answer: A
+Explanation: เอเจนต์ท่องเที่ยวบรรยายว่า The Bay Hotel มองจากภายนอกดูเหมือนตึกคอนกรีตที่น่าเกลียดและไม่น่าดู (unattractive)
+
+---
+
+
+[Q36] = Q36.mp3
+
+Script:
+M: Welcome to the city's cultural update. This weekend, the National Museum is opening a fantastic new art exhibit. Now, I should mention it's not their biggest exhibit ever, and the tickets aren't free unfortunately. However, you do get a discount on coffee at the cafe! But what makes this really special is that instead of focusing on a single painter, the exhibit features works from more than fifty different artists from around the world.
+
+Question: A reporter is talking about cultural events in the city. What does he say about the art exhibit?
+- A Tickets for the exhibit are free of charge.
+- B More than one artist is shown at the exhibit.
+- C It's the largest exhibit the museum has had.
+- D You can save money at the cafe when you buy a ticket.
+
+Correct Answer: B
+Explanation: นิทรรศการนี้พิเศษตรงที่รวบรวมผลงานจากศิลปินกว่า 50 คนทั่วโลก ซึ่งแปลว่าจัดแสดงผลงานของศิลปินหลายคน (more than one artist)
+
+---
+
+
+[Q37] = Q37.mp3
+
+Script:
+F: Hi sweetie, it's Mom. I know you're busy graduating this week, but your father and I were discussing your future plans. I know your father thinks you should travel the world... and you've mentioned wanting to find a job right away. But honestly, I think it would be best if you just take a break for a few months, travel, and experience new things before you start sending out resumes.
+
+Question: A woman is leaving a telephone message for her son. What does she say about his plans after graduation?
+- A He should find a job first and then travel.
+- B He should discuss his plans with his father.
+- C He should take some time off to travel now.
+- D He should wait awhile and then look for a job.
+
+Correct Answer: C
+Explanation: ผู้เป็นแม่แนะนำลูกชายว่าควรหยุดพักผ่อนและออกเดินทางท่องเที่ยว (take some time off to travel now) หาสิ่งใหม่ๆ ก่อนไปหางานทำ
+
