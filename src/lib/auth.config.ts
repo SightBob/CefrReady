@@ -55,7 +55,7 @@ export const authConfig: NextAuthConfig = {
     // auth.user is populated from the JWT cookie — no DB call required.
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const protectedRoutes = ['/admin', '/progress', '/tests'];
+      const protectedRoutes = ['/admin'];
       const isProtected = protectedRoutes.some((r) => nextUrl.pathname.startsWith(r));
 
       if (isProtected && !isLoggedIn) {
