@@ -49,12 +49,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+import TestsLoginPrompt from '../TestsLoginPrompt';
+
 export default async function SectionPage({ params }: PageProps) {
   const session = await auth();
-  if (!session?.user) {
-    redirect('/tests');
-  }
-
   const section = await getSectionWithSets(params.sectionId as string);
   if (!section) notFound();
 
@@ -62,6 +60,41 @@ export default async function SectionPage({ params }: PageProps) {
 
   const bgClass = SECTION_BG[section.id] ?? 'bg-slate-50';
   const textClass = SECTION_ICON_CLASS[section.id] ?? 'text-slate-600';
+
+  if (!session?.user) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Link href="/tests" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
+          <ArrowLeft className="w-5 h-5" />
+          Back to Tests
+        </Link>
+        <div className="flex items-center gap-4 mb-8">
+          <div className={`${bgClass} p-3 rounded-2xl`}>
+            <LayoutGrid className={`w-8 h-8 ${textClass}`} />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{section.name}</h1>
+            {section.description && <p className="text-slate-500 text-sm mt-0.5">{section.description}</p>}
+          </div>
+        </div>
+
+        <TestsLoginPrompt />
+
+        <div className="relative mt-8">
+          <div className="space-y-3 opacity-60 pointer-events-none">
+            {activeSets.map((ts, index) => (
+              <TestSetCard key={ts.id} testSet={ts} sectionId={section.id} index={index} />
+            ))}
+          </div>
+          <div className="absolute inset-0 bg-slate-100/30 rounded-2xl flex items-center justify-center">
+             <div className="bg-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-slate-600">
+                <span className="font-medium">Login Required</span>
+             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
