@@ -19,8 +19,9 @@ const pridi = Pridi({
 });
 
 export const metadata: Metadata = {
-  title: 'CEFR Ready — ฝึกภาษาอังกฤษ มาตรฐาน CEFR',
-  description: 'เตรียมพร้อมสอบ CEFR ด้วยข้อสอบ Focus on Form, Focus on Meaning, Form & Meaning และ Listening ครอบคลุมระดับ A1 ถึง C2',
+  title: 'CEFR Ready — แนวข้อสอบ CEFR มทส และมาตรฐานสากล',
+  description: 'เตรียมพร้อมสอบ CEFR ด้วยข้อสอบ Focus on Form, Focus on Meaning, Form & Meaning และ Listening ครอบคลุมระดับ A1 ถึง C2 เตรียมสอบ CEFR มทส (SUT) หรือมหาวิทยาลัยอื่นๆ ได้ที่นี่',
+  keywords: ['CEFR', 'ข้อสอบ CEFR', 'แนวข้อสอบ CEFR มทส', 'สอบภาษาอังกฤษ มทส', 'CEFR SUT', 'เตรียมสอบ CEFR', 'ฟังภาษาอังกฤษ', 'เรียนภาษาอังกฤษ'],
 };
 
 export default function RootLayout({
