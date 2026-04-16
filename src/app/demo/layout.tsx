@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Demo Tests | CEFR Ready',
+  title: 'ทดลองทำข้อสอบ CEFR ฟรี',
   description: 'ลองทดสอบภาษาอังกฤษฟรีโดยไม่ต้องสมัครสมาชิก — Focus on Form, Focus on Meaning, Form & Meaning, และ Listening',
 };
 

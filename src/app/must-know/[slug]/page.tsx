@@ -26,14 +26,14 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
     .limit(1);
 
   if (!article || !article.isPublished) {
-    return { title: 'Article Not Found | CEFR Ready' };
+    return { title: 'Article Not Found' };
   }
 
   // Generate plain text excerpt for meta description
   const description = article.content?.slice(0, 150).replace(/#+|\*|`|>/g, '').trim() + '...';
 
   return {
-    title: `${article.title} | CEFR Ready Must Know Grammar`,
+    title: `${article.title} — Must Know Grammar`,
     description: description || 'อ่านบทความและทบทวนไวยากรณ์ก่อนสอบ CEFR',
     openGraph: {
       title: article.title,

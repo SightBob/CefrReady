@@ -6,7 +6,7 @@ import SectionCard, { type SectionData } from '@/components/SectionCard';
 import TestsLoginPrompt from './TestsLoginPrompt';
 
 export const metadata: Metadata = {
-  title: 'ข้อสอบ CEFR | CEFR Ready',
+  title: 'ข้อสอบ CEFR ทุกทักษะ',
   description: 'เลือกทำข้อสอบ CEFR ที่ตรงกับระดับของคุณ ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2',
 };
 

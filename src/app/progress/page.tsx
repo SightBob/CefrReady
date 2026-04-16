@@ -7,7 +7,7 @@ import { eq, desc } from 'drizzle-orm';
 import ProgressContent from './ProgressContent';
 
 export const metadata: Metadata = {
-  title: 'Your Progress | CEFR Ready',
+  title: 'ความก้าวหน้าของคุณ',
   description: 'ดูความก้าวหน้าและสถิติการเรียนภาษาอังกฤษ CEFR ของคุณ',
 };
 

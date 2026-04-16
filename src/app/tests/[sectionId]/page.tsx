@@ -42,9 +42,9 @@ async function getSectionWithSets(sectionId: string): Promise<SectionWithSets | 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { sectionId } = params;
   const section = await getSectionWithSets(sectionId);
-  if (!section) return { title: 'Not Found | CEFR Ready' };
+  if (!section) return { title: 'Not Found' };
   return {
-    title: `${section.name} | CEFR Ready`,
+    title: section.name,
     description: section.description ?? `Choose a test set in ${section.name}`,
   };
 }

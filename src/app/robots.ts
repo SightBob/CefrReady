@@ -1,16 +1,14 @@
 import { MetadataRoute } from 'next'
+
+const BASE_URL = 'https://cefrready.com';
  
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXTAUTH_URL?.startsWith('http://localhost') 
-    ? 'https://cefrready.com' 
-    : (process.env.NEXTAUTH_URL || 'https://cefrready.com');
-
   return {
     rules: {
       userAgent: '*',
       allow: '/',
       disallow: ['/admin/', '/api/'],
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${BASE_URL}/sitemap.xml`,
   }
 }
