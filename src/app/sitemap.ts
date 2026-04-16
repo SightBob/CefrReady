@@ -4,7 +4,7 @@ import { articles, testTypes } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://cefrready.com';
+  const baseUrl = 'https://cefr-ready.vercel.app';
 
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [

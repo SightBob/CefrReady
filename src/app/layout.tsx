@@ -19,7 +19,7 @@ const pridi = Pridi({
   variable: '--font-pridi' 
 });
 
-const BASE_URL = 'https://cefrready.com';
+const BASE_URL = 'https://cefr-ready.vercel.app';
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),

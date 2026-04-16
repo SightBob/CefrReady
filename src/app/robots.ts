@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next'
 
-const BASE_URL = 'https://cefrready.com';
+const BASE_URL = 'https://cefr-ready.vercel.app';
  
 export default function robots(): MetadataRoute.Robots {
   return {
