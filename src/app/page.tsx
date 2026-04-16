@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import DemoTestsSection from '@/components/DemoTestsSection';
 import ProgressStats from '@/components/ProgressStats';
+import FaqAccordion from '@/components/FaqAccordion';
 import JsonLd, { websiteSchema, courseSchema, faqSchema } from '@/components/JsonLd';
 import {
   Sparkles,
@@ -203,6 +204,57 @@ export default async function Home() {
           </div>
         </div>
         <DemoTestsSection showInfoBanner={false} />
+      </section>
+
+      {/* SUT / มทส CTA Section — SEO target section */}
+      <section className="mb-20">
+        <div className="relative overflow-hidden bg-gradient-to-br from-primary-900 to-primary-700 rounded-3xl px-8 py-12 md:px-16 md:py-16 text-white">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+          <div className="relative z-10 max-w-2xl">
+            <span className="inline-block text-xs font-bold tracking-widest uppercase text-primary-200 mb-4">
+              สำหรับ นักศึกษา มทส โดยเฉพาะ
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-4">
+              เตรียมสอบ CEFR มทส<br />
+              <span className="text-primary-200">ให้ผ่านในครั้งแรก</span>
+            </h2>
+            <p className="text-primary-100 text-base md:text-lg leading-relaxed mb-8 max-w-xl">
+              CEFR Ready ออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล ที่{' '}
+              <strong className="text-white">มหาวิทยาลัยเทคโนโลยีสุรนารี (มทส / SUT)</strong>{' '}
+              ใช้วัดระดับภาษาอังกฤษของนักศึกษา ครอบคลุมทั้ง 4 ทักษะ:{' '}
+              Focus on Form, Focus on Meaning, Form &amp; Meaning และ Listening
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/tests"
+                className="inline-flex items-center gap-2 bg-white text-primary-700 font-bold px-6 py-3 rounded-xl hover:bg-primary-50 transition-colors"
+              >
+                เริ่มทำข้อสอบ CEFR ฟรี
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/demo"
+                className="inline-flex items-center gap-2 bg-primary-800/60 border border-white/20 text-white font-semibold px-6 py-3 rounded-xl hover:bg-primary-800 transition-colors"
+              >
+                ลองทำตัวอย่างก่อน
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section — visible on page for SEO */}
+      <section className="mb-24">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
+              คำถามที่พบบ่อย
+            </h2>
+            <p className="text-slate-500">เกี่ยวกับ CEFR Ready และการสอบ CEFR มทส</p>
+          </div>
+          <FaqAccordion />
+        </div>
       </section>
     </div>
   );
