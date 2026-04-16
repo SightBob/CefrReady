@@ -83,25 +83,25 @@ export default async function Home() {
         { question: 'ใช้ CEFR Ready ฟรีหรือเปล่า?', answer: 'ฟรี 100% ไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น สามารถทำข้อสอบตัวอย่างได้โดยไม่ต้องสมัครสมาชิก' },
       ])} />
       {/* HERO — Split layout */}
-      <section className="min-h-[70dvh] md:min-h-[80dvh] lg:min-h-[85dvh] flex items-center relative overflow-hidden">
+      <section className="min-h-[75dvh] md:min-h-[80dvh] lg:min-h-[85dvh] flex items-center relative overflow-hidden py-12 md:py-0">
         {/* Background atmosphere */}
         <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-br from-primary-50/50 to-accent-50/30 -z-10" />
         <div className="absolute top-20 right-20 w-96 h-96 bg-primary-100/40 rounded-full blur-3xl -z-10" />
         <div className="absolute bottom-20 left-20 w-64 h-64 bg-accent-100/30 rounded-full blur-3xl -z-10" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center w-full">
           {/* Left: Copy */}
-          <div className="space-y-8">
+          <div className="space-y-6 md:space-y-8">
             <div
-              className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-full text-sm font-medium stagger-animate"
+              className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium stagger-animate"
               style={{ animationDelay: '0ms' }}
             >
-              <Sparkles className="w-4 h-4 text-primary-500" />
+              <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary-500 shrink-0" />
               ข้อสอบมาตรฐาน CEFR — A1 ถึง C2
             </div>
 
             <h1
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight stagger-animate"
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight stagger-animate"
               style={{ animationDelay: '100ms' }}
             >
               เตรียมพร้อม
@@ -112,7 +112,7 @@ export default async function Home() {
             </h1>
 
             <p
-              className="text-lg md:text-xl text-slate-600 max-w-xl leading-relaxed stagger-animate"
+              className="text-base md:text-lg lg:text-xl text-slate-600 max-w-xl leading-relaxed stagger-animate"
               style={{ animationDelay: '200ms' }}
             >
               ฝึกกับข้อสอบ <strong className="text-slate-800">Focus on Form</strong>,{' '}
@@ -123,51 +123,51 @@ export default async function Home() {
             </p>
 
             <div
-              className="flex items-center gap-4 flex-wrap stagger-animate"
+              className="flex items-center gap-3 flex-wrap stagger-animate"
               style={{ animationDelay: '300ms' }}
             >
-              <Link href="/tests" className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-4">
+              <Link href="/tests" className="btn-primary inline-flex items-center gap-2 text-sm md:text-base px-5 py-3 md:px-8 md:py-4">
                 เริ่มทำข้อสอบ
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
               </Link>
-              <Link href="/demo" className="btn-secondary inline-flex items-center gap-2 text-lg px-8 py-4">
+              <Link href="/demo" className="btn-secondary inline-flex items-center gap-2 text-sm md:text-base px-5 py-3 md:px-8 md:py-4">
                 ลองทำตัวอย่าง
               </Link>
             </div>
 
             <div
-              className="flex flex-wrap items-center gap-3 stagger-animate"
+              className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 md:gap-3 stagger-animate"
               style={{ animationDelay: '400ms' }}
             >
               {FEATURES.map(({ icon: Icon, label, desc }) => (
                 <div
                   key={label}
-                  className="flex items-center gap-2.5 bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+                  className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 md:px-4 md:py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
                 >
-                  <Icon className="w-4 h-4 text-primary-500 shrink-0" />
+                  <Icon className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary-500 shrink-0" />
                   <div className="text-left">
-                    <p className="text-sm font-semibold text-slate-800 leading-tight">{label}</p>
-                    <p className="text-xs text-slate-400">{desc}</p>
+                    <p className="text-xs md:text-sm font-semibold text-slate-800 leading-tight">{label}</p>
+                    <p className="text-xs text-slate-400 hidden sm:block">{desc}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Right: Test types grid (desktop side, mobile below) */}
-          <div className="grid grid-cols-2 gap-4 stagger-animate" style={{ animationDelay: '500ms' }}>
+          {/* Right: Test types grid — hidden on small mobile, shown from sm up */}
+          <div className="hidden sm:grid grid-cols-2 gap-3 md:gap-4 stagger-animate" style={{ animationDelay: '500ms' }}>
             {TEST_TYPES.map((type) => {
               const Icon = type.icon;
               return (
                 <div
                   key={type.name}
-                  className={`${type.bg} rounded-2xl p-6 border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300`}
+                  className={`${type.bg} rounded-2xl p-4 md:p-6 border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300`}
                 >
-                  <div className={`bg-gradient-to-br ${type.color} w-12 h-12 rounded-xl flex items-center justify-center mb-4`}>
-                    <Icon className="w-6 h-6 text-white" />
+                  <div className={`bg-gradient-to-br ${type.color} w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center mb-3 md:mb-4`}>
+                    <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
-                  <h3 className="font-bold text-slate-800 mb-1">{type.name}</h3>
-                  <p className="text-sm text-slate-500">{type.count} ข้อสอบ</p>
+                  <h3 className="font-bold text-slate-800 text-sm md:text-base mb-1">{type.name}</h3>
+                  <p className="text-xs md:text-sm text-slate-500">{type.count} ข้อสอบ</p>
                 </div>
               );
             })}
