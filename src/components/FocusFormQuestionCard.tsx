@@ -101,7 +101,7 @@ export default function FocusFormQuestionCard({
     <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
       {renderQuestion()}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
         {shuffledOptions.map((opt) => {
           const isSelected = selectedAnswer === opt.key;
           const isCorrectOption = opt.key === correctAnswer;

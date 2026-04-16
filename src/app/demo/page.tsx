@@ -1,7 +1,12 @@
+import type { Metadata } from 'next';
 import DemoTestsSection from '@/components/DemoTestsSection';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+export const metadata: Metadata = {
+  title: 'ทดลองทำข้อสอบ CEFR ฟรี — Demo Tests',
+  description: 'ลองทำข้อสอบ CEFR ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ครอบคลุม Focus on Form, Meaning, Listening ระดับ A1-C2',
+};
 export default function DemoTestsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

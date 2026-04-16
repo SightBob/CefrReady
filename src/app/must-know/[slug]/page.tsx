@@ -6,6 +6,7 @@ import { MarkdownContent } from '@/components/MarkdownContent';
 import Link from 'next/link';
 import { ArrowLeft, Tag, BarChart } from 'lucide-react';
 import type { Metadata } from 'next';
+import JsonLd, { articleSchema } from '@/components/JsonLd';
 
 export const revalidate = 3600;
 
@@ -60,6 +61,13 @@ export default async function MustKnowArticlePage({ params }: ArticlePageProps) 
 
   return (
     <div className="min-h-screen bg-[#fafaf9] selection:bg-yellow-200 selection:text-stone-900">
+      <JsonLd data={articleSchema({
+        title: article.title,
+        description: article.content?.slice(0, 150).replace(/#+|\*|`|>/g, '').trim() + '...',
+        url: `https://cefrready.com/must-know/${slug}`,
+        datePublished: (article as any).createdAt?.toISOString?.(),
+        dateModified: (article as any).updatedAt?.toISOString?.(),
+      })} />
       <header className="bg-white border-b border-stone-200/60 sticky top-0 z-10 backdrop-blur-md bg-white/80">
         <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
           <Link

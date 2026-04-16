@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import DemoTestsSection from '@/components/DemoTestsSection';
 import ProgressStats from '@/components/ProgressStats';
+import JsonLd, { websiteSchema, courseSchema, faqSchema } from '@/components/JsonLd';
 import {
   Sparkles,
   BookOpen,
@@ -72,6 +73,15 @@ export default async function Home() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* SEO: Structured Data */}
+      <JsonLd data={websiteSchema()} />
+      <JsonLd data={courseSchema()} />
+      <JsonLd data={faqSchema([
+        { question: 'CEFR คืออะไร?', answer: 'CEFR (Common European Framework of Reference for Languages) คือกรอบมาตรฐานสากลในการวัดระดับความสามารถทางภาษา แบ่งเป็น 6 ระดับ ตั้งแต่ A1 (เริ่มต้น) ถึง C2 (เชี่ยวชาญ)' },
+        { question: 'ข้อสอบ CEFR Ready มีอะไรบ้าง?', answer: 'มี 4 ประเภท: Focus on Form (ไวยากรณ์), Focus on Meaning (ความหมาย), Form & Meaning (เติมคำในบทความ) และ Listening (การฟัง) ครอบคลุมระดับ A1-C2' },
+        { question: 'ใช้เตรียมสอบ CEFR มทส ได้ไหม?', answer: 'ได้ครับ ข้อสอบออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล สามารถใช้เตรียมสอบ CEFR ที่ มทส (SUT) และมหาวิทยาลัยอื่นๆ ได้' },
+        { question: 'ใช้ CEFR Ready ฟรีหรือเปล่า?', answer: 'ฟรี 100% ไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น สามารถทำข้อสอบตัวอย่างได้โดยไม่ต้องสมัครสมาชิก' },
+      ])} />
       {/* HERO — Split layout */}
       <section className="min-h-[70dvh] md:min-h-[80dvh] lg:min-h-[85dvh] flex items-center relative overflow-hidden">
         {/* Background atmosphere */}

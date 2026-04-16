@@ -326,8 +326,19 @@ export default function SetQuizPage() {
       const res = await fetch(`/api/test-sets/${setId}`);
       const data = await res.json();
       if (data.success) {
-        setSetData(data.data);
-        setAnswers(Array(data.data.questions.length).fill(null));
+        let finalQuestions = data.data.questions;
+        
+        // Shuffle questions for sections that don't depend on sequential order
+        if (sectionId !== 'form-meaning') {
+          finalQuestions = [...finalQuestions];
+          for (let i = finalQuestions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [finalQuestions[i], finalQuestions[j]] = [finalQuestions[j], finalQuestions[i]];
+          }
+        }
+
+        setSetData({ ...data.data, questions: finalQuestions });
+        setAnswers(Array(finalQuestions.length).fill(null));
       } else {
         setNotFound(true);
       }
@@ -490,6 +501,7 @@ export default function SetQuizPage() {
         </div>
 
         <ListeningAudioPlayer
+          key={question.id}
           audioUrl={question.audioUrl ?? undefined}
           transcript={question.transcript ?? question.questionText}
           questionText={question.questionText}
@@ -554,6 +566,7 @@ export default function SetQuizPage() {
         </div>
 
         <FocusMeaningConversationCard
+          key={question.id}
           conversation={question.conversation ?? []}
           question={question.questionText}
           options={[
@@ -614,6 +627,7 @@ export default function SetQuizPage() {
       onFlag={handleFlag}
     >
       <FocusFormQuestionCard
+        key={question.id}
         questionText={question.questionText}
         options={options}
         selectedAnswer={selectedAnswer}
