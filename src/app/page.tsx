@@ -77,10 +77,13 @@ export default async function Home() {
       <JsonLd data={websiteSchema()} />
       <JsonLd data={courseSchema()} />
       <JsonLd data={faqSchema([
-        { question: 'CEFR คืออะไร?', answer: 'CEFR (Common European Framework of Reference for Languages) คือกรอบมาตรฐานสากลในการวัดระดับความสามารถทางภาษา แบ่งเป็น 6 ระดับ ตั้งแต่ A1 (เริ่มต้น) ถึง C2 (เชี่ยวชาญ)' },
-        { question: 'ข้อสอบ CEFR Ready มีอะไรบ้าง?', answer: 'มี 4 ประเภท: Focus on Form (ไวยากรณ์), Focus on Meaning (ความหมาย), Form & Meaning (เติมคำในบทความ) และ Listening (การฟัง) ครอบคลุมระดับ A1-C2' },
-        { question: 'ใช้เตรียมสอบ CEFR มทส ได้ไหม?', answer: 'ได้ครับ ข้อสอบออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล สามารถใช้เตรียมสอบ CEFR ที่ มทส (SUT) และมหาวิทยาลัยอื่นๆ ได้' },
-        { question: 'ใช้ CEFR Ready ฟรีหรือเปล่า?', answer: 'ฟรี 100% ไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น สามารถทำข้อสอบตัวอย่างได้โดยไม่ต้องสมัครสมาชิก' },
+        { question: 'CEFR คืออะไร?', answer: 'CEFR (Common European Framework of Reference for Languages) คือกรอบมาตรฐานสากลในการวัดระดับความสามารถทางภาษา แบ่งเป็น 6 ระดับ ตั้งแต่ A1 (เริ่มต้น) ถึง C2 (เชี่ยวชาญ) ใช้กันทั่วโลกและถูกนำมาใช้ในการวัดระดับภาษาอังกฤษของนักศึกษาในมหาวิทยาลัยไทย เช่น มทส (SUT)' },
+        { question: 'ข้อสอบ CEFR Ready มีอะไรบ้าง?', answer: 'มี 4 ประเภท: (1) Focus on Form — ข้อสอบไวยากรณ์ เช่น tense, preposition, verb form (2) Focus on Meaning — ข้อสอบคำศัพท์ เช่น synonym, antonym (3) Form & Meaning — เติมคำในบทความ รวมไวยากรณ์และคำศัพท์ (4) Listening — ฟังบทสนทนาแล้วตอบคำถาม ครอบคลุมระดับ A1-C2' },
+        { question: 'ใช้เตรียมสอบ CEFR มทส ได้ไหม?', answer: 'ได้ครับ ข้อสอบออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล สามารถใช้เตรียมสอบ CEFR ที่ มทส (Suranaree University of Technology / SUT) และมหาวิทยาลัยอื่นๆ ที่ใช้มาตรฐาน CEFR ได้' },
+        { question: 'ใช้ CEFR Ready ฟรีหรือเปล่า?', answer: 'ฟรี 100% ไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น สามารถทำข้อสอบตัวอย่างได้โดยไม่ต้องสมัครสมาชิก สำหรับข้อสอบเต็มและการติดตามพัฒนาการ ต้องล็อกอินด้วย Google account' },
+        { question: 'CEFR Ready ต้องล็อกอินไหม?', answer: 'ไม่จำเป็นสำหรับข้อสอบตัวอย่าง (Demo) 5 ข้อทุกประเภท แต่หากต้องการทำข้อสอบเต็ม 30 ข้อและดูพัฒนาการของตัวเอง ต้องล็อกอินด้วย Google account ซึ่งใช้เวลาไม่กี่วินาที' },
+        { question: 'ข้อสอบ CEFR มีกี่ระดับ?', answer: 'CEFR มี 6 ระดับ: A1 (Beginner), A2 (Elementary), B1 (Intermediate), B2 (Upper-Intermediate), C1 (Advanced), C2 (Mastery) CEFR Ready ครอบคลุมทุกระดับตั้งแต่ A1 ถึง C2' },
+        { question: 'คะแนนที่ต้องได้เพื่อผ่าน CEFR มทส คือเท่าไร?', answer: 'โดยทั่วไปนักศึกษา มทส ต้องผ่านระดับ B1 ขึ้นไป แต่ขึ้นอยู่กับสาขาวิชาและรุ่นปีด้วย ควรตรวจสอบกับทาง มทส โดยตรงสำหรับข้อกำหนดล่าสุด CEFR Ready ช่วยฝึกทุกระดับเพื่อให้คุณมั่นใจก่อนสอบจริง' },
       ])} />
       {/* HERO — Split layout */}
       <section className="min-h-[75dvh] md:min-h-[80dvh] lg:min-h-[85dvh] flex items-center relative overflow-hidden py-12 md:py-0">

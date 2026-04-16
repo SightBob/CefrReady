@@ -6,7 +6,7 @@ import { MarkdownContent } from '@/components/MarkdownContent';
 import Link from 'next/link';
 import { ArrowLeft, Tag, BarChart } from 'lucide-react';
 import type { Metadata } from 'next';
-import JsonLd, { articleSchema } from '@/components/JsonLd';
+import JsonLd, { articleSchema, breadcrumbSchema } from '@/components/JsonLd';
 
 export const revalidate = 3600;
 
@@ -29,18 +29,27 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
     return { title: 'Article Not Found' };
   }
 
-  // Generate plain text excerpt for meta description
-  const description = article.content?.slice(0, 150).replace(/#+|\*|`|>/g, '').trim() + '...';
+  const plainDesc = (article.content || '')
+    .slice(0, 200)
+    .replace(/#+\s/g, '')
+    .replace(/[\*_`>\[\]]/g, '')
+    .trim();
+  const description = plainDesc ? plainDesc + '...' : 'อ่านบทความและทบทวนไวยากรณ์ก่อนสอบ CEFR';
 
   return {
-    title: `${article.title} — Must Know Grammar`,
-    description: description || 'อ่านบทความและทบทวนไวยากรณ์ก่อนสอบ CEFR',
+    title: `${article.title}`,
+    description,
     openGraph: {
       title: article.title,
-      description: description,
+      description,
       type: 'article',
       tags: Array.isArray(article.tags) ? (article.tags as string[]) : [],
-    }
+      publishedTime: (article as any).createdAt?.toISOString?.(),
+      modifiedTime: (article as any).updatedAt?.toISOString?.(),
+    },
+    alternates: {
+      canonical: `https://cefr-ready.vercel.app/must-know/${slug}`,
+    },
   };
 }
 
@@ -59,15 +68,29 @@ export default async function MustKnowArticlePage({ params }: ArticlePageProps) 
 
   const tags = Array.isArray(article.tags) ? (article.tags as string[]) : [];
 
+  const BASE_URL = 'https://cefr-ready.vercel.app';
+  const plainDesc = (article.content || '')
+    .slice(0, 200)
+    .replace(/#+\s/g, '')
+    .replace(/[\*_`>\[\]]/g, '')
+    .trim();
+  const description = plainDesc ? plainDesc + '...' : 'บทความไวยากรณ์ภาษาอังกฤษสำหรับเตรียมสอบ CEFR';
+
   return (
     <div className="min-h-screen bg-[#fafaf9] selection:bg-yellow-200 selection:text-stone-900">
       <JsonLd data={articleSchema({
         title: article.title,
-        description: article.content?.slice(0, 150).replace(/#+|\*|`|>/g, '').trim() + '...',
-        url: `https://cefrready.com/must-know/${slug}`,
+        description,
+        url: `${BASE_URL}/must-know/${slug}`,
         datePublished: (article as any).createdAt?.toISOString?.(),
         dateModified: (article as any).updatedAt?.toISOString?.(),
+        tags: Array.isArray(article.tags) ? (article.tags as string[]) : [],
       })} />
+      <JsonLd data={breadcrumbSchema([
+        { name: 'หน้าหลัก', url: BASE_URL },
+        { name: 'Must Know', url: `${BASE_URL}/must-know` },
+        { name: article.title, url: `${BASE_URL}/must-know/${slug}` },
+      ])} />
       <header className="bg-white border-b border-stone-200/60 sticky top-0 z-10 backdrop-blur-md bg-white/80">
         <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
           <Link

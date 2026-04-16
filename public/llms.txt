@@ -1,0 +1,79 @@
+# CEFR Ready
+
+> แพลตฟอร์มฝึกทำข้อสอบภาษาอังกฤษมาตรฐาน CEFR สำหรับนักศึกษาไทย โดยเฉพาะผู้เตรียมสอบ CEFR มทส (SUT) และมหาวิทยาลัยอื่นๆ ที่ใช้มาตรฐาน CEFR
+
+## What is CEFR Ready?
+
+CEFR Ready is a free online practice platform for the CEFR (Common European Framework of Reference for Languages) English proficiency exam. It provides 120+ practice questions across 4 test types that mirror real CEFR exam formats used by Thai universities.
+
+**Target audience:** Thai university students preparing for CEFR exams, particularly at Suranaree University of Technology (SUT / มทส) and other institutions.
+
+**Language:** Platform UI is in Thai; exam questions are in English.
+
+## Key Features
+
+- **Free access** — No subscription or payment required
+- **4 exam types**: Focus on Form, Focus on Meaning, Form & Meaning, Listening
+- **CEFR levels**: A1 through C2
+- **Full explanations** for every question in Thai
+- **Progress tracking** for registered users (Google login)
+- **Must Know** grammar library — reference articles for exam prep
+
+## Exam Types
+
+### Focus on Form
+Tests grammatical structures including verb forms, tenses, prepositions, and sentence patterns. Questions are multiple-choice.
+
+### Focus on Meaning
+Tests vocabulary knowledge including synonyms, antonyms, and contextual word usage. Questions are multiple-choice.
+
+### Form & Meaning
+Article-based fill-in-the-blank questions combining grammar and vocabulary within a reading passage context.
+
+### Listening
+Audio-based comprehension questions. Students listen to short dialogues and answer multiple-choice questions.
+
+## Pricing
+
+- **Free tier**: Full access to all 5-question demo tests (no account required)
+- **Full access**: Free — requires Google account login
+- **Admin**: Not publicly available
+
+## Key URLs
+
+- Homepage: https://cefr-ready.vercel.app/
+- Practice tests: https://cefr-ready.vercel.app/tests
+- Demo tests (no login): https://cefr-ready.vercel.app/demo
+- Grammar library: https://cefr-ready.vercel.app/must-know
+- Progress tracking: https://cefr-ready.vercel.app/progress
+- Sitemap: https://cefr-ready.vercel.app/sitemap.xml
+
+## What is CEFR?
+
+The Common European Framework of Reference for Languages (CEFR) is an international standard for measuring language proficiency across 6 levels:
+
+| Level | Description |
+|-------|-------------|
+| A1 | Beginner — very basic expressions |
+| A2 | Elementary — familiar everyday expressions |
+| B1 | Intermediate — can handle most travel situations |
+| B2 | Upper-Intermediate — can interact with native speakers |
+| C1 | Advanced — can use language flexibly for social and academic purposes |
+| C2 | Mastery — near-native level proficiency |
+
+## Frequently Asked Questions
+
+**Q: Is CEFR Ready free?**
+A: Yes, 100% free. No credit card, no subscription.
+
+**Q: Do I need to create an account?**
+A: You can try demo tests (5 questions each) without an account. Full tests with progress tracking require a Google account login.
+
+**Q: Can I use CEFR Ready to prepare for the SUT CEFR exam?**
+A: Yes. The exam questions are designed to match the format and difficulty of the CEFR exam used at Suranaree University of Technology (มทส) and similar institutions.
+
+**Q: How many practice questions are available?**
+A: 120+ questions across all 4 exam types, each covering CEFR levels A1-C2.
+
+**Q: Are answers and explanations provided?**
+A: Yes. Every question includes a detailed explanation in Thai after submission.
