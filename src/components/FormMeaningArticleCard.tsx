@@ -1,6 +1,7 @@
 'use client';
 
 import { FileText, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import SelectableText from './SelectableText';
 
 interface Blank {
   id: number;
@@ -44,7 +45,11 @@ export default function FormMeaningArticleCard({
       const splitIndex = text.indexOf(placeholder);
 
       if (splitIndex !== -1) {
-        parts.push(<span key={keyIndex++}>{text.substring(0, splitIndex)}</span>);
+        parts.push(
+          <span key={keyIndex++}>
+            <SelectableText text={text.substring(0, splitIndex)} contextSentence={article.text} sourceType="article" />
+          </span>
+        );
 
         const isCorrect = isSubmitted && answers[blank.id]?.toLowerCase() === blank.correctAnswer.toLowerCase();
         const isWrong = isSubmitted && !isCorrect && answers[blank.id];
@@ -92,7 +97,11 @@ export default function FormMeaningArticleCard({
       }
     });
 
-    parts.push(<span key={keyIndex}>{text}</span>);
+    parts.push(
+      <span key={keyIndex}>
+        <SelectableText text={text} contextSentence={article.text} sourceType="article" />
+      </span>
+    );
     return parts;
   };
 

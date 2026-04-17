@@ -211,6 +211,30 @@ export const articleQuestions = pgTable('article_questions', {
 }));
 
 // ============================================================
+// Flashcards (User vocabulary cards created from reading)
+// ============================================================
+
+export const flashcards = pgTable('flashcards', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  term: text('term').notNull(),                        // คำศัพท์หรือวลีที่เลือก
+  contextSentence: text('context_sentence'),           // ประโยคต้นฉบับที่เจอคำนั้น
+  sourceType: varchar('source_type', { length: 20 }), // 'question' | 'article' | 'manual'
+  sourceId: integer('source_id'),                     // questionId หรือ articleId (optional)
+  userMeaning: text('user_meaning'),                  // คำแปลที่ผู้ใช้พิมพ์เอง
+  dictData: jsonb('dict_data'),                       // raw data จาก Free Dictionary API
+  status: varchar('status', { length: 20 }).default('new').notNull(), // 'new' | 'learning' | 'mastered'
+  reviewCount: integer('review_count').default(0).notNull(),
+  lastReviewedAt: timestamp('last_reviewed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+}, (table) => ({
+  userIdx: index('flashcards_user_idx').on(table.userId),
+  statusIdx: index('flashcards_status_idx').on(table.userId, table.status),
+  termIdx: index('flashcards_term_idx').on(table.userId, table.term),
+}));
+
+// ============================================================
 // Drizzle-inferred types (for DB layer use)
 // ============================================================
 
@@ -234,3 +258,5 @@ export type DbArticle = typeof articles.$inferSelect;
 export type NewArticle = typeof articles.$inferInsert;
 export type DbArticleQuestion = typeof articleQuestions.$inferSelect;
 export type NewArticleQuestion = typeof articleQuestions.$inferInsert;
+export type DbFlashcard = typeof flashcards.$inferSelect;
+export type NewFlashcard = typeof flashcards.$inferInsert;

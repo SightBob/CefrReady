@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef } from 'react';
 import { CheckCircle, XCircle, MessageCircle } from 'lucide-react';
+import SelectableText from './SelectableText';
 
 interface ConversationLine {
   speaker: string;
@@ -71,7 +72,9 @@ export default function FocusFormQuestionCard({
             </div>
             <div className="flex-1 pt-1">
               <span className="text-sm font-semibold text-slate-500">{line.speaker}</span>
-              <p className="text-slate-700 leading-relaxed">{line.text}</p>
+              <div className="text-slate-700 leading-relaxed">
+                <SelectableText text={line.text} contextSentence={line.text} sourceType="question" />
+              </div>
             </div>
           </div>
         ))}
@@ -84,7 +87,11 @@ export default function FocusFormQuestionCard({
       return renderConversation(conversation);
     }
     if (!hasDialogue) {
-      return <p className="text-lg md:text-xl text-slate-800 leading-relaxed">{questionText}</p>;
+      return (
+        <div className="text-lg md:text-xl text-slate-800 leading-relaxed">
+          <SelectableText text={questionText} contextSentence={questionText} sourceType="question" />
+        </div>
+      );
     }
     const parsed: ConversationLine[] = dialogueLines.map((line) => {
       const colonIdx = line.indexOf(':');

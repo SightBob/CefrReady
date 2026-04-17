@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { GraduationCap, Menu, X, LogOut, Shield } from 'lucide-react';
+import { GraduationCap, Menu, X, LogOut, Shield, Layers } from 'lucide-react';
 import { useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -49,6 +49,12 @@ export default function Header() {
               <Link href="/tests" className={navLink('/tests')}>ข้อสอบ</Link>
               <Link href="/progress" className={navLink('/progress')}>พัฒนาการ</Link>
               <Link href="/must-know" className={navLink('/must-know')}>Must Know</Link>
+              {session?.user && (
+                <Link href="/flashcards" className={`inline-flex items-center gap-1.5 ${navLink('/flashcards')}`}>
+                  <Layers className="w-3.5 h-3.5" />
+                  Flashcards
+                </Link>
+              )}
               {session?.user?.isAdmin && (
                 <Link href="/admin" className={`inline-flex items-center gap-1.5 ${navLink('/admin')}`}>
                   <Shield className="w-3.5 h-3.5" />
@@ -104,6 +110,7 @@ export default function Header() {
                   { href: '/tests', label: 'ข้อสอบ' },
                   { href: '/progress', label: 'พัฒนาการ' },
                   { href: '/must-know', label: 'Must Know' },
+                  ...(session?.user ? [{ href: '/flashcards', label: 'Flashcards' }] : []),
                 ].map(({ href, label }) => (
                   <Link
                     key={href}
