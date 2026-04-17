@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, XCircle, Play, Pause, RotateCcw, Volume2 } from 'lucide-react';
+import SelectableText from './SelectableText';
 
 interface Option {
   key: string;
@@ -150,14 +151,16 @@ export default function ListeningAudioPlayer({
             <span className={`px-2 py-1 rounded text-xs font-bold mt-0.5 shrink-0 w-8 text-center ${speakerColor}`}>
               {speaker.charAt(0)}
             </span>
-            <span className="text-slate-800 leading-relaxed">{content}</span>
+            <span className="text-slate-800 leading-relaxed">
+              <SelectableText text={content} contextSentence={content} sourceType="question" />
+            </span>
           </div>
         );
       }
       
       return (
         <p key={idx} className="mb-2 text-slate-800 leading-relaxed last:mb-0">
-          {trimmed}
+          <SelectableText text={trimmed} contextSentence={trimmed} sourceType="question" />
         </p>
       );
     });
@@ -253,7 +256,9 @@ export default function ListeningAudioPlayer({
                 disabled={selectedAnswer !== null || disabled}
                 className={buttonClass}
               >
-                <span className="font-medium text-slate-800">{opt.value}</span>
+                <span className="font-medium text-slate-800">
+                  <SelectableText text={opt.value} contextSentence={opt.value} sourceType="question" />
+                </span>
               </button>
             );
           })}

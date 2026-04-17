@@ -143,7 +143,9 @@ export default function FocusFormQuestionCard({
                 }`}>
                 {opt.key}
               </span>
-              <span className="font-medium text-slate-800 pt-0.5">{opt.value}</span>
+              <span className="font-medium text-slate-800 pt-0.5">
+                <SelectableText text={opt.value} contextSentence={opt.value} sourceType="question" />
+              </span>
             </button>
           );
         })}

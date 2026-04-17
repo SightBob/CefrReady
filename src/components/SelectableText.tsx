@@ -72,6 +72,8 @@ export default function SelectableText({
   }, []);
 
   const handleWordClick = useCallback((word: string, e: React.MouseEvent<HTMLSpanElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
     const cleanWord = word.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
     if (!cleanWord || cleanWord.length < 2) return;
 

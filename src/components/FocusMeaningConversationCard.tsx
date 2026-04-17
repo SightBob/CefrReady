@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircle, XCircle, MessageCircle } from 'lucide-react';
+import SelectableText from './SelectableText';
 
 interface ConversationLine {
   speaker: string;
@@ -59,14 +60,18 @@ export default function FocusMeaningConversationCard({
                 {line.name && line.name !== line.speaker && (
                   <div className="text-xs font-semibold text-slate-500 mb-0.5">{line.name}</div>
                 )}
-              <p className="text-slate-700 leading-relaxed">{line.text}</p>
+              <div className="text-slate-700 leading-relaxed">
+                <SelectableText text={line.text} contextSentence={line.text} sourceType="question" />
+              </div>
             </div>
           </div>
           );
         })}
       </div>
 
-      <p className="text-lg font-medium text-slate-800 mb-6">{question}</p>
+      <div className="text-lg font-medium text-slate-800 mb-6">
+        <SelectableText text={question} contextSentence={question} sourceType="question" />
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
         {options.map((option, index) => {
@@ -89,7 +94,9 @@ export default function FocusMeaningConversationCard({
               disabled={selectedAnswer !== null || disabled}
               className={buttonClass}
             >
-              <span className="font-medium text-slate-800">{option}</span>
+              <span className="font-medium text-slate-800">
+                <SelectableText text={option} contextSentence={option} sourceType="question" />
+              </span>
             </button>
           );
         })}

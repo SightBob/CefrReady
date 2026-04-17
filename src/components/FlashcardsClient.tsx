@@ -430,7 +430,7 @@ export default function FlashcardsClient() {
 
             {/* Review Buttons */}
             {flipped && (
-              <div className="grid grid-cols-3 gap-3 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="grid grid-cols-3 gap-3 mt-14 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <button
                   onClick={() => { handleStatusChange(currentCard.id, 'new'); setFlipped(false); setReviewIndex(i => Math.min(i + 1, reviewCards.length - 1)); }}
                   className="flex flex-col items-center gap-1 py-3 bg-red-50 border-2 border-red-200 text-red-700 rounded-2xl font-medium text-sm hover:bg-red-100 transition-all active:scale-95"
