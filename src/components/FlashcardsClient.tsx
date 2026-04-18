@@ -18,6 +18,9 @@ import {
   Filter,
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import ConfirmModal from './ConfirmModal';
+import FlashcardsTour from './FlashcardsTour';
 
 interface DictMeaning {
   partOfSpeech: string;
@@ -48,6 +51,7 @@ export default function FlashcardsClient() {
   const [flipped, setFlipped] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editMeaning, setEditMeaning] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   const fetchCards = useCallback(async () => {
     setLoading(true);
@@ -75,10 +79,17 @@ export default function FlashcardsClient() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('ลบ flashcard นี้ออก?')) return;
+  const handleDelete = (id: number) => {
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirmId === null) return;
+    const id = deleteConfirmId;
     await fetch(`/api/flashcards/${id}`, { method: 'DELETE' });
     setCards(prev => prev.filter(c => c.id !== id));
+    toast.success('ลบ flashcard สำเร็จ');
+    setDeleteConfirmId(null);
   };
 
   const handleStatusChange = async (id: number, status: string) => {
@@ -137,7 +148,7 @@ export default function FlashcardsClient() {
 
             {/* View Toggle */}
             <div className="flex items-center gap-2">
-              <div className="flex bg-slate-100 rounded-xl p-1">
+              <div className="flex bg-slate-100 rounded-xl p-1" data-tour="fc-view-toggle">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${viewMode === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
@@ -183,9 +194,9 @@ export default function FlashcardsClient() {
           </div>
         )}
 
-        {/* Empty State */}
+        {/* Empty state add hint */}
         {!loading && cards.length === 0 && (
-          <div className="text-center py-20">
+          <div className="text-center py-20" data-tour="fc-add-hint">
             <BookmarkPlus className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-slate-700 mb-2">ยังไม่มี Flashcard</h2>
             <p className="text-slate-500 mb-6">
@@ -204,7 +215,7 @@ export default function FlashcardsClient() {
         {!loading && viewMode === 'grid' && cards.length > 0 && (
           <>
             {/* Filter */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4" data-tour="fc-filter-tabs">
               <Filter className="w-4 h-4 text-slate-400" />
               <span className="text-sm text-slate-500">กรอง:</span>
               {(['all', 'new', 'learning', 'mastered'] as FilterStatus[]).map(s => (
@@ -218,7 +229,7 @@ export default function FlashcardsClient() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-tour="fc-card-area">
               {cards.map(card => (
                 <div key={card.id} className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md transition-all group">
                   {/* Term */}
@@ -335,132 +346,146 @@ export default function FlashcardsClient() {
 
         {/* ===== REVIEW MODE ===== */}
         {!loading && viewMode === 'review' && cards.length > 0 && currentCard && (
-          <div className="max-w-lg mx-auto">
-            {/* Progress */}
-            <div className="flex items-center justify-between mb-4 text-sm text-slate-500">
-              <span>การ์ด {reviewIndex + 1} / {reviewCards.length}</span>
-              <div className="flex-1 mx-4 h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div className="max-w-xl mx-auto min-h-[70vh] flex flex-col justify-center">
+            
+            {/* Minimal Progress Island */}
+            <div className="flex items-center justify-between bg-white/80 backdrop-blur-xl border border-slate-200/50 rounded-full px-5 py-3 mb-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] w-full max-w-sm mx-auto">
+              <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">การ์ด {reviewIndex + 1} / {reviewCards.length}</span>
+              <div className="flex-1 mx-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-300"
+                  className="h-full bg-slate-800 transition-all duration-700 ease-out"
                   style={{ width: `${((reviewIndex + 1) / reviewCards.length) * 100}%` }}
                 />
               </div>
-              <span>{Math.round(((reviewIndex + 1) / reviewCards.length) * 100)}%</span>
+              <span className="text-xs font-bold text-slate-800">{Math.round(((reviewIndex + 1) / reviewCards.length) * 100)}%</span>
             </div>
 
-            {/* Flashcard */}
+            {/* The Double-Bezel Flashcard */}
             <div
-              className="relative cursor-pointer select-none"
-              style={{ perspective: '1200px' }}
+              className="relative cursor-pointer select-none group"
+              style={{ perspective: '1600px' }}
               onClick={() => setFlipped(f => !f)}
             >
-              <div
-                className="relative transition-all duration-500 ease-in-out"
-                style={{
-                  transformStyle: 'preserve-3d',
-                  transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                  minHeight: '280px',
-                }}
-              >
-                {/* Front */}
+              <div className="p-2 bg-slate-50/50 border border-slate-100 rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] transition-all duration-700 ease-out hover:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.08)] hover:-translate-y-1">
                 <div
-                  className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-8 flex flex-col items-center justify-center shadow-2xl"
-                  style={{ backfaceVisibility: 'hidden' }}
+                  className="relative transition-transform duration-700 ease-out w-full"
+                  style={{
+                    transformStyle: 'preserve-3d',
+                    transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                    minHeight: '360px',
+                  }}
                 >
-                  <span className="text-4xl font-bold text-white mb-2">{currentCard.term}</span>
-                  {currentCard.dictData?.phonetic && (
-                    <span className="text-indigo-200 font-mono text-lg">{currentCard.dictData.phonetic}</span>
-                  )}
-                  <button
-                    onClick={e => { e.stopPropagation(); handleSpeak(currentCard.term); }}
-                    className="mt-4 p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                  {/* Front (Inner Core) */}
+                  <div
+                    className="absolute inset-0 bg-white rounded-[2rem] p-10 flex flex-col items-center justify-center border border-slate-100"
+                    style={{ backfaceVisibility: 'hidden' }}
                   >
-                    <Volume2 className="w-5 h-5 text-white" />
-                  </button>
-                  <p className="text-indigo-200 text-sm mt-6">แตะเพื่อดูความหมาย</p>
-                </div>
-
-                {/* Back */}
-                <div
-                  className="absolute inset-0 bg-white rounded-3xl p-8 flex flex-col justify-center shadow-2xl"
-                  style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-                >
-                  <span className="text-2xl font-bold text-slate-900 mb-1">{currentCard.term}</span>
-
-                  {/* Thai Translation */}
-                  {currentCard.dictData?.translation_th && (
-                    <div className="mb-3 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
-                      <p className="text-indigo-700 font-medium text-sm mb-0.5">แปลว่า</p>
-                      <p className="text-indigo-900 font-bold text-lg">{currentCard.dictData.translation_th}</p>
+                    <span className="text-5xl md:text-6xl font-bold tracking-tighter text-slate-900 mb-4">{currentCard.term}</span>
+                    {currentCard.dictData?.phonetic && (
+                      <span className="text-slate-400 font-mono text-lg tracking-wide">{currentCard.dictData.phonetic}</span>
+                    )}
+                    <button
+                      onClick={e => { e.stopPropagation(); handleSpeak(currentCard.term); }}
+                      className="mt-8 w-12 h-12 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-300 active:scale-95"
+                    >
+                      <Volume2 className="w-5 h-5" />
+                    </button>
+                    
+                    <div className="absolute bottom-8 left-0 right-0 text-center opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 bg-slate-50 px-4 py-1.5 rounded-full">แตะเพื่อดูความหมาย</span>
                     </div>
-                  )}
+                  </div>
 
-                  {currentCard.userMeaning && (
-                    <div className="mb-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                      <p className="text-sm font-semibold text-emerald-600 mb-0.5">ความหมายของคุณ</p>
-                      <p className="text-slate-800 font-medium">{currentCard.userMeaning}</p>
-                    </div>
-                  )}
+                  {/* Back (Inner Core) */}
+                  <div
+                    className="absolute inset-0 bg-white rounded-[2rem] p-8 sm:p-10 flex flex-col border border-slate-100 overflow-y-auto"
+                    style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                  >
+                    <span className="text-3xl font-bold tracking-tight text-slate-900 mb-6 pb-6 border-b border-slate-100">{currentCard.term}</span>
 
-                  {currentCard.dictData?.meanings?.[0] && (
-                    <div className="mb-3">
-                      <span className="text-xs font-semibold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
-                        {currentCard.dictData.meanings[0].partOfSpeech}
-                      </span>
-                      <p className="text-slate-700 text-sm mt-2 leading-relaxed">
-                        {currentCard.dictData.meanings[0].definitions[0]?.definition}
-                      </p>
-                      {currentCard.dictData.meanings[0].definitions[0]?.example && (
-                        <p className="text-slate-400 text-xs mt-1 italic">
-                          &ldquo;{currentCard.dictData.meanings[0].definitions[0].example}&rdquo;
-                        </p>
+                    <div className="space-y-6 flex-1">
+                      {/* Thai Translation */}
+                      {currentCard.dictData?.translation_th && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">คำแปล</p>
+                          <p className="text-slate-800 font-medium text-xl">{currentCard.dictData.translation_th}</p>
+                        </div>
+                      )}
+
+                      {/* User Meaning */}
+                      {currentCard.userMeaning && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">โน้ตของคุณ</p>
+                          <p className="text-slate-700 leading-relaxed">{currentCard.userMeaning}</p>
+                        </div>
+                      )}
+
+                      {/* English Definition */}
+                      {currentCard.dictData?.meanings?.[0] && (
+                        <div>
+                          <div className="flex items-center gap-3 mb-2">
+                            <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">ความหมายภาษาอังกฤษ</p>
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
+                              {currentCard.dictData.meanings[0].partOfSpeech}
+                            </span>
+                          </div>
+                          <p className="text-slate-600 text-sm leading-relaxed">
+                            {currentCard.dictData.meanings[0].definitions[0]?.definition}
+                          </p>
+                          {currentCard.dictData.meanings[0].definitions[0]?.example && (
+                            <p className="text-slate-400 text-sm mt-2 italic border-l-2 border-slate-200 pl-3">
+                              &ldquo;{currentCard.dictData.meanings[0].definitions[0].example}&rdquo;
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Context Sentence */}
+                      {currentCard.contextSentence && (
+                        <div className="pt-4 mt-auto">
+                          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">บริบทที่เจอ</p>
+                          <p className="text-sm text-slate-500 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">{currentCard.contextSentence}</p>
+                        </div>
                       )}
                     </div>
-                  )}
-
-                  {currentCard.contextSentence && (
-                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-                      <p className="text-xs font-semibold text-amber-700 mb-1">บริบทที่เจอ</p>
-                      <p className="text-xs text-amber-800 leading-relaxed">{currentCard.contextSentence}</p>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Review Buttons */}
-            {flipped && (
-              <div className="grid grid-cols-3 gap-3 mt-14 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {/* Action Islands */}
+            <div className={`transition-all duration-700 ease-out ${flipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+              <div className="grid grid-cols-3 gap-3 mt-8">
                 <button
                   onClick={() => { handleStatusChange(currentCard.id, 'new'); setFlipped(false); setReviewIndex(i => Math.min(i + 1, reviewCards.length - 1)); }}
-                  className="flex flex-col items-center gap-1 py-3 bg-red-50 border-2 border-red-200 text-red-700 rounded-2xl font-medium text-sm hover:bg-red-100 transition-all active:scale-95"
+                  className="group relative flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white border border-slate-200/60 shadow-sm hover:border-red-200 hover:bg-red-50/50 hover:shadow-[0_8px_30px_rgba(239,68,68,0.12)] transition-all duration-500 ease-out active:scale-[0.96]"
                 >
-                  <XCircle className="w-5 h-5" />
-                  ยังจำไม่ได้
+                  <XCircle className="w-6 h-6 text-slate-400 group-hover:text-red-500 transition-colors duration-300" />
+                  <span className="text-xs font-semibold text-slate-500 group-hover:text-red-700 transition-colors duration-300">ยังจำไม่ได้</span>
                 </button>
                 <button
                   onClick={() => { handleStatusChange(currentCard.id, 'learning'); setFlipped(false); setReviewIndex(i => Math.min(i + 1, reviewCards.length - 1)); }}
-                  className="flex flex-col items-center gap-1 py-3 bg-amber-50 border-2 border-amber-200 text-amber-700 rounded-2xl font-medium text-sm hover:bg-amber-100 transition-all active:scale-95"
+                  className="group relative flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white border border-slate-200/60 shadow-sm hover:border-amber-200 hover:bg-amber-50/50 hover:shadow-[0_8px_30px_rgba(245,158,11,0.12)] transition-all duration-500 ease-out active:scale-[0.96]"
                 >
-                  <RotateCcw className="w-5 h-5" />
-                  กำลังจำ
+                  <RotateCcw className="w-6 h-6 text-slate-400 group-hover:text-amber-500 transition-colors duration-300" />
+                  <span className="text-xs font-semibold text-slate-500 group-hover:text-amber-700 transition-colors duration-300">กำลังจำ</span>
                 </button>
                 <button
                   onClick={() => { handleStatusChange(currentCard.id, 'mastered'); setFlipped(false); setReviewIndex(i => Math.min(i + 1, reviewCards.length - 1)); }}
-                  className="flex flex-col items-center gap-1 py-3 bg-emerald-50 border-2 border-emerald-200 text-emerald-700 rounded-2xl font-medium text-sm hover:bg-emerald-100 transition-all active:scale-95"
+                  className="group relative flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white border border-slate-200/60 shadow-sm hover:border-emerald-200 hover:bg-emerald-50/50 hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)] transition-all duration-500 ease-out active:scale-[0.96]"
                 >
-                  <CheckCircle2 className="w-5 h-5" />
-                  จำได้แล้ว!
+                  <CheckCircle2 className="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" />
+                  <span className="text-xs font-semibold text-slate-500 group-hover:text-emerald-700 transition-colors duration-300">จำได้แล้ว!</span>
                 </button>
               </div>
-            )}
+            </div>
 
-            {/* Navigation */}
-            <div className="flex items-center justify-between mt-6">
+            {/* Navigation (Subtle) */}
+            <div className="flex items-center justify-between mt-12 px-2">
               <button
                 onClick={() => { setReviewIndex(i => Math.max(0, i - 1)); setFlipped(false); }}
                 disabled={reviewIndex === 0}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 disabled:opacity-30 transition-all"
+                className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
                 ก่อนหน้า
@@ -469,7 +494,7 @@ export default function FlashcardsClient() {
               {reviewIndex === reviewCards.length - 1 ? (
                 <button
                   onClick={() => { setReviewIndex(0); setFlipped(false); }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-all"
+                  className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-800 hover:text-indigo-600 transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" />
                   ทบทวนใหม่
@@ -477,7 +502,7 @@ export default function FlashcardsClient() {
               ) : (
                 <button
                   onClick={() => { setReviewIndex(i => Math.min(i + 1, reviewCards.length - 1)); setFlipped(false); }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all"
+                  className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-800 transition-colors"
                 >
                   ถัดไป
                   <ChevronRight className="w-4 h-4" />
@@ -487,6 +512,20 @@ export default function FlashcardsClient() {
           </div>
         )}
       </div>
+      
+      <ConfirmModal
+        isOpen={deleteConfirmId !== null}
+        title="ต้องการลบ flashcard นี้ออกหรือไม่?"
+        description="การกระทำนี้ไม่สามารถย้อนกลับได้ ข้อมูลคำศัพท์นี้จะหายไปอย่างถาวร"
+        confirmLabel="ลบเลย"
+        cancelLabel="ยกเลิก"
+        type="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
+
+      {/* Flashcards Page Tour for first-time visitors */}
+      <FlashcardsTour />
     </div>
   );
 }

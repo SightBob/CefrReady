@@ -20,6 +20,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
+import { toast } from 'sonner';
 
 interface ConversationLine {
   speaker: string;
@@ -139,50 +140,67 @@ export default function QuestionsManagement() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบข้อสอบนี้?')) return;
+  const handleDelete = (id: number) => {
+    toast('ต้องการลบข้อสอบนี้หรือไม่?', {
+      description: 'การกระทำนี้ไม่สามารถย้อนกลับได้',
+      action: {
+        label: 'ลบเลย',
+        onClick: async () => {
+          try {
+            const response = await fetch(`/api/admin/questions/${id}`, {
+              method: 'DELETE',
+            });
 
-    try {
-      const response = await fetch(`/api/admin/questions/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setQuestions(questions.filter((q) => q.id !== id));
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      } else {
-        alert('เกิดข้อผิดพลาดในการลบข้อสอบ');
-      }
-    } catch (error) {
-      console.error('Error deleting question:', error);
-      alert('เกิดข้อผิดพลาดในการลบข้อสอบ');
-    }
+            if (response.ok) {
+              setQuestions(questions.filter((q) => q.id !== id));
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+              });
+              toast.success('ลบข้อสอบสำเร็จ');
+            } else {
+              toast.error('เกิดข้อผิดพลาดในการลบข้อสอบ');
+            }
+          } catch (error) {
+            console.error('Error deleting question:', error);
+            toast.error('เกิดข้อผิดพลาดในการลบข้อสอบ');
+          }
+        }
+      },
+      cancel: { label: 'ยกเลิก', onClick: () => {} }
+    });
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`คุณแน่ใจหรือไม่ที่จะลบ ${selectedIds.size} ข้อสอบที่เลือก? การกระทำนี้ไม่สามารถย้อนกลับได้`)) return;
-
-    setBulkDeleting(true);
-    try {
-      const ids = Array.from(selectedIds);
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/admin/questions/${id}`, { method: 'DELETE' })
-        )
-      );
-      setQuestions(questions.filter((q) => !selectedIds.has(q.id)));
-      setSelectedIds(new Set());
-    } catch (error) {
-      console.error('Error bulk deleting questions:', error);
-      alert('เกิดข้อผิดพลาดในการลบข้อสอบ');
-    } finally {
-      setBulkDeleting(false);
-    }
+    
+    toast(`ต้องการลบ ${selectedIds.size} ข้อสอบที่เลือกหรือไม่?`, {
+      description: 'การกระทำนี้ไม่สามารถย้อนกลับได้',
+      action: {
+        label: 'ลบทั้งหมด',
+        onClick: async () => {
+          setBulkDeleting(true);
+          try {
+            const ids = Array.from(selectedIds);
+            await Promise.all(
+              ids.map((id) =>
+                fetch(`/api/admin/questions/${id}`, { method: 'DELETE' })
+              )
+            );
+            setQuestions(questions.filter((q) => !selectedIds.has(q.id)));
+            setSelectedIds(new Set());
+            toast.success(`ลบ ${ids.length} ข้อสอบสำเร็จ`);
+          } catch (error) {
+            console.error('Error bulk deleting questions:', error);
+            toast.error('เกิดข้อผิดพลาดในการลบข้อสอบ');
+          } finally {
+            setBulkDeleting(false);
+          }
+        }
+      },
+      cancel: { label: 'ยกเลิก', onClick: () => {} }
+    });
   };
 
   const toggleActive = async (question: Question) => {
@@ -205,37 +223,46 @@ export default function QuestionsManagement() {
     }
   };
 
-  const handleDuplicate = async (question: Question) => {
-    if (!confirm(`ต้องการทำสำเนา "${question.questionText.slice(0, 40)}..." หรือไม่?`)) return;
-    try {
-      const payload = {
-        testTypeId: question.testTypeId,
-        questionText: `[สำเนา] ${question.questionText}`,
-        optionA: question.optionA,
-        optionB: question.optionB,
-        optionC: question.optionC,
-        optionD: question.optionD,
-        correctAnswer: question.correctAnswer,
-        explanation: question.explanation,
-        difficulty: question.difficulty,
-        cefrLevel: question.cefrLevel,
-        conversation: question.conversation,
-        article: question.article,
-      };
-      const res = await fetch('/api/admin/questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        await fetchQuestions();
-      } else {
-        alert('เกิดข้อผิดพลาดในการทำสำเนา');
-      }
-    } catch (error) {
-      console.error('Error duplicating question:', error);
-      alert('เกิดข้อผิดพลาดในการทำสำเนา');
-    }
+  const handleDuplicate = (question: Question) => {
+    toast('ต้องการทำสำเนาข้อสอบนี้หรือไม่?', {
+      description: `"${question.questionText.slice(0, 40)}..."`,
+      action: {
+        label: 'ทำสำเนา',
+        onClick: async () => {
+          try {
+            const payload = {
+              testTypeId: question.testTypeId,
+              questionText: `[สำเนา] ${question.questionText}`,
+              optionA: question.optionA,
+              optionB: question.optionB,
+              optionC: question.optionC,
+              optionD: question.optionD,
+              correctAnswer: question.correctAnswer,
+              explanation: question.explanation,
+              difficulty: question.difficulty,
+              cefrLevel: question.cefrLevel,
+              conversation: question.conversation,
+              article: question.article,
+            };
+            const res = await fetch('/api/admin/questions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            if (res.ok) {
+              await fetchQuestions();
+              toast.success('ทำสำเนาสำเร็จ');
+            } else {
+              toast.error('เกิดข้อผิดพลาดในการทำสำเนา');
+            }
+          } catch (error) {
+            console.error('Error duplicating question:', error);
+            toast.error('เกิดข้อผิดพลาดในการทำสำเนา');
+          }
+        }
+      },
+      cancel: { label: 'ยกเลิก', onClick: () => {} }
+    });
   };
 
   const handleRemoveFromSet = async (questionId: number, testSetId: number) => {

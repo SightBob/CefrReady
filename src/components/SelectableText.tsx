@@ -27,17 +27,19 @@ interface PopupState {
 interface SelectableTextProps {
   text: string;
   contextSentence?: string; // ถ้าไม่ส่งมา จะใช้ประโยคจาก text เอง
-  sourceType?: 'question' | 'article' | 'manual';
+  sourceType?: 'question' | 'listening_transcript' | 'listening_option' | 'meaning_conversation' | 'meaning_question' | 'meaning_option' | 'article' | 'form_option' | 'other';
   sourceId?: number;
   className?: string;
+  inline?: boolean;
 }
 
 export default function SelectableText({
   text,
   contextSentence,
-  sourceType = 'manual',
+  sourceType = 'other',
   sourceId,
   className = '',
+  inline = false,
 }: SelectableTextProps) {
   const { data: session } = useSession();
   const [popup, setPopup] = useState<PopupState | null>(null);
@@ -135,12 +137,14 @@ export default function SelectableText({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // คำนวณตำแหน่ง popup ให้ไม่เกินหน้าจอ
+  // คำนวณตำแหน่ง popup ให้ไม่เกินหน้าจอ (flip ขึ้นบนถ้าล้นล่าง)
   const getPopupStyle = (): React.CSSProperties => {
     if (!popup) return {};
     const popupWidth = 300;
+    const maxPopupHeight = 420;
     const viewportWidth = window.innerWidth;
-    const scrollY = window.scrollY;
+    const viewportHeight = window.innerHeight;
+    const gap = 8;
 
     let left = popup.rect.left;
     if (left + popupWidth > viewportWidth - 16) {
@@ -148,21 +152,40 @@ export default function SelectableText({
     }
     if (left < 8) left = 8;
 
-    return {
-      position: 'fixed',
-      left: `${left}px`,
-      top: `${popup.rect.bottom + 8}px`,
-      width: `${popupWidth}px`,
-      zIndex: 9999,
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Check if popup fits below the word
+    const spaceBelow = viewportHeight - popup.rect.bottom - gap;
+    const spaceAbove = popup.rect.top - gap;
+    const fitsBelow = spaceBelow >= Math.min(maxPopupHeight, 250);
+
+    if (fitsBelow) {
+      return {
+        position: 'fixed',
+        left: `${left}px`,
+        top: `${popup.rect.bottom + gap}px`,
+        width: `${popupWidth}px`,
+        maxHeight: `${Math.min(spaceBelow - 8, maxPopupHeight)}px`,
+        zIndex: 9999,
+      };
+    } else {
+      // Flip above
+      return {
+        position: 'fixed',
+        left: `${left}px`,
+        bottom: `${viewportHeight - popup.rect.top + gap}px`,
+        width: `${popupWidth}px`,
+        maxHeight: `${Math.min(spaceAbove - 8, maxPopupHeight)}px`,
+        zIndex: 9999,
+      };
+    }
   };
-  void getPopupStyle; // suppress unused warning — used in JSX below
+
+  const Container = inline ? 'span' : 'div';
+  const TextWrapper = inline ? 'span' : 'p';
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <Container ref={containerRef} className={`relative ${className}`}>
       {/* ข้อความที่คลิกได้ */}
-      <p className="leading-relaxed">
+      <TextWrapper className={inline ? '' : 'leading-relaxed'}>
         {tokens.map((token, i) => {
           const isWord = /[a-zA-Z]/.test(token);
           if (!isWord) return <span key={i}>{token}</span>;
@@ -177,17 +200,17 @@ export default function SelectableText({
             </span>
           );
         })}
-      </p>
+      </TextWrapper>
 
       {/* Popup */}
       {popup && (
         <div
           ref={popupRef}
           style={getPopupStyle()}
-          className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+          className="bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col animate-in fade-in slide-in-from-top-2 duration-150"
         >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600">
+          {/* Header — always visible */}
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-t-2xl shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-white font-bold text-lg">{popup.word}</span>
               <button
@@ -205,69 +228,25 @@ export default function SelectableText({
             </button>
           </div>
 
-          {/* Dictionary Result */}
-          <div className="px-4 py-3">
+          {/* Save section — always visible below header */}
+          <div className="px-4 py-3 border-b border-slate-100 shrink-0 bg-white">
+            {/* Thai Translation (quick glance) */}
+            {!dictLoading && dictData?.translation_th && (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 mb-3">
+                <p className="text-indigo-700 font-medium text-sm">
+                  แปลว่า: <span className="text-indigo-900 text-base">{dictData.translation_th}</span>
+                </p>
+              </div>
+            )}
             {dictLoading && (
-              <div className="flex items-center gap-2 text-slate-500 text-sm py-2">
+              <div className="flex items-center gap-2 text-slate-500 text-sm py-2 mb-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>กำลังค้นหา...</span>
               </div>
             )}
 
-            {!dictLoading && dictData?.notFound && !dictData?.translation_th && (
-              <p className="text-slate-400 text-sm italic py-1">ไม่พบในพจนานุกรม</p>
-            )}
-
-            {!dictLoading && dictData && (
-              <div className="space-y-3">
-                {/* Thai Translation */}
-                {dictData.translation_th && (
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5">
-                    <p className="text-indigo-700 font-medium text-sm">
-                      แปลว่า: <span className="text-indigo-900 text-base">{dictData.translation_th}</span>
-                    </p>
-                  </div>
-                )}
-                
-                {/* Phonetic & English Meanings */}
-                {(!dictData.notFound) && (
-                  <div className="space-y-2">
-                    {dictData.phonetic && (
-                      <p className="text-slate-500 text-sm font-mono">{dictData.phonetic}</p>
-                    )}
-                {dictData.meanings.slice(0, 2).map((m, i) => (
-                  <div key={i}>
-                    <span className="inline-block text-xs font-semibold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full mb-1">
-                      {m.partOfSpeech}
-                    </span>
-                    <p className="text-slate-700 text-sm leading-relaxed">
-                      {m.definitions[0]?.definition}
-                    </p>
-                    {m.definitions[0]?.example && (
-                      <p className="text-slate-400 text-xs mt-0.5 italic">
-                        &ldquo;{m.definitions[0].example}&rdquo;
-                      </p>
-                    )}
-                  </div>
-                ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Context Sentence */}
-            <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-100">
-              <div className="flex items-center gap-1 mb-1">
-                <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-                <span className="text-xs font-medium text-amber-700">บริบท</span>
-              </div>
-              <p className="text-xs text-amber-800 leading-relaxed line-clamp-2">
-                {contextSentence || text}
-              </p>
-            </div>
-
             {/* User Meaning Input */}
-            <div className="mt-3">
+            <div className="mb-3">
               <label className="text-xs font-medium text-slate-600 mb-1 block">
                 ความหมายของคุณ <span className="text-slate-400">(ไม่บังคับ)</span>
               </label>
@@ -283,37 +262,78 @@ export default function SelectableText({
             </div>
 
             {/* Save Button */}
-            <div className="mt-3">
-              {!session?.user ? (
-                <p className="text-xs text-slate-400 text-center">เข้าสู่ระบบเพื่อบันทึก Flashcard</p>
-              ) : alreadyExists ? (
-                <div className="flex items-center justify-center gap-2 py-2 text-sm text-amber-600">
-                  <Check className="w-4 h-4" />
-                  <span>มีในคลัง Flashcard แล้ว</span>
-                </div>
-              ) : saved ? (
-                <div className="flex items-center justify-center gap-2 py-2 text-sm text-emerald-600">
-                  <Check className="w-4 h-4" />
-                  <span>บันทึกแล้ว! ✨</span>
-                </div>
-              ) : (
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-60"
-                >
-                  {saving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <BookmarkPlus className="w-4 h-4" />
-                  )}
-                  {saving ? 'กำลังบันทึก...' : 'เพิ่มใน Flashcard'}
-                </button>
-              )}
+            {!session?.user ? (
+              <p className="text-xs text-slate-400 text-center">เข้าสู่ระบบเพื่อบันทึก Flashcard</p>
+            ) : alreadyExists ? (
+              <div className="flex items-center justify-center gap-2 py-2 text-sm text-amber-600">
+                <Check className="w-4 h-4" />
+                <span>มีในคลัง Flashcard แล้ว</span>
+              </div>
+            ) : saved ? (
+              <div className="flex items-center justify-center gap-2 py-2 text-sm text-emerald-600">
+                <Check className="w-4 h-4" />
+                <span>บันทึกแล้ว! ✨</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <BookmarkPlus className="w-4 h-4" />
+                )}
+                {saving ? 'กำลังบันทึก...' : 'เพิ่มใน Flashcard'}
+              </button>
+            )}
+          </div>
+
+          {/* Scrollable dictionary details */}
+          <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
+          <div className="px-4 py-3">
+            {!dictLoading && dictData?.notFound && !dictData?.translation_th && (
+              <p className="text-slate-400 text-sm italic py-1">ไม่พบในพจนานุกรม</p>
+            )}
+
+            {!dictLoading && dictData && !dictData.notFound && (
+              <div className="space-y-2">
+                {dictData.phonetic && (
+                  <p className="text-slate-500 text-sm font-mono">{dictData.phonetic}</p>
+                )}
+                {dictData.meanings.slice(0, 2).map((m, i) => (
+                  <div key={i}>
+                    <span className="inline-block text-xs font-semibold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full mb-1">
+                      {m.partOfSpeech}
+                    </span>
+                    <p className="text-slate-700 text-sm leading-relaxed">
+                      {m.definitions[0]?.definition}
+                    </p>
+                    {m.definitions[0]?.example && (
+                      <p className="text-slate-400 text-xs mt-0.5 italic">
+                        &ldquo;{m.definitions[0].example}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Context Sentence */}
+            <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-100">
+              <div className="flex items-center gap-1 mb-1">
+                <BookOpen className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-xs font-medium text-amber-700">บริบท</span>
+              </div>
+              <p className="text-xs text-amber-800 leading-relaxed line-clamp-2">
+                {contextSentence || text}
+              </p>
             </div>
           </div>
+          </div>{/* end scrollable body */}
         </div>
       )}
-    </div>
+    </Container>
   );
 }

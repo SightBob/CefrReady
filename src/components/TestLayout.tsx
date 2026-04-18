@@ -27,18 +27,18 @@ interface Section {
 }
 
 interface TestLayoutProps {
-  title: string;
-  duration: string;
-  totalQuestions: number;
-  currentQuestion: number;
-  answers: (number | null)[];
-  flaggedQuestions: number[];
+  title?: string;
+  duration?: string;
+  totalQuestions?: number;
+  currentQuestion?: number;
+  answers?: (number | null)[];
+  flaggedQuestions?: number[];
   sections?: Section[];
-  onQuestionSelect: (index: number) => void;
-  onPrevious: () => void;
-  onNext: () => void;
-  onSubmit: () => void;
-  onFlag: () => void;
+  onQuestionSelect?: (index: number) => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  onSubmit?: () => void;
+  onFlag?: () => void;
   children: React.ReactNode;
   isSubmitted?: boolean;
 }
@@ -46,18 +46,18 @@ interface TestLayoutProps {
 const QUESTIONS_PER_PAGE = 20;
 
 export default function TestLayout({
-  title,
-  duration,
-  totalQuestions,
-  currentQuestion,
-  answers,
-  flaggedQuestions,
+  title = '',
+  duration = '',
+  totalQuestions = 0,
+  currentQuestion = 0,
+  answers = [],
+  flaggedQuestions = [],
   sections,
-  onQuestionSelect,
-  onPrevious,
-  onNext,
-  onSubmit,
-  onFlag,
+  onQuestionSelect = () => {},
+  onPrevious = () => {},
+  onNext = () => {},
+  onSubmit = () => {},
+  onFlag = () => {},
   children,
   isSubmitted = false,
 }: TestLayoutProps) {
@@ -330,7 +330,7 @@ export default function TestLayout({
           {/* Desktop Navigation Panel */}
           {showNavPanel && (
             <div className="hidden md:block w-72 shrink-0">
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden" data-tour="test-nav-panel">
                 {/* Header */}
                 <div className="p-4 border-b border-slate-100 bg-slate-50">
                   <div className="flex items-center justify-between mb-3">
@@ -579,6 +579,7 @@ export default function TestLayout({
                     <button
                       onClick={onSubmit}
                       disabled={unansweredCount > 0}
+                      data-tour="test-submit-btn"
                       className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {unansweredCount > 0
@@ -619,6 +620,7 @@ export default function TestLayout({
                   {!isSubmitted && (
                     <button
                       onClick={onFlag}
+                      data-tour="test-flag-btn"
                       className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs md:text-sm transition-colors ${
                         flaggedQuestions.includes(currentQuestion)
                           ? 'bg-amber-100 text-amber-700'
@@ -651,7 +653,7 @@ export default function TestLayout({
             </div>
 
             {/* Question Content */}
-            <div className="mb-6">
+            <div className="mb-6" data-tour="test-question-text">
               {children}
             </div>
           </div>

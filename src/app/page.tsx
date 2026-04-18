@@ -20,6 +20,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { userProgress } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import HomeTour from '@/components/HomeTour';
 
 export const metadata: Metadata = {
   title: 'CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR',
@@ -130,7 +131,7 @@ export default async function Home() {
               className="flex items-center gap-3 flex-wrap stagger-animate"
               style={{ animationDelay: '300ms' }}
             >
-              <Link href="/tests" className="btn-primary inline-flex items-center gap-2 text-sm md:text-base px-5 py-3 md:px-8 md:py-4">
+              <Link href="/tests" className="btn-primary inline-flex items-center gap-2 text-sm md:text-base px-5 py-3 md:px-8 md:py-4" data-tour="hero-cta">
                 เริ่มทำข้อสอบ
                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
               </Link>
@@ -256,6 +257,9 @@ export default async function Home() {
           <FaqAccordion />
         </div>
       </section>
+
+      {/* Product Tour for first-time users */}
+      <HomeTour />
     </div>
   );
 }

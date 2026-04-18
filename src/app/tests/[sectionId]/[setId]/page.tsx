@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { ArrowLeft, FileText, ChevronRight } from 'lucide-react';
+import ConfirmModal from '@/components/ConfirmModal';
+import { toast } from 'sonner';
 
 import TestLayout from '@/components/TestLayout';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
@@ -14,6 +16,9 @@ import TestResults from '@/components/TestResults';
 import SelectableText from '@/components/SelectableText';
 
 import type { QuestionResult, Option, Blank } from '@/types/test';
+import dynamic from 'next/dynamic';
+
+const TestTour = dynamic(() => import('@/components/TestTour'), { ssr: false });
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -76,6 +81,7 @@ function FormMeaningQuiz({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   // Combine all articles into one, re-numbering blanks globally
   const combinedArticle = useMemo(() => {
@@ -116,12 +122,9 @@ function FormMeaningQuiz({
   const totalBlanks = combinedArticle.blanks.length;
   const answeredCount = Object.keys(answers).filter((k) => answers[parseInt(k)]).length;
 
-  const handleSubmit = async () => {
-    const unanswered = totalBlanks - answeredCount;
-    if (unanswered > 0) {
-      if (!window.confirm(`You have ${unanswered} unanswered blanks. Submit anyway?`)) return;
-    }
+  const executeSubmit = async () => {
     setSubmitting(true);
+    setShowSubmitConfirm(false);
     try {
       const questionAnswers = new Map<number, string>();
       Object.entries(answers).forEach(([blankIdStr, answer]) => {
@@ -151,6 +154,16 @@ function FormMeaningQuiz({
     }
   };
 
+  const handleSubmit = () => {
+    const unanswered = totalBlanks - answeredCount;
+
+    if (unanswered > 0) {
+      setShowSubmitConfirm(true);
+    } else {
+      executeSubmit();
+    }
+  };
+
   const renderArticle = () => {
     let text = combinedArticle.text;
     const parts: React.ReactNode[] = [];
@@ -161,7 +174,7 @@ function FormMeaningQuiz({
       if (idx !== -1) {
         parts.push(
           <span key={key++}>
-            <SelectableText text={text.substring(0, idx)} contextSentence={combinedArticle.text} sourceType="article" />
+            <SelectableText text={text.substring(0, idx)} contextSentence={combinedArticle.text} sourceType="article" inline={true} />
           </span>
         );
         const isCorrect = isSubmitted && answers[blank.id]?.toLowerCase() === blank.correctAnswer.toLowerCase();
@@ -171,17 +184,16 @@ function FormMeaningQuiz({
           <span key={key++} className="inline-flex flex-col items-start mx-1">
             <input
               type="text"
-              className={`w-32 px-2 py-1 rounded border-2 text-center ${
-                isSubmitted
-                  ? isCorrect
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                    : isWrong
+              className={`w-32 px-2 py-1 rounded border-2 text-center ${isSubmitted
+                ? isCorrect
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                  : isWrong
                     ? 'border-red-500 bg-red-50 text-red-700 line-through'
                     : isEmpty
-                    ? 'border-amber-400 bg-amber-50 text-amber-600'
-                    : 'border-slate-300 bg-slate-50'
-                  : 'border-purple-300 focus:border-purple-500 focus:outline-none'
-              }`}
+                      ? 'border-amber-400 bg-amber-50 text-amber-600'
+                      : 'border-slate-300 bg-slate-50'
+                : 'border-purple-300 focus:border-purple-500 focus:outline-none'
+                }`}
               placeholder={blank.hint?.split(' - ')[0] || 'Answer'}
               value={answers[blank.id] || ''}
               onChange={(e) =>
@@ -210,88 +222,93 @@ function FormMeaningQuiz({
     });
     parts.push(
       <span key={key}>
-        <SelectableText text={text} contextSentence={combinedArticle.text} sourceType="article" />
+        <SelectableText text={text} contextSentence={combinedArticle.text} sourceType="article" inline={true} />
       </span>
     );
     return parts;
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link href={`/tests/${sectionId}`} className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
-          <ArrowLeft className="w-5 h-5" /> Back to Sets
-        </Link>
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{setName}</h1>
-      </div>
+    <TestLayout>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 
-      {/* Progress */}
-      <div className="mb-8">
-        <div className="flex justify-between text-sm text-slate-600 mb-2">
-          <span>Blank {answeredCount} of {totalBlanks}</span>
-          <span>{totalBlanks > 0 ? Math.round((answeredCount / totalBlanks) * 100) : 0}%</span>
-        </div>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
-            style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
-          />
-        </div>
-      </div>
 
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5 text-purple-600" />
-          <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
+        {/* Progress */}
+        <div className="mb-4">
+          <div className="flex justify-between text-sm text-slate-600 mb-2">
+            <span>Blank {answeredCount} of {totalBlanks}</span>
+            <span>{totalBlanks > 0 ? Math.round((answeredCount / totalBlanks) * 100) : 0}%</span>
+          </div>
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+              style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
+            />
+          </div>
         </div>
-        <h2 className="text-xl font-bold text-slate-800 mb-6">
-          <SelectableText text={combinedArticle.title} contextSentence={combinedArticle.title} sourceType="article" />
-        </h2>
-        <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
-      </div>
 
-      {isSubmitted && (
-        <div className={`p-4 rounded-xl mb-6 ${
-          correctCount === totalBlanks
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-5 h-5 text-purple-600" />
+            <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-6">
+            <SelectableText text={combinedArticle.title} contextSentence={combinedArticle.title} sourceType="article" />
+          </h2>
+          <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
+        </div>
+
+        {isSubmitted && (
+          <div className={`p-4 rounded-xl mb-6 ${correctCount === totalBlanks
             ? 'bg-emerald-50 border border-emerald-200'
             : correctCount >= totalBlanks * 0.7
-            ? 'bg-amber-50 border border-amber-200'
-            : 'bg-red-50 border border-red-200'
-        }`}>
-          <p className="font-medium text-slate-800 mb-1">
-            Score: {correctCount} out of {totalBlanks}
-          </p>
-          <p className="text-sm text-slate-600">
-            {correctCount === totalBlanks
-              ? 'Perfect! All blanks filled correctly.'
-              : 'Review your answers above — wrong blanks are highlighted in red with the correct answer shown below.'}
-          </p>
-        </div>
-      )}
+              ? 'bg-amber-50 border border-amber-200'
+              : 'bg-red-50 border border-red-200'
+            }`}>
+            <p className="font-medium text-slate-800 mb-1">
+              Score: {correctCount} out of {totalBlanks}
+            </p>
+            <p className="text-sm text-slate-600">
+              {correctCount === totalBlanks
+                ? 'Perfect! All blanks filled correctly.'
+                : 'Review your answers above — wrong blanks are highlighted in red with the correct answer shown below.'}
+            </p>
+          </div>
+        )}
 
-      {!isSubmitted && (
-        <div className="flex justify-end mt-8">
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Submit Answers
-          </button>
-        </div>
-      )}
+        {!isSubmitted && (
+          <div className="flex justify-end mt-8">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Submit Answers
+            </button>
+          </div>
+        )}
 
-      {isSubmitted && (
-        <div className="flex justify-end mt-4">
-          <button
-            onClick={() => onFinish(correctCount)}
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            View Results
-          </button>
-        </div>
-      )}
-    </div>
+        {isSubmitted && (
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={() => onFinish(correctCount)}
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              View Results
+            </button>
+          </div>
+        )}
+      </div>
+
+      <ConfirmModal
+        isOpen={showSubmitConfirm}
+        onCancel={() => setShowSubmitConfirm(false)}
+        onConfirm={executeSubmit}
+        title="ยืนยันการส่งคำตอบ"
+        description="คุณยังมีคำถามที่ยังไม่ได้ตอบ คุณแน่ใจหรือไม่ว่าต้องการส่งคำตอบ?"
+        confirmLabel="ส่งคำตอบ"
+      />
+    </TestLayout>
   );
 }
 
@@ -318,6 +335,8 @@ export default function SetQuizPage() {
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [unansweredCount, setUnansweredCount] = useState(0);
 
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
@@ -338,7 +357,7 @@ export default function SetQuizPage() {
       const data = await res.json();
       if (data.success) {
         let finalQuestions = data.data.questions;
-        
+
         // Shuffle questions for sections that don't depend on sequential order
         if (sectionId !== 'form-meaning') {
           finalQuestions = [...finalQuestions];
@@ -407,13 +426,10 @@ export default function SetQuizPage() {
     );
   };
 
-  const handleSubmit = async () => {
+  const executeSubmit = async () => {
     if (!setData) return;
-    const unanswered = answers.filter((a) => a === null).length;
-    if (unanswered > 0) {
-      if (!window.confirm(`You have ${unanswered} unanswered questions. Submit anyway?`)) return;
-    }
     setSubmitting(true);
+    setShowSubmitConfirm(false);
     try {
       const res = await fetch('/api/tests/submit', {
         method: 'POST',
@@ -435,6 +451,18 @@ export default function SetQuizPage() {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!setData) return;
+    const unanswered = answers.filter((a) => a === null).length;
+
+    if (unanswered > 0) {
+      setUnansweredCount(unanswered);
+      setShowSubmitConfirm(true);
+    } else {
+      executeSubmit();
     }
   };
 
@@ -670,6 +698,21 @@ export default function SetQuizPage() {
           )}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showSubmitConfirm}
+        title="ยังทำข้อสอบไม่ครบ"
+        description={`มีคำถามที่ยังไม่ได้ตอบอีก ${unansweredCount} ข้อ ต้องการส่งคำตอบเลยหรือไม่?`}
+        confirmLabel="ส่งคำตอบ"
+        cancelLabel="ทำต่อ"
+        type="warning"
+        onConfirm={executeSubmit}
+        onCancel={() => setShowSubmitConfirm(false)}
+        isLoading={submitting}
+      />
+
+      {/* Test Page Tour for first-time users */}
+      {results.length === 0 && <TestTour />}
     </TestLayout>
   );
 }

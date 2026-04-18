@@ -233,7 +233,9 @@ export default function ListeningAudioPlayer({
       )}
 
       <div className="border-t border-slate-100 pt-6">
-        <p className="text-lg font-medium text-slate-800 mb-4">What did you hear?</p>
+        <p className="text-lg font-medium text-slate-800 mb-4">
+          <SelectableText text={questionText || "What did you hear?"} contextSentence={questionText} sourceType="question" inline={true} />
+        </p>
 
         <div className="grid grid-cols-1 gap-3">
           {options.map((opt) => {
@@ -252,12 +254,15 @@ export default function ListeningAudioPlayer({
             return (
               <button
                 key={opt.key}
-                onClick={() => onAnswerSelect(opt.key)}
-                disabled={selectedAnswer !== null || disabled}
+                onClick={(e) => {
+                  if (selectedAnswer === null && !disabled) {
+                    onAnswerSelect(opt.key);
+                  }
+                }}
                 className={buttonClass}
               >
                 <span className="font-medium text-slate-800">
-                  <SelectableText text={opt.value} contextSentence={opt.value} sourceType="question" />
+                  <SelectableText text={opt.value} contextSentence={opt.value} sourceType="listening_option" inline={true} />
                 </span>
               </button>
             );

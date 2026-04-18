@@ -61,6 +61,8 @@ export const metadata: Metadata = {
   verification: { google: '1-4RDuUm7NJv9vcUaVgh3o02J-A49I1Ydw7FrZn4xt0' },
 };
 
+import { Toaster } from 'sonner';
+
 export default function RootLayout({
   children,
 }: {
@@ -81,6 +83,7 @@ export default function RootLayout({
           </div>
         </SessionProvider>
         <Analytics />
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

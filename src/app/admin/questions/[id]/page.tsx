@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Save, Plus, Trash2, Upload, X, LayoutList } from 'lucide-react';
 import ArticleEditor from '@/components/ArticleEditor';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
+import { toast } from 'sonner';
 
 interface TestType {
   id: string;
@@ -122,12 +123,12 @@ export default function EditQuestion() {
           article: data.article || { title: '', text: '', blanks: [] },
         });
       } else {
-        alert('ไม่พบข้อสอบ');
+        toast.error('ไม่พบข้อสอบ');
         router.push('/admin/questions');
       }
     } catch (error) {
       console.error('Error fetching question:', error);
-      alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
       setFetching(false);
     }
@@ -152,32 +153,32 @@ export default function EditQuestion() {
     const isMcq = !isFormMeaning;
 
     if (!formData.testTypeId || !formData.questionText) {
-      alert('กรุณากรอกประเภทข้อสอบและโจทย์');
+      toast.error('กรุณากรอกประเภทข้อสอบและโจทย์');
       return;
     }
 
     if (isMcq) {
       if (!formData.optionA || !formData.optionB || !formData.optionC || !formData.correctAnswer) {
-        alert('กรุณากรอกตัวเลือก A, B, C และคำตอบที่ถูกต้อง');
+        toast.error('กรุณากรอกตัวเลือก A, B, C และคำตอบที่ถูกต้อง');
         return;
       }
       if (isFocusMeaning && formData.conversation.length === 0) {
-        alert('กรุณาเพิ่มบทสนทนาอย่างน้อย 1 บรรทัด');
+        toast.error('กรุณาเพิ่มบทสนทนาอย่างน้อย 1 บรรทัด');
         return;
       }
       if (!isFocusMeaning && !formData.optionD) {
-        alert('กรุณากรอกตัวเลือก D');
+        toast.error('กรุณากรอกตัวเลือก D');
         return;
       }
     }
 
     if (isFormMeaning && (!formData.article.title || !formData.article.text)) {
-      alert('กรุณากรอกชื่อบทความและเนื้อหา');
+      toast.error('กรุณากรอกชื่อบทความและเนื้อหา');
       return;
     }
 
     if (isFormMeaning && formData.article.blanks.some(b => !b.correctAnswer)) {
-      alert('กรุณากรอกคำตอบให้ครบทุกช่องว่าง');
+      toast.error('กรุณากรอกคำตอบให้ครบทุกช่องว่าง');
       return;
     }
 
@@ -202,15 +203,15 @@ export default function EditQuestion() {
       });
 
       if (response.ok) {
-        alert('แก้ไขข้อสอบสำเร็จ');
+        toast.success('แก้ไขข้อสอบสำเร็จ');
         router.push('/admin/questions');
       } else {
         const error = await response.json();
-        alert(`เกิดข้อผิดพลาด: ${error.error}`);
+        toast.error(`เกิดข้อผิดพลาด: ${error.error}`);
       }
     } catch (error) {
       console.error('Error updating question:', error);
-      alert('เกิดข้อผิดพลาดในการแก้ไขข้อสอบ');
+      toast.error('เกิดข้อผิดพลาดในการแก้ไขข้อสอบ');
     } finally {
       setLoading(false);
     }
@@ -259,11 +260,11 @@ export default function EditQuestion() {
         setFormData({ ...formData, audioUrl: data.url });
       } else {
         const err = await res.json();
-        alert(`อัพโหลดไฟล์เสียงล้มเหลว: ${err.error}`);
+        toast.error(`อัพโหลดไฟล์เสียงล้มเหลว: ${err.error}`);
       }
     } catch (error) {
       console.error('Error uploading audio:', error);
-      alert('เกิดข้อผิดพลาดในการอัพโหลดไฟล์เสียง');
+      toast.error('เกิดข้อผิดพลาดในการอัพโหลดไฟล์เสียง');
     } finally {
       setAudioUploading(false);
     }

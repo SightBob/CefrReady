@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import {
   Plus,
   Edit,
@@ -57,14 +58,14 @@ export default function TestTypesManagement() {
 
       if (response.ok) {
         setTestTypes(testTypes.filter(t => t.id !== id));
-        alert('ลบประเภทข้อสอบสำเร็จ');
+        toast.success('ลบประเภทข้อสอบสำเร็จ');
       } else {
         const error = await response.json();
-        alert(error.error || 'เกิดข้อผิดพลาดในการลบประเภทข้อสอบ');
+        toast.error(error.error || 'เกิดข้อผิดพลาดในการลบประเภทข้อสอบ');
       }
     } catch (error) {
       console.error('Error deleting test type:', error);
-      alert('เกิดข้อผิดพลาดในการลบประเภทข้อสอบ');
+      toast.error('เกิดข้อผิดพลาดในการลบประเภทข้อสอบ');
     }
   };
 

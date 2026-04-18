@@ -90,12 +90,15 @@ export default function FocusMeaningConversationCard({
           return (
             <button
               key={index}
-              onClick={() => onAnswerSelect(index)}
-              disabled={selectedAnswer !== null || disabled}
+              onClick={(e) => {
+                if (selectedAnswer === null && !disabled) {
+                  onAnswerSelect(index);
+                }
+              }}
               className={buttonClass}
             >
               <span className="font-medium text-slate-800">
-                <SelectableText text={option} contextSentence={option} sourceType="question" />
+                <SelectableText text={option} contextSentence={option} sourceType="meaning_option" inline={true} />
               </span>
             </button>
           );
