@@ -13,24 +13,31 @@ export default function Icon() {
     (
       <div
         style={{
-          fontSize: 100,
-          background: 'linear-gradient(135deg, #0284c7, #0369a1)', // primary-600 to primary-700
           width: '100%',
           height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'white',
-          borderRadius: '20%',
-          fontWeight: 800,
-          fontFamily: 'sans-serif',
+          background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
+          borderRadius: '36px',
         }}
       >
-        C
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 80,
+            fontWeight: 900,
+            color: 'white',
+            fontFamily: 'sans-serif',
+            letterSpacing: '-3px',
+          }}
+        >
+          CR
+        </div>
       </div>
     ),
-    {
-      ...size,
-    }
+    { ...size }
   );
 }

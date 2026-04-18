@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { GraduationCap, Menu, X, LogOut, Shield, Layers } from 'lucide-react';
+import { BookOpen, Menu, X, LogOut, Shield, Layers } from 'lucide-react';
 import { useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -34,13 +34,18 @@ export default function Header() {
       <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="bg-gradient-to-br from-primary-500 to-accent-500 p-2 rounded-xl group-hover:scale-105 transition-transform">
-                <GraduationCap className="w-6 h-6 text-white" />
+            <Link href="/" className="flex items-center gap-2.5 group" aria-label="CEFR Ready หน้าหลัก">
+              {/* Logo badge */}
+              <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200 shrink-0">
+                <span className="text-white font-black text-sm tracking-tighter select-none">CR</span>
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent">
-                CEFR Ready
-              </span>
+              {/* Site name */}
+              <div className="flex flex-col leading-none">
+                <span className="text-base font-extrabold tracking-tight bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
+                  CEFR Ready
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium tracking-wide hidden sm:block">ฝึกข้อสอบมาตรฐาน CEFR</span>
+              </div>
             </Link>
 
             {/* Desktop Navigation */}
