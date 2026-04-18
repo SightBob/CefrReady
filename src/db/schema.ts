@@ -260,3 +260,26 @@ export type DbArticleQuestion = typeof articleQuestions.$inferSelect;
 export type NewArticleQuestion = typeof articleQuestions.$inferInsert;
 export type DbFlashcard = typeof flashcards.$inferSelect;
 export type NewFlashcard = typeof flashcards.$inferInsert;
+
+// ============================================================
+// Question Reports (User-submitted problem reports)
+// ============================================================
+
+export const questionReports = pgTable('question_reports', {
+  id: serial('id').primaryKey(),
+  questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  issueType: varchar('issue_type', { length: 50 }).notNull(),
+  // 'wrong_answer' | 'missing_option' | 'unclear_language' | 'audio_problem' | 'other'
+  comment: text('comment'),
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  // 'pending' | 'in_progress' | 'resolved'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+}, (table) => ({
+  questionIdx: index('qr_question_idx').on(table.questionId),
+  statusIdx: index('qr_status_idx').on(table.status),
+}));
+
+export type DbQuestionReport = typeof questionReports.$inferSelect;
+export type NewQuestionReport = typeof questionReports.$inferInsert;
