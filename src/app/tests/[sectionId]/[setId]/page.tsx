@@ -634,6 +634,7 @@ export default function SetQuizPage() {
       onNext={handleNext}
       onSubmit={handleSubmit}
       onFlag={handleFlag}
+      currentQuestionId={question.id}
     >
       <FocusFormQuestionCard
         key={question.id}

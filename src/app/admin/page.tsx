@@ -92,6 +92,15 @@ export default function AdminDashboard() {
       bgColor: 'bg-indigo-50',
       count: 0,
     },
+    {
+      title: 'รายงานปัญหา',
+      description: 'รายงานปัญหาข้อสอบจากผู้ใช้',
+      icon: AlertTriangle,
+      href: '/admin/question-reports',
+      color: 'from-red-500 to-rose-500',
+      bgColor: 'bg-red-50',
+      count: 0,
+    },
   ];
 
   return (
