@@ -18,6 +18,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
+import ReportModal from '@/components/ReportModal';
 
 interface Section {
   id: string;
@@ -41,6 +42,7 @@ interface TestLayoutProps {
   onFlag?: () => void;
   children: React.ReactNode;
   isSubmitted?: boolean;
+  currentQuestionId?: number;
 }
 
 const QUESTIONS_PER_PAGE = 20;
@@ -60,8 +62,11 @@ export default function TestLayout({
   onFlag = () => { },
   children,
   isSubmitted = false,
+  currentQuestionId,
 }: TestLayoutProps) {
   const [showNavPanel, setShowNavPanel] = useState(true);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportedQuestions, setReportedQuestions] = useState<Set<number>>(new Set());
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [jumpToQuestion, setJumpToQuestion] = useState('');
@@ -645,17 +650,36 @@ export default function TestLayout({
 
                 <div className="flex items-center gap-1 md:gap-3">
                   {!isSubmitted && (
-                    <button
-                      onClick={onFlag}
-                      data-tour="test-flag-btn"
-                      className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs md:text-sm transition-colors ${flaggedQuestions.includes(currentQuestion)
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'
-                        }`}
-                    >
-                      <Flag className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                      <span className="hidden sm:inline">{flaggedQuestions.includes(currentQuestion) ? 'Flagged' : 'Flag'}</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={onFlag}
+                        data-tour="test-flag-btn"
+                        className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs md:text-sm transition-colors ${flaggedQuestions.includes(currentQuestion)
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'
+                          }`}
+                      >
+                        <Flag className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        <span className="hidden sm:inline">{flaggedQuestions.includes(currentQuestion) ? 'Flagged' : 'Flag'}</span>
+                      </button>
+
+                      {currentQuestionId && (
+                        <button
+                          onClick={() => setShowReportModal(true)}
+                          disabled={reportedQuestions.has(currentQuestionId)}
+                          title="แจ้งปัญหาข้อนี้"
+                          className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs md:text-sm transition-all ${
+                            reportedQuestions.has(currentQuestionId)
+                              ? 'text-green-600 bg-green-50 cursor-not-allowed'
+                              : 'text-slate-500 hover:text-orange-600 hover:bg-orange-50'
+                          }`}
+                        >
+                          {reportedQuestions.has(currentQuestionId)
+                            ? <><CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งแล้ว</span></>
+                            : <><AlertTriangle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งปัญหา</span></>}
+                        </button>
+                      )}
+                    </>
                   )}
 
                   <div className="flex items-center gap-0.5 md:gap-1">
@@ -716,6 +740,18 @@ export default function TestLayout({
             </button>
           )}
         </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && currentQuestionId && (
+        <ReportModal
+          questionId={currentQuestionId}
+          questionNumber={currentQuestion + 1}
+          onClose={() => setShowReportModal(false)}
+          onSuccess={() =>
+            setReportedQuestions(prev => new Set(prev).add(currentQuestionId!))
+          }
+        />
       )}
     </div>
   );
