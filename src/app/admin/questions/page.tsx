@@ -18,6 +18,9 @@ import {
   BookOpen,
   AlertTriangle,
   Loader2,
+  ScanLine,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
 import { toast } from 'sonner';
@@ -76,6 +79,23 @@ interface TestType {
 
 const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
+interface DuplicateQuestion {
+  id: number;
+  testTypeId: string;
+  questionText: string;
+  cefrLevel: string;
+  difficulty: string | null;
+  active: string;
+  createdAt: string;
+}
+
+interface DuplicateGroup {
+  testTypeId: string;
+  normalizedText: string;
+  count: number;
+  questions: DuplicateQuestion[];
+}
+
 const difficultyColors: Record<string, string> = {
   easy: 'bg-emerald-100 text-emerald-700',
   medium: 'bg-amber-100 text-amber-700',
@@ -104,6 +124,13 @@ export default function QuestionsManagement() {
   const [assignTargetIds, setAssignTargetIds] = useState<number[]>([]);
   const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Duplicate scan state
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [deletingDupId, setDeletingDupId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchTestTypes();
@@ -265,6 +292,57 @@ export default function QuestionsManagement() {
     });
   };
 
+  const scanDuplicates = async () => {
+    setDuplicateLoading(true);
+    setShowDuplicateModal(true);
+    try {
+      const res = await fetch('/api/admin/questions/duplicates');
+      const data = await res.json();
+      setDuplicateGroups(data.groups || []);
+    } catch (err) {
+      console.error('Error scanning duplicates:', err);
+      toast.error('ไม่สามารถสแกนข้อสอบซ้ำได้');
+    } finally {
+      setDuplicateLoading(false);
+    }
+  };
+
+  const deleteDuplicate = async (id: number) => {
+    setDeletingDupId(id);
+    try {
+      const res = await fetch(`/api/admin/questions/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setQuestions(prev => prev.filter(q => q.id !== id));
+        setDuplicateGroups(prev =>
+          prev
+            .map(group => ({
+              ...group,
+              questions: group.questions.filter(q => q.id !== id),
+              count: group.questions.filter(q => q.id !== id).length,
+            }))
+            .filter(group => group.count > 1)
+        );
+        toast.success('ลบข้อสอบซ้ำสำเร็จ');
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการลบ');
+      }
+    } catch (err) {
+      console.error('Error deleting duplicate:', err);
+      toast.error('เกิดข้อผิดพลาดในการลบ');
+    } finally {
+      setDeletingDupId(null);
+    }
+  };
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const handleRemoveFromSet = async (questionId: number, testSetId: number) => {
     try {
       const res = await fetch(
@@ -339,6 +417,13 @@ export default function QuestionsManagement() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={scanDuplicates}
+              className="inline-flex items-center gap-2 px-4 py-2 border border-amber-200 bg-amber-50 rounded-xl text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors shadow-sm"
+            >
+              <ScanLine className="w-4 h-4" />
+              สแกนข้อสอบซ้ำ
+            </button>
             <Link
               href="/admin/questions/import"
               className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
@@ -1001,6 +1086,119 @@ export default function QuestionsManagement() {
               </Link>
               <button
                 onClick={() => setPreviewQuestion(null)}
+                className="px-5 py-2 text-sm text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ─── Duplicate Scan Modal ──────────────────────────────────────── */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowDuplicateModal(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
+                  <ScanLine className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-900">สแกนข้อสอบซ้ำ</h2>
+                  <p className="text-xs text-slate-500">เปรียบเทียบโจทย์ภายในประเภทเดียวกัน</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDuplicateModal(false)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-1 p-6">
+              {duplicateLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                  <span className="ml-3 text-slate-500">กำลังสแกน...</span>
+                </div>
+              ) : duplicateGroups.length === 0 ? (
+                <div className="text-center py-16">
+                  <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+                  <p className="font-semibold text-slate-700">ไม่พบข้อสอบซ้ำ!</p>
+                  <p className="text-sm text-slate-400 mt-1">ข้อสอบทั้งหมดในระบบไม่มีซ้ำกัน</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                    พบ <strong>{duplicateGroups.length} กลุ่ม</strong> ที่มีข้อสอบซ้ำกัน รวม <strong>{duplicateGroups.reduce((a, g) => a + g.count, 0)} ข้อ</strong>
+                  </p>
+                  {duplicateGroups.map(group => {
+                    const key = `${group.testTypeId}::${group.normalizedText}`;
+                    const isExpanded = expandedGroups.has(key);
+                    return (
+                      <div key={key} className="border border-slate-200 rounded-xl overflow-hidden">
+                        {/* Group Header */}
+                        <button
+                          onClick={() => toggleGroup(key)}
+                          className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">{group.testTypeId}</span>
+                              <span className="text-xs text-red-600 font-semibold">{group.count} ข้อซ้ำ</span>
+                            </div>
+                            <p className="text-sm text-slate-700 line-clamp-1">{group.questions[0]?.questionText}</p>
+                          </div>
+                          {isExpanded
+                            ? <ChevronUp className="w-4 h-4 text-slate-400 ml-3 flex-shrink-0" />
+                            : <ChevronDown className="w-4 h-4 text-slate-400 ml-3 flex-shrink-0" />
+                          }
+                        </button>
+
+                        {/* Group Questions */}
+                        {isExpanded && (
+                          <div className="divide-y divide-slate-100">
+                            {group.questions.map((q, idx) => (
+                              <div key={q.id} className="flex items-center gap-3 px-4 py-3">
+                                <span className="text-xs text-slate-400 w-5">{idx + 1}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-slate-500">ID: {q.id} · {q.cefrLevel} · {q.difficulty || '—'}</p>
+                                  <p className="text-sm text-slate-700 line-clamp-1">{q.questionText}</p>
+                                </div>
+                                {idx > 0 && (
+                                  <button
+                                    onClick={() => deleteDuplicate(q.id)}
+                                    disabled={deletingDupId === q.id}
+                                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                    title="ลบข้อซ้ำนี้"
+                                  >
+                                    {deletingDupId === q.id
+                                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                                      : <Trash2 className="w-4 h-4" />
+                                    }
+                                  </button>
+                                )}
+                                {idx === 0 && (
+                                  <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">ต้นฉบับ</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowDuplicateModal(false)}
                 className="px-5 py-2 text-sm text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
               >
                 ปิด

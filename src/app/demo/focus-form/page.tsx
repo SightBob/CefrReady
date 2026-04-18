@@ -112,7 +112,7 @@ export default function DemoFocusFormPage() {
             <div className="h-5 w-3/4 bg-slate-200 rounded animate-pulse" />
             <div className="h-5 w-1/2 bg-slate-200 rounded animate-pulse" />
             <div className="grid grid-cols-2 gap-3 pt-4">
-              {[1,2,3,4].map(i => (
+              {[1, 2, 3, 4].map(i => (
                 <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />
               ))}
             </div>
@@ -138,9 +138,8 @@ export default function DemoFocusFormPage() {
           <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
             {/* Score Header */}
             <div className={`p-8 text-center ${passed ? 'bg-emerald-50' : 'bg-red-50'}`}>
-              <div className={`inline-flex w-16 h-16 rounded-full items-center justify-center mb-4 ${
-                passed ? 'bg-emerald-100' : 'bg-red-100'
-              }`}>
+              <div className={`inline-flex w-16 h-16 rounded-full items-center justify-center mb-4 ${passed ? 'bg-emerald-100' : 'bg-red-100'
+                }`}>
                 {passed
                   ? <Trophy className="w-8 h-8 text-emerald-600" />
                   : <RotateCcw className="w-8 h-8 text-red-600" />
@@ -230,7 +229,7 @@ export default function DemoFocusFormPage() {
       />
 
       {/* Prominent Next / Finish button after answering */}
-      {selectedAnswer !== null && (
+      {/* {selectedAnswer !== null && (
         <div className="mt-6 flex justify-end">
           {isLastQuestion ? (
             <button
@@ -250,7 +249,7 @@ export default function DemoFocusFormPage() {
             </button>
           )}
         </div>
-      )}
+      )} */}
     </TestLayout>
   );
 }

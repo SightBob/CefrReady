@@ -558,22 +558,7 @@ export default function SetQuizPage() {
           disabled={submitting}
         />
 
-        <div className="flex justify-between mt-6">
-          <button
-            onClick={handlePrevious}
-            disabled={currentQuestion === 0 || submitting}
-            className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <button
-            onClick={currentQuestion < setData.questions.length - 1 ? handleNext : handleSubmit}
-            disabled={selectedAnswer === null || submitting}
-            className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {currentQuestion < setData.questions.length - 1 ? 'Next Question' : 'Finish Test'}
-          </button>
-        </div>
+
       </div>
     );
   }
@@ -621,22 +606,7 @@ export default function SetQuizPage() {
           disabled={submitting}
         />
 
-        <div className="flex justify-between mt-6">
-          <button
-            onClick={handlePrevious}
-            disabled={currentQuestion === 0 || submitting}
-            className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <button
-            onClick={currentQuestion < setData.questions.length - 1 ? handleNext : handleSubmit}
-            disabled={selectedAnswer === null || submitting}
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {currentQuestion < setData.questions.length - 1 ? 'Next Question' : 'Finish Test'}
-          </button>
-        </div>
+
       </div>
     );
   }
@@ -677,27 +647,7 @@ export default function SetQuizPage() {
         disabled={submitting}
       />
 
-      {selectedAnswer !== null && (
-        <div className="mt-6 flex justify-end">
-          {currentQuestion < setData.questions.length - 1 ? (
-            <button
-              onClick={handleNext}
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 active:translate-y-[1px] active:shadow-sm transition-all shadow-lg shadow-primary-600/20"
-            >
-              Next Question
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 active:translate-y-[1px] active:shadow-sm transition-all shadow-lg shadow-primary-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? 'Submitting...' : 'Finish Test'}
-            </button>
-          )}
-        </div>
-      )}
+
 
       <ConfirmModal
         isOpen={showSubmitConfirm}

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { 
-  ArrowLeft, 
-  Clock, 
-  ChevronLeft, 
-  ChevronRight, 
+import {
+  ArrowLeft,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
   Flag,
   CheckCircle,
   Circle,
@@ -53,11 +53,11 @@ export default function TestLayout({
   answers = [],
   flaggedQuestions = [],
   sections,
-  onQuestionSelect = () => {},
-  onPrevious = () => {},
-  onNext = () => {},
-  onSubmit = () => {},
-  onFlag = () => {},
+  onQuestionSelect = () => { },
+  onPrevious = () => { },
+  onNext = () => { },
+  onSubmit = () => { },
+  onFlag = () => { },
   children,
   isSubmitted = false,
 }: TestLayoutProps) {
@@ -89,7 +89,7 @@ export default function TestLayout({
   };
 
   const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
-  
+
   const answeredCount = answers.filter(a => a !== null).length;
   const unansweredCount = totalQuestions - answeredCount;
   const flaggedCount = flaggedQuestions.length;
@@ -98,9 +98,9 @@ export default function TestLayout({
   const pageQuestions = useMemo(() => {
     const start = currentPage * QUESTIONS_PER_PAGE;
     const end = Math.min(start + QUESTIONS_PER_PAGE, totalQuestions);
-    
+
     let questions = Array.from({ length: totalQuestions }, (_, i) => i);
-    
+
     // Apply section filter
     if (activeSection && sections) {
       const section = sections.find(s => s.id === activeSection);
@@ -108,14 +108,14 @@ export default function TestLayout({
         questions = questions.filter(i => i >= section.startQuestion - 1 && i <= section.endQuestion - 1);
       }
     }
-    
+
     // Apply status filter
     if (filterMode === 'unanswered') {
       questions = questions.filter(i => answers[i] === null);
     } else if (filterMode === 'flagged') {
       questions = questions.filter(i => flaggedQuestions.includes(i));
     }
-    
+
     // Apply pagination
     return questions.slice(start, end);
   }, [currentPage, totalQuestions, activeSection, filterMode, answers, flaggedQuestions, sections]);
@@ -133,13 +133,13 @@ export default function TestLayout({
   const getQuestionButtonClass = (index: number) => {
     const status = getQuestionStatus(index);
     const isActive = index === currentQuestion;
-    
+
     let baseClass = 'w-9 h-9 rounded-lg font-medium text-xs flex items-center justify-center transition-all duration-200 ';
-    
+
     if (isActive) {
       baseClass += 'ring-2 ring-primary-500 ring-offset-1 ';
     }
-    
+
     switch (status) {
       case 'answered':
         return baseClass + 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200';
@@ -201,11 +201,10 @@ export default function TestLayout({
             <div className="hidden md:flex items-center gap-4">
               {/* Timer */}
               {!isSubmitted && (
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-mono font-bold transition-colors ${
-                  isTimeWarning
-                    ? 'bg-red-100 text-red-700 animate-pulse'
-                    : 'bg-slate-100 text-slate-700'
-                }`}>
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-mono font-bold transition-colors ${isTimeWarning
+                  ? 'bg-red-100 text-red-700 animate-pulse'
+                  : 'bg-slate-100 text-slate-700'
+                  }`}>
                   <Clock className="w-4 h-4" />
                   {formatTime(timeLeft)}
                 </div>
@@ -218,23 +217,31 @@ export default function TestLayout({
                 <Flag className="w-4 h-4 text-amber-500" />
                 <span className="text-sm text-slate-600">{flaggedCount}</span>
               </div>
-              <button
-                onClick={onSubmit}
-                disabled={unansweredCount > 0}
-                className="btn-primary text-sm py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {unansweredCount > 0
-                  ? `ส่งข้อสอบ (เหลือ ${unansweredCount})`
-                  : 'ส่งข้อสอบ'}
-              </button>
+              {currentQuestion < totalQuestions - 1 ? (
+                <button
+                  onClick={onNext}
+                  className="btn-primary text-sm py-2 px-4 flex items-center gap-1"
+                >
+                  ข้อต่อไป <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={onSubmit}
+                  disabled={unansweredCount > 0}
+                  className="btn-primary text-sm py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {unansweredCount > 0
+                    ? `ส่งข้อสอบ (เหลือ ${unansweredCount})`
+                    : 'ส่งข้อสอบ'}
+                </button>
+              )}
             </div>
 
             {/* Mobile: timer + toggle */}
             <div className="flex items-center gap-2 md:hidden">
               {!isSubmitted && (
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-mono font-bold ${
-                  isTimeWarning ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-slate-100 text-slate-700'
-                }`}>
+                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-mono font-bold ${isTimeWarning ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-slate-100 text-slate-700'
+                  }`}>
                   <Clock className="w-3 h-3" />
                   {formatTime(timeLeft)}
                 </div>
@@ -253,7 +260,7 @@ export default function TestLayout({
       {/* Mobile Navigation Panel */}
       {showMobileNav && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileNav(false)}>
-          <div 
+          <div
             className="absolute right-0 top-0 h-full w-72 bg-white shadow-xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
@@ -264,7 +271,7 @@ export default function TestLayout({
                 <span className="text-slate-500">{unansweredCount} left</span>
               </div>
             </div>
-            
+
             {/* Quick Jump */}
             <div className="p-4 border-b border-slate-200">
               <div className="flex gap-2">
@@ -310,7 +317,7 @@ export default function TestLayout({
               </div>
             )}
 
-            <div className="p-4 grid grid-cols-6 gap-1">
+            <div className="p-4 grid grid-cols-6 gap-1 mb-20">
               {Array.from({ length: totalQuestions }, (_, i) => (
                 <button
                   key={i}
@@ -321,6 +328,19 @@ export default function TestLayout({
                 </button>
               ))}
             </div>
+
+            {/* Mobile Nav Submit Button */}
+            {!isSubmitted && (
+              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200">
+                <button
+                  onClick={() => { setShowMobileNav(false); onSubmit(); }}
+                  disabled={unansweredCount > 0}
+                  className="w-full btn-primary py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {unansweredCount > 0 ? `ส่งข้อสอบ (เหลือ ${unansweredCount})` : 'ส่งข้อสอบ'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -413,11 +433,11 @@ export default function TestLayout({
                         All
                       </button>
                       {sections.map(section => {
-                        const sectionAnswered = answers.filter((a, i) => 
+                        const sectionAnswered = answers.filter((a, i) =>
                           a !== null && i >= section.startQuestion - 1 && i <= section.endQuestion - 1
                         ).length;
                         const sectionTotal = section.endQuestion - section.startQuestion + 1;
-                        
+
                         return (
                           <button
                             key={section.id}
@@ -501,9 +521,8 @@ export default function TestLayout({
                           <button
                             key={i}
                             onClick={() => onQuestionSelect(i)}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm ${
-                              i === currentQuestion ? 'bg-primary-50 ring-1 ring-primary-500' : 'hover:bg-slate-50'
-                            }`}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm ${i === currentQuestion ? 'bg-primary-50 ring-1 ring-primary-500' : 'hover:bg-slate-50'
+                              }`}
                           >
                             <span className="w-6 text-slate-500 font-medium">{i + 1}</span>
                             {status === 'answered' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
@@ -528,7 +547,7 @@ export default function TestLayout({
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  
+
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
                     if (totalPages <= 5) {
@@ -540,22 +559,21 @@ export default function TestLayout({
                     } else {
                       pageNum = currentPage - 2 + i;
                     }
-                    
+
                     return (
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}
-                        className={`w-7 h-7 rounded text-xs font-medium ${
-                          currentPage === pageNum 
-                            ? 'bg-primary-600 text-white' 
-                            : 'hover:bg-slate-100 text-slate-600'
-                        }`}
+                        className={`w-7 h-7 rounded text-xs font-medium ${currentPage === pageNum
+                          ? 'bg-primary-600 text-white'
+                          : 'hover:bg-slate-100 text-slate-600'
+                          }`}
                       >
                         {pageNum + 1}
                       </button>
                     );
                   })}
-                  
+
                   <button
                     onClick={() => handlePageChange(Math.min(totalPages - 1, currentPage + 1))}
                     disabled={currentPage === totalPages - 1}
@@ -565,7 +583,7 @@ export default function TestLayout({
                   </button>
                 </div>
 
-                {/* Submit Button */}
+                {/* Submit / Next Button */}
                 {!isSubmitted && (
                   <div className="p-3 border-t border-slate-100">
                     {unansweredCount > 0 && (
@@ -576,16 +594,25 @@ export default function TestLayout({
                         </span>
                       </div>
                     )}
-                    <button
-                      onClick={onSubmit}
-                      disabled={unansweredCount > 0}
-                      data-tour="test-submit-btn"
-                      className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {unansweredCount > 0
-                        ? `ส่งข้อสอบ (เหลือ ${unansweredCount} ข้อ)`
-                        : 'ส่งข้อสอบ'}
-                    </button>
+                    {currentQuestion < totalQuestions - 1 ? (
+                      <button
+                        onClick={onNext}
+                        className="w-full btn-primary py-3 flex items-center justify-center gap-2"
+                      >
+                        Next Question <ChevronRight className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={onSubmit}
+                        disabled={unansweredCount > 0}
+                        data-tour="test-submit-btn"
+                        className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed py-3"
+                      >
+                        {unansweredCount > 0
+                          ? `ส่งข้อสอบ (เหลือ ${unansweredCount} ข้อ)`
+                          : 'ส่งข้อสอบ'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -615,23 +642,22 @@ export default function TestLayout({
                     / {totalQuestions}
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-1 md:gap-3">
                   {!isSubmitted && (
                     <button
                       onClick={onFlag}
                       data-tour="test-flag-btn"
-                      className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs md:text-sm transition-colors ${
-                        flaggedQuestions.includes(currentQuestion)
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'
-                      }`}
+                      className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs md:text-sm transition-colors ${flaggedQuestions.includes(currentQuestion)
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'
+                        }`}
                     >
                       <Flag className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       <span className="hidden sm:inline">{flaggedQuestions.includes(currentQuestion) ? 'Flagged' : 'Flag'}</span>
                     </button>
                   )}
-                  
+
                   <div className="flex items-center gap-0.5 md:gap-1">
                     <button
                       onClick={onPrevious}
@@ -673,13 +699,22 @@ export default function TestLayout({
               <span>{flaggedCount}</span>
             </div>
           )}
-          <button
-            onClick={onSubmit}
-            disabled={unansweredCount > 0}
-            className="ml-auto btn-primary text-sm py-2 px-5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {unansweredCount > 0 ? `ส่งข้อสอบ (เหลือ ${unansweredCount})` : 'ส่งข้อสอบ'}
-          </button>
+          {currentQuestion < totalQuestions - 1 ? (
+            <button
+              onClick={onNext}
+              className="ml-auto btn-primary text-[1rem] py-3 px-5 flex items-center gap-1"
+            >
+              Next Question <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={onSubmit}
+              disabled={unansweredCount > 0}
+              className="ml-auto btn-primary text-sm py-2 px-5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {unansweredCount > 0 ? `ส่งข้อสอบ (เหลือ ${unansweredCount})` : 'ส่งข้อสอบ'}
+            </button>
+          )}
         </div>
       )}
     </div>

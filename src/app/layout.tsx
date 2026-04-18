@@ -23,6 +23,12 @@ const BASE_URL = 'https://cefr-ready.vercel.app';
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
+  applicationName: 'CEFR Ready',
+  appleWebApp: {
+    title: 'CEFR Ready',
+    statusBarStyle: 'default',
+    capable: true,
+  },
   title: {
     default: 'CEFR Ready — แนวข้อสอบ CEFR มทส และมาตรฐานสากล',
     template: '%s | CEFR Ready',

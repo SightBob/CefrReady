@@ -44,7 +44,7 @@ export default function Header() {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-4 xl:gap-6">
+            <nav className="hidden min-[992px]:flex items-center gap-4 xl:gap-6">
               <Link href="/" className={navLink('/')}>หน้าหลัก</Link>
               <Link href="/tests" className={navLink('/tests')} data-tour="nav-tests">ข้อสอบ</Link>
               <Link href="/progress" className={navLink('/progress')}>พัฒนาการ</Link>

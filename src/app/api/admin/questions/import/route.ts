@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
-import { eq, count as drizzleCount, and } from 'drizzle-orm';
+import { eq, count as drizzleCount, and, sql, inArray } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -152,27 +152,62 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Import valid questions
-    const questionsToInsert = rows.map(row => {
+    // ── Duplicate check: within this CSV file ──────────────────────────
+    const seenInFile = new Map<string, number>(); // key → first row index
+    const inFileDuplicateRows = new Set<number>();
+    rows.forEach((row, idx) => {
+      const key = `${row.testTypeId}::${row.questionText.toLowerCase().trim()}`;
+      if (seenInFile.has(key)) {
+        inFileDuplicateRows.add(idx);
+        allWarnings.push(`Row ${idx + 2}: ข้อสอบซ้ำกับ Row ${seenInFile.get(key)! + 2} ในไฟล์ CSV เดียวกัน — ข้ามแถวนี้`);
+      } else {
+        seenInFile.set(key, idx);
+      }
+    });
+
+    // ── Duplicate check: against existing DB questions ─────────────────
+    const uniqueTestTypeIds = Array.from(new Set(rows.map(r => r.testTypeId).filter(Boolean)));
+    let existingNormalized = new Set<string>();
+    if (uniqueTestTypeIds.length > 0) {
+      const existingRows = await db
+        .select({ testTypeId: questions.testTypeId, questionText: questions.questionText })
+        .from(questions)
+        .where(inArray(questions.testTypeId, uniqueTestTypeIds));
+      existingNormalized = new Set(
+        existingRows.map(q => `${q.testTypeId}::${q.questionText.toLowerCase().trim()}`)
+      );
+    }
+
+    const inDbDuplicateRows = new Set<number>();
+    rows.forEach((row, idx) => {
+      const key = `${row.testTypeId}::${row.questionText.toLowerCase().trim()}`;
+      if (existingNormalized.has(key)) {
+        inDbDuplicateRows.add(idx);
+        allWarnings.push(`Row ${idx + 2}: ข้อสอบซ้ำกับที่มีอยู่ในระบบแล้ว — ข้ามแถวนี้`);
+      }
+    });
+
+    const skipRows = new Set(Array.from(inFileDuplicateRows).concat(Array.from(inDbDuplicateRows)));
+
+    // Import valid questions (excluding duplicates)
+    const questionsToInsert = rows
+      .map((row, idx) => {
+      if (skipRows.has(idx)) return null;
+
       let conversationData = null;
       if (row.conversation) {
-        try {
-          conversationData = JSON.parse(row.conversation);
-        } catch(e) {
-          console.error(`Invalid JSON in conversation for row:`, row.conversation);
-        }
+        try { conversationData = JSON.parse(row.conversation); }
+        catch(e) { console.error(`Invalid JSON in conversation for row:`, row.conversation); }
       }
 
       let articleData = null;
       if (row.article) {
-        try {
-          articleData = JSON.parse(row.article);
-        } catch(e) {
-          console.error(`Invalid JSON in article for row:`, row.article);
-        }
+        try { articleData = JSON.parse(row.article); }
+        catch(e) { console.error(`Invalid JSON in article for row:`, row.article); }
       }
-      
+
       return {
+        _originalIndex: idx,
         testTypeId: row.testTypeId,
         questionText: row.questionText,
         optionA: row.optionA,
@@ -188,9 +223,25 @@ export async function POST(request: NextRequest) {
         audioUrl: row.audioUrl || null,
         transcript: row.transcript || null,
       };
-    });
+    })
+    .filter((q): q is NonNullable<typeof q> => q !== null);
 
-    const inserted = await db.insert(questions).values(questionsToInsert).returning();
+    const skippedCount = skipRows.size;
+
+    if (questionsToInsert.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: 'ไม่มีข้อสอบใหม่ที่จะ Import (ทั้งหมดซ้ำกับที่มีอยู่แล้ว)',
+        importedCount: 0,
+        skippedDuplicates: skippedCount,
+        assignedCount: 0,
+        warnings: allWarnings,
+      });
+    }
+
+    // Strip the _originalIndex helper before inserting
+    const insertPayload = questionsToInsert.map(({ _originalIndex: _idx, ...rest }) => rest);
+    const inserted = await db.insert(questions).values(insertPayload).returning();
 
     // Auto-assign to test sets if testSetId is provided
     let assignedCount = 0;
@@ -233,8 +284,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully imported ${inserted.length} questions${assignedCount > 0 ? ` and assigned ${assignedCount} to test sets` : ''}`,
+      message: `นำเข้าสำเร็จ ${inserted.length} ข้อ${skippedCount > 0 ? ` (ข้ามซ้ำ ${skippedCount} ข้อ)` : ''}${assignedCount > 0 ? ` และได้จัดเข้า Test Set ${assignedCount} ข้อ` : ''}`,
       importedCount: inserted.length,
+      skippedDuplicates: skippedCount,
       assignedCount,
       warnings: allWarnings,
     });

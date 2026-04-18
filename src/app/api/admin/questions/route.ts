@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, testSetQuestions, testSets } from '@/db/schema';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, and, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest) {
@@ -130,6 +130,29 @@ export async function POST(request: NextRequest) {
 
     if (isFormMeaning && (!article?.title || !article?.text)) {
       return NextResponse.json({ error: 'Missing required fields: article.title and article.text are required for form-meaning questions' }, { status: 400 });
+    }
+
+    // ── Duplicate check ───────────────────────────────────────────────
+    const [duplicate] = await db
+      .select({ id: questions.id, questionText: questions.questionText })
+      .from(questions)
+      .where(
+        and(
+          eq(questions.testTypeId, testTypeId),
+          sql`LOWER(TRIM(${questions.questionText})) = LOWER(TRIM(${questionText}))`
+        )
+      )
+      .limit(1);
+
+    if (duplicate) {
+      return NextResponse.json(
+        {
+          error: 'DUPLICATE_QUESTION',
+          message: 'พบข้อสอบที่มีเนื้อหาเหมือนกันในระบบแล้ว',
+          existingId: duplicate.id,
+        },
+        { status: 409 }
+      );
     }
 
     const [newQuestion] = await db.insert(questions).values({

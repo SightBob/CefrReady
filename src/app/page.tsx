@@ -106,7 +106,7 @@ export default async function Home() {
             </div>
 
             <h1
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight stagger-animate"
+              className="text-[3rem] sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight stagger-animate"
               style={{ animationDelay: '100ms' }}
             >
               เตรียมพร้อม
