@@ -109,11 +109,11 @@ export default async function Home() {
               className="text-[3rem] sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight stagger-animate"
               style={{ animationDelay: '100ms' }}
             >
-              เตรียมพร้อม
+              เตรียมพร้อมสอบ
               <br />
-              <span className="text-primary-600">สอบ CEFR</span>
+              <span className="text-primary-600">CEFR Ready</span>
               <br />
-              ได้ทุกทักษะ
+              ครบทุกทักษะ
             </h1>
 
             <p
