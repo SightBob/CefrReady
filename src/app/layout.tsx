@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { SessionProvider } from 'next-auth/react';
 import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const prompt = Prompt({ 
   weight: ['300', '400', '500', '600', '700'],
@@ -121,6 +122,7 @@ export default function RootLayout({
           </div>
         </SessionProvider>
         <Analytics />
+        <SpeedInsights />
         <Toaster position="top-center" richColors />
       </body>
     </html>
