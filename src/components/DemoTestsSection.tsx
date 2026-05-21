@@ -1,5 +1,3 @@
-'use client';
-
 import TestCard from '@/components/TestCard';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';

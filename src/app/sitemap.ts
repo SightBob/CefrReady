@@ -1,8 +1,6 @@
 import { MetadataRoute } from 'next';
 
-// Force dynamic so DB queries run at request time (not build time)
-export const dynamic = 'force-dynamic';
-export const revalidate = 3600; // re-generate every hour
+export const revalidate = 3600; // re-generate every hour (ISR)
 
 const BASE_URL = 'https://cefr-ready.vercel.app';
 

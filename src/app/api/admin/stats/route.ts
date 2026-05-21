@@ -3,11 +3,10 @@ import { db } from '@/db';
 import { questions, testTypes, users, userAnswers } from '@/db/schema';
 import { eq, count, desc } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { unstable_cache } from 'next/cache';
 
-export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
-  if (error) return error;
-  try {
+const getCachedStats = unstable_cache(
+  async () => {
     const [questionStats] = await db
       .select({ count: count() })
       .from(questions);
@@ -20,7 +19,6 @@ export async function GET(request: NextRequest) {
       .select({ count: count() })
       .from(users);
 
-    // Active questions query
     let activeQuestionStats = { count: 0 };
     try {
       [activeQuestionStats] = await db
@@ -31,7 +29,6 @@ export async function GET(request: NextRequest) {
       activeQuestionStats = questionStats;
     }
 
-    // Hardest questions: top 5 most-missed questions
     let hardestQuestions: Array<{ questionId: number; questionText: string; wrongCount: number }> = [];
     try {
       const rows = await db
@@ -55,13 +52,24 @@ export async function GET(request: NextRequest) {
       // userAnswers may be empty — non-fatal
     }
 
-    return NextResponse.json({
+    return {
       totalQuestions: questionStats?.count || 0,
       activeQuestions: activeQuestionStats?.count || 0,
       totalTests: testTypeStats?.count || 0,
       totalUsers: userStats?.count || 0,
       hardestQuestions,
-    });
+    };
+  },
+  ['admin-stats'],
+  { revalidate: 60, tags: ['stats'] }
+);
+
+export async function GET(request: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  try {
+    const stats = await getCachedStats();
+    return NextResponse.json(stats);
   } catch (error) {
     console.error('Error fetching stats:', error);
     return NextResponse.json({

@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { BookOpen, HelpCircle, ArrowRight, CheckCircle } from 'lucide-react';
 
@@ -84,7 +82,7 @@ export default function TestSetCard({
               <HelpCircle className="w-3 h-3" />
               {testSet.questionCount} questions
             </span>
-            <span className="flex items-center gap-1 text-xs text-slate-400">
+            <span className="flex items-center gap-1 text-xs text-slate-500">
               <BookOpen className="w-3 h-3" />
               Set {index + 1}
             </span>

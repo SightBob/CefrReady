@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft, BarChart3, Users, Target, TrendingUp,
   Award, Loader2, RefreshCw, Download
@@ -115,7 +116,7 @@ export default function AdminReportsPage() {
             <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
           </div>
         ) : !data ? (
-          <div className="text-center py-20 text-slate-400">ไม่สามารถโหลดข้อมูลได้</div>
+          <div className="text-center py-20 text-slate-500">ไม่สามารถโหลดข้อมูลได้</div>
         ) : (
           <div className="space-y-6">
 
@@ -149,7 +150,7 @@ export default function AdminReportsPage() {
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                 <h2 className="text-lg font-bold text-slate-800 mb-5">การทดสอบแต่ละประเภท</h2>
                 {data.attemptsByType.length === 0 ? (
-                  <p className="text-slate-400 text-sm">ยังไม่มีข้อมูล</p>
+                  <p className="text-slate-500 text-sm">ยังไม่มีข้อมูล</p>
                 ) : (
                   <div className="space-y-4">
                     {data.attemptsByType.map((t) => (
@@ -157,7 +158,7 @@ export default function AdminReportsPage() {
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-sm font-medium text-slate-700">{t.testTypeName}</span>
                           <div className="flex items-center gap-3 text-sm">
-                            <span className="text-slate-400">{t.attempts} ครั้ง</span>
+                            <span className="text-slate-500">{t.attempts} ครั้ง</span>
                             <span className={`font-semibold ${t.avgScore >= 70 ? 'text-emerald-600' : t.avgScore >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
                               {t.avgScore ?? '—'}%
                             </span>
@@ -179,7 +180,7 @@ export default function AdminReportsPage() {
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                 <h2 className="text-lg font-bold text-slate-800 mb-5">การกระจายคะแนน</h2>
                 {data.scoreDistribution.length === 0 ? (
-                  <p className="text-slate-400 text-sm">ยังไม่มีข้อมูล</p>
+                  <p className="text-slate-500 text-sm">ยังไม่มีข้อมูล</p>
                 ) : (
                   <div className="space-y-4">
                     {BUCKET_ORDER.map((bucket) => {
@@ -210,7 +211,7 @@ export default function AdminReportsPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h2 className="text-lg font-bold text-slate-800 mb-5">กิจกรรม 30 วันล่าสุด</h2>
               {data.attemptsOverTime.length === 0 ? (
-                <p className="text-slate-400 text-sm">ไม่มีกิจกรรมใน 30 วันที่ผ่านมา</p>
+                <p className="text-slate-500 text-sm">ไม่มีกิจกรรมใน 30 วันที่ผ่านมา</p>
               ) : (
                 <div className="overflow-x-auto">
                   <div className="flex items-end gap-1.5 h-32 min-w-max">
@@ -225,7 +226,7 @@ export default function AdminReportsPage() {
                             style={{ height: `${h}px` }}
                             title={`${d.date}: ${d.attempts} ครั้ง, เฉลี่ย ${d.avgScore ?? '—'}%`}
                           />
-                          <span className="text-[9px] text-slate-400 transform -rotate-45 origin-top-right w-8 whitespace-nowrap mt-1">
+                          <span className="text-[9px] text-slate-500 transform -rotate-45 origin-top-right w-8 whitespace-nowrap mt-1">
                             {d.date.slice(5)}
                           </span>
                           {/* Tooltip */}
@@ -236,7 +237,7 @@ export default function AdminReportsPage() {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-slate-400 mt-2 text-right">สีแสดงคะแนนเฉลี่ย: 🟢≥70% 🟡50-69% 🔴&lt;50%</p>
+                  <p className="text-xs text-slate-500 mt-2 text-right">สีแสดงคะแนนเฉลี่ย: 🟢≥70% 🟡50-69% 🔴&lt;50%</p>
                 </div>
               )}
             </div>
@@ -248,7 +249,7 @@ export default function AdminReportsPage() {
                 ผู้ใช้ที่มีคะแนนสูงสุด (ทดสอบ ≥ 3 ครั้ง)
               </h2>
               {data.topPerformers.length === 0 ? (
-                <p className="text-slate-400 text-sm">ยังไม่มีข้อมูล</p>
+                <p className="text-slate-500 text-sm">ยังไม่มีข้อมูล</p>
               ) : (
                 <div className="space-y-3">
                   {data.topPerformers.map((p, i) => (
@@ -258,13 +259,13 @@ export default function AdminReportsPage() {
                         i === 0 ? 'bg-amber-100 text-amber-600' :
                         i === 1 ? 'bg-slate-100 text-slate-600' :
                         i === 2 ? 'bg-orange-100 text-orange-600' :
-                        'bg-slate-50 text-slate-400'
+                        'bg-slate-50 text-slate-500'
                       }`}>
                         {i + 1}
                       </div>
                       {/* Avatar */}
                       {p.user?.image ? (
-                        <img src={p.user.image} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                        <Image src={p.user.image} alt={p.user?.name ?? p.user?.email ?? 'User'} width={36} height={36} className="rounded-full object-cover flex-shrink-0" />
                       ) : (
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                           {(p.user?.name ?? p.user?.email ?? '?')[0].toUpperCase()}
@@ -273,12 +274,12 @@ export default function AdminReportsPage() {
                       {/* Name/email */}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-800 truncate">{p.user?.name ?? '—'}</p>
-                        <p className="text-xs text-slate-400 truncate">{p.user?.email}</p>
+                        <p className="text-xs text-slate-500 truncate">{p.user?.email}</p>
                       </div>
                       {/* Stats */}
                       <div className="text-right flex-shrink-0">
                         <p className="text-lg font-bold text-emerald-600">{p.avgScore}%</p>
-                        <p className="text-xs text-slate-400">{p.attempts} ครั้ง</p>
+                        <p className="text-xs text-slate-500">{p.attempts} ครั้ง</p>
                       </div>
                     </div>
                   ))}

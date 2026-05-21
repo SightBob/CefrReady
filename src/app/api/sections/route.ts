@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { fetchSectionsFromDb } from '@/lib/sections';
 
 export const dynamic = 'force-dynamic';
+
+const getCachedSections = unstable_cache(
+  async () => fetchSectionsFromDb(),
+  ['sections-with-sets'],
+  { revalidate: 300, tags: ['sections'] }
+);
 
 /**
  * GET /api/sections
@@ -10,7 +17,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
   try {
-    const result = await fetchSectionsFromDb();
+    const result = await getCachedSections();
     return NextResponse.json({ success: true, sections: result });
   } catch (err) {
     console.error('[api/sections] error:', err);

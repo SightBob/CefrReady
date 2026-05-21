@@ -1,5 +1,3 @@
-'use client';
-
 import { ArrowLeft, TrendingUp, Award, Target, BookOpen, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import ProgressCard from '@/components/ProgressCard';

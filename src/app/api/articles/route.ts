@@ -2,19 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { articles } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { unstable_cache } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
-/** GET /api/articles — list published articles (public) */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category');
-
+const getCachedArticles = unstable_cache(
+  async (category?: string) => {
     const conditions = [eq(articles.isPublished, true)];
     if (category) conditions.push(eq(articles.category, category));
 
-    const rows = await db
+    return db
       .select({
         id: articles.id,
         title: articles.title,
@@ -27,7 +24,17 @@ export async function GET(request: NextRequest) {
       .from(articles)
       .where(and(...conditions))
       .orderBy(desc(articles.createdAt));
+  },
+  ['articles-list'],
+  { revalidate: 3600, tags: ['articles'] }
+);
 
+/** GET /api/articles — list published articles (public) */
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const category = searchParams.get('category') || undefined;
+    const rows = await getCachedArticles(category);
     return NextResponse.json({ success: true, data: rows });
   } catch (err) {
     console.error('[api/articles] GET error:', err);

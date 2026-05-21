@@ -1,5 +1,3 @@
-'use client';
-
 import {
   PenTool,
   BookOpen,
@@ -64,14 +62,14 @@ export default function ProgressCard({
   };
 
   const getTrendIcon = () => {
-    if (!previousScore) return <Minus className="w-4 h-4 text-slate-400" />;
+    if (!previousScore) return <Minus className="w-4 h-4 text-slate-500" />;
     if (averageScore > previousScore) {
       return <TrendingUp className="w-4 h-4 text-emerald-500" />;
     }
     if (averageScore < previousScore) {
       return <TrendingDown className="w-4 h-4 text-red-500" />;
     }
-    return <Minus className="w-4 h-4 text-slate-400" />;
+    return <Minus className="w-4 h-4 text-slate-500" />;
   };
 
   const scoreColor = scoreColorMap[getScoreColor(averageScore)];

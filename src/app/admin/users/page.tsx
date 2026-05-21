@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, Users, Search, Trash2, Mail, Calendar, BarChart2, ChevronUp, ChevronDown, Loader2, AlertTriangle } from 'lucide-react';
 
 interface User {
@@ -99,7 +100,7 @@ export default function AdminUsersPage() {
     d ? new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '—';
 
   const scoreColor = (s: number | null) => {
-    if (s === null) return 'text-slate-400';
+    if (s === null) return 'text-slate-500';
     if (s >= 70) return 'text-emerald-600';
     if (s >= 50) return 'text-amber-600';
     return 'text-red-500';
@@ -141,7 +142,7 @@ export default function AdminUsersPage() {
 
         {/* Search */}
         <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
           <input
             type="text"
             placeholder="ค้นหาชื่อหรืออีเมล..."
@@ -158,7 +159,7 @@ export default function AdminUsersPage() {
               <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="py-20 text-center text-slate-400">
+            <div className="py-20 text-center text-slate-500">
               <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
               <p>ไม่พบผู้ใช้</p>
             </div>
@@ -200,7 +201,7 @@ export default function AdminUsersPage() {
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           {user.image ? (
-                            <img src={user.image} alt="" className="w-8 h-8 rounded-full object-cover" />
+                            <Image src={user.image} alt={user.name ?? user.email} width={32} height={32} className="rounded-full object-cover" />
                           ) : (
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold">
                               {(user.name ?? user.email)[0].toUpperCase()}
@@ -229,7 +230,7 @@ export default function AdminUsersPage() {
                       {/* Attempts */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <BarChart2 className="w-4 h-4 text-slate-400" />
+                          <BarChart2 className="w-4 h-4 text-slate-500" />
                           <span className={`font-semibold ${user.totalAttempts > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
                             {user.totalAttempts}
                           </span>
@@ -244,7 +245,7 @@ export default function AdminUsersPage() {
                       </td>
 
                       {/* Last attempt */}
-                      <td className="px-5 py-4 text-slate-400 text-xs">
+                      <td className="px-5 py-4 text-slate-500 text-xs">
                         {formatDate(user.lastAttempt)}
                       </td>
 
@@ -266,7 +267,7 @@ export default function AdminUsersPage() {
           )}
         </div>
 
-        <p className="text-center text-slate-400 text-xs mt-4">
+        <p className="text-center text-slate-500 text-xs mt-4">
           แสดง {filtered.length} จาก {users.length} ผู้ใช้
         </p>
       </div>

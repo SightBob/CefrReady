@@ -8,20 +8,29 @@ import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
-const prompt = Prompt({ 
-  weight: ['300', '400', '500', '600', '700'],
-  subsets: ['latin', 'thai'], 
-  variable: '--font-prompt' 
+const prompt = Prompt({
+  weight: ['400', '500', '600', '700', '900'],
+  subsets: ['latin', 'thai'],
+  variable: '--font-prompt',
+  display: 'swap',
 });
 
-const pridi = Pridi({ 
-  weight: ['300', '400', '500', '600', '700'],
-  subsets: ['latin', 'thai'], 
-  variable: '--font-pridi' 
+const pridi = Pridi({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['latin', 'thai'],
+  variable: '--font-pridi',
+  display: 'swap',
 });
 
 const BASE_URL = 'https://cefr-ready.vercel.app';
 const SITE_NAME = 'CEFR Ready';
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#ffffff',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
@@ -114,7 +123,14 @@ export default function RootLayout({
           <div className="min-h-screen flex flex-col font-sans">
             <Header />
             <main className="flex-1">
-              <Suspense>
+              <Suspense fallback={
+                <div className="flex items-center justify-center min-h-[60vh]">
+                  <div className="animate-pulse flex flex-col items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary-200" />
+                    <p className="text-sm text-slate-400">Loading...</p>
+                  </div>
+                </div>
+              }>
                 {children}
               </Suspense>
             </main>

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ReportModal from '@/components/ReportModal';
+import TestTimer from '@/components/TestTimer';
 
 interface Section {
   id: string;
@@ -74,24 +75,7 @@ export default function TestLayout({
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'unanswered' | 'flagged'>('all');
 
-  // Timer state (20 minutes = 1200 seconds)
   const EXAM_DURATION = 20 * 60;
-  const [timeLeft, setTimeLeft] = useState(EXAM_DURATION);
-  const isTimeWarning = timeLeft <= 120; // warn when <= 2 min
-
-  useEffect(() => {
-    if (isSubmitted) return;
-    const interval = setInterval(() => {
-      setTimeLeft(prev => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isSubmitted]);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
 
   const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
 
@@ -205,15 +189,7 @@ export default function TestLayout({
             {/* Desktop Stats */}
             <div className="hidden md:flex items-center gap-4">
               {/* Timer */}
-              {!isSubmitted && (
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-mono font-bold transition-colors ${isTimeWarning
-                  ? 'bg-red-100 text-red-700 animate-pulse'
-                  : 'bg-slate-100 text-slate-700'
-                  }`}>
-                  <Clock className="w-4 h-4" />
-                  {formatTime(timeLeft)}
-                </div>
-              )}
+              <TestTimer initialSeconds={EXAM_DURATION} isSubmitted={isSubmitted} />
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-emerald-500" />
                 <span className="text-sm text-slate-600">{answeredCount}/{totalQuestions}</span>
@@ -244,17 +220,10 @@ export default function TestLayout({
 
             {/* Mobile: timer + toggle */}
             <div className="flex items-center gap-2 md:hidden">
-              {!isSubmitted && (
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-mono font-bold ${isTimeWarning ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-slate-100 text-slate-700'
-                  }`}>
-                  <Clock className="w-3 h-3" />
-                  {formatTime(timeLeft)}
-                </div>
-              )}
-              <button
-                className="p-2 hover:bg-slate-100 rounded-lg"
-                onClick={() => setShowMobileNav(!showMobileNav)}
-              >
+              <div className="scale-90 origin-left">
+                <TestTimer initialSeconds={EXAM_DURATION} isSubmitted={isSubmitted} />
+              </div>
+              <button onClick={() => setShowMobileNav(!showMobileNav)} aria-label="����">
                 {showMobileNav ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
@@ -360,11 +329,8 @@ export default function TestLayout({
                 <div className="p-4 border-b border-slate-100 bg-slate-50">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-semibold text-slate-900">Questions</h2>
-                    <button
-                      onClick={() => setShowNavPanel(false)}
-                      className="p-1 hover:bg-slate-200 rounded"
-                    >
-                      <X className="w-4 h-4 text-slate-400" />
+                    <button onClick={() => setShowNavPanel(false)} aria-label="�Դἧ��ùӷҧ">
+                      <X className="w-4 h-4 text-slate-500" />
                     </button>
                   </div>
 
@@ -406,7 +372,7 @@ export default function TestLayout({
                 <div className="p-3 border-b border-slate-100">
                   <div className="flex gap-2">
                     <div className="relative flex-1">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <input
                         type="number"
                         min={1}
@@ -626,10 +592,7 @@ export default function TestLayout({
 
           {/* Toggle Nav Button */}
           {!showNavPanel && (
-            <button
-              onClick={() => setShowNavPanel(true)}
-              className="hidden md:flex fixed left-4 top-1/2 -translate-y-1/2 bg-white p-2 rounded-full shadow-lg border border-slate-200 hover:bg-slate-50 z-30"
-            >
+            <button onClick={() => setShowNavPanel(true)} aria-label="�Դἧ��ùӷҧ">
               <ChevronRight className="w-5 h-5 text-slate-600" />
             </button>
           )}
@@ -651,29 +614,13 @@ export default function TestLayout({
                 <div className="flex items-center gap-1 md:gap-3">
                   {!isSubmitted && (
                     <>
-                      <button
-                        onClick={onFlag}
-                        data-tour="test-flag-btn"
-                        className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs md:text-sm transition-colors ${flaggedQuestions.includes(currentQuestion)
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'
-                          }`}
-                      >
+                      <button onClick={onFlag} aria-label="�Դ����͹��">
                         <Flag className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         <span className="hidden sm:inline">{flaggedQuestions.includes(currentQuestion) ? 'Flagged' : 'Flag'}</span>
                       </button>
 
                       {currentQuestionId && (
-                        <button
-                          onClick={() => setShowReportModal(true)}
-                          disabled={reportedQuestions.has(currentQuestionId)}
-                          title="แจ้งปัญหาข้อนี้"
-                          className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs md:text-sm transition-all ${
-                            reportedQuestions.has(currentQuestionId)
-                              ? 'text-green-600 bg-green-50 cursor-not-allowed'
-                              : 'text-slate-500 hover:text-orange-600 hover:bg-orange-50'
-                          }`}
-                        >
+                        <button onClick={() => setShowReportModal(true)} aria-label="��§ҹ��ͼԴ��Ҵ">
                           {reportedQuestions.has(currentQuestionId)
                             ? <><CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งแล้ว</span></>
                             : <><AlertTriangle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งปัญหา</span></>}
