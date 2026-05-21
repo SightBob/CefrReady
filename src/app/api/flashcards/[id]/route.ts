@@ -3,6 +3,14 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { flashcards } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { z } from 'zod';
+
+const patchFlashcardSchema = z.object({
+  userMeaning: z.string().max(2000).optional(),
+  status: z.enum(['new', 'learning', 'mastered']).optional(),
+  reviewCount: z.number().int().min(0).optional(),
+  lastReviewedAt: z.string().datetime().optional(),
+});
 
 // PATCH /api/flashcards/[id] - อัปเดต (userMeaning, status)
 export async function PATCH(
@@ -20,12 +28,17 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const updates: Record<string, unknown> = {};
+  const parsed = patchFlashcardSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request body', details: parsed.error.flatten() }, { status: 400 });
+  }
 
-  if (body.userMeaning !== undefined) updates.userMeaning = body.userMeaning;
-  if (body.status !== undefined) updates.status = body.status;
-  if (body.reviewCount !== undefined) updates.reviewCount = body.reviewCount;
-  if (body.lastReviewedAt !== undefined) updates.lastReviewedAt = new Date(body.lastReviewedAt);
+  const updates: Record<string, unknown> = {};
+  const data = parsed.data;
+  if (data.userMeaning !== undefined) updates.userMeaning = data.userMeaning;
+  if (data.status !== undefined) updates.status = data.status;
+  if (data.reviewCount !== undefined) updates.reviewCount = data.reviewCount;
+  if (data.lastReviewedAt !== undefined) updates.lastReviewedAt = new Date(data.lastReviewedAt);
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });

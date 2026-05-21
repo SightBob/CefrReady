@@ -3,13 +3,23 @@ import { db } from '@/db';
 import { questions, questionReports } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
+import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
+import { z } from 'zod';
 
-const VALID_ISSUE_TYPES = ['wrong_answer', 'missing_option', 'unclear_language', 'audio_problem', 'other'];
+const VALID_ISSUE_TYPES = ['wrong_answer', 'missing_option', 'unclear_language', 'audio_problem', 'other'] as const;
+
+const reportBodySchema = z.object({
+  issueType: z.enum(VALID_ISSUE_TYPES),
+  comment: z.string().max(1000).optional(),
+});
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rl = await rateLimit(getRateLimitIdentifier(req), { windowMs: 60_000, maxRequests: 5 });
+  if (rl.limited) return rateLimitResponse(rl.retryAfterMs);
+
   try {
     const { id } = await params;
     const questionId = parseInt(id);
@@ -18,14 +28,14 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { issueType, comment } = body;
-
-    if (!issueType || !VALID_ISSUE_TYPES.includes(issueType)) {
+    const parsed = reportBodySchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid issueType', validTypes: VALID_ISSUE_TYPES },
+        { error: 'Invalid request body', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
+    const { issueType, comment } = parsed.data;
 
     // ตรวจว่า question มีอยู่จริง
     const [question] = await db

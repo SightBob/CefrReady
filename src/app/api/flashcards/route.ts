@@ -3,6 +3,17 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { flashcards } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { z } from 'zod';
+
+const createFlashcardSchema = z.object({
+  term: z.string().trim().min(1, 'term is required'),
+  contextSentence: z.string().max(2000).optional(),
+  sourceType: z.enum(['manual', 'article', 'test', 'must-know']).optional(),
+  sourceId: z.number().int().optional(),
+  userMeaning: z.string().max(2000).optional(),
+  dictData: z.record(z.unknown()).optional(),
+});
 
 // GET /api/flashcards - ดึง flashcards ทั้งหมดของ user
 export async function GET(req: NextRequest) {
@@ -35,18 +46,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { term, contextSentence, sourceType, sourceId, userMeaning, dictData } = body;
+  const rl = await rateLimit(`flashcard:${session.user.id}`, { windowMs: 60_000, maxRequests: 20 });
+  if (rl.limited) return rateLimitResponse(rl.retryAfterMs);
 
-  if (!term?.trim()) {
-    return NextResponse.json({ error: 'term is required' }, { status: 400 });
+  const body = await req.json();
+  const parsed = createFlashcardSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request body', details: parsed.error.flatten() }, { status: 400 });
   }
+  const { term, contextSentence, sourceType, sourceId, userMeaning, dictData } = parsed.data;
 
   // ตรวจสอบว่ามี flashcard คำนี้แล้วหรือยัง (ต่อ user)
   const existing = await db
     .select({ id: flashcards.id })
     .from(flashcards)
-    .where(and(eq(flashcards.userId, session.user.id), eq(flashcards.term, term.trim().toLowerCase())))
+    .where(and(eq(flashcards.userId, session.user.id), eq(flashcards.term, term.toLowerCase())))
     .limit(1);
 
   if (existing.length > 0) {
@@ -57,12 +71,12 @@ export async function POST(req: NextRequest) {
     .insert(flashcards)
     .values({
       userId: session.user.id,
-      term: term.trim().toLowerCase(),
-      contextSentence: contextSentence || null,
-      sourceType: sourceType || 'manual',
-      sourceId: sourceId || null,
-      userMeaning: userMeaning || null,
-      dictData: dictData || null,
+      term: term.toLowerCase(),
+      contextSentence,
+      sourceType: sourceType ?? 'manual',
+      sourceId,
+      userMeaning,
+      dictData: dictData ?? null,
       status: 'new',
     })
     .returning();

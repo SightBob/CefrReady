@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { articles } from '@/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, like } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const existing = await db
       .select({ slug: articles.slug })
       .from(articles)
-      .where(sql`slug LIKE ${baseSlug + '%'}`);
+      .where(like(articles.slug, `${baseSlug}%`));
 
     const slug = existing.length === 0 ? baseSlug : `${baseSlug}-${Date.now()}`;
 

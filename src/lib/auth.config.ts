@@ -58,8 +58,9 @@ export const authConfig: NextAuthConfig = {
       const protectedRoutes = ['/admin'];
       const isProtected = protectedRoutes.some((r) => nextUrl.pathname.startsWith(r));
 
-      if (isProtected && !isLoggedIn) {
-        return Response.redirect(new URL('/', nextUrl));
+      if (isProtected) {
+        if (!isLoggedIn) return Response.redirect(new URL('/', nextUrl));
+        if (auth.user?.email !== process.env.ADMIN_EMAIL) return Response.redirect(new URL('/', nextUrl));
       }
 
       return true;

@@ -4,6 +4,18 @@ import { questions, testAttempts, userAnswers, userProgress, testTypes } from '@
 import { eq, inArray, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { calculateScore } from '@/lib/score-utils';
+import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
+import { z } from 'zod';
+
+const submitBodySchema = z.object({
+  testTypeId: z.string().min(1),
+  testSetId: z.union([z.string(), z.number()]).optional(),
+  answers: z.array(z.object({
+    questionId: z.number().int().positive(),
+    selectedAnswer: z.string(),
+  })).min(1),
+  isDemo: z.boolean().optional().default(false),
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -22,16 +34,19 @@ export const dynamic = 'force-dynamic';
  * }
  */
 export async function POST(request: NextRequest) {
+  const rl = await rateLimit(getRateLimitIdentifier(request), { windowMs: 60_000, maxRequests: 5 });
+  if (rl.limited) return rateLimitResponse(rl.retryAfterMs);
+
   try {
     const body = await request.json();
-    const { testTypeId, testSetId, answers, isDemo = false } = body;
-
-    if (!testTypeId || !answers || !Array.isArray(answers)) {
+    const parsed = submitBodySchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: testTypeId and answers array' },
+        { success: false, error: 'Invalid request body', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
+    const { testTypeId, testSetId, answers, isDemo } = parsed.data;
 
     // Fetch questions to validate answers
     const questionIds = answers.map((a: { questionId: number }) => a.questionId);
