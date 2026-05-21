@@ -47,6 +47,11 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
       publishedTime: (article as any).createdAt?.toISOString?.(),
       modifiedTime: (article as any).updatedAt?.toISOString?.(),
     },
+    twitter: {
+      card: 'summary_large_image',
+      title: article.title,
+      description,
+    },
     alternates: {
       canonical: `https://cefr-ready.vercel.app/must-know/${slug}`,
     },

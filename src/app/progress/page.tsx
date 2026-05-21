@@ -9,6 +9,17 @@ import ProgressContent from './ProgressContent';
 export const metadata: Metadata = {
   title: 'ความก้าวหน้าของคุณ',
   description: 'ดูความก้าวหน้าและสถิติการเรียนภาษาอังกฤษ CEFR ของคุณ',
+  alternates: { canonical: 'https://cefr-ready.vercel.app/progress' },
+  openGraph: {
+    title: 'ความก้าวหน้าของคุณ | CEFR Ready',
+    description: 'ดูความก้าวหน้าและสถิติการเรียนภาษาอังกฤษ CEFR ของคุณ',
+    url: 'https://cefr-ready.vercel.app/progress',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ความก้าวหน้าของคุณ | CEFR Ready',
+    description: 'ดูความก้าวหน้าและสถิติการเรียนภาษาอังกฤษ CEFR ของคุณ',
+  },
 };
 
 import TestsLoginPrompt from '../tests/TestsLoginPrompt';

@@ -13,6 +13,16 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://cefr-ready.vercel.app/must-know',
   },
+  openGraph: {
+    title: 'Must Know — หลักไวยากรณ์ภาษาอังกฤษ | CEFR Ready',
+    description: 'รวมบทความสรุปไวยากรณ์ภาษาอังกฤษที่สำคัญสำหรับการสอบ CEFR ครอบคลุม A1-C2 อ่านฟรี',
+    url: 'https://cefr-ready.vercel.app/must-know',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Must Know — หลักไวยากรณ์ภาษาอังกฤษ | CEFR Ready',
+    description: 'รวมบทความสรุปไวยากรณ์ภาษาอังกฤษที่สำคัญสำหรับการสอบ CEFR ครอบคลุม A1-C2',
+  },
 };
 
 export default async function MustKnowPage() {

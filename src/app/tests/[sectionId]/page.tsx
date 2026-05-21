@@ -5,6 +5,7 @@ import { ArrowLeft, LayoutGrid } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import TestSetCard, { type TestSetData } from '@/components/TestSetCard';
 import type { SectionData } from '@/components/SectionCard';
+import JsonLd, { educationalTestSchema } from '@/components/JsonLd';
 
 type SectionWithSets = Omit<SectionData, 'testSets'> & { testSets: TestSetData[] };
 
@@ -46,6 +47,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: section.name,
     description: section.description ?? `Choose a test set in ${section.name}`,
+    alternates: { canonical: `https://cefr-ready.vercel.app/tests/${sectionId}` },
+    openGraph: {
+      title: `${section.name} | CEFR Ready`,
+      description: section.description ?? `Choose a test set in ${section.name}`,
+      url: `https://cefr-ready.vercel.app/tests/${sectionId}`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${section.name} | CEFR Ready`,
+      description: section.description ?? `Choose a test set in ${section.name}`,
+    },
   };
 }
 
@@ -61,8 +73,17 @@ export default async function SectionPage({ params }: PageProps) {
   const bgClass = SECTION_BG[section.id] ?? 'bg-slate-50';
   const textClass = SECTION_ICON_CLASS[section.id] ?? 'text-slate-600';
 
+  const quizSchema = educationalTestSchema({
+    name: section.name,
+    description: section.description ?? `Practice ${section.name} on CEFR Ready`,
+    url: `https://cefr-ready.vercel.app/tests/${section.id}`,
+    questionCount: activeSets.reduce((sum, s) => sum + (s.questionCount ?? 0), 0),
+  });
+
   if (!session?.user) {
     return (
+      <>
+      <JsonLd data={quizSchema} />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/tests" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
           <ArrowLeft className="w-5 h-5" />
@@ -93,10 +114,13 @@ export default async function SectionPage({ params }: PageProps) {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   return (
+    <>
+    <JsonLd data={quizSchema} />
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Back */}
       <Link
@@ -147,5 +171,6 @@ export default async function SectionPage({ params }: PageProps) {
         </div>
       )}
     </div>
+    </>
   );
 }

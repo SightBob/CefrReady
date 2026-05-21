@@ -8,6 +8,17 @@ import TestsLoginPrompt from './TestsLoginPrompt';
 export const metadata: Metadata = {
   title: 'ข้อสอบ CEFR ทุกทักษะ',
   description: 'เลือกทำข้อสอบ CEFR ที่ตรงกับระดับของคุณ ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2',
+  alternates: { canonical: 'https://cefr-ready.vercel.app/tests' },
+  openGraph: {
+    title: 'ข้อสอบ CEFR ทุกทักษะ | CEFR Ready',
+    description: 'เลือกทำข้อสอบ CEFR ที่ตรงกับระดับของคุณ ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2',
+    url: 'https://cefr-ready.vercel.app/tests',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ข้อสอบ CEFR ทุกทักษะ | CEFR Ready',
+    description: 'เลือกทำข้อสอบ CEFR ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2',
+  },
 };
 
 import { fetchSectionsFromDb } from '@/lib/sections';

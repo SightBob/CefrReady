@@ -6,6 +6,17 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'ทดลองทำข้อสอบ CEFR ฟรี — Demo Tests',
   description: 'ลองทำข้อสอบ CEFR ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ครอบคลุม Focus on Form, Meaning, Listening ระดับ A1-C2',
+  alternates: { canonical: 'https://cefr-ready.vercel.app/demo' },
+  openGraph: {
+    title: 'ทดลองทำข้อสอบ CEFR ฟรี | CEFR Ready',
+    description: 'ลองทำข้อสอบ CEFR ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ครอบคลุม Focus on Form, Meaning, Listening ระดับ A1-C2',
+    url: 'https://cefr-ready.vercel.app/demo',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ทดลองทำข้อสอบ CEFR ฟรี | CEFR Ready',
+    description: 'ลองทำข้อสอบ CEFR ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ระดับ A1-C2',
+  },
 };
 export default function DemoTestsPage() {
   return (
