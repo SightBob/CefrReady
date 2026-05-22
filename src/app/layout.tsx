@@ -7,6 +7,7 @@ import { SessionProvider } from 'next-auth/react';
 import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { GoogleAnalytics } from '@next/third-parties/google';
 
 const prompt = Prompt({
   weight: ['400', '500', '600', '700', '900'],
@@ -144,6 +145,7 @@ export default function RootLayout({
           </div>
         </SessionProvider>
         <Analytics />
+        <GoogleAnalytics gaId="G-MNPQ9B7ZDL" />
         <SpeedInsights />
         <Toaster position="top-center" richColors />
       </body>
