@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
 
   sendDefaultPii: false,
 
@@ -24,3 +24,4 @@ Sentry.init({
     'Non-Error promise rejection captured',
   ],
 });
+}
