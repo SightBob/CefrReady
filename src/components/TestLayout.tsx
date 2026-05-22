@@ -158,7 +158,7 @@ export default function TestLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="flex flex-col h-dvh bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Top Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
         <div
@@ -168,7 +168,7 @@ export default function TestLayout({
       </div>
 
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-16 z-40">
+      <div className="bg-white border-b border-slate-200 shrink-0 z-40 pt-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-4">
@@ -319,7 +319,7 @@ export default function TestLayout({
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 pb-24 md:pb-6">
+      <div className="max-w-[80%] w-[1250px] max-[1080px]:max-w-[100%] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 pb-24 md:pb-6">
         <div className="flex gap-6">
           {/* Desktop Navigation Panel */}
           {showNavPanel && (

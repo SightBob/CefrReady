@@ -13,7 +13,7 @@ export const users = pgTable('users', {
   emailVerified: timestamp('email_verified', { mode: 'date' }),
   image: text('image'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   emailIdx: index('users_email_idx').on(table.email),
 }));
@@ -66,7 +66,7 @@ export const testTypes = pgTable('test_types', {
   questionCount: integer('question_count'),
   active: varchar('active', { length: 5 }).default('true').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 });
 
 // Questions: testTypeId references testTypes.id (varchar PK)
@@ -112,7 +112,7 @@ export const testSets = pgTable('test_sets', {
   orderIndex: integer('order_index').default(0).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   sectionIdx: index('test_sets_section_idx').on(table.sectionId),
   orderIdx: index('test_sets_order_idx').on(table.sectionId, table.orderIndex),
@@ -143,7 +143,7 @@ export const testAttempts = pgTable('test_attempts', {
   startedAt: timestamp('started_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   userIdIdx: index('test_attempts_user_id_idx').on(table.userId),
   testTypeIdx: index('test_attempts_test_type_idx').on(table.testTypeId),
@@ -172,7 +172,7 @@ export const userProgress = pgTable('user_progress', {
   testsTaken: integer('tests_taken').default(0),
   lastAttemptAt: timestamp('last_attempt_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   userIdIdx: index('user_progress_user_id_idx').on(table.userId),
   testTypeIdx: index('user_progress_test_type_idx').on(table.testTypeId),
@@ -193,7 +193,7 @@ export const articles = pgTable('articles', {
   tags: text('tags').array(),                       // e.g. ['subject-verb', 'present-tense']
   isPublished: boolean('is_published').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   slugIdx: index('articles_slug_idx').on(table.slug),
   categoryIdx: index('articles_category_idx').on(table.category),
@@ -231,7 +231,7 @@ export const flashcards = pgTable('flashcards', {
   nextReviewAt: timestamp('next_review_at'),                          // when card is due
   consecutiveCorrect: integer('consecutive_correct').default(0).notNull(), // correct streak
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   userIdx: index('flashcards_user_idx').on(table.userId),
   statusIdx: index('flashcards_status_idx').on(table.userId, table.status),
@@ -280,7 +280,7 @@ export const questionReports = pgTable('question_reports', {
   status: varchar('status', { length: 20 }).default('pending').notNull(),
   // 'pending' | 'in_progress' | 'resolved'
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   questionIdx: index('qr_question_idx').on(table.questionId),
   statusIdx: index('qr_status_idx').on(table.status),
