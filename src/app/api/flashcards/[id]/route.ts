@@ -4,15 +4,18 @@ import { db } from '@/db';
 import { flashcards } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
+import { sm2, isValidQuality } from '@/lib/sm2';
 
 const patchFlashcardSchema = z.object({
   userMeaning: z.string().max(2000).optional(),
   status: z.enum(['new', 'learning', 'mastered']).optional(),
   reviewCount: z.number().int().min(0).optional(),
   lastReviewedAt: z.string().datetime().optional(),
+  action: z.enum(['review']).optional(),
+  quality: z.number().int().min(1).max(5).optional(),
 });
 
-// PATCH /api/flashcards/[id] - อัปเดต (userMeaning, status)
+// PATCH /api/flashcards/[id] - อัปเดต (userMeaning, status, review)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -35,10 +38,49 @@ export async function PATCH(
 
   const updates: Record<string, unknown> = {};
   const data = parsed.data;
-  if (data.userMeaning !== undefined) updates.userMeaning = data.userMeaning;
-  if (data.status !== undefined) updates.status = data.status;
-  if (data.reviewCount !== undefined) updates.reviewCount = data.reviewCount;
-  if (data.lastReviewedAt !== undefined) updates.lastReviewedAt = new Date(data.lastReviewedAt);
+
+  // SM-2 review action
+  if (data.action === 'review') {
+    if (data.quality === undefined || !isValidQuality(data.quality)) {
+      return NextResponse.json(
+        { error: 'quality must be 1, 3, 4, or 5' },
+        { status: 400 }
+      );
+    }
+
+    const [card] = await db
+      .select()
+      .from(flashcards)
+      .where(and(eq(flashcards.id, cardId), eq(flashcards.userId, session.user.id)))
+      .limit(1);
+
+    if (!card) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const result = sm2(
+      data.quality,
+      card.easeFactor ? parseFloat(card.easeFactor as string) : 2.5,
+      (card.reviewInterval as number) ?? 0,
+      (card.consecutiveCorrect as number) ?? 0,
+    );
+
+    updates.easeFactor = result.easeFactor.toString();
+    updates.reviewInterval = result.reviewInterval;
+    updates.nextReviewAt = result.nextReviewAt;
+    updates.status = result.status;
+    updates.reviewCount = ((card.reviewCount as number) ?? 0) + 1;
+    updates.lastReviewedAt = new Date();
+    updates.consecutiveCorrect = data.quality >= 3
+      ? ((card.consecutiveCorrect as number) ?? 0) + 1
+      : 0;
+  } else {
+    // Standard updates (backward compatible)
+    if (data.userMeaning !== undefined) updates.userMeaning = data.userMeaning;
+    if (data.status !== undefined) updates.status = data.status;
+    if (data.reviewCount !== undefined) updates.reviewCount = data.reviewCount;
+    if (data.lastReviewedAt !== undefined) updates.lastReviewedAt = new Date(data.lastReviewedAt);
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });

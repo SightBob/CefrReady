@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { flashcards } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { z } from 'zod';
 
@@ -15,7 +15,7 @@ const createFlashcardSchema = z.object({
   dictData: z.record(z.unknown()).optional(),
 });
 
-// GET /api/flashcards - ดึง flashcards ทั้งหมดของ user
+// GET /api/flashcards - ดึง flashcards ทั้งหมดของ user (รองรับ ?due=true และ ?status=...)
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -23,18 +23,29 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get('status'); // 'new' | 'learning' | 'mastered' | null (all)
+  const status = searchParams.get('status');
+  const dueOnly = searchParams.get('due') === 'true';
 
   const conditions = [eq(flashcards.userId, session.user.id)];
   if (status) {
     conditions.push(eq(flashcards.status, status));
   }
 
+  if (dueOnly) {
+    conditions.push(
+      sql`(next_review_at IS NULL OR next_review_at <= NOW())`
+    );
+  }
+
   const cards = await db
     .select()
     .from(flashcards)
     .where(and(...conditions))
-    .orderBy(desc(flashcards.createdAt));
+    .orderBy(
+      dueOnly
+        ? sql`RANDOM()`
+        : desc(flashcards.createdAt)
+    );
 
   return NextResponse.json({ flashcards: cards });
 }

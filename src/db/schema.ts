@@ -226,12 +226,17 @@ export const flashcards = pgTable('flashcards', {
   status: varchar('status', { length: 20 }).default('new').notNull(), // 'new' | 'learning' | 'mastered'
   reviewCount: integer('review_count').default(0).notNull(),
   lastReviewedAt: timestamp('last_reviewed_at'),
+  easeFactor: numeric('ease_factor', { precision: 3, scale: 2 }).default('2.5'), // SM-2 ease factor (min 1.3)
+  reviewInterval: integer('review_interval').default(0).notNull(),    // days until next review
+  nextReviewAt: timestamp('next_review_at'),                          // when card is due
+  consecutiveCorrect: integer('consecutive_correct').default(0).notNull(), // correct streak
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => sql`NOW()`).notNull(),
 }, (table) => ({
   userIdx: index('flashcards_user_idx').on(table.userId),
   statusIdx: index('flashcards_status_idx').on(table.userId, table.status),
   termIdx: index('flashcards_term_idx').on(table.userId, table.term),
+  dueIdx: index('flashcards_due_idx').on(table.userId, table.nextReviewAt),
 }));
 
 // ============================================================

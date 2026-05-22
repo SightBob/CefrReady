@@ -36,6 +36,10 @@ interface Flashcard {
   status: string;
   reviewCount: number;
   lastReviewedAt: string | null;
+  easeFactor: string | null;
+  reviewInterval: number | null;
+  nextReviewAt: string | null;
+  consecutiveCorrect: number | null;
   createdAt: string;
 }
 
@@ -44,6 +48,7 @@ type ViewMode = 'grid' | 'review';
 
 export default function FlashcardsClient() {
   const [cards, setCards] = useState<Flashcard[]>([]);
+  const [dueCards, setDueCards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -52,6 +57,7 @@ export default function FlashcardsClient() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editMeaning, setEditMeaning] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [cardStats, setCardStats] = useState<{ total: number; dueToday: number; newCount: number; learningCount: number; masteredCount: number; totalReviews: number } | null>(null);
 
   const fetchCards = useCallback(async () => {
     setLoading(true);
@@ -69,7 +75,27 @@ export default function FlashcardsClient() {
     }
   }, [filterStatus]);
 
-  useEffect(() => { fetchCards(); }, [fetchCards]);
+  const fetchDueCards = useCallback(async () => {
+    try {
+      const res = await fetch('/api/flashcards?due=true');
+      const data = await res.json();
+      setDueCards(data.flashcards || []);
+    } catch {
+      setDueCards([]);
+    }
+  }, []);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/flashcards/stats');
+      const data = await res.json();
+      setCardStats(data);
+    } catch {
+      // non-fatal
+    }
+  }, []);
+
+  useEffect(() => { fetchCards(); fetchStats(); }, [fetchCards, fetchStats]);
 
   const handleSpeak = (word: string) => {
     if ('speechSynthesis' in window) {
@@ -111,7 +137,35 @@ export default function FlashcardsClient() {
     setEditingId(null);
   };
 
-  const reviewCards = cards;
+  const handleReview = async (id: number, quality: number) => {
+    try {
+      const res = await fetch(`/api/flashcards/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'review', quality }),
+      });
+      if (!res.ok) return;
+      setDueCards(prev => prev.filter(c => c.id !== id));
+      if (dueCards.length <= 2) {
+        setReviewIndex(0);
+      } else if (reviewIndex >= dueCards.length - 2) {
+        setReviewIndex(prev => Math.max(0, prev));
+      }
+      setFlipped(false);
+      fetchStats();
+    } catch {
+      // non-fatal
+    }
+  };
+
+  const switchToReview = async () => {
+    await fetchDueCards();
+    setReviewIndex(0);
+    setFlipped(false);
+    setViewMode('review');
+  };
+
+  const reviewCards = dueCards.length > 0 ? dueCards : cards;
   const currentCard = reviewCards[reviewIndex];
 
   const statusColors: Record<string, string> = {
@@ -121,10 +175,11 @@ export default function FlashcardsClient() {
   };
 
   const stats = {
-    all: cards.length,
-    new: cards.filter(c => c.status === 'new').length,
-    learning: cards.filter(c => c.status === 'learning').length,
-    mastered: cards.filter(c => c.status === 'mastered').length,
+    all: cardStats?.total ?? cards.length,
+    new: cardStats?.newCount ?? cards.filter(c => c.status === 'new').length,
+    learning: cardStats?.learningCount ?? cards.filter(c => c.status === 'learning').length,
+    mastered: cardStats?.masteredCount ?? cards.filter(c => c.status === 'mastered').length,
+    dueToday: cardStats?.dueToday ?? 0,
   };
 
   return (
@@ -142,7 +197,7 @@ export default function FlashcardsClient() {
                   <Layers className="w-5 h-5 text-indigo-600" />
                   Flashcards ของฉัน
                 </h1>
-                <p className="text-sm text-slate-500">{stats.all} คำศัพท์ทั้งหมด</p>
+                <p className="text-sm text-slate-500">{stats.all} คำศัพท์{stats.dueToday > 0 ? ` · ${stats.dueToday} ถึงกำหนดทบทวน` : ''}</p>
               </div>
             </div>
 
@@ -157,7 +212,7 @@ export default function FlashcardsClient() {
                   คลัง
                 </button>
                 <button
-                  onClick={() => { setViewMode('review'); setReviewIndex(0); setFlipped(false); }}
+                  onClick={switchToReview}
                   disabled={cards.length === 0}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all disabled:opacity-40 ${viewMode === 'review' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
@@ -345,7 +400,21 @@ export default function FlashcardsClient() {
         )}
 
         {/* ===== REVIEW MODE ===== */}
-        {!loading && viewMode === 'review' && cards.length > 0 && currentCard && (
+        {!loading && viewMode === 'review' && dueCards.length === 0 && (
+          <div className="text-center py-20">
+            <CheckCircle2 className="w-16 h-16 text-emerald-300 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-slate-700 mb-2">ไม่มีการ์ดถึงกำหนดทบทวน</h2>
+            <p className="text-slate-500 mb-6">การ์ดที่ถึงกำหนดจะแสดงที่นี่ — ลองทำข้อสอบเพิ่มเพื่อเพิ่มคำศัพท์ใหม่</p>
+            <button
+              onClick={() => setViewMode('grid')}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              กลับไปคลัง
+            </button>
+          </div>
+        )}
+
+        {!loading && viewMode === 'review' && dueCards.length > 0 && currentCard && (
           <div className="max-w-xl mx-auto min-h-[70vh] flex flex-col justify-center">
             
             {/* Minimal Progress Island */}
@@ -455,27 +524,34 @@ export default function FlashcardsClient() {
 
             {/* Action Islands */}
             <div className={`transition-all duration-700 ease-out ${flipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-              <div className="grid grid-cols-3 gap-3 mt-8">
+              <div className="grid grid-cols-4 gap-2 mt-8">
                 <button
-                  onClick={() => { handleStatusChange(currentCard.id, 'new'); setFlipped(false); setReviewIndex(i => Math.min(i + 1, reviewCards.length - 1)); }}
+                  onClick={() => handleReview(currentCard.id, 1)}
                   className="group relative flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white border border-slate-200/60 shadow-sm hover:border-red-200 hover:bg-red-50/50 hover:shadow-[0_8px_30px_rgba(239,68,68,0.12)] transition-all duration-500 ease-out active:scale-[0.96]"
                 >
-                  <XCircle className="w-6 h-6 text-slate-400 group-hover:text-red-500 transition-colors duration-300" />
-                  <span className="text-xs font-semibold text-slate-500 group-hover:text-red-700 transition-colors duration-300">ยังจำไม่ได้</span>
+                  <XCircle className="w-5 h-5 text-slate-400 group-hover:text-red-500 transition-colors duration-300" />
+                  <span className="text-xs font-semibold text-slate-500 group-hover:text-red-700 transition-colors duration-300">Again</span>
                 </button>
                 <button
-                  onClick={() => { handleStatusChange(currentCard.id, 'learning'); setFlipped(false); setReviewIndex(i => Math.min(i + 1, reviewCards.length - 1)); }}
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white border border-slate-200/60 shadow-sm hover:border-amber-200 hover:bg-amber-50/50 hover:shadow-[0_8px_30px_rgba(245,158,11,0.12)] transition-all duration-500 ease-out active:scale-[0.96]"
+                  onClick={() => handleReview(currentCard.id, 3)}
+                  className="group relative flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white border border-slate-200/60 shadow-sm hover:border-orange-200 hover:bg-orange-50/50 hover:shadow-[0_8px_30px_rgba(249,115,22,0.12)] transition-all duration-500 ease-out active:scale-[0.96]"
                 >
-                  <RotateCcw className="w-6 h-6 text-slate-400 group-hover:text-amber-500 transition-colors duration-300" />
-                  <span className="text-xs font-semibold text-slate-500 group-hover:text-amber-700 transition-colors duration-300">กำลังจำ</span>
+                  <RotateCcw className="w-5 h-5 text-slate-400 group-hover:text-orange-500 transition-colors duration-300" />
+                  <span className="text-xs font-semibold text-slate-500 group-hover:text-orange-700 transition-colors duration-300">Hard</span>
                 </button>
                 <button
-                  onClick={() => { handleStatusChange(currentCard.id, 'mastered'); setFlipped(false); setReviewIndex(i => Math.min(i + 1, reviewCards.length - 1)); }}
+                  onClick={() => handleReview(currentCard.id, 4)}
+                  className="group relative flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white border border-slate-200/60 shadow-sm hover:border-blue-200 hover:bg-blue-50/50 hover:shadow-[0_8px_30px_rgba(59,130,246,0.12)] transition-all duration-500 ease-out active:scale-[0.96]"
+                >
+                  <CheckCircle2 className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors duration-300" />
+                  <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-700 transition-colors duration-300">Good</span>
+                </button>
+                <button
+                  onClick={() => handleReview(currentCard.id, 5)}
                   className="group relative flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white border border-slate-200/60 shadow-sm hover:border-emerald-200 hover:bg-emerald-50/50 hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)] transition-all duration-500 ease-out active:scale-[0.96]"
                 >
-                  <CheckCircle2 className="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" />
-                  <span className="text-xs font-semibold text-slate-500 group-hover:text-emerald-700 transition-colors duration-300">จำได้แล้ว!</span>
+                  <BookmarkPlus className="w-5 h-5 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" />
+                  <span className="text-xs font-semibold text-slate-500 group-hover:text-emerald-700 transition-colors duration-300">Easy</span>
                 </button>
               </div>
             </div>
