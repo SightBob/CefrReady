@@ -48,32 +48,42 @@ export async function PATCH(
       );
     }
 
-    const [card] = await db
-      .select()
-      .from(flashcards)
-      .where(and(eq(flashcards.id, cardId), eq(flashcards.userId, session.user.id)))
-      .limit(1);
+    let card;
+    try {
+      const rows = await db
+        .select()
+        .from(flashcards)
+        .where(and(eq(flashcards.id, cardId), eq(flashcards.userId, session.user.id)))
+        .limit(1);
+      card = rows[0];
+    } catch (err) {
+      console.error('[flashcard/review] DB fetch error:', err);
+      return NextResponse.json({ error: 'DB fetch failed' }, { status: 500 });
+    }
 
     if (!card) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    const result = sm2(
-      data.quality,
-      card.easeFactor ? parseFloat(card.easeFactor as string) : 2.5,
-      (card.reviewInterval as number) ?? 0,
-      (card.consecutiveCorrect as number) ?? 0,
-    );
+    try {
+      const ef = card.easeFactor != null ? Number(card.easeFactor) : 2.5;
+      const ri = card.reviewInterval != null ? Number(card.reviewInterval) : 0;
+      const cc = card.consecutiveCorrect != null ? Number(card.consecutiveCorrect) : 0;
+      const rc = card.reviewCount != null ? Number(card.reviewCount) : 0;
 
-    updates.easeFactor = result.easeFactor.toString();
-    updates.reviewInterval = result.reviewInterval;
-    updates.nextReviewAt = result.nextReviewAt;
-    updates.status = result.status;
-    updates.reviewCount = ((card.reviewCount as number) ?? 0) + 1;
-    updates.lastReviewedAt = new Date();
-    updates.consecutiveCorrect = data.quality >= 3
-      ? ((card.consecutiveCorrect as number) ?? 0) + 1
-      : 0;
+      const result = sm2(data.quality, ef, ri, cc);
+
+      updates.easeFactor = result.easeFactor.toString();
+      updates.reviewInterval = result.reviewInterval;
+      updates.nextReviewAt = result.nextReviewAt;
+      updates.status = result.status;
+      updates.reviewCount = rc + 1;
+      updates.lastReviewedAt = new Date();
+      updates.consecutiveCorrect = data.quality >= 3 ? cc + 1 : 0;
+    } catch (err) {
+      console.error('[flashcard/review] SM-2 compute error:', err);
+      return NextResponse.json({ error: 'SM-2 computation failed' }, { status: 500 });
+    }
   } else {
     // Standard updates (backward compatible)
     if (data.userMeaning !== undefined) updates.userMeaning = data.userMeaning;
