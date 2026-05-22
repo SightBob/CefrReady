@@ -62,11 +62,16 @@ const nextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+const sentryOptions = {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-  silent: !process.env.CI,
+  silent: true,
   tunnelRoute: '/sentry-tunnel',
   autoInstrumentServerFunctions: false,
   autoInstrumentMiddleware: false,
-});
+};
+
+// Only wrap with Sentry config when DSN is provided
+export default process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(nextConfig, sentryOptions)
+  : nextConfig;
