@@ -20,52 +20,45 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const cardId = parseInt(params.id);
-  if (isNaN(cardId)) {
-    return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
-  }
-
-  const body = await req.json();
-  const parsed = patchFlashcardSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid request body', details: parsed.error.flatten() }, { status: 400 });
-  }
-
-  const updates: Record<string, unknown> = {};
-  const data = parsed.data;
-
-  // SM-2 review action
-  if (data.action === 'review') {
-    if (data.quality === undefined || !isValidQuality(data.quality)) {
-      return NextResponse.json(
-        { error: 'quality must be 1, 3, 4, or 5' },
-        { status: 400 }
-      );
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let card;
-    try {
-      const rows = await db
+    const cardId = parseInt(params.id);
+    if (isNaN(cardId)) {
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    }
+
+    const body = await req.json();
+    const parsed = patchFlashcardSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid request body', details: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const updates: Record<string, unknown> = {};
+    const data = parsed.data;
+
+    // SM-2 review action
+    if (data.action === 'review') {
+      if (data.quality === undefined || !isValidQuality(data.quality)) {
+        return NextResponse.json(
+          { error: 'quality must be 1, 3, 4, or 5' },
+          { status: 400 }
+        );
+      }
+
+      const [card] = await db
         .select()
         .from(flashcards)
         .where(and(eq(flashcards.id, cardId), eq(flashcards.userId, session.user.id)))
         .limit(1);
-      card = rows[0];
-    } catch (err) {
-      console.error('[flashcard/review] DB fetch error:', err);
-      return NextResponse.json({ error: 'DB fetch failed' }, { status: 500 });
-    }
 
-    if (!card) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
+      if (!card) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
 
-    try {
       const ef = card.easeFactor != null ? Number(card.easeFactor) : 2.5;
       const ri = card.reviewInterval != null ? Number(card.reviewInterval) : 0;
       const cc = card.consecutiveCorrect != null ? Number(card.consecutiveCorrect) : 0;
@@ -80,33 +73,36 @@ export async function PATCH(
       updates.reviewCount = rc + 1;
       updates.lastReviewedAt = new Date();
       updates.consecutiveCorrect = data.quality >= 3 ? cc + 1 : 0;
-    } catch (err) {
-      console.error('[flashcard/review] SM-2 compute error:', err);
-      return NextResponse.json({ error: 'SM-2 computation failed' }, { status: 500 });
+    } else {
+      // Standard updates (backward compatible)
+      if (data.userMeaning !== undefined) updates.userMeaning = data.userMeaning;
+      if (data.status !== undefined) updates.status = data.status;
+      if (data.reviewCount !== undefined) updates.reviewCount = data.reviewCount;
+      if (data.lastReviewedAt !== undefined) updates.lastReviewedAt = new Date(data.lastReviewedAt);
     }
-  } else {
-    // Standard updates (backward compatible)
-    if (data.userMeaning !== undefined) updates.userMeaning = data.userMeaning;
-    if (data.status !== undefined) updates.status = data.status;
-    if (data.reviewCount !== undefined) updates.reviewCount = data.reviewCount;
-    if (data.lastReviewedAt !== undefined) updates.lastReviewedAt = new Date(data.lastReviewedAt);
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    const [updated] = await db
+      .update(flashcards)
+      .set(updates)
+      .where(and(eq(flashcards.id, cardId), eq(flashcards.userId, session.user.id)))
+      .returning();
+
+    if (!updated) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ flashcard: updated });
+  } catch (error) {
+    console.error('[flashcard PATCH] Unhandled error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
-
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
-  }
-
-  const [updated] = await db
-    .update(flashcards)
-    .set(updates)
-    .where(and(eq(flashcards.id, cardId), eq(flashcards.userId, session.user.id)))
-    .returning();
-
-  if (!updated) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  }
-
-  return NextResponse.json({ flashcard: updated });
 }
 
 // DELETE /api/flashcards/[id] - ลบ flashcard
