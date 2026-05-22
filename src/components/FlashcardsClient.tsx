@@ -144,17 +144,25 @@ export default function FlashcardsClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'review', quality }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('Review failed:', res.status, err);
+        toast.error('เกิดข้อผิดพลาดในการทบทวน');
+        return;
+      }
+      const { flashcard: updated } = await res.json();
       setDueCards(prev => prev.filter(c => c.id !== id));
+      setCards(prev => prev.map(c => c.id === id ? updated : c));
+      setFlipped(false);
+      fetchStats();
       if (dueCards.length <= 2) {
         setReviewIndex(0);
       } else if (reviewIndex >= dueCards.length - 2) {
         setReviewIndex(prev => Math.max(0, prev));
       }
-      setFlipped(false);
-      fetchStats();
-    } catch {
-      // non-fatal
+    } catch (err) {
+      console.error('Review error:', err);
+      toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
     }
   };
 
