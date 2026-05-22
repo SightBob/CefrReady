@@ -1,4 +1,4 @@
-const BASE_URL = 'https://cefr-ready.vercel.app';
+const BASE_URL = 'https://cefr-ready.site';
 
 interface JsonLdProps {
   data: Record<string, unknown>;

@@ -221,9 +221,7 @@ export default async function Home() {
               <span className="text-primary-200">ให้ผ่านในครั้งแรก</span>
             </h2>
             <p className="text-primary-100 text-base md:text-lg leading-relaxed mb-8 max-w-xl">
-              CEFR Ready ออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล ที่มหาวิทยาลัยไทยหลายแห่ง รวมถึง{' '}
-              <strong className="text-white">มหาวิทยาลัยเทคโนโลยีสุรนารี (มทส / SUT)</strong>{' '}
-              ใช้วัดระดับภาษาอังกฤษของนักศึกษา ครอบคลุมทั้ง 4 ทักษะ:{' '}
+              CEFR Ready ออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล ที่สอดคล้องกับรูปแบบข้อสอบ CEFR ที่มหาวิทยาลัยไทยหลายแห่งนำมาใช้วัดระดับ ภาษาอังกฤษของนักศึกษา ครอบคลุมทั้ง 4 ทักษะ:{' '}
               Focus on Form, Focus on Meaning, Form &amp; Meaning และ Listening
             </p>
             <div className="flex flex-wrap gap-3">

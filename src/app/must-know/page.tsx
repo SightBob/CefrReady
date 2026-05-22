@@ -11,12 +11,12 @@ export const metadata: Metadata = {
   description: 'รวมบทความสรุปไวยากรณ์ภาษาอังกฤษที่สำคัญสำหรับการสอบ CEFR ครอบคลุม Tense, Articles, Prepositions, Modals, Vocabulary และเนื้อหาระดับ A1-C2 อ่านฟรี ไม่ต้องสมัครสมาชิก',
   keywords: ['ไวยากรณ์ภาษาอังกฤษ', 'สรุปไวยากรณ์ CEFR', 'English grammar CEFR', 'must know CEFR', 'หลักภาษาอังกฤษ', 'เตรียมสอบ CEFR'],
   alternates: {
-    canonical: 'https://cefr-ready.vercel.app/must-know',
+    canonical: 'https://cefr-ready.site/must-know',
   },
   openGraph: {
     title: 'Must Know — หลักไวยากรณ์ภาษาอังกฤษ | CEFR Ready',
     description: 'รวมบทความสรุปไวยากรณ์ภาษาอังกฤษที่สำคัญสำหรับการสอบ CEFR ครอบคลุม A1-C2 อ่านฟรี',
-    url: 'https://cefr-ready.vercel.app/must-know',
+    url: 'https://cefr-ready.site/must-know',
   },
   twitter: {
     card: 'summary_large_image',

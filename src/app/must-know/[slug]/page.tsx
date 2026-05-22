@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
       description,
     },
     alternates: {
-      canonical: `https://cefr-ready.vercel.app/must-know/${slug}`,
+      canonical: `https://cefr-ready.site/must-know/${slug}`,
     },
   };
 }
@@ -73,7 +73,7 @@ export default async function MustKnowArticlePage({ params }: ArticlePageProps) 
 
   const tags = Array.isArray(article.tags) ? (article.tags as string[]) : [];
 
-  const BASE_URL = 'https://cefr-ready.vercel.app';
+  const BASE_URL = 'https://cefr-ready.site';
   const plainDesc = (article.content || '')
     .slice(0, 200)
     .replace(/#+\s/g, '')

@@ -41,12 +41,12 @@ Audio-based comprehension questions. Students listen to short dialogues and answ
 
 ## Key URLs
 
-- Homepage: https://cefr-ready.vercel.app/
-- Practice tests: https://cefr-ready.vercel.app/tests
-- Demo tests (no login): https://cefr-ready.vercel.app/demo
-- Grammar library: https://cefr-ready.vercel.app/must-know
-- Progress tracking: https://cefr-ready.vercel.app/progress
-- Sitemap: https://cefr-ready.vercel.app/sitemap.xml
+- Homepage: https://cefr-ready.site/
+- Practice tests: https://cefr-ready.site/tests
+- Demo tests (no login): https://cefr-ready.site/demo
+- Grammar library: https://cefr-ready.site/must-know
+- Progress tracking: https://cefr-ready.site/progress
+- Sitemap: https://cefr-ready.site/sitemap.xml
 
 ## What is CEFR?
 

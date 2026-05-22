@@ -22,7 +22,7 @@ const pridi = Pridi({
   display: 'swap',
 });
 
-const BASE_URL = 'https://cefr-ready.vercel.app';
+const BASE_URL = 'https://cefr-ready.site';
 const SITE_NAME = 'CEFR Ready';
 
 export const viewport = {

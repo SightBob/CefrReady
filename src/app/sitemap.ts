@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 
 export const revalidate = 3600; // re-generate every hour (ISR)
 
-const BASE_URL = 'https://cefr-ready.vercel.app';
+const BASE_URL = 'https://cefr-ready.site';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ─── Static pages ─────────────────────────────────────────────────

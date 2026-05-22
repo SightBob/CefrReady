@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 const ALLOWED_ORIGINS = [
-  process.env.NEXTAUTH_URL || 'https://cefr-ready.vercel.app',
+  process.env.NEXTAUTH_URL || 'https://cefr-ready.site',
   'http://localhost:3000',
 ];
 

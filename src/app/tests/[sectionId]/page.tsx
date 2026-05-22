@@ -47,11 +47,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: section.name,
     description: section.description ?? `Choose a test set in ${section.name}`,
-    alternates: { canonical: `https://cefr-ready.vercel.app/tests/${sectionId}` },
+    alternates: { canonical: `https://cefr-ready.site/tests/${sectionId}` },
     openGraph: {
       title: `${section.name} | CEFR Ready`,
       description: section.description ?? `Choose a test set in ${section.name}`,
-      url: `https://cefr-ready.vercel.app/tests/${sectionId}`,
+      url: `https://cefr-ready.site/tests/${sectionId}`,
     },
     twitter: {
       card: 'summary_large_image',
@@ -76,7 +76,7 @@ export default async function SectionPage({ params }: PageProps) {
   const quizSchema = educationalTestSchema({
     name: section.name,
     description: section.description ?? `Practice ${section.name} on CEFR Ready`,
-    url: `https://cefr-ready.vercel.app/tests/${section.id}`,
+    url: `https://cefr-ready.site/tests/${section.id}`,
     questionCount: activeSets.reduce((sum, s) => sum + (s.questionCount ?? 0), 0),
   });
 
