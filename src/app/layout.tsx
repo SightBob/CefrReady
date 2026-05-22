@@ -114,6 +114,11 @@ export default function RootLayout({
       <head>
         <meta name="application-name" content={SITE_NAME} />
         <script
+          id="cookieyes"
+          type="text/javascript"
+          src="https://cdn-cookieyes.com/client_data/7b7ab807831ace83bc43904a/script.js"
+        />
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
