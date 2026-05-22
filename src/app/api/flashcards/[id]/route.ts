@@ -73,6 +73,7 @@ export async function PATCH(
       updates.reviewCount = rc + 1;
       updates.lastReviewedAt = new Date();
       updates.consecutiveCorrect = data.quality >= 3 ? cc + 1 : 0;
+      updates.updatedAt = new Date();
     } else {
       // Standard updates (backward compatible)
       if (data.userMeaning !== undefined) updates.userMeaning = data.userMeaning;
@@ -83,6 +84,15 @@ export async function PATCH(
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    // Ensure all timestamp columns are Date objects
+    const tsFields = ['lastReviewedAt', 'nextReviewAt'];
+    for (const field of tsFields) {
+      if (updates[field] !== undefined && !(updates[field] instanceof Date)) {
+        console.warn(`[flashcard PATCH] ${field} is not a Date, converting:`, typeof updates[field], updates[field]);
+        updates[field] = new Date(updates[field] as Date);
+      }
     }
 
     const [updated] = await db
