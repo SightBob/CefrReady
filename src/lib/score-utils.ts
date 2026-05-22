@@ -3,10 +3,18 @@ interface Answer {
   selectedAnswer: string;
 }
 
+interface ArticleBlank {
+  id: number;
+  correctAnswer: string;
+  hint?: string;
+}
+
 interface DbQuestion {
   id: number;
+  testTypeId?: string;
   correctAnswer: string | null;
   explanation: string | null;
+  article?: unknown;
 }
 
 interface ScoreResult {
@@ -26,18 +34,21 @@ interface ScoreCalculation {
 
 /**
  * Calculates score from submitted answers against DB questions.
- * Extracted to avoid code duplication between demo and real-mode submissions.
+ * For form-meaning, selectedAnswer is JSON-encoded per-blank answers
+ * (e.g. {"1":"running","2":"is"}) and scoring is done per-blank.
  */
 export function calculateScore(
   answers: Answer[],
   dbQuestions: DbQuestion[]
 ): ScoreCalculation {
   let correctCount = 0;
+  let totalItems = 0;
 
   const results: ScoreResult[] = answers.map((answer) => {
     const question = dbQuestions.find((q) => q.id === answer.questionId);
 
     if (!question) {
+      totalItems++;
       return {
         questionId: answer.questionId,
         isCorrect: false,
@@ -47,6 +58,35 @@ export function calculateScore(
       };
     }
 
+    // Form-meaning: score per-blank using article.blanks
+    if (question.testTypeId === 'form-meaning' && question.article) {
+      const art = question.article as { title: string; text: string; blanks: ArticleBlank[] };
+      let blankCorrect = 0;
+      let parsedAnswers: Record<string, string> = {};
+      try { parsedAnswers = JSON.parse(answer.selectedAnswer); } catch {}
+
+      const correctJson: Record<string, string> = {};
+      art.blanks.forEach((blank) => {
+        totalItems++;
+        correctJson[String(blank.id)] = blank.correctAnswer;
+        const userAns = parsedAnswers[String(blank.id)]?.toLowerCase().trim();
+        if (userAns && userAns === blank.correctAnswer.toLowerCase().trim()) {
+          blankCorrect++;
+          correctCount++;
+        }
+      });
+
+      return {
+        questionId: answer.questionId,
+        isCorrect: blankCorrect === art.blanks.length,
+        userAnswer: answer.selectedAnswer,
+        correctAnswer: JSON.stringify(correctJson),
+        explanation: question.explanation,
+      };
+    }
+
+    // MCQ types: direct string comparison
+    totalItems++;
     const isCorrect = answer.selectedAnswer.toLowerCase().trim() === (question.correctAnswer ?? '').toLowerCase().trim();
     if (isCorrect) correctCount++;
 
@@ -59,8 +99,7 @@ export function calculateScore(
     };
   });
 
-  const totalQuestions = answers.length;
-  const score = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+  const score = totalItems > 0 ? (correctCount / totalItems) * 100 : 0;
 
-  return { results, correctCount, totalQuestions, score };
+  return { results, correctCount, totalQuestions: totalItems, score };
 }

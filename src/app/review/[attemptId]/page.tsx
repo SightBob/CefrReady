@@ -453,12 +453,24 @@ function ReviewQuestionCard({
 
     case 'form-meaning': {
       if (q.article) {
-        // form-meaning stores one selectedAnswer per question, but articles have multiple blanks.
-        // Show correct answers for all blanks so the student can study them.
         const answers: Record<number, string> = {};
-        q.article.blanks.forEach(blank => {
-          answers[blank.id] = blank.correctAnswer.toLowerCase();
-        });
+
+        // Parse user's submitted blank answers (JSON-encoded per-blank)
+        try {
+          const parsed = JSON.parse(item.userAnswer);
+          if (typeof parsed === 'object' && parsed !== null) {
+            Object.entries(parsed).forEach(([k, v]) => {
+              answers[parseInt(k)] = String(v);
+            });
+          }
+        } catch { /* fallback: show correct answers */ }
+
+        // If no user answers parsed (old data), populate with correct answers
+        if (Object.keys(answers).length === 0) {
+          q.article.blanks.forEach(blank => {
+            answers[blank.id] = blank.correctAnswer.toLowerCase();
+          });
+        }
 
         return (
           <FormMeaningArticleCard

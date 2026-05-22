@@ -75,7 +75,7 @@ function FormMeaningQuiz({
   sectionId: string;
   setId: number;
   setName: string;
-  onFinish: (score: number) => void;
+  onFinish: (score: number, totalBlanks: number) => void;
 }) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -105,14 +105,14 @@ function FormMeaningQuiz({
     return { title: setName, text: combinedText, blanks: allBlanks };
   }, [questions, setName]);
 
-  const blankToQuestion = useMemo(() => {
-    const map = new Map<number, number>();
-    let blankId = 1;
+  const globalToOriginal = useMemo(() => {
+    const map = new Map<number, { questionId: number; originalBlankId: number }>();
+    let globalBlankId = 1;
     questions.forEach((q) => {
       if (q.article) {
-        q.article.blanks.forEach(() => {
-          map.set(blankId, q.id);
-          blankId++;
+        q.article.blanks.forEach((blank) => {
+          map.set(globalBlankId, { questionId: q.id, originalBlankId: blank.id });
+          globalBlankId++;
         });
       }
     });
@@ -126,13 +126,24 @@ function FormMeaningQuiz({
     setSubmitting(true);
     setShowSubmitConfirm(false);
     try {
-      const questionAnswers = new Map<number, string>();
-      Object.entries(answers).forEach(([blankIdStr, answer]) => {
-        const qId = blankToQuestion.get(parseInt(blankIdStr));
-        if (qId !== undefined && answer) questionAnswers.set(qId, answer);
+      // Calculate score client-side: compare each blank answer against correct answer
+      const localCorrectCount = combinedArticle.blanks.filter(
+        (b) => answers[b.id]?.toLowerCase() === b.correctAnswer.toLowerCase()
+      ).length;
+
+      // Build per-question blank answers as JSON (using original blank IDs)
+      const questionBlankAnswers = new Map<number, Record<number, string>>();
+      Object.entries(answers).forEach(([globalBlankIdStr, answer]) => {
+        const mapping = globalToOriginal.get(parseInt(globalBlankIdStr));
+        if (mapping && answer) {
+          if (!questionBlankAnswers.has(mapping.questionId)) {
+            questionBlankAnswers.set(mapping.questionId, {});
+          }
+          questionBlankAnswers.get(mapping.questionId)![mapping.originalBlankId] = answer;
+        }
       });
 
-      const res = await fetch('/api/tests/submit', {
+      await fetch('/api/tests/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -140,15 +151,15 @@ function FormMeaningQuiz({
           testSetId: setId,
           answers: questions.map((q) => ({
             questionId: q.id,
-            selectedAnswer: questionAnswers.get(q.id) || '',
+            selectedAnswer: questionBlankAnswers.has(q.id)
+              ? JSON.stringify(questionBlankAnswers.get(q.id))
+              : '',
           })),
         }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setIsSubmitted(true);
-        setCorrectCount(data.data.correctAnswers);
-      }
+
+      setIsSubmitted(true);
+      setCorrectCount(localCorrectCount);
     } finally {
       setSubmitting(false);
     }
@@ -291,7 +302,7 @@ function FormMeaningQuiz({
         {isSubmitted && (
           <div className="flex justify-end mt-4">
             <button
-              onClick={() => onFinish(correctCount)}
+              onClick={() => onFinish(correctCount, totalBlanks)}
               className="btn-primary inline-flex items-center gap-2"
             >
               View Results
@@ -337,6 +348,7 @@ export default function SetQuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
+  const [formMeaningTotalBlanks, setFormMeaningTotalBlanks] = useState(0);
 
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
@@ -487,7 +499,7 @@ export default function SetQuizPage() {
       return (
         <TestResults
           score={score}
-          totalQuestions={setData.questions.length}
+          totalQuestions={formMeaningTotalBlanks}
           onRestart={() => router.push(`/tests/${sectionId}`)}
         />
       );
@@ -498,7 +510,7 @@ export default function SetQuizPage() {
         sectionId={sectionId}
         setId={setId}
         setName={setData.name}
-        onFinish={(s) => { setScore(s); setIsFinished(true); }}
+        onFinish={(s, total) => { setScore(s); setFormMeaningTotalBlanks(total); setIsFinished(true); }}
       />
     );
   }
@@ -558,7 +570,25 @@ export default function SetQuizPage() {
           disabled={submitting}
         />
 
-
+        <div className="flex justify-end mt-6">
+          {currentQuestion < setData.questions.length - 1 ? (
+            <button
+              onClick={handleNext}
+              disabled={selectedAnswer === null}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next Question <ChevronRight className="w-5 h-5" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={selectedAnswer === null}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Finish Test
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -606,7 +636,25 @@ export default function SetQuizPage() {
           disabled={submitting}
         />
 
-
+        <div className="flex justify-end mt-6">
+          {currentQuestion < setData.questions.length - 1 ? (
+            <button
+              onClick={handleNext}
+              disabled={selectedAnswer === null}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next Question <ChevronRight className="w-5 h-5" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={selectedAnswer === null}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Finish Test
+            </button>
+          )}
+        </div>
       </div>
     );
   }
