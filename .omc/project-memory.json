@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1776147344747,
+  "lastScanned": 1779418565213,
   "projectRoot": "C:\\Code\\CefrReady\\CefrReady",
   "techStack": {
     "languages": [
@@ -71,6 +71,7 @@
     "isMonorepo": false,
     "workspaces": [],
     "mainDirectories": [
+      "docs",
       "public",
       "scripts",
       "src"
@@ -93,7 +94,7 @@
       "path": "csv_data",
       "purpose": null,
       "fileCount": 8,
-      "lastAccessed": 1776147344726,
+      "lastAccessed": 1779418565192,
       "keyFiles": [
         "focus-on-form-ready.csv",
         "formatted-form-meaning.csv",
@@ -102,11 +103,18 @@
         "questions_with_audio_mapping.txt"
       ]
     },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 0,
+      "lastAccessed": 1779418565193,
+      "keyFiles": []
+    },
     "drizzle": {
       "path": "drizzle",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1776147344727,
+      "lastAccessed": 1779418565198,
       "keyFiles": [
         "0000_illegal_sunset_bain.sql"
       ]
@@ -114,28 +122,34 @@
     "public": {
       "path": "public",
       "purpose": "Public files",
-      "fileCount": 0,
-      "lastAccessed": 1776147344732,
-      "keyFiles": []
+      "fileCount": 5,
+      "lastAccessed": 1779418565199,
+      "keyFiles": [
+        "google71d699e0451c83b8.html",
+        "llms.txt",
+        "logo.jpg",
+        "logo.png",
+        "logo.svg"
+      ]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
-      "fileCount": 19,
-      "lastAccessed": 1776147344732,
+      "fileCount": 22,
+      "lastAccessed": 1779418565199,
       "keyFiles": [
         "add-extended-schema.ts",
+        "add-flashcards-table.js",
         "add-sample-questions.ts",
         "check-db-state.ts",
-        "check-form-meaning.js",
-        "check-questions.ts"
+        "check-form-meaning.js"
       ]
     },
     "src": {
       "path": "src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1776147344732,
+      "lastAccessed": 1779418565199,
       "keyFiles": [
         "middleware.ts"
       ]
@@ -144,7 +158,7 @@
       "path": "state",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1776147344732,
+      "lastAccessed": 1779418565200,
       "keyFiles": [
         "cancel-signal-state.json"
       ]
@@ -152,41 +166,51 @@
     "src\\app": {
       "path": "src\\app",
       "purpose": "Application code",
-      "fileCount": 7,
-      "lastAccessed": 1776147344733,
+      "fileCount": 12,
+      "lastAccessed": 1779418565201,
       "keyFiles": [
+        "apple-icon.tsx",
         "error.tsx",
-        "global-error.tsx",
-        "globals.css"
+        "global-error.tsx"
       ]
     },
     "src\\components": {
       "path": "src\\components",
       "purpose": "UI components",
-      "fileCount": 20,
-      "lastAccessed": 1776147344734,
+      "fileCount": 35,
+      "lastAccessed": 1779418565202,
       "keyFiles": [
         "ArticleEditor.tsx",
-        "DemoTestsSection.tsx",
-        "FocusFormQuestionCard.tsx"
+        "ConfirmModal.tsx",
+        "DemoTestsSection.tsx"
       ]
     },
     "src\\lib": {
       "path": "src\\lib",
       "purpose": "Library code",
-      "fileCount": 6,
-      "lastAccessed": 1776147344734,
+      "fileCount": 9,
+      "lastAccessed": 1779418565202,
       "keyFiles": [
         "admin-auth.ts",
         "auth-utils.ts",
         "auth.config.ts"
       ]
     },
+    "src\\scripts": {
+      "path": "src\\scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 2,
+      "lastAccessed": 1779418565203,
+      "keyFiles": [
+        "fix-focus-speakers.ts",
+        "fix-typo.ts"
+      ]
+    },
     "src\\types": {
       "path": "src\\types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1776147344734,
+      "lastAccessed": 1779418565203,
       "keyFiles": [
         "test.ts"
       ]
@@ -194,304 +218,40 @@
   },
   "hotPaths": [
     {
-      "path": "src\\app\\tests\\[sectionId]\\[setId]\\page.tsx",
-      "accessCount": 55,
-      "lastAccessed": 1776148182724,
+      "path": "src\\app\\page.tsx",
+      "accessCount": 43,
+      "lastAccessed": 1779421116338,
       "type": "file"
     },
     {
-      "path": "",
-      "accessCount": 49,
-      "lastAccessed": 1776057761353,
-      "type": "directory"
+      "path": "src\\app\\layout.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1779421178719,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\FaqAccordion.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1779421151844,
+      "type": "file"
+    },
+    {
+      "path": "public\\llms.txt",
+      "accessCount": 5,
+      "lastAccessed": 1779421194798,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\JsonLd.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1779421193839,
+      "type": "file"
     },
     {
       "path": "src",
-      "accessCount": 30,
-      "lastAccessed": 1776152240024,
+      "accessCount": 2,
+      "lastAccessed": 1779421202500,
       "type": "directory"
-    },
-    {
-      "path": "src\\app\\admin\\questions\\page.tsx",
-      "accessCount": 19,
-      "lastAccessed": 1775951802919,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\admin\\questions\\[id]\\page.tsx",
-      "accessCount": 14,
-      "lastAccessed": 1775951805523,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\review\\[attemptId]\\page.tsx",
-      "accessCount": 13,
-      "lastAccessed": 1776066138044,
-      "type": "file"
-    },
-    {
-      "path": "src\\db\\schema.ts",
-      "accessCount": 12,
-      "lastAccessed": 1776058033620,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\FocusMeaningConversationCard.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1776148306578,
-      "type": "directory"
-    },
-    {
-      "path": "src\\app\\api\\admin\\questions\\import\\route.ts",
-      "accessCount": 11,
-      "lastAccessed": 1776057770544,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\questions\\route.ts",
-      "accessCount": 10,
-      "lastAccessed": 1775951846680,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\tests\\submit\\route.ts",
-      "accessCount": 10,
-      "lastAccessed": 1776054785902,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\admin\\test-sets\\page.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1775951802876,
-      "type": "file"
-    },
-    {
-      "path": "src\\lib\\score-utils.ts",
-      "accessCount": 8,
-      "lastAccessed": 1776054800548,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\questions\\[id]\\route.ts",
-      "accessCount": 6,
-      "lastAccessed": 1775951846745,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\test-sets\\[id]\\route.ts",
-      "accessCount": 5,
-      "lastAccessed": 1775901945337,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\test-sets\\route.ts",
-      "accessCount": 5,
-      "lastAccessed": 1775901945370,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\tests\\page.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1776148284926,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\test-sets\\[id]\\questions\\route.ts",
-      "accessCount": 4,
-      "lastAccessed": 1775901945350,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\test-sets\\[id]\\route.ts",
-      "accessCount": 4,
-      "lastAccessed": 1776057770531,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\tests\\layout.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1776148127455,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\SectionCard.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1776148127498,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\test-sets\\[id]\\questions\\[qid]\\route.ts",
-      "accessCount": 3,
-      "lastAccessed": 1775901955763,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\admin\\test-sets\\[id]\\page.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1775902157936,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\admin\\questions\\new\\page.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1775951805415,
-      "type": "file"
-    },
-    {
-      "path": "src\\lib\\admin-auth.ts",
-      "accessCount": 3,
-      "lastAccessed": 1775951944509,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\admin\\questions\\import\\page.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1775980435314,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\admin\\layout.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1776148127506,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\tests\\[sectionId]\\page.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1776148149767,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\TestSetCard.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1776148317848,
-      "type": "file"
-    },
-    {
-      "path": "scripts\\create-test-sets.ts",
-      "accessCount": 2,
-      "lastAccessed": 1775887433214,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\sections\\route.ts",
-      "accessCount": 2,
-      "lastAccessed": 1775888530698,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\admin\\users\\page.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1775896066409,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\admin\\AssignToTestSetModal.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1775897399613,
-      "type": "file"
-    },
-    {
-      "path": "src\\lib\\auth.ts",
-      "accessCount": 2,
-      "lastAccessed": 1775951559950,
-      "type": "file"
-    },
-    {
-      "path": "src\\middleware.ts",
-      "accessCount": 2,
-      "lastAccessed": 1775951563948,
-      "type": "file"
-    },
-    {
-      "path": "drizzle.config.ts",
-      "accessCount": 2,
-      "lastAccessed": 1775951564013,
-      "type": "file"
-    },
-    {
-      "path": "src\\lib\\auth.config.ts",
-      "accessCount": 2,
-      "lastAccessed": 1775951571304,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\tests\\attempts\\[attemptId]\\route.ts",
-      "accessCount": 2,
-      "lastAccessed": 1775951810295,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\upload-audio\\route.ts",
-      "accessCount": 2,
-      "lastAccessed": 1775951839429,
-      "type": "file"
-    },
-    {
-      "path": "drizzle\\0000_illegal_sunset_bain.sql",
-      "accessCount": 1,
-      "lastAccessed": 1775886244620,
-      "type": "file"
-    },
-    {
-      "path": "scripts\\migrate-test-sets-db.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775886512121,
-      "type": "file"
-    },
-    {
-      "path": "scripts\\check-db-state.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775887371860,
-      "type": "file"
-    },
-    {
-      "path": "scripts\\cleanup-empty-set.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775887492042,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\users\\route.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775888526258,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\reports\\route.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775888530786,
-      "type": "file"
-    },
-    {
-      "path": "src\\lib\\auth-utils.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775888541875,
-      "type": "file"
-    },
-    {
-      "path": "src\\db",
-      "accessCount": 1,
-      "lastAccessed": 1775896037215,
-      "type": "directory"
-    },
-    {
-      "path": "src\\app\\admin\\test-sets",
-      "accessCount": 1,
-      "lastAccessed": 1775896080410,
-      "type": "directory"
-    },
-    {
-      "path": "scripts\\check-questions.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775898076282,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\admin\\test-sets\\[id]\\questions\\create\\route.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775902040908,
-      "type": "file"
     }
   ],
   "userDirectives": []

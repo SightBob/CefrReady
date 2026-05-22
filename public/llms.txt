@@ -1,12 +1,12 @@
 # CEFR Ready
 
-> แพลตฟอร์มฝึกทำข้อสอบภาษาอังกฤษมาตรฐาน CEFR สำหรับนักศึกษาไทย โดยเฉพาะผู้เตรียมสอบ CEFR มทส (SUT) และมหาวิทยาลัยอื่นๆ ที่ใช้มาตรฐาน CEFR
+> แพลตฟอร์มฝึกทำข้อสอบภาษาอังกฤษมาตรฐาน CEFR สำหรับนักศึกษาไทย ผู้เตรียมสอบ CEFR ที่มหาวิทยาลัยที่ใช้มาตรฐาน CEFR
 
 ## What is CEFR Ready?
 
 CEFR Ready is a free online practice platform for the CEFR (Common European Framework of Reference for Languages) English proficiency exam. It provides 120+ practice questions across 4 test types that mirror real CEFR exam formats used by Thai universities.
 
-**Target audience:** Thai university students preparing for CEFR exams, particularly at Suranaree University of Technology (SUT / มทส) and other institutions.
+**Target audience:** Thai university students preparing for CEFR exams, including at institutions like Suranaree University of Technology (SUT / มทส) that use the CEFR standard.
 
 **Language:** Platform UI is in Thai; exam questions are in English.
 
@@ -70,7 +70,7 @@ A: Yes, 100% free. No credit card, no subscription.
 A: You can try demo tests (5 questions each) without an account. Full tests with progress tracking require a Google account login.
 
 **Q: Can I use CEFR Ready to prepare for the SUT CEFR exam?**
-A: Yes. The exam questions are designed to match the format and difficulty of the CEFR exam used at Suranaree University of Technology (มทส) and similar institutions.
+A: Yes. The exam questions are designed to match the format and difficulty of the CEFR exam used at Thai universities including Suranaree University of Technology (มทส) and similar institutions.
 
 **Q: How many practice questions are available?**
 A: 120+ questions across all 4 exam types, each covering CEFR levels A1-C2.

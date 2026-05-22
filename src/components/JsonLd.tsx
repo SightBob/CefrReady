@@ -23,7 +23,7 @@ export function websiteSchema() {
         '@type': 'WebSite',
         '@id': `${BASE_URL}/#website`,
         name: 'CEFR Ready',
-        alternateName: ['เตรียมสอบ CEFR ออนไลน์', 'ข้อสอบ CEFR มทส'],
+        alternateName: ['เตรียมสอบ CEFR ออนไลน์', 'แนวข้อสอบ CEFR มาตรฐานสากล'],
         url: BASE_URL,
         description: 'เตรียมพร้อมสอบ CEFR ด้วยข้อสอบ Focus on Form, Focus on Meaning, Form & Meaning และ Listening ครอบคลุมระดับ A1 ถึง C2 ฟรี 100%',
         inLanguage: ['th', 'en'],

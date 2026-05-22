@@ -81,11 +81,11 @@ export default async function Home() {
       <JsonLd data={faqSchema([
         { question: 'CEFR คืออะไร?', answer: 'CEFR (Common European Framework of Reference for Languages) คือกรอบมาตรฐานสากลในการวัดระดับความสามารถทางภาษา แบ่งเป็น 6 ระดับ ตั้งแต่ A1 (เริ่มต้น) ถึง C2 (เชี่ยวชาญ) ใช้กันทั่วโลกและถูกนำมาใช้ในการวัดระดับภาษาอังกฤษของนักศึกษาในมหาวิทยาลัยไทย เช่น มทส (SUT)' },
         { question: 'ข้อสอบ CEFR Ready มีอะไรบ้าง?', answer: 'มี 4 ประเภท: (1) Focus on Form — ข้อสอบไวยากรณ์ เช่น tense, preposition, verb form (2) Focus on Meaning — ข้อสอบคำศัพท์ เช่น synonym, antonym (3) Form & Meaning — เติมคำในบทความ รวมไวยากรณ์และคำศัพท์ (4) Listening — ฟังบทสนทนาแล้วตอบคำถาม ครอบคลุมระดับ A1-C2' },
-        { question: 'ใช้เตรียมสอบ CEFR มทส ได้ไหม?', answer: 'ได้ครับ ข้อสอบออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล สามารถใช้เตรียมสอบ CEFR ที่ มทส (Suranaree University of Technology / SUT) และมหาวิทยาลัยอื่นๆ ที่ใช้มาตรฐาน CEFR ได้' },
+        { question: 'ใช้เตรียมสอบ CEFR ได้ไหม?', answer: 'ได้ครับ ข้อสอบออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล สามารถใช้เตรียมสอบ CEFR ที่มหาวิทยาลัยไทยหลายแห่ง รวมถึง มทส (Suranaree University of Technology / SUT) ได้' },
         { question: 'ใช้ CEFR Ready ฟรีหรือเปล่า?', answer: 'ฟรี 100% ไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น สามารถทำข้อสอบตัวอย่างได้โดยไม่ต้องสมัครสมาชิก สำหรับข้อสอบเต็มและการติดตามพัฒนาการ ต้องล็อกอินด้วย Google account' },
         { question: 'CEFR Ready ต้องล็อกอินไหม?', answer: 'ไม่จำเป็นสำหรับข้อสอบตัวอย่าง (Demo) 5 ข้อทุกประเภท แต่หากต้องการทำข้อสอบเต็ม 30 ข้อและดูพัฒนาการของตัวเอง ต้องล็อกอินด้วย Google account ซึ่งใช้เวลาไม่กี่วินาที' },
         { question: 'ข้อสอบ CEFR มีกี่ระดับ?', answer: 'CEFR มี 6 ระดับ: A1 (Beginner), A2 (Elementary), B1 (Intermediate), B2 (Upper-Intermediate), C1 (Advanced), C2 (Mastery) CEFR Ready ครอบคลุมทุกระดับตั้งแต่ A1 ถึง C2' },
-        { question: 'คะแนนที่ต้องได้เพื่อผ่าน CEFR มทส คือเท่าไร?', answer: 'โดยทั่วไปนักศึกษา มทส ต้องผ่านระดับ B1 ขึ้นไป แต่ขึ้นอยู่กับสาขาวิชาและรุ่นปีด้วย ควรตรวจสอบกับทาง มทส โดยตรงสำหรับข้อกำหนดล่าสุด CEFR Ready ช่วยฝึกทุกระดับเพื่อให้คุณมั่นใจก่อนสอบจริง' },
+        { question: 'คะแนนที่ต้องได้เพื่อผ่าน CEFR คือเท่าไร?', answer: 'ขึ้นอยู่กับมหาวิทยาลัยและสาขาวิชา โดยทั่วไปมักต้องผ่านระดับ B1 ขึ้นไป ควรตรวจสอบกับมหาวิทยาลัยของคุณโดยตรงสำหรับข้อกำหนดล่าสุด CEFR Ready ช่วยฝึกทุกระดับเพื่อให้คุณมั่นใจก่อนสอบจริง' },
       ])} />
       {/* HERO — Split layout */}
       <section className="min-h-[75dvh] md:min-h-[80dvh] lg:min-h-[85dvh] flex items-center relative overflow-hidden py-12 md:py-0">
@@ -207,21 +207,21 @@ export default async function Home() {
         <DemoTestsSection showInfoBanner={false} />
       </section>
 
-      {/* SUT / มทส CTA Section — SEO target section */}
+      {/* CTA Section — SEO target section */}
       <section className="mb-20">
         <div className="relative overflow-hidden bg-gradient-to-br from-primary-900 to-primary-700 rounded-3xl px-8 py-12 md:px-16 md:py-16 text-white">
           <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
           <div className="relative z-10 max-w-2xl">
             <span className="inline-block text-xs font-bold tracking-widest uppercase text-primary-200 mb-4">
-              สำหรับ นักศึกษา มทส โดยเฉพาะ
+              สำหรับนักศึกษามหาวิทยาลัยที่ต้องสอบ CEFR
             </span>
             <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-4">
-              เตรียมสอบ CEFR มทส<br />
+              เตรียมสอบ CEFR<br />
               <span className="text-primary-200">ให้ผ่านในครั้งแรก</span>
             </h2>
             <p className="text-primary-100 text-base md:text-lg leading-relaxed mb-8 max-w-xl">
-              CEFR Ready ออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล ที่{' '}
+              CEFR Ready ออกแบบตามแนวข้อสอบ CEFR มาตรฐานสากล ที่มหาวิทยาลัยไทยหลายแห่ง รวมถึง{' '}
               <strong className="text-white">มหาวิทยาลัยเทคโนโลยีสุรนารี (มทส / SUT)</strong>{' '}
               ใช้วัดระดับภาษาอังกฤษของนักศึกษา ครอบคลุมทั้ง 4 ทักษะ:{' '}
               Focus on Form, Focus on Meaning, Form &amp; Meaning และ Listening
@@ -252,7 +252,7 @@ export default async function Home() {
             <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
               คำถามที่พบบ่อย
             </h2>
-            <p className="text-slate-500">เกี่ยวกับ CEFR Ready และการสอบ CEFR มทส</p>
+            <p className="text-slate-500">เกี่ยวกับ CEFR Ready และการสอบ CEFR</p>
           </div>
           <FaqAccordion />
         </div>

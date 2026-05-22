@@ -44,11 +44,11 @@ export const metadata: Metadata = {
     capable: true,
   },
   title: {
-    default: 'CEFR Ready — แนวข้อสอบ CEFR มทส ฝึกทักษะภาษาอังกฤษออนไลน์',
+    default: 'CEFR Ready — แนวข้อสอบ CEFR มาตรฐานสากล ฝึกทักษะภาษาอังกฤษออนไลน์',
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    'แพลตฟอร์มฝึกข้อสอบ CEFR ออนไลน์ฟรี ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2 เหมาะสำหรับนักศึกษา มทส (SUT) และมหาวิทยาลัยที่ใช้มาตรฐาน CEFR',
+    'แพลตฟอร์มฝึกข้อสอบ CEFR ออนไลน์ฟรี ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2 เหมาะสำหรับนักศึกษามหาวิทยาลัยที่ต้องสอบ CEFR',
   keywords: [
     'CEFR', 'ข้อสอบ CEFR', 'แนวข้อสอบ CEFR มทส', 'สอบภาษาอังกฤษ มทส',
     'CEFR SUT', 'เตรียมสอบ CEFR', 'ฝึกภาษาอังกฤษ', 'CEFR test online',
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     locale: 'th_TH',
     url: BASE_URL,
     siteName: SITE_NAME,
-    title: 'CEFR Ready — แนวข้อสอบ CEFR มทส และมาตรฐานสากล',
+    title: 'CEFR Ready — แนวข้อสอบ CEFR มาตรฐานสากล',
     description:
       'ฝึกข้อสอบ CEFR ฟรี ครบทุกทักษะ Focus on Form, Meaning, Listening ระดับ A1-C2 พร้อมคำอธิบายทุกข้อ',
     images: [
@@ -72,13 +72,13 @@ export const metadata: Metadata = {
         url: '/opengraph-image.png',
         width: 1200,
         height: 630,
-        alt: 'CEFR Ready — แนวข้อสอบ CEFR มทส',
+        alt: 'CEFR Ready — แนวข้อสอบ CEFR มาตรฐานสากล',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CEFR Ready — แนวข้อสอบ CEFR มทส',
+    title: 'CEFR Ready — แนวข้อสอบ CEFR มาตรฐานสากล',
     description: 'ฝึกข้อสอบ CEFR ฟรี Focus on Form, Meaning, Listening A1-C2',
     images: ['/opengraph-image.png'],
   },
