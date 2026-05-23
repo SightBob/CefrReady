@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { ArrowLeft, FileText, ChevronRight } from 'lucide-react';
+import { ArrowLeft, FileText, ChevronRight, Clock } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { toast } from 'sonner';
 
@@ -240,10 +240,60 @@ function FormMeaningQuiz({
   };
 
   return (
-    <TestLayout>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Top Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
+        <div
+          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+          style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
+        />
+      </div>
 
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 shrink-0 z-40 pt-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-4">
+              <Link href={`/tests/${sectionId}`} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <ArrowLeft className="w-5 h-5 text-slate-600" />
+              </Link>
+              <div>
+                <h1 className="font-bold text-slate-900">{setName}</h1>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <Clock className="w-4 h-4" />
+                  <span>15 min</span>
+                  <span className="mx-1">•</span>
+                  <span>{totalBlanks} blanks</span>
+                </div>
+              </div>
+            </div>
 
+            {/* Desktop: Submit Button */}
+            <div className="hidden md:flex items-center gap-4">
+              {!isSubmitted && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="btn-primary text-sm py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Submit Answers
+                </button>
+              )}
+              {isSubmitted && (
+                <button
+                  onClick={() => onFinish(correctCount, totalBlanks)}
+                  className="btn-primary text-sm py-2 px-4"
+                >
+                  View Results
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
         {/* Progress */}
         <div className="mb-4">
           <div className="flex justify-between text-sm text-slate-600 mb-2">
@@ -287,8 +337,9 @@ function FormMeaningQuiz({
           </div>
         )}
 
+        {/* Desktop: Submit Button (above mobile bar) */}
         {!isSubmitted && (
-          <div className="flex justify-end mt-8">
+          <div className="hidden md:flex justify-end mt-8">
             <button
               onClick={handleSubmit}
               disabled={submitting}
@@ -300,7 +351,7 @@ function FormMeaningQuiz({
         )}
 
         {isSubmitted && (
-          <div className="flex justify-end mt-4">
+          <div className="hidden md:flex justify-end mt-4">
             <button
               onClick={() => onFinish(correctCount, totalBlanks)}
               className="btn-primary inline-flex items-center gap-2"
@@ -311,6 +362,30 @@ function FormMeaningQuiz({
         )}
       </div>
 
+      {/* Mobile Bottom Submit Bar - Only ONE button */}
+      {!isSubmitted && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full btn-primary py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Submit Answers
+          </button>
+        </div>
+      )}
+
+      {isSubmitted && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3">
+          <button
+            onClick={() => onFinish(correctCount, totalBlanks)}
+            className="w-full btn-primary py-3"
+          >
+            View Results
+          </button>
+        </div>
+      )}
+
       <ConfirmModal
         isOpen={showSubmitConfirm}
         onCancel={() => setShowSubmitConfirm(false)}
@@ -319,7 +394,7 @@ function FormMeaningQuiz({
         description="คุณยังมีคำถามที่ยังไม่ได้ตอบ คุณแน่ใจหรือไม่ว่าต้องการส่งคำตอบ?"
         confirmLabel="ส่งคำตอบ"
       />
-    </TestLayout>
+    </div>
   );
 }
 
@@ -531,26 +606,20 @@ export default function SetQuizPage() {
   // ─── Listening ───────────────────────────────────────────────────
   if (sectionId === 'listening') {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <Link href={`/tests/${sectionId}`} className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
-            <ArrowLeft className="w-5 h-5" /> Back to Sets
-          </Link>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{setData.name}</h1>
-        </div>
-        <div className="mb-8">
-          <div className="flex justify-between text-sm text-slate-600 mb-2">
-            <span>Question {currentQuestion + 1} of {setData.questions.length}</span>
-            <span>{Math.round(((currentQuestion + 1) / setData.questions.length) * 100)}%</span>
-          </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-300"
-              style={{ width: `${((currentQuestion + 1) / setData.questions.length) * 100}%` }}
-            />
-          </div>
-        </div>
-
+      <TestLayout
+        title={setData.name}
+        duration="15 min"
+        totalQuestions={setData.questions.length}
+        currentQuestion={currentQuestion}
+        answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}
+        flaggedQuestions={flaggedQuestions}
+        onQuestionSelect={handleQuestionSelect}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onSubmit={handleSubmit}
+        onFlag={handleFlag}
+        currentQuestionId={question.id}
+      >
         <ListeningAudioPlayer
           key={question.id}
           audioUrl={question.audioUrl ?? undefined}
@@ -569,27 +638,7 @@ export default function SetQuizPage() {
           onAnswerSelect={handleAnswer}
           disabled={submitting}
         />
-
-        <div className="flex justify-end mt-6">
-          {currentQuestion < setData.questions.length - 1 ? (
-            <button
-              onClick={handleNext}
-              disabled={selectedAnswer === null}
-              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next Question <ChevronRight className="w-5 h-5" />
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={selectedAnswer === null}
-              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Finish Test
-            </button>
-          )}
-        </div>
-      </div>
+      </TestLayout>
     );
   }
 
@@ -599,26 +648,20 @@ export default function SetQuizPage() {
     const selectedIndex = selectedAnswer ? optionKeys.indexOf(selectedAnswer) : null;
     const correctIndex = question.correctAnswer ? optionKeys.indexOf(question.correctAnswer) : -1;
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <Link href={`/tests/${sectionId}`} className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
-            <ArrowLeft className="w-5 h-5" /> Back to Sets
-          </Link>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{setData.name}</h1>
-        </div>
-        <div className="mb-8">
-          <div className="flex justify-between text-sm text-slate-600 mb-2">
-            <span>Question {currentQuestion + 1} of {setData.questions.length}</span>
-            <span>{Math.round(((currentQuestion + 1) / setData.questions.length) * 100)}%</span>
-          </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300"
-              style={{ width: `${((currentQuestion + 1) / setData.questions.length) * 100}%` }}
-            />
-          </div>
-        </div>
-
+      <TestLayout
+        title={setData.name}
+        duration="15 min"
+        totalQuestions={setData.questions.length}
+        currentQuestion={currentQuestion}
+        answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}
+        flaggedQuestions={flaggedQuestions}
+        onQuestionSelect={handleQuestionSelect}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onSubmit={handleSubmit}
+        onFlag={handleFlag}
+        currentQuestionId={question.id}
+      >
         <FocusMeaningConversationCard
           key={question.id}
           conversation={question.conversation ?? []}
@@ -635,27 +678,7 @@ export default function SetQuizPage() {
           onAnswerSelect={(idx) => handleAnswer(optionKeys[idx])}
           disabled={submitting}
         />
-
-        <div className="flex justify-end mt-6">
-          {currentQuestion < setData.questions.length - 1 ? (
-            <button
-              onClick={handleNext}
-              disabled={selectedAnswer === null}
-              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next Question <ChevronRight className="w-5 h-5" />
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={selectedAnswer === null}
-              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Finish Test
-            </button>
-          )}
-        </div>
-      </div>
+      </TestLayout>
     );
   }
 
