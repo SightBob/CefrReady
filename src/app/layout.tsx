@@ -148,11 +148,6 @@ export default function RootLayout({
           </div>
         </SessionProvider>
         <Analytics />
-        <Script
-          id="cookieyes"
-          src="https://cdn-cookieyes.com/client_data/7b7ab807831ace83bc43904a/script.js"
-          strategy="afterInteractive"
-        />
         <GoogleAnalytics gaId="G-MNPQ9B7ZDL" />
         <SpeedInsights />
         <Toaster position="top-center" richColors />
