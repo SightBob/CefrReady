@@ -4,6 +4,7 @@ import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { SessionProvider } from 'next-auth/react';
+import Script from 'next/script';
 import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
@@ -113,11 +114,7 @@ export default function RootLayout({
     <html lang="th">
       <head>
         <meta name="application-name" content={SITE_NAME} />
-        <script
-          id="cookieyes"
-          type="text/javascript"
-          src="https://cdn-cookieyes.com/client_data/7b7ab807831ace83bc43904a/script.js"
-        />
+        <meta name="mobile-web-app-capable" content="yes" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -150,6 +147,11 @@ export default function RootLayout({
           </div>
         </SessionProvider>
         <Analytics />
+        <Script
+          id="cookieyes"
+          src="https://cdn-cookieyes.com/client_data/7b7ab807831ace83bc43904a/script.js"
+          strategy="afterInteractive"
+        />
         <GoogleAnalytics gaId="G-MNPQ9B7ZDL" />
         <SpeedInsights />
         <Toaster position="top-center" richColors />

@@ -43,7 +43,7 @@ export default function DemoFormMeaningPage() {
       const question = questions[0];
       if (question.article) {
         question.article.blanks.forEach(blank => {
-          if (answers[blank.id] === blank.correctAnswer.toLowerCase()) {
+          if (answers[blank.id]?.toLowerCase().trim() === blank.correctAnswer.toLowerCase().trim()) {
             correctCount++;
           }
         });

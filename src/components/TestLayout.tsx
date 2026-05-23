@@ -158,7 +158,7 @@ export default function TestLayout({
   };
 
   return (
-    <div className="flex flex-col h-dvh bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Top Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
         <div

@@ -49,7 +49,7 @@ export default function DemoFocusFormPage() {
 
     const question = questions[currentQuestion];
     if (answer === question.correctAnswer) {
-      setScore(score + 1);
+      setScore(prev => prev + 1);
     }
   };
 

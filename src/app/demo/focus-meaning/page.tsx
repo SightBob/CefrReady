@@ -41,7 +41,7 @@ export default function DemoFocusMeaningPage() {
 
     const question = questions[currentQuestion];
     if (['A', 'B', 'C', 'D'][answerIndex] === question.correctAnswer) {
-      setScore(score + 1);
+      setScore(prev => prev + 1);
     }
   };
 
