@@ -124,3 +124,22 @@
     opacity: 1;
   }
 }
+
+/* ─── CookieYes Widget Fix ─────────────────────────────────────────────── */
+
+/* Ensure CookieYes widget is always visible */
+.cky-consent-container,
+.cky-overlay,
+.cky-modal,
+.cky-banner {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 999999 !important;
+}
+
+/* Prevent any animation from hiding the widget */
+.cky-consent-container * {
+  animation: none !important;
+  transition: opacity 0.3s ease !important;
+}
