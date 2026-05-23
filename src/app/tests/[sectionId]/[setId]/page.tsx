@@ -124,6 +124,7 @@ function FormMeaningQuiz({
   const answeredCount = Object.keys(answers).filter((k) => answers[parseInt(k)]).length;
 
   const executeSubmit = async () => {
+    if (submitting) return; // Guard: prevent double submit
     setSubmitting(true);
     setShowSubmitConfirm(false);
     try {
@@ -167,6 +168,7 @@ function FormMeaningQuiz({
   };
 
   const handleSubmit = () => {
+    if (submitting) return; // Guard: prevent double submit
     const unanswered = totalBlanks - answeredCount;
 
     if (unanswered > 0) {
@@ -515,7 +517,7 @@ export default function SetQuizPage() {
   };
 
   const executeSubmit = async () => {
-    if (!setData) return;
+    if (!setData || submitting) return; // Guard: prevent double submit
     setSubmitting(true);
     setShowSubmitConfirm(false);
     try {
@@ -543,7 +545,7 @@ export default function SetQuizPage() {
   };
 
   const handleSubmit = () => {
-    if (!setData) return;
+    if (!setData || submitting) return; // Guard: prevent double submit
     const unanswered = answers.filter((a) => a === null).length;
 
     if (unanswered > 0) {
