@@ -124,38 +124,3 @@
     opacity: 1;
   }
 }
-
-/* ─── CookieYes Banner Visibility ───────────────────────────────────────── */
-
-/* Ensure CookieYes banner is always visible and on top */
-.cky-overlay,
-.cky-modal,
-#cookieyes-banner,
-.cky-consent-container,
-.cky-consent-bar {
-  z-index: 99999 !important;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-/* Prevent any animation that might hide the banner */
-.cky-consent-bar,
-.cky-consent-container {
-  animation: none !important;
-  transition: none !important;
-}
-
-/* Ensure the banner container is not hidden */
-.cky-overlay {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* Fix for hydration conflicts - ensure banner renders after DOM is ready */
-.cky-consent-bar {
-  transform: translateY(0) !important;
-}
