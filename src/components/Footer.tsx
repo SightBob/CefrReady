@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Facebook } from 'lucide-react';
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -30,7 +30,6 @@ export default function Footer() {
                 { href: '/tests', label: 'ข้อสอบ' },
                 { href: '/progress', label: 'พัฒนาการ' },
                 { href: '/must-know', label: 'Must Know' },
-                { href: '/demo', label: 'ทดลองทำข้อสอบ' },
               ].map(({ href, label }) => (
                 <li key={href}>
                   <Link href={href} className="text-sm text-[#787774] hover:text-[#111] transition-colors">
@@ -61,9 +60,20 @@ export default function Footer() {
           <p className="text-xs text-[#AAAAAA]">
             © {year} CEFR Ready. สงวนลิขสิทธิ์.
           </p>
-          <p className="text-xs text-[#AAAAAA]">
-            พัฒนาเพื่อนักศึกษาไทย 🇹🇭
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-[#AAAAAA]">
+              พัฒนาเพื่อนักศึกษาไทย
+            </p>
+            <a
+              href="https://www.facebook.com/profile.php?id=61590152890102"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#787774] hover:text-[#1877F2] transition-colors"
+              aria-label="CEFR Ready Facebook"
+            >
+              <Facebook className="w-4 h-4" />
+            </a>
+          </div>
         </div>
       </div>
     </footer>

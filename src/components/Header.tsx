@@ -52,7 +52,6 @@ export default function Header() {
             <nav className="hidden min-[992px]:flex items-center gap-4 xl:gap-6">
               <Link href="/" className={navLink('/')}>หน้าหลัก</Link>
               <Link href="/tests" className={navLink('/tests')} data-tour="nav-tests">ข้อสอบ</Link>
-              <Link href="/demo" className={navLink('/demo')}>ทดลองทำ</Link>
               <Link href="/progress" className={navLink('/progress')}>พัฒนาการ</Link>
               <Link href="/must-know" className={navLink('/must-know')} data-tour="nav-mustknow">Must Know</Link>
               {session?.user && (
@@ -122,7 +121,6 @@ export default function Header() {
                 {[
                   { href: '/', label: 'หน้าหลัก' },
                   { href: '/tests', label: 'ข้อสอบ' },
-                  { href: '/demo', label: 'ทดลองทำ' },
                   { href: '/progress', label: 'พัฒนาการ' },
                   { href: '/must-know', label: 'Must Know' },
                   ...(session?.user ? [{ href: '/flashcards', label: 'Flashcards' }] : []),
