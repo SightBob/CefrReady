@@ -155,7 +155,7 @@ export const userAnswers = pgTable('user_answers', {
   id: serial('id').primaryKey(),
   attemptId: integer('attempt_id').notNull().references(() => testAttempts.id, { onDelete: 'cascade' }),
   questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
-  selectedAnswer: varchar('selected_answer', { length: 50 }).notNull(),
+  selectedAnswer: text('selected_answer').notNull(),
   isCorrect: boolean('is_correct').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({

@@ -1,0 +1,1 @@
+ALTER TABLE "user_answers" ALTER COLUMN "selected_answer" SET DATA TYPE text;

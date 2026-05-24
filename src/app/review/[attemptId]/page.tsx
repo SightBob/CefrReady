@@ -8,6 +8,7 @@ import Link from 'next/link';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
 import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
+import FormMeaningReviewSection from '@/components/FormMeaningReviewSection';
 import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
 import RelatedArticlesPanel from '@/components/RelatedArticlesPanel';
 import type { TestTypeId, Option, ConversationLine, Article, Blank } from '@/types/test';
@@ -322,7 +323,15 @@ export default function ReviewPage() {
           ))}
         </div>
 
-        {/* ── Question Review List ──────────────────────────────────── */}
+        {/* ── Form-Meaning: combined article view ────────────────── */}
+        {attempt.testTypeId === 'form-meaning' && (
+          <div className="mb-8">
+            <FormMeaningReviewSection items={filteredItems} />
+          </div>
+        )}
+
+        {/* ── Question Review List (non form-meaning) ──────────────── */}
+        {attempt.testTypeId !== 'form-meaning' && (
         <div className="space-y-5">
           {filteredItems.length === 0 ? (
             <div className="bg-white rounded-2xl border border-[#EAEAEA] p-10 text-center">
@@ -356,6 +365,7 @@ export default function ReviewPage() {
             ))
           )}
         </div>
+        )}
 
         {/* ── Footer CTA ────────────────────────────────────────────── */}
         <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Star, Target, ChartBar } from '@phosphor-icons/react';
 import {
   Radar,
   RadarChart,
@@ -199,7 +200,9 @@ export function SmartInsights({ data }: { data: CategoryData[] }) {
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-4 bg-[#F9F9F8] rounded-2xl border border-[#EAEAEA]">
-        <div className="text-4xl">📊</div>
+        <div className="w-12 h-12 bg-white rounded-xl border border-[#EAEAEA] flex items-center justify-center">
+          <ChartBar size={24} weight="duotone" className="text-[#AAA]" />
+        </div>
         <div>
           <p className="font-semibold text-[#111] mb-1">ยังไม่มีข้อมูลเพียงพอ</p>
           <p className="text-sm text-[#787774]">ทำข้อสอบอย่างน้อย 1 ครั้งเพื่อดู Smart Insights ของคุณ</p>
@@ -252,11 +255,11 @@ export function SmartInsights({ data }: { data: CategoryData[] }) {
       {/* Strongest */}
       <div className="p-4 rounded-2xl border border-[#EAEAEA] bg-[#F7F6F3] mt-1">
         <div className="flex gap-3">
-          <span className="shrink-0 text-xl">🌟</span>
+          <Star size={22} weight="fill" className="text-[#111] shrink-0" />
           <div>
             <p className="font-bold text-[#111] text-xs uppercase tracking-widest mb-0.5">จุดแข็ง</p>
             <p className="font-semibold text-[#111] text-base leading-snug">{strongestLabel}</p>
-            <p className="text-xs text-[#787774] mt-0.5">คะแนนเฉลี่ย {strongest.averageScore}% — ยอดเยี่ยมมาก 🎉</p>
+            <p className="text-xs text-[#787774] mt-0.5">คะแนนเฉลี่ย {strongest.averageScore}% — ยอดเยี่ยมมาก</p>
           </div>
         </div>
       </div>
@@ -264,7 +267,7 @@ export function SmartInsights({ data }: { data: CategoryData[] }) {
       {/* Weakest + CTA */}
       <div className="p-4 rounded-2xl border border-[#EAEAEA] bg-white">
         <div className="flex gap-3">
-          <span className="shrink-0 text-xl">🎯</span>
+          <Target size={22} weight="duotone" className="text-[#111] shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-bold text-[#111] text-xs uppercase tracking-widest mb-0.5">ควรพัฒนา</p>
             <p className="font-semibold text-[#111] text-base leading-snug">{weakestLabel}</p>
