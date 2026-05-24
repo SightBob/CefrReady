@@ -30,7 +30,7 @@ export default function Footer() {
                 { href: '/tests', label: 'ข้อสอบ' },
                 { href: '/progress', label: 'พัฒนาการ' },
                 { href: '/must-know', label: 'Must Know' },
-                { href: '/demo/focus-form', label: 'ทดลองทำข้อสอบ' },
+                { href: '/demo', label: 'ทดลองทำข้อสอบ' },
               ].map(({ href, label }) => (
                 <li key={href}>
                   <Link href={href} className="text-sm text-[#787774] hover:text-[#111] transition-colors">

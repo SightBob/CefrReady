@@ -16,30 +16,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get overall progress by test type
-    const progressByType = await db
-      .select()
-      .from(userProgress)
-      .where(eq(userProgress.userId, user.id));
+    // Fetch all data in parallel — no interdependencies
+    const [progressByType, recentAttempts, allTestTypes] = await Promise.all([
+      db.select().from(userProgress).where(eq(userProgress.userId, user.id)),
+      db
+        .select({
+          id: testAttempts.id,
+          testTypeId: testAttempts.testTypeId,
+          score: testAttempts.score,
+          totalQuestions: testAttempts.totalQuestions,
+          correctAnswers: testAttempts.correctAnswers,
+          completedAt: testAttempts.completedAt,
+        })
+        .from(testAttempts)
+        .where(eq(testAttempts.userId, user.id))
+        .orderBy(desc(testAttempts.completedAt))
+        .limit(10),
+      db.select().from(testTypes),
+    ]);
 
-    // Get recent test attempts (last 10)
-    const recentAttempts = await db
-      .select({
-        id: testAttempts.id,
-        testTypeId: testAttempts.testTypeId,
-        score: testAttempts.score,
-        totalQuestions: testAttempts.totalQuestions,
-        correctAnswers: testAttempts.correctAnswers,
-        completedAt: testAttempts.completedAt,
-      })
-      .from(testAttempts)
-      .where(eq(testAttempts.userId, user.id))
-      .orderBy(desc(testAttempts.completedAt))
-      .limit(10);
-
-    // Get test type details - use id as key since testTypeId references id
     const testTypeMap = new Map<string, { name: string; icon: string }>();
-    const allTestTypes = await db.select().from(testTypes);
     allTestTypes.forEach((tt) => {
       testTypeMap.set(tt.id, { name: tt.name, icon: tt.icon || '' });
     });

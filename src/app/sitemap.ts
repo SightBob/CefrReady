@@ -4,88 +4,91 @@ export const revalidate = 3600; // re-generate every hour (ISR)
 
 const BASE_URL = 'https://cefr-ready.site';
 
+// Fixed build timestamp for static pages — avoids unnecessary recrawls
+const BUILD_DATE = new Date('2026-05-24');
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ─── Static pages ─────────────────────────────────────────────────
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: BASE_URL,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
+      lastModified: BUILD_DATE,
+      changeFrequency: 'daily',
       priority: 1,
     },
     {
       url: `${BASE_URL}/tests`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'weekly',
       priority: 0.9,
     },
     {
       url: `${BASE_URL}/must-know`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'daily',
       priority: 0.8,
     },
     {
       url: `${BASE_URL}/progress`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'weekly',
       priority: 0.7,
     },
     // Test section pages
     {
       url: `${BASE_URL}/tests/focus-form`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
       url: `${BASE_URL}/tests/focus-meaning`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
       url: `${BASE_URL}/tests/form-meaning`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
       url: `${BASE_URL}/tests/listening`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'weekly',
       priority: 0.8,
     },
     // Demo pages
     {
       url: `${BASE_URL}/demo`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'monthly',
-      priority: 0.6,
+      priority: 0.8,
     },
     {
       url: `${BASE_URL}/demo/focus-form`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'monthly',
-      priority: 0.5,
+      priority: 0.7,
     },
     {
       url: `${BASE_URL}/demo/focus-meaning`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'monthly',
-      priority: 0.5,
+      priority: 0.7,
     },
     {
       url: `${BASE_URL}/demo/form-meaning`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'monthly',
-      priority: 0.5,
+      priority: 0.7,
     },
     {
       url: `${BASE_URL}/demo/listening`,
-      lastModified: new Date(),
+      lastModified: BUILD_DATE,
       changeFrequency: 'monthly',
-      priority: 0.5,
+      priority: 0.7,
     },
   ];
 

@@ -8,7 +8,7 @@ export const revalidate = 3600; // ISR caching
 
 export const metadata: Metadata = {
   title: 'Must Know — หลักไวยากรณ์ภาษาอังกฤษที่ต้องรู้ก่อนสอบ CEFR',
-  description: 'รวมบทความสรุปไวยากรณ์ภาษาอังกฤษที่สำคัญสำหรับการสอบ CEFR ครอบคลุม Tense, Articles, Prepositions, Modals, Vocabulary และเนื้อหาระดับ A1-C2 อ่านฟรี ไม่ต้องสมัครสมาชิก',
+  description: 'รวมบทความสรุปไวยากรณ์ภาษาอังกฤษสำหรับสอบ CEFR — Tense, Articles, Prepositions และ Vocabulary ครอบคลุม A1-C2 อ่านฟรี',
   keywords: ['ไวยากรณ์ภาษาอังกฤษ', 'สรุปไวยากรณ์ CEFR', 'English grammar CEFR', 'must know CEFR', 'หลักภาษาอังกฤษ', 'เตรียมสอบ CEFR'],
   alternates: {
     canonical: 'https://cefr-ready.site/must-know',
@@ -17,6 +17,7 @@ export const metadata: Metadata = {
     title: 'Must Know — หลักไวยากรณ์ภาษาอังกฤษ | CEFR Ready',
     description: 'รวมบทความสรุปไวยากรณ์ภาษาอังกฤษที่สำคัญสำหรับการสอบ CEFR ครอบคลุม A1-C2 อ่านฟรี',
     url: 'https://cefr-ready.site/must-know',
+    images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'Must Know — หลักไวยากรณ์ภาษาอังกฤษ | CEFR Ready' }],
   },
   twitter: {
     card: 'summary_large_image',

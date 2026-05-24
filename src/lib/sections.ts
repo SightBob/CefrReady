@@ -3,27 +3,28 @@ import { testTypes, testSets, testSetQuestions } from '@/db/schema';
 import { eq, asc, count as drizzleCount } from 'drizzle-orm';
 
 export async function fetchSectionsFromDb() {
-  const sections = await db
-    .select()
-    .from(testTypes)
-    .where(eq(testTypes.active, 'true'))
-    .orderBy(asc(testTypes.id));
-
-  const sets = await db
-    .select({
-      id: testSets.id,
-      sectionId: testSets.sectionId,
-      name: testSets.name,
-      description: testSets.description,
-      orderIndex: testSets.orderIndex,
-      isActive: testSets.isActive,
-      questionCount: drizzleCount(testSetQuestions.id),
-    })
-    .from(testSets)
-    .leftJoin(testSetQuestions, eq(testSetQuestions.testSetId, testSets.id))
-    .where(eq(testSets.isActive, true))
-    .groupBy(testSets.id)
-    .orderBy(asc(testSets.sectionId), asc(testSets.orderIndex));
+  const [sections, sets] = await Promise.all([
+    db
+      .select()
+      .from(testTypes)
+      .where(eq(testTypes.active, 'true'))
+      .orderBy(asc(testTypes.id)),
+    db
+      .select({
+        id: testSets.id,
+        sectionId: testSets.sectionId,
+        name: testSets.name,
+        description: testSets.description,
+        orderIndex: testSets.orderIndex,
+        isActive: testSets.isActive,
+        questionCount: drizzleCount(testSetQuestions.id),
+      })
+      .from(testSets)
+      .leftJoin(testSetQuestions, eq(testSetQuestions.testSetId, testSets.id))
+      .where(eq(testSets.isActive, true))
+      .groupBy(testSets.id)
+      .orderBy(asc(testSets.sectionId), asc(testSets.orderIndex)),
+  ]);
 
   const result = sections.map((s) => ({
     id: s.id,

@@ -130,7 +130,7 @@ export default async function Image() {
             display: 'flex',
           }}
         >
-          cefrready.com
+          cefr-ready.site
         </div>
       </div>
     ),

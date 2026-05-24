@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -21,11 +22,19 @@ import AnimatedCounter from '@/components/AnimatedCounter';
 import StatCard from '@/components/StatCard';
 import ProgressCard from '@/components/ProgressCard';
 import TestHistoryTable from '@/components/TestHistoryTable';
-import {
-  SkillRadarChart,
-  HistoryLineChart,
-  SmartInsights,
-} from '@/components/ProgressAnalytics';
+
+const SkillRadarChart = dynamic(
+  () => import('@/components/ProgressAnalytics').then((m) => m.SkillRadarChart),
+  { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
+);
+const HistoryLineChart = dynamic(
+  () => import('@/components/ProgressAnalytics').then((m) => m.HistoryLineChart),
+  { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
+);
+const SmartInsights = dynamic(
+  () => import('@/components/ProgressAnalytics').then((m) => m.SmartInsights),
+  { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
+);
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 

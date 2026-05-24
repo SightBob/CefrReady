@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 export const metadata: Metadata = {
   title: 'Admin Panel | CEFR Ready',
   description: 'หน้าจัดการระบบสำหรับผู้ดูแล',
+  robots: { index: false, follow: false },
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

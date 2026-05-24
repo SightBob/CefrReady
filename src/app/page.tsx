@@ -24,7 +24,12 @@ import HomeTour from '@/components/HomeTour';
 
 export const metadata: Metadata = {
   title: 'CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR',
-  description: 'ทดสอบและพัฒนาทักษะภาษาอังกฤษด้วยข้อสอบ Focus on Form, Focus on Meaning, Form & Meaning และ Listening ที่ออกแบบตามมาตรฐาน CEFR ครอบคลุมระดับ A1 ถึง C2',
+  description: 'ฝึกข้อสอบ CEFR ฟรี Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2 พร้อมเฉลย',
+  openGraph: {
+    title: 'CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR',
+    description: 'ฝึกข้อสอบ CEFR ฟรี Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2 พร้อมเฉลย',
+    images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'CEFR Ready — แนวข้อสอบ CEFR มาตรฐานสากล' }],
+  },
 };
 
 const FEATURES = [

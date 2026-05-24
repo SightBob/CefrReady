@@ -116,17 +116,6 @@ export default function RootLayout({
       <head>
         <meta name="application-name" content={SITE_NAME} />
         <meta name="mobile-web-app-capable" content="yes" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'WebSite',
-              name: SITE_NAME,
-              url: BASE_URL,
-            }),
-          }}
-        />
       </head>
       <body className={`${prompt.variable} ${pridi.variable} font-sans`}>
         <SessionProvider>

@@ -12,22 +12,24 @@ export async function GET() {
   if (error) return error;
 
   try {
-    const sections = await db.select().from(testTypes).orderBy(asc(testTypes.id));
-    const sets = await db
-      .select({
-        id: testSets.id,
-        sectionId: testSets.sectionId,
-        name: testSets.name,
-        description: testSets.description,
-        orderIndex: testSets.orderIndex,
-        isActive: testSets.isActive,
-        createdAt: testSets.createdAt,
-        questionCount: drizzleCount(testSetQuestions.id),
-      })
-      .from(testSets)
-      .leftJoin(testSetQuestions, eq(testSetQuestions.testSetId, testSets.id))
-      .groupBy(testSets.id)
-      .orderBy(asc(testSets.sectionId), asc(testSets.orderIndex));
+    const [sections, sets] = await Promise.all([
+      db.select().from(testTypes).orderBy(asc(testTypes.id)),
+      db
+        .select({
+          id: testSets.id,
+          sectionId: testSets.sectionId,
+          name: testSets.name,
+          description: testSets.description,
+          orderIndex: testSets.orderIndex,
+          isActive: testSets.isActive,
+          createdAt: testSets.createdAt,
+          questionCount: drizzleCount(testSetQuestions.id),
+        })
+        .from(testSets)
+        .leftJoin(testSetQuestions, eq(testSetQuestions.testSetId, testSets.id))
+        .groupBy(testSets.id)
+        .orderBy(asc(testSets.sectionId), asc(testSets.orderIndex)),
+    ]);
 
     const grouped = sections.map((s) => ({
       ...s,
