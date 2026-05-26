@@ -3,7 +3,6 @@
 import React from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   Target,
@@ -56,39 +55,20 @@ interface ProgressData {
   }>;
 }
 
-// ─── Stagger parent variants ────────────────────────────────────────────────────
-
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.06 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring' as const, stiffness: 100, damping: 20 },
-  },
-};
-
 // ─── Improvement badge ─────────────────────────────────────────────────────────
 
 function ImprovementBadge({ improvementText }: { improvementText: { label: string; positive: boolean } | null }) {
   if (!improvementText) {
-    return <p className="text-[#AAAAAA] text-xs mt-0.5">คะแนนรวม</p>;
+    return <span className="text-[#AAAAAA] text-xs mt-0.5">คะแนนรวม</span>;
   }
   return (
-    <motion.span
-      initial={{ opacity: 0, x: -6 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.6 }}
+    <span
       className={`text-xs mt-0.5 font-semibold ${
         improvementText.positive ? 'text-emerald-600' : 'text-red-500'
       }`}
     >
       {improvementText.label}
-    </motion.span>
+    </span>
   );
 }
 
@@ -105,22 +85,18 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
 
   const improvementText = (() => {
     if (progress.recentAttempts.length < 2) return null;
-    const diff =
-      progress.recentAttempts[0].score - progress.recentAttempts[1].score;
-    if (diff > 0) return { label: `+${diff}% จากครั้งก่อน`, positive: true };
-    if (diff < 0) return { label: `${diff}% จากครั้งก่อน`, positive: false };
+    const diff = Math.round(
+      (progress.recentAttempts[0].score - progress.recentAttempts[1].score) * 100
+    ) / 100;
+    if (diff > 0) return { label: `+${diff.toFixed(2)}% จากครั้งก่อน`, positive: true };
+    if (diff < 0) return { label: `${diff.toFixed(2)}% จากครั้งก่อน`, positive: false };
     return null;
   })();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* ── Page Header (Asymmetric Left-Aligned) ──────────────────────────── */}
-      <motion.header
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-        className="mb-10"
-      >
+      <header className="mb-10 stagger-animate">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-[#787774] hover:text-[#111] transition-colors mb-5"
@@ -139,26 +115,19 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
             </p>
           </div>
 
-          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-            <Link
-              href="/tests"
-              className="inline-flex items-center gap-2 bg-[#111] text-white text-sm font-semibold rounded-full px-5 py-2.5 hover:bg-[#2a2a2a] transition-colors shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)]"
-            >
-              ทำข้อสอบ
-              <ArrowRight size={16} weight="bold" />
-            </Link>
-          </motion.div>
+          <Link
+            href="/tests"
+            className="inline-flex items-center gap-2 bg-[#111] text-white text-sm font-semibold rounded-full px-5 py-2.5 hover:bg-[#2a2a2a] active:scale-[0.97] transition-all shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)]"
+          >
+            ทำข้อสอบ
+            <ArrowRight size={16} weight="bold" />
+          </Link>
         </div>
-      </motion.header>
+      </header>
 
       {/* ── Empty State ────────────────────────────────────────────────────── */}
       {!hasData && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.1 }}
-          className="bg-[#F7F6F3] border border-[#EAEAEA] rounded-[2rem] p-10 sm:p-14 flex flex-col items-center text-center gap-5"
-        >
+        <div className="bg-[#F7F6F3] border border-[#EAEAEA] rounded-[2rem] p-10 sm:p-14 flex flex-col items-center text-center gap-5 stagger-animate" style={{ animationDelay: '100ms' }}>
           <div className="w-16 h-16 bg-white rounded-2xl border border-[#EAEAEA] flex items-center justify-center shadow-sm">
             <Target size={30} weight="duotone" className="text-[#AAA]" />
           </div>
@@ -182,7 +151,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
               ลองทำ Demo ก่อน
             </Link>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* ── CEFR Level Banner ──────────────────────────────────────────────── */}
@@ -197,12 +166,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
 
       {/* ── Stat Cards ─────────────────────────────────────────────────────── */}
       {hasData && (
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
-        >
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
             icon={Target}
             iconBg="bg-[#F7F6F3]"
@@ -220,7 +184,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
             index={1}
             subtext={<ImprovementBadge improvementText={improvementText} />}
           >
-            <AnimatedCounter value={progress.overall.averageScore} suffix="%" />
+            <AnimatedCounter value={progress.overall.averageScore} suffix="%" decimals={2} />
           </StatCard>
 
           <StatCard
@@ -231,7 +195,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
             subtext="จากครั้งที่ผ่านมา"
           >
             {bestScore !== null ? (
-              <AnimatedCounter value={bestScore} suffix="%" />
+              <AnimatedCounter value={bestScore} suffix="%" decimals={2} />
             ) : (
               <span className="text-slate-400">&mdash;</span>
             )}
@@ -247,22 +211,17 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
             <AnimatedCounter value={progress.byCategory.length} />
             <span className="text-base font-normal text-[#AAAAAA]">/4</span>
           </StatCard>
-        </motion.div>
+        </div>
       )}
 
       {/* ── Bento Analytics Grid ───────────────────────────────────────────── */}
       {hasData && (
-        <motion.section
-          variants={stagger}
-          initial="hidden"
-          animate="show"
-          className="mb-10 grid grid-cols-1 lg:grid-cols-3 gap-5"
-        >
+        <section className="mb-10 grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Left Column: Radar + Insights */}
           <div className="lg:col-span-1 flex flex-col gap-5">
-            <motion.div
-              variants={fadeUp}
-              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)]"
+            <div
+              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] stagger-animate"
+              style={{ animationDelay: '150ms' }}
             >
               <div className="flex items-center justify-between mb-0.5">
                 <h2 className="font-bold text-[#111] text-base tracking-tight">
@@ -276,11 +235,11 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
                 คะแนนเฉลี่ยแต่ละทักษะ
               </p>
               <SkillRadarChart data={progress.byCategory} />
-            </motion.div>
+            </div>
 
-            <motion.div
-              variants={fadeUp}
-              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] flex-1"
+            <div
+              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] flex-1 stagger-animate"
+              style={{ animationDelay: '200ms' }}
             >
               <div className="flex items-center justify-between mb-0.5">
                 <h2 className="font-bold text-[#111] text-base tracking-tight">
@@ -294,14 +253,14 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
                 จุดแข็ง-จุดอ่อนและคำแนะนำ
               </p>
               <SmartInsights data={progress.byCategory} />
-            </motion.div>
+            </div>
           </div>
 
           {/* Right Column: Trend + Breakdown */}
           <div className="lg:col-span-2 flex flex-col gap-5">
-            <motion.div
-              variants={fadeUp}
-              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)]"
+            <div
+              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] stagger-animate"
+              style={{ animationDelay: '250ms' }}
             >
               <div className="flex items-center justify-between mb-0.5">
                 <h2 className="font-bold text-[#111] text-base tracking-tight">
@@ -315,11 +274,11 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
                 แนวโน้มคะแนนจากการทำข้อสอบล่าสุด
               </p>
               <HistoryLineChart attempts={progress.recentAttempts} />
-            </motion.div>
+            </div>
 
-            <motion.div
-              variants={fadeUp}
-              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] flex-1"
+            <div
+              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] flex-1 stagger-animate"
+              style={{ animationDelay: '350ms' }}
             >
               <div className="flex items-center justify-between mb-0.5">
                 <h2 className="font-bold text-[#111] text-base tracking-tight">
@@ -360,19 +319,14 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
                   </Link>
                 </div>
               )}
-            </motion.div>
+            </div>
           </div>
-        </motion.section>
+        </section>
       )}
 
       {/* ── Test History ────────────────────────────────────────────────────── */}
       {hasData && (
-        <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.5 }}
-          className="bg-white rounded-[2rem] border border-[#EAEAEA] shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] overflow-hidden"
-        >
+        <section className="bg-white rounded-[2rem] border border-[#EAEAEA] shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] overflow-hidden stagger-animate" style={{ animationDelay: '450ms' }}>
           <div className="px-6 sm:px-8 py-5 border-b border-[#F0F0F0] flex items-center justify-between">
             <div>
               <h2 className="font-bold text-[#111] text-base tracking-tight">
@@ -391,7 +345,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
           <div className="p-6 sm:p-8">
             <TestHistoryTable attempts={progress.recentAttempts} />
           </div>
-        </motion.section>
+        </section>
       )}
     </div>
   );

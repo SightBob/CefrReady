@@ -18,7 +18,7 @@ const prompt = Prompt({
 });
 
 const pridi = Pridi({
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '700'],
   subsets: ['latin', 'thai'],
   variable: '--font-pridi',
   display: 'swap',

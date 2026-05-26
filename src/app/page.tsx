@@ -20,7 +20,9 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { userProgress } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import HomeTour from '@/components/HomeTour';
+import dynamic from 'next/dynamic';
+
+const HomeTour = dynamic(() => import('@/components/HomeTour'), { ssr: false });
 
 export const metadata: Metadata = {
   title: 'CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR',

@@ -20,7 +20,9 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 import ConfirmModal from './ConfirmModal';
-import FlashcardsTour from './FlashcardsTour';
+import dynamic from 'next/dynamic';
+
+const FlashcardsTour = dynamic(() => import('./FlashcardsTour'), { ssr: false });
 
 interface DictMeaning {
   partOfSpeech: string;

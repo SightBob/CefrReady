@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 import { Trophy } from '@phosphor-icons/react';
 import type { CefrLevel } from '@/lib/cefr-estimator';
 import { CEFR_GRADIENT, CEFR_DESCRIPTIONS, SCORE_RANGES } from '@/lib/cefr-estimator';
@@ -26,25 +25,33 @@ const AnimatedRing = React.memo(function AnimatedRing({
 }) {
   const R = 54;
   const C = 2 * Math.PI * R;
-  const mv = useMotionValue(0);
-  const offset = useTransform(mv, [0, 100], [C, 0]);
-  const circleRef = useRef<SVGCircleElement>(null);
+  const [offset, setOffset] = useState(C);
+  const rafRef = useRef<number>(0);
+  const startRef = useRef<number>(0);
 
   useEffect(() => {
-    const ctrl = animate(mv, progress, {
-      type: 'spring',
-      stiffness: 50,
-      damping: 18,
-      delay: 0.4,
-    });
-    const unsub = offset.on('change', (v) => {
-      if (circleRef.current) circleRef.current.style.strokeDashoffset = String(v);
-    });
-    return () => {
-      ctrl.stop();
-      unsub();
+    const target = C - (progress / 100) * C;
+    startRef.current = performance.now();
+    const duration = 700;
+    const from = C;
+
+    const step = (now: number) => {
+      const elapsed = now - startRef.current;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setOffset(from + (target - from) * eased);
+      if (t < 1) rafRef.current = requestAnimationFrame(step);
     };
-  }, [progress, mv, offset]);
+
+    const timer = setTimeout(() => {
+      rafRef.current = requestAnimationFrame(step);
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [progress, C]);
 
   return (
     <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0">
@@ -64,7 +71,6 @@ const AnimatedRing = React.memo(function AnimatedRing({
           fill="none"
         />
         <circle
-          ref={circleRef}
           cx="60"
           cy="60"
           r={R}
@@ -73,19 +79,18 @@ const AnimatedRing = React.memo(function AnimatedRing({
           strokeLinecap="round"
           fill="none"
           strokeDasharray={C}
-          strokeDashoffset={C}
+          strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset 0.7s cubic-bezier(0.16, 1, 0.3, 1)' }}
         />
       </svg>
-      <motion.div
-        className="absolute inset-0 flex flex-col items-center justify-center"
-        animate={{ y: [0, -3, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+      <div
+        className="absolute inset-0 flex flex-col items-center justify-center animate-[float_3s_ease-in-out_infinite]"
       >
         <Trophy size={26} weight="fill" className="text-white/90" />
         <span className="text-white/50 text-[9px] font-semibold mt-0.5 tracking-[0.15em]">
           LEVEL
         </span>
-      </motion.div>
+      </div>
     </div>
   );
 });
@@ -107,51 +112,27 @@ export default React.memo(function CefrLevelBanner({
   const gap = next ? Math.max(0, nextThresh - averageScore) : 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+    <div
       className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-br ${CEFR_GRADIENT[level]} shadow-[0_24px_48px_-12px_rgba(0,0,0,0.18)]`}
+      style={{ animation: 'fadeIn 0.4s ease-out' }}
     >
       {/* Liquid glass refraction border */}
       <div className="absolute inset-0 rounded-[2rem] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] pointer-events-none" />
 
       {/* Breathing decorative blobs */}
-      <motion.div
-        className="absolute -top-20 -right-20 w-56 h-56 bg-white/[0.06] rounded-full pointer-events-none"
-        animate={{
-          scale: [1, 1.08, 1],
-          opacity: [0.06, 0.1, 0.06],
-        }}
-        transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+      <div
+        className="absolute -top-20 -right-20 w-56 h-56 bg-white/[0.06] rounded-full pointer-events-none animate-[breathe_5s_ease-in-out_infinite]"
       />
-      <motion.div
-        className="absolute -bottom-16 -left-8 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none"
-        animate={{
-          scale: [1, 1.05, 1],
-          opacity: [0.03, 0.06, 0.03],
-        }}
-        transition={{
-          duration: 4,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          delay: 1,
-        }}
+      <div
+        className="absolute -bottom-16 -left-8 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none animate-[breathe_4s_ease-in-out_infinite_1s]"
       />
 
       <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 p-6 sm:p-8 lg:p-10">
         <AnimatedRing progress={pct} id={`ring-${level}`} />
 
         <div className="text-white flex-1 min-w-0 text-center sm:text-left">
-          <motion.div
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{
-              type: 'spring',
-              stiffness: 100,
-              damping: 20,
-              delay: 0.15,
-            }}
+          <div
+            style={{ animation: 'fadeIn 0.4s ease-out 0.15s both' }}
           >
             <span className="text-5xl sm:text-6xl font-black leading-none tracking-tighter">
               {level}
@@ -159,72 +140,49 @@ export default React.memo(function CefrLevelBanner({
             <p className="text-base sm:text-lg font-semibold mt-1.5 text-white/90">
               {CEFR_DESCRIPTIONS[level]}
             </p>
-          </motion.div>
+          </div>
 
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
+          <p
             className="mt-2.5 text-sm text-white/60"
+            style={{ animation: 'fadeIn 0.5s ease-out 0.3s both' }}
           >
-            คะแนนเฉลี่ย {averageScore}% — ช่วงระดับ {SCORE_RANGES[level]}
-          </motion.p>
+            คะแนนเฉลี่ย {averageScore.toFixed(2)}% — ช่วงระดับ {SCORE_RANGES[level]}
+          </p>
 
           {next && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                type: 'spring',
-                stiffness: 100,
-                damping: 20,
-                delay: 0.45,
-              }}
+            <div
               className="mt-5"
+              style={{ animation: 'fadeIn 0.4s ease-out 0.45s both' }}
             >
               <div className="flex justify-between text-xs text-white/70 mb-1.5">
                 <span>ความคืบหน้าสู่ระดับ {next}</span>
                 <span className="font-semibold">{pct}%</span>
               </div>
               <div className="h-2 bg-white/15 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-white/80 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{
-                    type: 'spring',
-                    stiffness: 50,
-                    damping: 18,
-                    delay: 0.55,
-                  }}
+                <div
+                  className="h-full bg-white/80 rounded-full transition-[width] duration-700 ease-out"
+                  style={{ width: `${pct}%` }}
                 />
               </div>
               <p className="text-xs text-white/50 mt-1.5">
                 ต้องการ {nextThresh}% — ยังขาดอีก {gap}%
               </p>
-            </motion.div>
+            </div>
           )}
 
           {!next && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{
-                type: 'spring',
-                stiffness: 120,
-                damping: 15,
-                delay: 0.45,
-              }}
+            <div
               className="mt-4 inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2"
+              style={{ animation: 'fadeIn 0.4s ease-out 0.45s both' }}
             >
               <Trophy size={16} weight="fill" className="text-amber-300" />
               <span className="text-sm font-semibold text-white/90">
                 ถึงระดับสูงสุดแล้ว
               </span>
-            </motion.div>
+            </div>
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 });

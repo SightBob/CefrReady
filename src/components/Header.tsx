@@ -31,7 +31,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100">
+      <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100" style={{ minHeight: '4rem' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link href="/" className="flex items-center gap-2.5 group" aria-label="CEFR Ready หน้าหลัก">
@@ -60,6 +60,7 @@ export default function Header() {
                   Flashcards
                 </Link>
               )}
+              <Link href="/contact" className={navLink('/contact')}>ติดต่อเรา</Link>
               {session?.user?.isAdmin && (
                 <Link href="/admin" className={`inline-flex items-center gap-1.5 ${navLink('/admin')}`}>
                   <Shield className="w-3.5 h-3.5" />
@@ -68,7 +69,7 @@ export default function Header() {
               )}
             </nav>
 
-            <div className="hidden lg:flex items-center gap-2">
+            <div className="hidden lg:flex items-center gap-2 min-w-[140px] justify-end">
               {pathname === '/' && <TourReplayButton tourType="home" />}
               {pathname.startsWith('/tests') && <TourReplayButton tourType="test" />}
               {pathname.startsWith('/flashcards') && <TourReplayButton tourType="flashcards" />}
@@ -124,6 +125,7 @@ export default function Header() {
                   { href: '/progress', label: 'พัฒนาการ' },
                   { href: '/must-know', label: 'Must Know' },
                   ...(session?.user ? [{ href: '/flashcards', label: 'Flashcards' }] : []),
+                  { href: '/contact', label: 'ติดต่อเรา' },
                 ].map(({ href, label }) => (
                   <Link
                     key={href}
