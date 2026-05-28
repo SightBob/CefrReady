@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, ChevronRight, CheckCircle, FileText } from 'lucide-react';
 import Link from 'next/link';
-import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
-import type { FormMeaningQuestion } from '@/types/test';
+import SelectableText from '@/components/SelectableText';
+import type { FormMeaningQuestion, Blank } from '@/types/test';
 
 export default function DemoFormMeaningPage() {
   const [questions, setQuestions] = useState<FormMeaningQuestion[]>([]);
@@ -58,6 +58,94 @@ export default function DemoFormMeaningPage() {
     setAnswers({});
     setIsSubmitted(false);
     setScore(0);
+  };
+
+  // Custom inline article renderer
+  const renderInlineArticle = (article: { title: string; text: string; blanks: Blank[] }) => {
+    let text = article.text;
+    const parts: React.ReactNode[] = [];
+    let keyIndex = 0;
+
+    article.blanks.forEach((blank) => {
+      const placeholder = `{{${blank.id}}}`;
+      const splitIndex = text.indexOf(placeholder);
+
+      if (splitIndex !== -1) {
+        // Text before blank
+        if (splitIndex > 0) {
+          parts.push(
+            <span key={keyIndex++}>
+              <SelectableText
+                text={text.substring(0, splitIndex)}
+                contextSentence={article.text}
+                sourceType="article"
+                inline={true}
+              />
+            </span>
+          );
+        }
+
+        // Blank input
+        const isCorrect = isSubmitted && answers[blank.id]?.toLowerCase() === blank.correctAnswer.toLowerCase();
+        const isWrong = isSubmitted && !isCorrect && answers[blank.id];
+        const isEmpty = isSubmitted && !answers[blank.id];
+
+        parts.push(
+          <span key={keyIndex++} className="inline-flex flex-col items-start mx-1 align-baseline">
+            <input
+              type="text"
+              className={`w-24 sm:w-32 px-2 py-1 rounded border-2 text-center text-sm ${
+                isSubmitted
+                  ? isCorrect
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                    : isWrong
+                    ? 'border-red-500 bg-red-50 text-red-700 line-through'
+                    : isEmpty
+                    ? 'border-amber-400 bg-amber-50 text-amber-600'
+                    : 'border-slate-300 bg-slate-50'
+                  : 'border-purple-300 focus:border-purple-500 focus:outline-none'
+              }`}
+              placeholder=""
+              value={answers[blank.id] || ''}
+              onChange={(e) => handleInputChange(blank.id, e.target.value)}
+              disabled={isSubmitted}
+            />
+            {isSubmitted && isWrong && (
+              <span className="flex items-center gap-1 mt-1">
+                <span className="text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                  {blank.correctAnswer}
+                </span>
+              </span>
+            )}
+            {isSubmitted && isEmpty && (
+              <span className="flex items-center gap-1 mt-1">
+                <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                  Answer: {blank.correctAnswer}
+                </span>
+              </span>
+            )}
+          </span>
+        );
+
+        text = text.substring(splitIndex + placeholder.length);
+      }
+    });
+
+    // Remaining text
+    if (text.length > 0) {
+      parts.push(
+        <span key={keyIndex}>
+          <SelectableText
+            text={text}
+            contextSentence={article.text}
+            sourceType="article"
+            inline={true}
+          />
+        </span>
+      );
+    }
+
+    return parts;
   };
 
   if (loading) {
@@ -186,13 +274,14 @@ export default function DemoFormMeaningPage() {
         </div>
 
         {hasArticleData && question.article ? (
-          <FormMeaningArticleCard
-            article={question.article}
-            answers={answers}
-            isSubmitted={isSubmitted}
-            onInputChange={handleInputChange}
-            disabled={isSubmitted}
-          />
+          <>
+            <h2 className="text-xl font-bold text-slate-800 mb-6">
+              {question.article.title}
+            </h2>
+            <div className="text-lg text-slate-700 leading-relaxed space-y-2">
+              {renderInlineArticle(question.article)}
+            </div>
+          </>
         ) : (
           <div>
             <h2 className="text-xl font-bold text-slate-800 mb-6">{question.questionText}</h2>
