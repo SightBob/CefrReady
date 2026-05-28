@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileText, ChevronRight, Clock, CheckCircle, RotateCcw } from 'lucide-react';
-import TestLayout from '@/components/TestLayout';
-import type { Blank } from '@/types/test';
+import { ArrowLeft, FileText, Clock, CheckCircle, RotateCcw } from 'lucide-react';
 import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
+import type { Blank } from '@/types/test';
+import ConfirmModal from '@/components/ConfirmModal';
 
 interface RawQuestion {
   id: number;
@@ -23,6 +23,7 @@ export default function DemoFormMeaningPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   // Combine all articles into one, re-numbering blanks globally
   const combinedArticle = useMemo(() => {
@@ -71,9 +72,10 @@ export default function DemoFormMeaningPage() {
     setAnswers(prev => ({ ...prev, [blankId]: value.toLowerCase().trim() }));
   };
 
-  const handleSubmit = async () => {
+  const executeSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
+    setShowSubmitConfirm(false);
 
     try {
       // Calculate score client-side: compare each blank answer against correct answer
@@ -88,6 +90,17 @@ export default function DemoFormMeaningPage() {
     }
   };
 
+  const handleSubmit = () => {
+    if (submitting) return;
+    const unanswered = totalBlanks - answeredCount;
+
+    if (unanswered > 0) {
+      setShowSubmitConfirm(true);
+    } else {
+      executeSubmit();
+    }
+  };
+
   const handleRestart = () => {
     setAnswers({});
     setIsSubmitted(false);
@@ -96,18 +109,10 @@ export default function DemoFormMeaningPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl space-y-6">
-          <div className="h-4 w-48 bg-slate-200 rounded animate-pulse" />
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-4">
-            <div className="h-5 w-3/4 bg-slate-200 rounded animate-pulse" />
-            <div className="h-5 w-1/2 bg-slate-200 rounded animate-pulse" />
-            <div className="space-y-3 pt-4">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-6 bg-slate-100 rounded animate-pulse" />
-              ))}
-            </div>
-          </div>
+      <div className="min-h-[100dvh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading questions...</p>
         </div>
       </div>
     );
@@ -118,88 +123,130 @@ export default function DemoFormMeaningPage() {
     const passed = percentage >= 70;
 
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg">
-          <Link href="/demo" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors mb-8 text-sm">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Demo Tests
-          </Link>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Link href="/demo" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
+          <ArrowLeft className="w-5 h-5" />
+          Back to Demo Tests
+        </Link>
 
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-            {/* Score Header */}
-            <div className={`p-8 text-center ${passed ? 'bg-emerald-50' : 'bg-red-50'}`}>
-              <div className={`inline-flex w-16 h-16 rounded-full items-center justify-center mb-4 ${passed ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                {passed
-                  ? <CheckCircle className="w-8 h-8 text-emerald-600" />
-                  : <RotateCcw className="w-8 h-8 text-red-600" />
-                }
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-1">
-                {passed ? 'Great Job!' : 'Keep Practicing!'}
-              </h1>
-              <p className="text-slate-500 text-sm">
-                {passed ? 'You passed the demo test.' : 'You need 70% to pass. Try again!'}
-              </p>
-            </div>
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-8 text-center">
+          <div className={`inline-flex p-4 rounded-full ${passed ? 'bg-emerald-50' : 'bg-red-50'} mb-6`}>
+            <CheckCircle className={`w-12 h-12 ${passed ? 'text-emerald-600' : 'text-red-600'}`} />
+          </div>
 
-            {/* Score */}
-            <div className="p-8 text-center border-b border-slate-100">
-              <p className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-slate-900 mb-1">{percentage}%</p>
-              <p className="text-slate-500 text-sm">{correctCount} of {totalBlanks} correct</p>
-            </div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            {passed ? 'Great Job!' : 'Keep Practicing!'}
+          </h1>
+          <p className="text-slate-600 mb-6">
+            {passed ? 'You passed the demo test!' : 'You need 70% to pass. Try again!'}
+          </p>
 
-            {/* Breakdown */}
-            <div className="px-8 py-4 border-b border-slate-100">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center gap-2 text-emerald-600">
-                  <CheckCircle className="w-4 h-4" />
-                  {correctCount} correct
-                </span>
-                <span className="flex items-center gap-2 text-red-500">
-                  <RotateCcw className="w-4 h-4" />
-                  {totalBlanks - correctCount} incorrect
-                </span>
-              </div>
-            </div>
+          <div className="bg-slate-50 rounded-xl p-6 mb-6">
+            <p className="text-4xl sm:text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
+            <p className="text-slate-500">{correctCount} out of {totalBlanks} correct</p>
+          </div>
 
-            {/* CTA */}
-            <div className="p-6 space-y-3">
-              <button onClick={handleRestart} className="w-full btn-primary flex items-center justify-center gap-2">
-                <RotateCcw className="w-4 h-4" />
-                Try Again
-              </button>
-              <Link href="/demo" className="btn-secondary w-full flex items-center justify-center gap-2">
-                <ArrowLeft className="w-4 h-4" />
-                Other Demo Tests
-              </Link>
-            </div>
+          <div className="bg-primary-50 rounded-xl p-4 mb-6">
+            <p className="text-primary-700 font-medium">Want more articles and progress tracking?</p>
+            <Link href="/tests" className="text-primary-600 hover:text-primary-700 underline font-medium">
+              Login for Full Tests →
+            </Link>
+          </div>
+
+          <div className="flex gap-4 justify-center">
+            <button onClick={handleRestart} className="btn-primary">
+              Try Again
+            </button>
+            <Link href="/demo" className="btn-secondary">
+              Other Demo Tests
+            </Link>
           </div>
         </div>
       </div>
     );
   }
 
+  if (questions.length === 0 || totalBlanks === 0) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Link href="/demo" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
+          <ArrowLeft className="w-5 h-5" />
+          Back to Demo Tests
+        </Link>
+        <p className="text-center text-slate-600">No questions available.</p>
+      </div>
+    );
+  }
+
   return (
-    <TestLayout
-      title="Form & Meaning (Demo)"
-      duration="5 min"
-      totalQuestions={totalBlanks}
-      currentQuestion={answeredCount}
-      answers={Object.keys(answers).map(Number)}
-      flaggedQuestions={[]}
-      onQuestionSelect={() => {}}
-      onPrevious={() => {}}
-      onNext={() => {}}
-      onSubmit={handleSubmit}
-      onFlag={() => {}}
-    >
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5 text-purple-600" />
-          <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Top Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
+        <div
+          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+          style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
+        />
+      </div>
+
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 shrink-0 z-40 pt-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-4">
+              <Link href="/demo" className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <ArrowLeft className="w-5 h-5 text-slate-600" />
+              </Link>
+              <div>
+                <h1 className="font-bold text-slate-900">Form & Meaning (Demo)</h1>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <Clock className="w-4 h-4" />
+                  <span>5 min</span>
+                  <span className="mx-1">•</span>
+                  <span>{totalBlanks} blanks</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop: Submit Button */}
+            <div className="hidden md:flex items-center gap-4">
+              {!isSubmitted && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="btn-primary text-sm py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Submit Answers
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
+        {/* Progress */}
+        <div className="mb-4">
+          <div className="flex justify-between text-sm text-slate-600 mb-2">
+            <span>Blank {answeredCount} of {totalBlanks}</span>
+            <span>{totalBlanks > 0 ? Math.round((answeredCount / totalBlanks) * 100) : 0}%</span>
+          </div>
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+              style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
+            />
+          </div>
         </div>
 
-        {combinedArticle.blanks.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-5 h-5 text-purple-600" />
+            <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-6">
+            {combinedArticle.title}
+          </h2>
           <FormMeaningArticleCard
             article={combinedArticle}
             answers={answers}
@@ -207,28 +254,43 @@ export default function DemoFormMeaningPage() {
             onInputChange={handleInputChange}
             disabled={isSubmitted || submitting}
           />
-        )}
+        </div>
 
-        {!combinedArticle.blanks.length && (
-          <div className="text-center text-slate-500 py-8">
-            No questions available for this demo.
+        {/* Desktop: Submit Button (above mobile bar) */}
+        {!isSubmitted && (
+          <div className="hidden md:flex justify-end mt-8">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Submit Answers
+            </button>
           </div>
         )}
       </div>
 
-      {/* Submit button after answering */}
-      {answeredCount > 0 && (
-        <div className="mt-6 flex justify-end">
+      {/* Mobile Bottom Submit Bar */}
+      {!isSubmitted && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3">
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 active:translate-y-[1px] active:shadow-sm transition-all shadow-lg shadow-primary-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full btn-primary py-3 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Submit Answers
-            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}
-    </TestLayout>
+
+      <ConfirmModal
+        isOpen={showSubmitConfirm}
+        onCancel={() => setShowSubmitConfirm(false)}
+        onConfirm={executeSubmit}
+        title="ยืนยันการส่งคำตอบ"
+        description="คุณยังมีคำถามที่ยังไม่ได้ตอบ คุณแน่ใจหรือไม่ว่าต้องการส่งคำตอบ?"
+        confirmLabel="ส่งคำตอบ"
+      />
+    </div>
   );
 }
