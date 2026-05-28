@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState } from 'react';
 import { CheckCircle, XCircle, MessageCircle } from 'lucide-react';
 import SelectableText from './SelectableText';
 
@@ -38,18 +38,6 @@ export default function FocusFormQuestionCard({
   const isCorrect = selectedAnswer === correctAnswer;
   const showExplanation = selectedAnswer !== null && explanation !== null;
 
-  // Shuffle options once on mount
-  const shuffledRef = useRef<Option[] | null>(null);
-  const shuffledOptions = useMemo(() => {
-    if (shuffledRef.current) return shuffledRef.current;
-    const shuffled = [...options];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    shuffledRef.current = shuffled;
-    return shuffled;
-  }, [options]);
 
   // Parse "Speaker: textSpeaker: text" into [{speaker, text}] lines (fallback when no structured conversation)
   const dialogueLines = questionText.split(/(?<=[.?!])\s*(?=[A-Z][a-zA-Z]*:)/);
@@ -109,7 +97,7 @@ export default function FocusFormQuestionCard({
       {renderQuestion()}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-        {shuffledOptions.map((opt) => {
+        {options.map((opt) => {
           const isSelected = selectedAnswer === opt.key;
           const isCorrectOption = opt.key === correctAnswer;
           const showFeedback = selectedAnswer !== null;
