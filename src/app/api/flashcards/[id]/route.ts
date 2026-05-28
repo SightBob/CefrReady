@@ -130,14 +130,19 @@ export async function DELETE(
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
 
-  const [deleted] = await db
-    .delete(flashcards)
-    .where(and(eq(flashcards.id, cardId), eq(flashcards.userId, session.user.id)))
-    .returning({ id: flashcards.id });
+  try {
+    const [deleted] = await db
+      .delete(flashcards)
+      .where(and(eq(flashcards.id, cardId), eq(flashcards.userId, session.user.id)))
+      .returning({ id: flashcards.id });
 
-  if (!deleted) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!deleted) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[flashcard DELETE] Failed:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }

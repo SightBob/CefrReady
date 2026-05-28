@@ -23,6 +23,11 @@ export function sm2(
   reviewInterval: number,
   consecutiveCorrect: number
 ): Sm2Result {
+  // Guard against corrupted DB data (NaN / Infinity)
+  if (!Number.isFinite(easeFactor)) easeFactor = 2.5;
+  if (!Number.isFinite(reviewInterval)) reviewInterval = 0;
+  if (!Number.isFinite(consecutiveCorrect)) consecutiveCorrect = 0;
+
   // Calculate new ease factor (minimum 1.3)
   const newEF = Math.max(
     1.3,

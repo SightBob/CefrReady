@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
 import { auth } from '@/lib/auth';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
@@ -17,11 +18,20 @@ export async function GET() {
   }
 
   try {
-    const users = await db.select().from(schema.users);
-    return NextResponse.json(users);
+    const [user] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, session.user.email))
+      .limit(1);
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    return NextResponse.json([user]);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+    console.error('[users] Failed to fetch user:', error);
+    return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
   }
 }
 

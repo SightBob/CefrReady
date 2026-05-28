@@ -9,7 +9,7 @@ import { sql } from 'drizzle-orm';
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
   name: text('name'),
-  email: text('email').notNull(),
+  email: text('email').notNull().unique(),
   emailVerified: timestamp('email_verified', { mode: 'date' }),
   image: text('image'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -189,6 +189,7 @@ export const articles = pgTable('articles', {
   slug: varchar('slug', { length: 200 }).unique(),
   content: text('content').notNull().default(''),
   category: varchar('category', { length: 50 }),  // 'grammar' | 'vocabulary'
+  section: varchar('section', { length: 50 }).default('must-know').notNull(), // 'must-know' | 'guide' | 'cefr'
   cefrLevel: varchar('cefr_level', { length: 10 }),
   tags: text('tags').array(),                       // e.g. ['subject-verb', 'present-tense']
   isPublished: boolean('is_published').default(false).notNull(),
@@ -288,3 +289,23 @@ export const questionReports = pgTable('question_reports', {
 
 export type DbQuestionReport = typeof questionReports.$inferSelect;
 export type NewQuestionReport = typeof questionReports.$inferInsert;
+
+// ============================================================
+// Contact Messages
+// ============================================================
+
+export const contactMessages = pgTable('contact_messages', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  subject: varchar('subject', { length: 200 }).notNull(),
+  message: text('message').notNull(),
+  isRead: boolean('is_read').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  isReadIdx: index('contact_messages_is_read_idx').on(table.isRead),
+}));
+
+export type DbContactMessage = typeof contactMessages.$inferSelect;
+export type NewContactMessage = typeof contactMessages.$inferInsert;

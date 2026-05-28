@@ -13,7 +13,7 @@ if (!process.env.NEXTAUTH_SECRET) {
   console.warn('Missing NEXTAUTH_SECRET env var - generate one with: openssl rand -base64 32');
 }
 
-const ADMIN_EMAIL = 'pawatsaekoo@gmail.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'pawatsaekoo@gmail.com';
 
 // See auth.config.ts for the explanation of AnyTable
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

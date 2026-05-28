@@ -25,7 +25,8 @@ const getCachedStats = unstable_cache(
         .select({ count: count() })
         .from(questions)
         .where(eq(questions.active, 'true'));
-    } catch {
+    } catch (error) {
+      console.warn('[admin-stats] Active question stats query failed (table may not exist):', error);
       activeQuestionStats = questionStats;
     }
 
@@ -48,8 +49,8 @@ const getCachedStats = unstable_cache(
         questionText: r.questionText,
         wrongCount: Number(r.wrongCount),
       }));
-    } catch {
-      // userAnswers may be empty — non-fatal
+    } catch (error) {
+      console.warn('[admin-stats] Hardest questions query failed (userAnswers may be empty):', error);
     }
 
     return {

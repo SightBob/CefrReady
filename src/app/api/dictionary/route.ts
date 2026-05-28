@@ -10,6 +10,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'word is required' }, { status: 400 });
   }
 
+  // Validate input: only allow letters, hyphens, apostrophes, max 100 chars
+  if (word.length > 100 || !/^[a-zA-Z'-]+$/.test(word)) {
+    return NextResponse.json({ error: 'Invalid word format' }, { status: 400 });
+  }
+
   try {
     const res = await fetch(
       `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
@@ -27,8 +32,8 @@ export async function GET(req: NextRequest) {
         const trData = await trRes.json();
         translation_th = trData?.[0]?.[0]?.[0] || null;
       }
-    } catch {
-      // ปล่อยผ่านถ้าแปลไม่ได้
+    } catch (error) {
+      console.warn('[dictionary] Translation fetch failed:', error);
     }
 
     if (!res.ok) {
