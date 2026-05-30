@@ -15,6 +15,7 @@ const submitBodySchema = z.object({
     selectedAnswer: z.string(),
   })).min(1),
   isDemo: z.boolean().optional().default(false),
+  startedAt: z.string().datetime().optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { testTypeId, testSetId, answers, isDemo } = parsed.data;
+    const { testTypeId, testSetId, answers, isDemo, startedAt: clientStartedAt } = parsed.data;
 
     // Fetch questions to validate answers
     const questionIds = answers.map((a: { questionId: number }) => a.questionId);
@@ -101,6 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
+    const actualStartedAt = clientStartedAt ? new Date(clientStartedAt) : now;
 
     // Save test attempt
     let newAttempt;
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest) {
           score: score.toString(),
           totalQuestions,
           correctAnswers: correctCount,
-          startedAt: now,
+          startedAt: actualStartedAt,
           completedAt: now,
         })
         .returning();

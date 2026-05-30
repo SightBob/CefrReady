@@ -60,7 +60,7 @@ function CustomLineTooltip({ active, payload }: any) {
   return (
     <div className="bg-white border border-[#EAEAEA] rounded-xl shadow-md px-4 py-3 text-sm min-w-[160px]">
       <p className="font-semibold text-[#111] mb-1">{d.type}</p>
-      <p className="text-[#787774]">คะแนน: <span className="font-bold text-[#111]">{d.score}%</span></p>
+      <p className="text-[#787774]">คะแนน: <span className="font-bold text-[#111]">{Number(d.score).toFixed(2)}%</span></p>
       <p className="text-[#787774] text-xs mt-1">{d.date}</p>
     </div>
   );
@@ -110,7 +110,7 @@ export function SkillRadarChart({ data }: { data: CategoryData[] }) {
           />
           <Tooltip
             contentStyle={{ borderRadius: '10px', border: '1px solid #EAEAEA', boxShadow: '0 4px 12px rgb(0 0 0 / 0.06)' }}
-            formatter={(val) => [`${val ?? 0}%`, 'คะแนนเฉลี่ย'] as [string, string]}
+            formatter={(val) => [`${Number(val ?? 0).toFixed(2)}%`, 'คะแนนเฉลี่ย'] as [string, string]}
           />
         </RadarChart>
       </ResponsiveContainer>
@@ -143,7 +143,7 @@ export function HistoryLineChart({ attempts }: { attempts: AttemptData[] }) {
 
   // Calculate trend
   const trend = data.length >= 2 ? data[data.length - 1].score - data[0].score : 0;
-  const trendText = trend > 0 ? `↑ ดีขึ้น ${trend}%` : trend < 0 ? `↓ ลดลง ${Math.abs(trend)}%` : '→ ทรงตัว';
+  const trendText = trend > 0 ? `↑ ดีขึ้น ${trend.toFixed(2)}%` : trend < 0 ? `↓ ลดลง ${Math.abs(trend).toFixed(2)}%` : '→ ทรงตัว';
   const trendColor = trend > 0 ? 'text-emerald-600' : trend < 0 ? 'text-red-500' : 'text-slate-400';
 
   return (
@@ -239,7 +239,7 @@ export function SmartInsights({ data }: { data: CategoryData[] }) {
             <div key={cat.testTypeId}>
               <div className="flex items-center justify-between text-xs mb-1">
                 <span className="font-medium text-[#333]">{label}</span>
-                <span className="font-bold text-[#111]">{cat.averageScore}%</span>
+                <span className="font-bold text-[#111]">{cat.averageScore.toFixed(2)}%</span>
               </div>
               <div className="h-1.5 bg-[#F0F0F0] rounded-full overflow-hidden">
                 <div
@@ -259,7 +259,7 @@ export function SmartInsights({ data }: { data: CategoryData[] }) {
           <div>
             <p className="font-bold text-[#111] text-xs uppercase tracking-widest mb-0.5">จุดแข็ง</p>
             <p className="font-semibold text-[#111] text-base leading-snug">{strongestLabel}</p>
-            <p className="text-xs text-[#787774] mt-0.5">คะแนนเฉลี่ย {strongest.averageScore}% — ยอดเยี่ยมมาก</p>
+            <p className="text-xs text-[#787774] mt-0.5">คะแนนเฉลี่ย {strongest.averageScore.toFixed(2)}% — ยอดเยี่ยมมาก</p>
           </div>
         </div>
       </div>

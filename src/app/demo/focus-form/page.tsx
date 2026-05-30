@@ -16,7 +16,6 @@ export default function DemoFocusFormPage() {
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [answers, setAnswers] = useState<(string | null)[]>([]);
-  const [flaggedQuestions, setFlaggedQuestions] = useState<number[]>([]);
 
   useEffect(() => {
     fetchQuestions();
@@ -75,14 +74,6 @@ export default function DemoFocusFormPage() {
     }
   };
 
-  const handleFlag = () => {
-    if (flaggedQuestions.includes(currentQuestion)) {
-      setFlaggedQuestions(flaggedQuestions.filter(q => q !== currentQuestion));
-    } else {
-      setFlaggedQuestions([...flaggedQuestions, currentQuestion]);
-    }
-  };
-
   const handleSubmit = () => {
     const unanswered = answers.filter(a => a === null).length;
     if (unanswered > 0) {
@@ -99,7 +90,6 @@ export default function DemoFocusFormPage() {
     setScore(0);
     setIsFinished(false);
     setAnswers(Array(questions.length).fill(null));
-    setFlaggedQuestions([]);
   };
 
   // ─── Loading Skeleton ────────────────────────────────────────────
@@ -210,12 +200,10 @@ export default function DemoFocusFormPage() {
       totalQuestions={questions.length}
       currentQuestion={currentQuestion}
       answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}
-      flaggedQuestions={flaggedQuestions}
       onQuestionSelect={handleQuestionSelect}
       onPrevious={handlePrevious}
       onNext={handleNext}
       onSubmit={handleSubmit}
-      onFlag={handleFlag}
     >
       <FocusFormQuestionCard
         questionText={question.questionText}

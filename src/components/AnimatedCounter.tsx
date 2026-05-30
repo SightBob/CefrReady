@@ -1,42 +1,46 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { useMotionValue, animate, useTransform } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface AnimatedCounterProps {
   value: number;
   suffix?: string;
+  decimals?: number;
 }
 
 const AnimatedCounter = React.memo(function AnimatedCounter({
   value,
   suffix = '',
+  decimals = 0,
 }: AnimatedCounterProps) {
-  const mv = useMotionValue(0);
-  const display = useTransform(mv, (v) => Math.round(v).toString());
-  const nodeRef = useRef<HTMLSpanElement>(null);
+  const [display, setDisplay] = useState(0);
+  const rafRef = useRef<number>(0);
+  const startRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const ctrl = animate(mv, value, {
-      type: 'spring',
-      stiffness: 50,
-      damping: 20,
-    });
-    return () => ctrl.stop();
-  }, [value, mv]);
+    startRef.current = null;
+    const duration = 800;
 
-  useEffect(() => {
-    const unsub = display.on('change', (v) => {
-      if (nodeRef.current) {
-        nodeRef.current.textContent = `${v}${suffix}`;
+    const step = (timestamp: number) => {
+      if (!startRef.current) startRef.current = timestamp;
+      const elapsed = timestamp - startRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(eased * value);
+
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(step);
       }
-    });
-    return unsub;
-  }, [display, suffix]);
+    };
+
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value]);
 
   return (
-    <span ref={nodeRef} className="tabular-nums">
-      0{suffix}
+    <span className="tabular-nums">
+      {decimals > 0 ? display.toFixed(decimals) : Math.round(display)}{suffix}
     </span>
   );
 });

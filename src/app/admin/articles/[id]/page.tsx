@@ -23,6 +23,7 @@ export default function EditArticlePage() {
             title: d.title ?? '',
             content: d.content ?? '',
             category: d.category ?? '',
+            section: d.section ?? 'must-know',
             cefrLevel: d.cefrLevel ?? '',
             tags: Array.isArray(d.tags) ? d.tags.join(', ') : (d.tags ?? ''),
             isPublished: d.isPublished ?? false,

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { ArrowLeft, Trophy, RotateCcw, CheckCircle, XCircle } from 'lucide-react';
+import TestLayout from '@/components/TestLayout';
 import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
 import type { FocusMeaningQuestion } from '@/types/test';
 
@@ -11,9 +12,9 @@ export default function DemoFocusMeaningPage() {
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [answers, setAnswers] = useState<(string | null)[]>([]);
 
   useEffect(() => {
     fetchQuestions();
@@ -25,6 +26,7 @@ export default function DemoFocusMeaningPage() {
       const data = await res.json();
       if (data.success) {
         setQuestions(data.data);
+        setAnswers(Array(data.data.length).fill(null));
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
@@ -36,125 +38,163 @@ export default function DemoFocusMeaningPage() {
   const handleAnswer = (answerIndex: number) => {
     if (selectedAnswer !== null) return;
 
+    const letter = ['A', 'B', 'C', 'D'][answerIndex];
     setSelectedAnswer(answerIndex);
-    setShowExplanation(true);
+
+    const newAnswers = [...answers];
+    newAnswers[currentQuestion] = letter;
+    setAnswers(newAnswers);
 
     const question = questions[currentQuestion];
-    if (['A', 'B', 'C', 'D'][answerIndex] === question.correctAnswer) {
+    if (letter === question.correctAnswer) {
       setScore(prev => prev + 1);
+    }
+  };
+
+  const handleQuestionSelect = (index: number) => {
+    setCurrentQuestion(index);
+    const letter = answers[index];
+    setSelectedAnswer(letter ? ['A', 'B', 'C', 'D'].indexOf(letter) : null);
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestion > 0) {
+      const prev = currentQuestion - 1;
+      setCurrentQuestion(prev);
+      const letter = answers[prev];
+      setSelectedAnswer(letter ? ['A', 'B', 'C', 'D'].indexOf(letter) : null);
     }
   };
 
   const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-      setSelectedAnswer(null);
-      setShowExplanation(false);
-    } else {
-      setIsFinished(true);
+      const next = currentQuestion + 1;
+      setCurrentQuestion(next);
+      const letter = answers[next];
+      setSelectedAnswer(letter ? ['A', 'B', 'C', 'D'].indexOf(letter) : null);
     }
+  };
+
+  const handleSubmit = () => {
+    const unanswered = answers.filter(a => a === null).length;
+    if (unanswered > 0) {
+      const confirm = window.confirm(`You have ${unanswered} unanswered questions. Are you sure you want to submit?`);
+      if (!confirm) return;
+    }
+    setIsFinished(true);
   };
 
   const handleRestart = () => {
     setCurrentQuestion(0);
     setSelectedAnswer(null);
-    setShowExplanation(false);
     setScore(0);
     setIsFinished(false);
+    setAnswers(Array(questions.length).fill(null));
   };
 
+  // ─── Loading Skeleton ────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading questions...</p>
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl space-y-6">
+          <div className="h-4 w-48 bg-slate-200 rounded animate-pulse" />
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-4">
+            <div className="h-5 w-3/4 bg-slate-200 rounded animate-pulse" />
+            <div className="h-5 w-1/2 bg-slate-200 rounded animate-pulse" />
+            <div className="grid grid-cols-2 gap-3 pt-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
+  // ─── Results Screen ─────────────────────────────────────────────
   if (isFinished) {
     const percentage = Math.round((score / questions.length) * 100);
     const passed = percentage >= 70;
 
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/demo" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
-          <ArrowLeft className="w-5 h-5" />
-          Back to Demo Tests
-        </Link>
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <Link href="/demo" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors mb-8 text-sm">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Demo Tests
+          </Link>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-8 text-center">
-          <div className={`inline-flex p-4 rounded-full ${passed ? 'bg-emerald-50' : 'bg-red-50'} mb-6`}>
-            {passed ? '✓' : '✗'}
-          </div>
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+            {/* Score Header */}
+            <div className={`p-8 text-center ${passed ? 'bg-emerald-50' : 'bg-red-50'}`}>
+              <div className={`inline-flex w-16 h-16 rounded-full items-center justify-center mb-4 ${passed ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                {passed
+                  ? <Trophy className="w-8 h-8 text-emerald-600" />
+                  : <RotateCcw className="w-8 h-8 text-red-600" />
+                }
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-1">
+                {passed ? 'Great Job!' : 'Keep Practicing!'}
+              </h1>
+              <p className="text-slate-500 text-sm">
+                {passed ? 'You passed the demo test.' : 'You need 70% to pass. Try again!'}
+              </p>
+            </div>
 
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            {passed ? 'Great Job!' : 'Keep Practicing!'}
-          </h1>
-          <p className="text-slate-600 mb-6">
-            {passed ? 'You passed the demo test!' : 'You need 70% to pass. Try again!'}
-          </p>
+            {/* Score */}
+            <div className="p-8 text-center border-b border-slate-100">
+              <p className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-slate-900 mb-1">{percentage}%</p>
+              <p className="text-slate-500 text-sm">{score} of {questions.length} correct</p>
+            </div>
 
-          <div className="bg-slate-50 rounded-xl p-6 mb-6">
-            <p className="text-4xl sm:text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
-            <p className="text-slate-500">{score} out of {questions.length} correct</p>
-          </div>
+            {/* Breakdown */}
+            <div className="px-8 py-4 border-b border-slate-100">
+              <div className="flex justify-between text-sm">
+                <span className="flex items-center gap-2 text-emerald-600">
+                  <CheckCircle className="w-4 h-4" />
+                  {score} correct
+                </span>
+                <span className="flex items-center gap-2 text-red-500">
+                  <XCircle className="w-4 h-4" />
+                  {questions.length - score} incorrect
+                </span>
+              </div>
+            </div>
 
-          <div className="bg-primary-50 rounded-xl p-4 mb-6">
-            <p className="text-primary-700 font-medium">Want more questions and progress tracking?</p>
-            <Link href="/tests" className="text-primary-600 hover:text-primary-700 underline font-medium">
-              Login for Full Tests →
-            </Link>
-          </div>
-
-          <div className="flex gap-4 justify-center">
-            <button onClick={handleRestart} className="btn-primary">
-              Try Again
-            </button>
-            <Link href="/demo" className="btn-secondary">
-              Other Demo Tests
-            </Link>
+            {/* CTA */}
+            <div className="p-6 space-y-3">
+              <button onClick={handleRestart} className="w-full btn-primary flex items-center justify-center gap-2">
+                <RotateCcw className="w-4 h-4" />
+                Try Again
+              </button>
+              <Link href="/demo" className="btn-secondary w-full flex items-center justify-center gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Other Demo Tests
+              </Link>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // ─── Quiz ───────────────────────────────────────────────────────
   const question = questions[currentQuestion];
+  const correctIndex = question.correctAnswer === 'A' ? 0 : question.correctAnswer === 'B' ? 1 : question.correctAnswer === 'C' ? 2 : 3;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link href="/demo" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
-          <ArrowLeft className="w-5 h-5" />
-          Back to Demo Tests
-        </Link>
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Focus on Meaning (Demo)</h1>
-          <div className="flex items-center gap-2 text-slate-500">
-            <Clock className="w-5 h-5" />
-            <span>5 min</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between text-sm text-slate-600 mb-2">
-          <span>Question {currentQuestion + 1} of {questions.length}</span>
-          <span>{Math.round(((currentQuestion + 1) / questions.length) * 100)}%</span>
-        </div>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300"
-            style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Use the shared component */}
+    <TestLayout
+      title="Focus on Meaning (Demo)"
+      duration="5 min"
+      totalQuestions={questions.length}
+      currentQuestion={currentQuestion}
+      answers={answers}
+      onQuestionSelect={handleQuestionSelect}
+      onPrevious={handlePrevious}
+      onNext={handleNext}
+      onSubmit={handleSubmit}
+    >
       <FocusMeaningConversationCard
         conversation={question.conversation || []}
         question={question.questionText}
@@ -165,22 +205,11 @@ export default function DemoFocusMeaningPage() {
           question.optionD || ''
         ]}
         selectedAnswer={selectedAnswer}
-        correctAnswer={question.correctAnswer === 'A' ? 0 : question.correctAnswer === 'B' ? 1 : question.correctAnswer === 'C' ? 2 : 3}
-        explanation={question.explanation || ''}
+        correctAnswer={selectedAnswer !== null ? correctIndex : null}
+        explanation={selectedAnswer !== null ? (question.explanation || '') : ''}
         onAnswerSelect={handleAnswer}
         disabled={false}
       />
-
-      <div className="flex justify-end">
-        <button
-          onClick={handleNext}
-          disabled={selectedAnswer === null}
-          className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {currentQuestion < questions.length - 1 ? 'Next Question' : 'Finish Test'}
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
+    </TestLayout>
   );
 }

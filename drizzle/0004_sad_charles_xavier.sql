@@ -1,0 +1,1 @@
+ALTER TABLE "articles" ADD COLUMN "section" varchar(50) DEFAULT 'must-know' NOT NULL;

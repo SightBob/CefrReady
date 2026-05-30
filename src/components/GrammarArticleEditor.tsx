@@ -9,6 +9,7 @@ interface ArticleFormData {
   title: string;
   content: string;
   category: string;
+  section: string;
   cefrLevel: string;
   tags: string;
   isPublished: boolean;
@@ -32,6 +33,7 @@ export default function GrammarArticleEditor({ mode, articleId, initial }: Gramm
     title: initial?.title ?? '',
     content: initial?.content ?? '',
     category: initial?.category ?? '',
+    section: initial?.section ?? 'must-know',
     cefrLevel: initial?.cefrLevel ?? '',
     tags: initial?.tags ?? '',
     isPublished: initial?.isPublished ?? false,
@@ -231,6 +233,19 @@ export default function GrammarArticleEditor({ mode, articleId, initial }: Gramm
             {/* Metadata */}
             <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-4">
               <h3 className="text-sm font-semibold text-slate-700">ข้อมูลบทความ</h3>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">หน้า</label>
+                <select
+                  value={form.section}
+                  onChange={e => set('section', e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white"
+                >
+                  <option value="must-know">Must Know</option>
+                  <option value="guide">CEFR Guide</option>
+                  <option value="cefr">CEFR Pages</option>
+                </select>
+              </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">หมวดหมู่</label>

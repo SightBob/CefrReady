@@ -100,7 +100,7 @@ export default function ProgressCard({
 
       {/* Score Display */}
       <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border ${scoreColor}`}>
-        <span className="text-2xl font-bold">{averageScore}%</span>
+        <span className="text-2xl font-bold">{averageScore.toFixed(2)}%</span>
         <span className="text-sm font-medium">
           {averageScore >= 70 ? 'Excellent' : averageScore >= 50 ? 'Good' : 'Needs Practice'}
         </span>
@@ -110,7 +110,7 @@ export default function ProgressCard({
       <div className="mt-4">
         <div className="flex items-center justify-between text-sm mb-1">
           <span className="text-slate-500">Progress</span>
-          <span className="text-slate-700 font-medium">{averageScore}%</span>
+          <span className="text-slate-700 font-medium">{averageScore.toFixed(2)}%</span>
         </div>
         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
           <div

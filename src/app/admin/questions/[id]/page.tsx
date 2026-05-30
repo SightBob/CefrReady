@@ -16,6 +16,7 @@ interface TestType {
 
 interface ConversationLine {
   speaker: string;
+  name: string;
   text: string;
 }
 
@@ -224,7 +225,7 @@ export default function EditQuestion() {
   const addConversationLine = () => {
     setFormData({
       ...formData,
-      conversation: [...formData.conversation, { speaker: 'A', text: '' }],
+      conversation: [...formData.conversation, { speaker: 'A', name: '', text: '' }],
     });
   };
 
@@ -235,7 +236,7 @@ export default function EditQuestion() {
     });
   };
 
-  const updateConversationLine = (index: number, field: 'speaker' | 'text', value: string) => {
+  const updateConversationLine = (index: number, field: 'speaker' | 'name' | 'text', value: string) => {
     const updated = [...formData.conversation];
     updated[index] = { ...updated[index], [field]: value };
     setFormData({ ...formData, conversation: updated });
@@ -427,7 +428,7 @@ export default function EditQuestion() {
                   {formData.conversation.map((line, index) => (
                     <div key={index} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
                       <span className="text-sm font-medium text-slate-500 mt-2 shrink-0">{index + 1}.</span>
-                      <div className="flex-1 grid grid-cols-[80px_1fr] gap-3">
+                      <div className="flex-1 grid grid-cols-[80px_100px_1fr] gap-3">
                         <select
                           value={line.speaker}
                           onChange={(e) => updateConversationLine(index, 'speaker', e.target.value)}
@@ -438,6 +439,13 @@ export default function EditQuestion() {
                           <option value="C">C</option>
                           <option value="D">D</option>
                         </select>
+                        <input
+                          type="text"
+                          value={line.name}
+                          onChange={(e) => updateConversationLine(index, 'name', e.target.value)}
+                          className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                          placeholder="ชื่อ..."
+                        />
                         <input
                           type="text"
                           value={line.text}

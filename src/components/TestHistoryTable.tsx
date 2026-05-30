@@ -76,7 +76,7 @@ export default function TestHistoryTable({ attempts }: TestHistoryTableProps) {
             </div>
             <div className="flex items-center gap-3 text-sm text-slate-500">
               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium border ${getScoreStyle(attempt.score)}`}>
-                {attempt.score}%
+                {attempt.score.toFixed(2)}%
               </span>
               <span>{attempt.correctAnswers}/{attempt.totalQuestions}</span>
               <span className="ml-auto text-xs">{formatDate(attempt.completedAt)}</span>
@@ -106,7 +106,7 @@ export default function TestHistoryTable({ attempts }: TestHistoryTableProps) {
                 </td>
                 <td className="py-3 px-4">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getScoreStyle(attempt.score)}`}>
-                    {attempt.score}%
+                    {attempt.score.toFixed(2)}%
                   </span>
                 </td>
                 <td className="py-3 px-4">

@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -21,21 +20,9 @@ const StatCard = React.memo(function StatCard({
   index,
 }: StatCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        type: 'spring',
-        stiffness: 100,
-        damping: 20,
-        delay: 0.25 + index * 0.07,
-      }}
-      whileHover={{
-        y: -2,
-        transition: { type: 'spring', stiffness: 300, damping: 20 },
-      }}
-      whileTap={{ scale: 0.98 }}
-      className="bg-white rounded-2xl p-5 border border-[#EAEAEA] shadow-[0_4px_16px_-4px_rgba(0,0,0,0.05)]"
+    <div
+      className="bg-white rounded-2xl p-5 border border-[#EAEAEA] shadow-[0_4px_16px_-4px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 transition-all duration-200"
+      style={{ animation: `fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) ${0.25 + index * 0.07}s both` }}
     >
       <div
         className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center mb-3`}
@@ -53,7 +40,7 @@ const StatCard = React.memo(function StatCard({
         {children}
       </p>
       {subtext && <p className="text-[#AAAAAA] text-xs mt-0.5">{subtext}</p>}
-    </motion.div>
+    </div>
   );
 });
 

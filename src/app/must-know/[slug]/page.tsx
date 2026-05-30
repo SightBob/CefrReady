@@ -82,7 +82,7 @@ export default async function MustKnowArticlePage({ params }: ArticlePageProps) 
   const description = plainDesc ? plainDesc + '...' : 'บทความไวยากรณ์ภาษาอังกฤษสำหรับเตรียมสอบ CEFR';
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] selection:bg-yellow-200 selection:text-stone-900">
+    <div className="min-h-[100dvh] bg-[#fafaf9] selection:bg-yellow-200 selection:text-stone-900">
       <JsonLd data={articleSchema({
         title: article.title,
         description,

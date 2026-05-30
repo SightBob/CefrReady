@@ -87,7 +87,7 @@ export default function CookieYesScript() {
     <Script
       id="cookieyes"
       src="https://cdn-cookieyes.com/client_data/7b7ab807831ace83bc43904a/script.js"
-      strategy="afterInteractive"
+      strategy="lazyOnload"
       onLoad={() => {
         // eslint-disable-next-line no-console
         console.log('[CookieYes] Script loaded');

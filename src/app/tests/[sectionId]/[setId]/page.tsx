@@ -10,15 +10,24 @@ import { toast } from 'sonner';
 
 import TestLayout from '@/components/TestLayout';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
-import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
-import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
-import TestResults from '@/components/TestResults';
 import SelectableText from '@/components/SelectableText';
 
 import type { QuestionResult, Option, Blank } from '@/types/test';
 import dynamic from 'next/dynamic';
 
 const TestTour = dynamic(() => import('@/components/TestTour'), { ssr: false });
+const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-slate-100 rounded-2xl h-48" />,
+});
+const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-slate-100 rounded-2xl h-64" />,
+});
+const TestResults = dynamic(() => import('@/components/TestResults'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-slate-100 rounded-2xl h-32 flex items-center justify-center"><p className="text-slate-400 text-sm">Loading results...</p></div>,
+});
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +62,7 @@ interface SetData {
 
 function Spinner() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="text-center">
         <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
         <h2 className="text-xl font-bold text-slate-900 mb-2">Loading Test Set</h2>
@@ -83,6 +92,7 @@ function FormMeaningQuiz({
   const [submitting, setSubmitting] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [testStartedAt] = useState(() => new Date().toISOString());
 
   // Combine all articles into one, re-numbering blanks globally
   const combinedArticle = useMemo(() => {
@@ -145,12 +155,13 @@ function FormMeaningQuiz({
         }
       });
 
-      await fetch('/api/tests/submit', {
+      const res = await fetch('/api/tests/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           testTypeId: sectionId,
           testSetId: setId,
+          startedAt: testStartedAt,
           answers: questions.map((q) => ({
             questionId: q.id,
             selectedAnswer: questionBlankAnswers.has(q.id)
@@ -159,9 +170,11 @@ function FormMeaningQuiz({
           })),
         }),
       });
+      const data = await res.json();
 
+      const serverCorrect = data.success ? data.data.correctAnswers : localCorrectCount;
       setIsSubmitted(true);
-      setCorrectCount(localCorrectCount);
+      setCorrectCount(serverCorrect);
     } finally {
       setSubmitting(false);
     }
@@ -243,7 +256,7 @@ function FormMeaningQuiz({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Top Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
         <div
@@ -419,13 +432,13 @@ export default function SetQuizPage() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [answers, setAnswers] = useState<(string | null)[]>([]);
-  const [flaggedQuestions, setFlaggedQuestions] = useState<number[]>([]);
   const [results, setResults] = useState<QuestionResult[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
+  const [testStartedAt] = useState(() => new Date().toISOString());
   const [formMeaningTotalBlanks, setFormMeaningTotalBlanks] = useState(0);
 
   // Listening state: track per-question whether audio has finished playing
@@ -508,14 +521,6 @@ export default function SetQuizPage() {
     }
   };
 
-  const handleFlag = () => {
-    setFlaggedQuestions((prev) =>
-      prev.includes(currentQuestion)
-        ? prev.filter((q) => q !== currentQuestion)
-        : [...prev, currentQuestion]
-    );
-  };
-
   const executeSubmit = async () => {
     if (!setData || submitting) return; // Guard: prevent double submit
     setSubmitting(true);
@@ -527,6 +532,7 @@ export default function SetQuizPage() {
         body: JSON.stringify({
           testTypeId: sectionId,
           testSetId: setId,
+          startedAt: testStartedAt,
           answers: setData.questions.map((q, i) => ({
             questionId: q.id,
             selectedAnswer: answers[i] || '',
@@ -544,16 +550,20 @@ export default function SetQuizPage() {
     }
   };
 
-  const handleSubmit = () => {
-    if (!setData || submitting) return; // Guard: prevent double submit
+  const handleSubmit = (force = false) => {
+    if (!setData || submitting) return;
     const unanswered = answers.filter((a) => a === null).length;
 
-    if (unanswered > 0) {
+    if (!force && unanswered > 0) {
       setUnansweredCount(unanswered);
       setShowSubmitConfirm(true);
     } else {
       executeSubmit();
     }
+  };
+
+  const handleTimeUp = () => {
+    handleSubmit(true);
   };
 
   // ─── Render guards ────────────────────────────────────────────────
@@ -614,13 +624,12 @@ export default function SetQuizPage() {
         duration="15 min"
         totalQuestions={setData.questions.length}
         currentQuestion={currentQuestion}
-        answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}
-        flaggedQuestions={flaggedQuestions}
+        answers={answers}
         onQuestionSelect={handleQuestionSelect}
         onPrevious={handlePrevious}
         onNext={handleNext}
-        onSubmit={handleSubmit}
-        onFlag={handleFlag}
+        onSubmit={() => handleSubmit()}
+        onTimeUp={handleTimeUp}
         currentQuestionId={question.id}
       >
         <ListeningAudioPlayer
@@ -656,13 +665,12 @@ export default function SetQuizPage() {
         duration="15 min"
         totalQuestions={setData.questions.length}
         currentQuestion={currentQuestion}
-        answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}
-        flaggedQuestions={flaggedQuestions}
+        answers={answers}
         onQuestionSelect={handleQuestionSelect}
         onPrevious={handlePrevious}
         onNext={handleNext}
-        onSubmit={handleSubmit}
-        onFlag={handleFlag}
+        onSubmit={() => handleSubmit()}
+        onTimeUp={handleTimeUp}
         currentQuestionId={question.id}
       >
         <FocusMeaningConversationCard
@@ -696,18 +704,18 @@ export default function SetQuizPage() {
   const explanation = question.explanation ?? results[currentQuestion]?.explanation ?? null;
 
   return (
+    <>
     <TestLayout
       title={setData.name}
       duration="15 min"
       totalQuestions={setData.questions.length}
       currentQuestion={currentQuestion}
-      answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}
-      flaggedQuestions={flaggedQuestions}
+      answers={answers}
       onQuestionSelect={handleQuestionSelect}
       onPrevious={handlePrevious}
       onNext={handleNext}
-      onSubmit={handleSubmit}
-      onFlag={handleFlag}
+      onSubmit={() => handleSubmit()}
+      onTimeUp={handleTimeUp}
       currentQuestionId={question.id}
     >
       <FocusFormQuestionCard
@@ -721,23 +729,22 @@ export default function SetQuizPage() {
         onAnswerSelect={handleAnswer}
         disabled={submitting}
       />
-
-
-
-      <ConfirmModal
-        isOpen={showSubmitConfirm}
-        title="ยังทำข้อสอบไม่ครบ"
-        description={`มีคำถามที่ยังไม่ได้ตอบอีก ${unansweredCount} ข้อ ต้องการส่งคำตอบเลยหรือไม่?`}
-        confirmLabel="ส่งคำตอบ"
-        cancelLabel="ทำต่อ"
-        type="warning"
-        onConfirm={executeSubmit}
-        onCancel={() => setShowSubmitConfirm(false)}
-        isLoading={submitting}
-      />
-
-      {/* Test Page Tour for first-time users */}
-      {results.length === 0 && <TestTour />}
     </TestLayout>
+
+    <ConfirmModal
+      isOpen={showSubmitConfirm}
+      title="ยังทำข้อสอบไม่ครบ"
+      description={`มีคำถามที่ยังไม่ได้ตอบอีก ${unansweredCount} ข้อ ต้องการส่งคำตอบเลยหรือไม่?`}
+      confirmLabel="ส่งคำตอบ"
+      cancelLabel="ทำต่อ"
+      type="warning"
+      onConfirm={executeSubmit}
+      onCancel={() => setShowSubmitConfirm(false)}
+      isLoading={submitting}
+    />
+
+    {/* Test Page Tour for first-time users */}
+    {results.length === 0 && <TestTour />}
+    </>
   );
 }

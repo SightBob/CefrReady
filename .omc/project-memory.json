@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1779418565213,
+  "lastScanned": 1780108086452,
   "projectRoot": "C:\\Code\\CefrReady\\CefrReady",
   "techStack": {
     "languages": [
@@ -62,7 +62,7 @@
     }
   },
   "conventions": {
-    "namingStyle": null,
+    "namingStyle": "camelCase",
     "importStyle": null,
     "testPattern": null,
     "fileOrganization": "type-based"
@@ -94,7 +94,7 @@
       "path": "csv_data",
       "purpose": null,
       "fileCount": 8,
-      "lastAccessed": 1779418565192,
+      "lastAccessed": 1780108086422,
       "keyFiles": [
         "focus-on-form-ready.csv",
         "formatted-form-meaning.csv",
@@ -106,24 +106,30 @@
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
-      "fileCount": 0,
-      "lastAccessed": 1779418565193,
-      "keyFiles": []
+      "fileCount": 1,
+      "lastAccessed": 1780108086423,
+      "keyFiles": [
+        "COOKIEYES_FIX.md"
+      ]
     },
     "drizzle": {
       "path": "drizzle",
       "purpose": null,
-      "fileCount": 1,
-      "lastAccessed": 1779418565198,
+      "fileCount": 9,
+      "lastAccessed": 1780108086429,
       "keyFiles": [
-        "0000_illegal_sunset_bain.sql"
+        "0000_illegal_sunset_bain.sql",
+        "0001_tearful_edwin_jarvis.sql",
+        "0002_bored_exiles.sql",
+        "0003_past_glorian.sql",
+        "0004_sad_charles_xavier.sql"
       ]
     },
     "public": {
       "path": "public",
       "purpose": "Public files",
       "fileCount": 5,
-      "lastAccessed": 1779418565199,
+      "lastAccessed": 1780108086429,
       "keyFiles": [
         "google71d699e0451c83b8.html",
         "llms.txt",
@@ -136,7 +142,7 @@
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 22,
-      "lastAccessed": 1779418565199,
+      "lastAccessed": 1780108086430,
       "keyFiles": [
         "add-extended-schema.ts",
         "add-flashcards-table.js",
@@ -148,17 +154,20 @@
     "src": {
       "path": "src",
       "purpose": "Source code",
-      "fileCount": 1,
-      "lastAccessed": 1779418565199,
+      "fileCount": 4,
+      "lastAccessed": 1780108086430,
       "keyFiles": [
-        "middleware.ts"
+        "instrumentation.ts",
+        "middleware.ts",
+        "sentry.client.config.ts",
+        "sentry.server.config.ts"
       ]
     },
     "state": {
       "path": "state",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1779418565200,
+      "lastAccessed": 1780108086430,
       "keyFiles": [
         "cancel-signal-state.json"
       ]
@@ -167,7 +176,7 @@
       "path": "src\\app",
       "purpose": "Application code",
       "fileCount": 12,
-      "lastAccessed": 1779418565201,
+      "lastAccessed": 1780108086432,
       "keyFiles": [
         "apple-icon.tsx",
         "error.tsx",
@@ -177,19 +186,19 @@
     "src\\components": {
       "path": "src\\components",
       "purpose": "UI components",
-      "fileCount": 35,
-      "lastAccessed": 1779418565202,
+      "fileCount": 40,
+      "lastAccessed": 1780108086432,
       "keyFiles": [
+        "AnimatedCounter.tsx",
         "ArticleEditor.tsx",
-        "ConfirmModal.tsx",
-        "DemoTestsSection.tsx"
+        "CefrLevelBanner.tsx"
       ]
     },
     "src\\lib": {
       "path": "src\\lib",
       "purpose": "Library code",
-      "fileCount": 9,
-      "lastAccessed": 1779418565202,
+      "fileCount": 11,
+      "lastAccessed": 1780108086433,
       "keyFiles": [
         "admin-auth.ts",
         "auth-utils.ts",
@@ -200,57 +209,312 @@
       "path": "src\\scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1779418565203,
+      "lastAccessed": 1780108086433,
       "keyFiles": [
         "fix-focus-speakers.ts",
         "fix-typo.ts"
-      ]
-    },
-    "src\\types": {
-      "path": "src\\types",
-      "purpose": "Type definitions",
-      "fileCount": 1,
-      "lastAccessed": 1779418565203,
-      "keyFiles": [
-        "test.ts"
       ]
     }
   },
   "hotPaths": [
     {
-      "path": "src\\app\\page.tsx",
-      "accessCount": 43,
-      "lastAccessed": 1779421116338,
+      "path": "src\\components\\TestLayout.tsx",
+      "accessCount": 115,
+      "lastAccessed": 1780031641148,
       "type": "file"
     },
     {
-      "path": "src\\app\\layout.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1779421178719,
+      "path": "src\\db\\schema.ts",
+      "accessCount": 83,
+      "lastAccessed": 1780143935221,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\tests\\[sectionId]\\[setId]\\page.tsx",
+      "accessCount": 54,
+      "lastAccessed": 1780031810366,
       "type": "file"
     },
     {
-      "path": "src\\components\\FaqAccordion.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1779421151844,
+      "path": "src\\app\\progress\\ProgressContent.tsx",
+      "accessCount": 49,
+      "lastAccessed": 1779933509732,
       "type": "file"
     },
     {
-      "path": "public\\llms.txt",
-      "accessCount": 5,
-      "lastAccessed": 1779421194798,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\JsonLd.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1779421193839,
+      "path": "src\\app\\admin\\questions\\page.tsx",
+      "accessCount": 45,
+      "lastAccessed": 1780131035419,
       "type": "file"
     },
     {
       "path": "src",
+      "accessCount": 41,
+      "lastAccessed": 1780133549146,
+      "type": "directory"
+    },
+    {
+      "path": "src\\components\\FocusFormQuestionCard.tsx",
+      "accessCount": 30,
+      "lastAccessed": 1780030525012,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\must-know\\page.tsx",
+      "accessCount": 29,
+      "lastAccessed": 1779760302427,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\CefrLevelBanner.tsx",
+      "accessCount": 27,
+      "lastAccessed": 1779763834475,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\page.tsx",
+      "accessCount": 25,
+      "lastAccessed": 1779962800149,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\Header.tsx",
+      "accessCount": 22,
+      "lastAccessed": 1779764309509,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\layout.tsx",
+      "accessCount": 18,
+      "lastAccessed": 1780130564827,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\demo\\form-meaning\\page.tsx",
+      "accessCount": 18,
+      "lastAccessed": 1780133556953,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\must-know\\[slug]\\page.tsx",
+      "accessCount": 17,
+      "lastAccessed": 1779713359822,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\tests\\[sectionId]\\page.tsx",
+      "accessCount": 17,
+      "lastAccessed": 1780030464189,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\tests\\submit\\route.ts",
+      "accessCount": 17,
+      "lastAccessed": 1780030505242,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 13,
+      "lastAccessed": 1779944350820,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\demo\\focus-form\\page.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1780032404475,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\ProgressAnalytics.tsx",
+      "accessCount": 11,
+      "lastAccessed": 1779933495873,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\AnimatedCounter.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1779763029377,
+      "type": "directory"
+    },
+    {
+      "path": "src\\components\\Footer.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1779763043530,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\globals.css",
+      "accessCount": 10,
+      "lastAccessed": 1779763119064,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\contacts\\route.ts",
+      "accessCount": 10,
+      "lastAccessed": 1779949269293,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\tests\\page.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1780030350830,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\stats\\route.ts",
+      "accessCount": 8,
+      "lastAccessed": 1779948267758,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\ProgressCard.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1779889843721,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\demo\\focus-meaning\\page.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1780032513018,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\page.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1780129947466,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\contact\\page.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1779698037975,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\TestHistoryTable.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1779762865447,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\demo\\listening\\page.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1779889958810,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\progress\\page.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1779933509696,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\articles\\route.ts",
+      "accessCount": 4,
+      "lastAccessed": 1779944363221,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\articles\\[slug]\\route.ts",
+      "accessCount": 4,
+      "lastAccessed": 1779944369625,
+      "type": "file"
+    },
+    {
+      "path": "tailwind.config.js",
+      "accessCount": 3,
+      "lastAccessed": 1779784791542,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\ProgressStats.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1779889843733,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\contacts\\route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1779944355888,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\contacts\\[id]\\route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1779944356016,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\TestTimer.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1780031568264,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\FocusMeaningConversationCard.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1780032712533,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\layout.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1780131823512,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\cefr\\page.tsx",
       "accessCount": 2,
-      "lastAccessed": 1779421202500,
+      "lastAccessed": 1779713805655,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\demo\\page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1779760290175,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\flashcards\\page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1779889843655,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\TestResults.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1779933545617,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\admin\\contacts\\page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1779958880435,
+      "type": "file"
+    },
+    {
+      "path": "src\\components",
+      "accessCount": 2,
+      "lastAccessed": 1780030515552,
+      "type": "directory"
+    },
+    {
+      "path": "src\\db",
+      "accessCount": 1,
+      "lastAccessed": 1779693682110,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\admin\\question-reports\\page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1779693707697,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin",
+      "accessCount": 1,
+      "lastAccessed": 1779693707709,
       "type": "directory"
     }
   ],

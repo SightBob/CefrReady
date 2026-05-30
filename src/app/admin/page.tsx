@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { 
-  LayoutDashboard, 
-  FileQuestion, 
-  Users, 
+import {
+  LayoutDashboard,
+  FileQuestion,
+  Users,
   BarChart3,
   Settings,
   AlertTriangle,
-  BookOpen
+  BookOpen,
+  Mail
 } from 'lucide-react';
 
 interface Stats {
@@ -99,6 +100,15 @@ export default function AdminDashboard() {
       href: '/admin/question-reports',
       color: 'from-red-500 to-rose-500',
       bgColor: 'bg-red-50',
+      count: 0,
+    },
+    {
+      title: 'ข้อความติดต่อ',
+      description: 'ข้อความจากผู้ใช้งาน',
+      icon: Mail,
+      href: '/admin/contacts',
+      color: 'from-cyan-500 to-blue-500',
+      bgColor: 'bg-cyan-50',
       count: 0,
     },
   ];

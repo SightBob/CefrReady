@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, ChevronRight, CheckCircle, FileText } from 'lucide-react';
+import { ArrowLeft, Clock, ChevronRight, CheckCircle, FileText, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import SelectableText from '@/components/SelectableText';
 import type { FormMeaningQuestion, Blank } from '@/types/test';
@@ -12,6 +12,7 @@ export default function DemoFormMeaningPage() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState(0);
+  const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
     fetchQuestions();
@@ -57,7 +58,12 @@ export default function DemoFormMeaningPage() {
   const handleRestart = () => {
     setAnswers({});
     setIsSubmitted(false);
+    setShowResults(false);
     setScore(0);
+  };
+
+  const handleViewResults = () => {
+    setShowResults(true);
   };
 
   // Custom inline article renderer
@@ -167,7 +173,7 @@ export default function DemoFormMeaningPage() {
     );
   }
 
-  if (isSubmitted) {
+  if (showResults) {
     const question = questions[0];
     const totalBlanks = question?.article?.blanks.length || 0;
     const percentage = totalBlanks > 0 ? Math.round((score / totalBlanks) * 100) : 0;
@@ -186,7 +192,7 @@ export default function DemoFormMeaningPage() {
             <div className={`p-8 text-center ${passed ? 'bg-emerald-50' : 'bg-red-50'}`}>
               <div className={`inline-flex w-16 h-16 rounded-full items-center justify-center mb-4 ${passed ? 'bg-emerald-100' : 'bg-red-100'}`}>
                 {passed
-                  ? <CheckCircle className="w-8 h-8 text-emerald-600" />
+                  ? <Trophy className="w-8 h-8 text-emerald-600" />
                   : <ChevronRight className="w-8 h-8 text-red-600" />
                 }
               </div>
@@ -249,77 +255,186 @@ export default function DemoFormMeaningPage() {
 
   const question = questions[0];
   const hasArticleData = question.article;
+  const totalBlanks = question?.article?.blanks.length || 0;
+  const answeredCount = Object.keys(answers).filter((k) => answers[parseInt(k)]).length;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link href="/demo" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
-          <ArrowLeft className="w-5 h-5" />
-          Back to Demo Tests
-        </Link>
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Form & Meaning (Demo)</h1>
-          <div className="flex items-center gap-2 text-slate-500">
-            <Clock className="w-5 h-5" />
-            <span>5 min</span>
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Top Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
+        <div
+          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+          style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
+        />
+      </div>
+
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 shrink-0 z-40 pt-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-4">
+              <Link href="/demo" className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <ArrowLeft className="w-5 h-5 text-slate-600" />
+              </Link>
+              <div>
+                <h1 className="font-bold text-slate-900">Form & Meaning (Demo)</h1>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <Clock className="w-4 h-4" />
+                  <span>5 min</span>
+                  <span className="mx-1">•</span>
+                  <span>{totalBlanks} blanks</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop: Submit Button */}
+            <div className="hidden md:flex items-center gap-4">
+              {!isSubmitted && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={Object.keys(answers).length === 0}
+                  className="btn-primary text-sm py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Submit Answers
+                </button>
+              )}
+              {isSubmitted && (
+                <button
+                  onClick={handleViewResults}
+                  className="btn-primary text-sm py-2 px-4"
+                >
+                  View Results
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Article Card */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5 text-purple-600" />
-          <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
-        </div>
-
-        {hasArticleData && question.article ? (
-          <>
-            <h2 className="text-xl font-bold text-slate-800 mb-6">
-              {question.article.title}
-            </h2>
-            <div className="text-lg text-slate-700 leading-relaxed space-y-2">
-              {renderInlineArticle(question.article)}
-            </div>
-          </>
-        ) : (
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 mb-6">{question.questionText}</h2>
-            <input
-              type="text"
-              className="w-48 px-3 py-2 rounded border-2 border-purple-300 focus:border-purple-500 focus:outline-none text-center"
-              placeholder=""
-              value={answers[question.id] || ''}
-              onChange={(e) => handleInputChange(question.id, e.target.value)}
-              disabled={isSubmitted}
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
+        {/* Progress */}
+        <div className="mb-4">
+          <div className="flex justify-between text-sm text-slate-600 mb-2">
+            <span>Blank {answeredCount} of {totalBlanks}</span>
+            <span>{totalBlanks > 0 ? Math.round((answeredCount / totalBlanks) * 100) : 0}%</span>
+          </div>
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+              style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
             />
           </div>
-        )}
+        </div>
 
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-5 h-5 text-purple-600" />
+            <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
+          </div>
+
+          {hasArticleData && question.article ? (
+            <>
+              <h2 className="text-xl font-bold text-slate-800 mb-6">
+                {question.article.title}
+              </h2>
+              <div className="text-lg text-slate-700 leading-relaxed space-y-2">
+                {renderInlineArticle(question.article)}
+              </div>
+            </>
+          ) : (
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 mb-6">{question.questionText}</h2>
+              <input
+                type="text"
+                className="w-48 px-3 py-2 rounded border-2 border-purple-300 focus:border-purple-500 focus:outline-none text-center"
+                placeholder=""
+                value={answers[question.id] || ''}
+                onChange={(e) => handleInputChange(question.id, e.target.value)}
+                disabled={isSubmitted}
+              />
+            </div>
+          )}
+
+          {isSubmitted && (
+            <div className={`mt-6 p-4 rounded-xl ${
+              score === totalBlanks
+                ? 'bg-emerald-50 border border-emerald-200'
+                : score >= totalBlanks * 0.7
+                ? 'bg-amber-50 border border-amber-200'
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-1">
+                {score === totalBlanks ? (
+                  <CheckCircle className="w-5 h-5 text-emerald-600" />
+                ) : (
+                  <ChevronRight className="w-5 h-5 text-amber-600" />
+                )}
+                <p className="font-medium text-slate-800">
+                  {score === totalBlanks
+                    ? 'Perfect! All correct!'
+                    : `Score: ${score} out of ${totalBlanks}`}
+                </p>
+              </div>
+              {score < totalBlanks && (
+                <p className="text-sm text-slate-600 ml-7">
+                  {score === 0
+                    ? 'Check the correct answers shown in green below each blank.'
+                    : score >= totalBlanks * 0.7
+                    ? 'Almost there! Review the blanks marked in red.'
+                    : 'Keep practicing! The correct answers are shown in green below each blank.'}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop: Submit/View Results Button */}
+        {!isSubmitted && (
+          <div className="hidden md:flex justify-end mt-8">
+            <button
+              onClick={handleSubmit}
+              disabled={Object.keys(answers).length === 0}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Submit Answers
+            </button>
+          </div>
+        )}
         {isSubmitted && (
-          <div className={`mt-6 p-4 rounded-xl ${score === (question.article?.blanks.length || 1) ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
-            <p className="font-medium text-slate-800 mb-1">
-              {score === (question.article?.blanks.length || 1) ? '✓ Perfect!' : `Score: ${score}/${question.article?.blanks.length || 1}`}
-            </p>
-            <p className="text-slate-600">
-              {score === (question.article?.blanks.length || 1)
-                ? 'Excellent work! All blanks filled correctly.'
-                : 'Check the correct answers shown above in green.'}
-            </p>
+          <div className="hidden md:flex justify-end mt-4">
+            <button
+              onClick={handleViewResults}
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              View Results
+            </button>
           </div>
         )}
       </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={handleSubmit}
-          disabled={Object.keys(answers).length === 0}
-          className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Submit Answers
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </div>
+      {/* Mobile Bottom Submit/View Results Bar */}
+      {!isSubmitted && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3">
+          <button
+            onClick={handleSubmit}
+            disabled={Object.keys(answers).length === 0}
+            className="w-full btn-primary py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Submit Answers
+          </button>
+        </div>
+      )}
+      {isSubmitted && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3">
+          <button
+            onClick={handleViewResults}
+            className="w-full btn-primary py-3"
+          >
+            View Results
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clock } from 'lucide-react';
 
 interface TestTimerProps {
   initialSeconds: number;
   isSubmitted: boolean;
+  onTimeUp?: () => void;
 }
 
-export default function TestTimer({ initialSeconds, isSubmitted }: TestTimerProps) {
+export default function TestTimer({ initialSeconds, isSubmitted, onTimeUp }: TestTimerProps) {
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const isWarning = timeLeft <= 120;
+  const hasFiredRef = useRef(false);
 
   useEffect(() => {
     if (isSubmitted) return;
@@ -19,6 +21,13 @@ export default function TestTimer({ initialSeconds, isSubmitted }: TestTimerProp
     }, 1000);
     return () => clearInterval(interval);
   }, [isSubmitted]);
+
+  useEffect(() => {
+    if (timeLeft === 0 && !isSubmitted && onTimeUp && !hasFiredRef.current) {
+      hasFiredRef.current = true;
+      onTimeUp();
+    }
+  }, [timeLeft, isSubmitted, onTimeUp]);
 
   if (isSubmitted) return null;
 

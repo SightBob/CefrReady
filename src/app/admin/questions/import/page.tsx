@@ -67,16 +67,25 @@ export default function ImportQuestionsPage() {
       const response = await fetch('/api/admin/questions/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csvData }),
+        body: JSON.stringify({ csvData, dryRun: true }),
       });
 
       const data = await response.json();
+
+      // Normalize: API may return { error: "string" } or { errors: [...] }
+      if (data.error && !data.errors) {
+        data.errors = [data.error];
+        data.success = false;
+      }
+
       setResult(data);
       setShowPreview(true);
-    } catch (error) {
+    } catch {
       setResult({
         success: false,
         errors: ['ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้'],
+        totalRows: 0,
+        validRows: 0,
       });
     } finally {
       setLoading(false);
@@ -92,7 +101,7 @@ export default function ImportQuestionsPage() {
       const response = await fetch('/api/admin/questions/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csvData }),
+        body: JSON.stringify({ csvData, dryRun: false }),
       });
 
       const data = await response.json();
@@ -209,7 +218,7 @@ export default function ImportQuestionsPage() {
                   <div>
                     <p className="font-medium text-green-800">ตรวจสอบผ่าน</p>
                     <p className="text-sm text-green-700 mt-1">
-                      พบ {result.totalRows} แถว พร้อมนำเข้า
+                      {result.message || `พบ ${result.totalRows} แถว พร้อมนำเข้า`}
                     </p>
                   </div>
                 </div>
@@ -221,7 +230,9 @@ export default function ImportQuestionsPage() {
                   <div>
                     <p className="font-medium text-red-800">พบข้อผิดพลาด</p>
                     <p className="text-sm text-red-700 mt-1">
-                      แถวที่ถูกต้อง: {result.validRows} / {result.totalRows}
+                      {result.validRows != null && result.totalRows != null
+                        ? `แถวที่ถูกต้อง: ${result.validRows} / ${result.totalRows}`
+                        : result.message || 'ข้อมูลไม่ถูกต้อง'}
                     </p>
                   </div>
                 </div>
@@ -308,7 +319,7 @@ export default function ImportQuestionsPage() {
                   <td className="px-3 py-2 font-mono text-primary-600">testTypeId</td>
                   <td className="px-3 py-2 text-green-600">✓</td>
                   <td className="px-3 py-2 text-slate-600">ประเภทข้อสอบ</td>
-                  <td className="px-3 py-2 font-mono text-xs">focus-form</td>
+                  <td className="px-3 py-2 font-mono text-xs">focus-form, focus-meaning, form-meaning, listening</td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 font-mono text-primary-600">questionText</td>
@@ -318,14 +329,14 @@ export default function ImportQuestionsPage() {
                 </tr>
                 <tr>
                   <td className="px-3 py-2 font-mono text-primary-600">optionA-D</td>
-                  <td className="px-3 py-2 text-green-600">✓</td>
-                  <td className="px-3 py-2 text-slate-600">ตัวเลือก</td>
+                  <td className="px-3 py-2 text-green-600">✓*</td>
+                  <td className="px-3 py-2 text-slate-600">ตัวเลือก (*ไม่บังคับสำหรับ form-meaning และ focus-meaning C/D)</td>
                   <td className="px-3 py-2 font-mono text-xs">go</td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 font-mono text-primary-600">correctAnswer</td>
-                  <td className="px-3 py-2 text-green-600">✓</td>
-                  <td className="px-3 py-2 text-slate-600">คำตอบที่ถูก (A-D)</td>
+                  <td className="px-3 py-2 text-green-600">✓*</td>
+                  <td className="px-3 py-2 text-slate-600">คำตอบที่ถูก (A-D, *ไม่บังคับ form-meaning)</td>
                   <td className="px-3 py-2 font-mono text-xs">B</td>
                 </tr>
                 <tr>
@@ -349,11 +360,47 @@ export default function ImportQuestionsPage() {
                 <tr>
                   <td className="px-3 py-2 font-mono text-primary-600">testSetId</td>
                   <td className="px-3 py-2 text-slate-400">-</td>
-                  <td className="px-3 py-2 text-slate-600">ระบุ ID ชุดข้อสอบที่จะเพิ่มข้อนี้ลงไป (ไม่จำเป็น)</td>
+                  <td className="px-3 py-2 text-slate-600">ระบุ ID ชุดข้อสอบที่จะเพิ่มข้อนี้ลงไป</td>
                   <td className="px-3 py-2 font-mono text-xs">1, 2, 3...</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono text-purple-600">conversation</td>
+                  <td className="px-3 py-2 text-purple-600">✓†</td>
+                  <td className="px-3 py-2 text-slate-600">JSON array — สำหรับ focus-meaning (†จำเป็นสำหรับ focus-meaning)</td>
+                  <td className="px-3 py-2 text-xs font-mono">{'[{"speaker":"A","name":"Tom","text":"Hi"}]'}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono text-purple-600">article</td>
+                  <td className="px-3 py-2 text-purple-600">✓†</td>
+                  <td className="px-3 py-2 text-slate-600">JSON object — สำหรับ form-meaning (†จำเป็นสำหรับ form-meaning)</td>
+                  <td className="px-3 py-2 text-xs font-mono">{'{"title":"...","text":"...","blanks":[...]}'}</td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <h3 className="text-sm font-semibold text-slate-700">รูปแบบ JSON สำหรับแต่ละประเภท</h3>
+
+            <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
+              <p className="text-sm font-medium text-purple-700 mb-2">form-meaning — column "article"</p>
+              <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto">{`{"title":"ชื่อบทความ","text":"The cat sat on the {{1}} and the {{2}}.","blanks":[{"id":1,"correctAnswer":"mat","hint":"เฟอร์นิเจอร์"},{"id":2,"correctAnswer":"dog"}]}`}</pre>
+              <p className="text-xs text-purple-600 mt-2">{'ใช้ {{1}}, {{2}} ใน text เพื่อระบุตำแหน่งช่องว่าง — id ต้องตรงกับ blanks array'}</p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+              <p className="text-sm font-medium text-blue-700 mb-2">focus-meaning — column "conversation"</p>
+              <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto">{`[{"speaker":"A","name":"Tom","text":"What time is it?"},{"speaker":"B","name":"Jane","text":"It's 3 o'clock."}]`}</pre>
+              <p className="text-xs text-blue-600 mt-2">speaker: A/B/C/D, name: ชื่อผู้พูด (ไม่จำเป็น), text: ข้อความ</p>
+            </div>
+
+            <div className="mt-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <p className="text-sm font-semibold text-slate-700 mb-2">ตัวอย่าง CSV สำเร็จรูป — copy แล้ววางในกล่องด้านบน</p>
+              <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto select-all">{`testTypeId,questionText,optionA,optionB,optionC,optionD,correctAnswer,explanation,cefrLevel,difficulty,testSetId,conversation,article
+form-meaning,"Read the article and fill in the blanks.",,,,,,Fill in the blanks using context,B1,medium,,"{""title"":""Daily Routine"",""text"":""She {{1}} her teeth every morning and then {{2}} breakfast."",""blanks"":[{""id"":1,""correctAnswer"":""brushes"",""hint"":""present simple""},{""id"":2,""correctAnswer"":""eats""}]}",
+focus-meaning,"What time is it?",It is morning.,It is 3 o'clock.,,,B,Asking about time,A1,easy,,"[{""speaker"":""A"",""name"":""Tom"",""text"":""What time is it?""},{""speaker"":""B"",""name"":""Jane"",""text"":""It is 3 o'clock.""}]",
+focus-form,"Choose the correct form: She ___ to school every day.",go,goes,going,gone,B,Present simple third person singular,B1,medium,,,,`}</pre>
+            </div>
           </div>
         </div>
       </div>
