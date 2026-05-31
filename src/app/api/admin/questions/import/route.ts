@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Papa from 'papaparse';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { eq, count as drizzleCount, and, sql, inArray } from 'drizzle-orm';
@@ -160,93 +161,130 @@ function validateQuestion(row: Record<string, string>, index: number): Validatio
   return { valid: errors.length === 0, errors, warnings };
 }
 
-function parseCSV(text: string): Record<string, string>[] {
-  const normalized = text.replace(/\r/g, '');
-  const lines = normalized.trim().split('\n');
-  if (lines.length < 1) return [];
+/**
+ * Pre-process CSV text to fix copy-paste artifacts:
+ * - Strip leading whitespace (indentation)
+ * - Rejoin lines that were split by word-wrap (no comma, not inside quotes)
+ * - Rejoin header fragments that were word-wrapped
+ */
+const TEST_TYPE_IDS = ['focus-form', 'focus-meaning', 'form-meaning', 'listening'];
 
-  const defaultHeaders = [
-    'testTypeId','questionText','optionA','optionB','optionC','optionD',
-    'correctAnswer','explanation','cefrLevel','difficulty','testSetId',
-    'conversation','article',
-  ];
+function hasHeaderLine(line: string): boolean {
+  return line.trimStart().startsWith('testTypeId,');
+}
 
-  // Detect if first line is a header or data
-  const firstLine = lines[0];
-  let headers: string[];
-  let startIndex: number;
+function isDataRowStart(line: string): boolean {
+  const trimmed = line.trimStart();
+  return TEST_TYPE_IDS.some(t => trimmed.startsWith(t + ',') || trimmed.startsWith(t + '"'));
+}
 
-  if (firstLine.startsWith('testTypeId') || firstLine.includes('testTypeId')) {
-    headers = firstLine.split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-    startIndex = 1;
-  } else {
-    headers = defaultHeaders;
-    startIndex = 0;
-  }
-  const rows: Record<string, string>[] = [];
-
-  // Join lines that belong to the same row (multi-line quoted fields)
-  const fullLines: string[] = [];
+function normalizeCSV(text: string): string {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const result: string[] = [];
   let buffer = '';
-  let quoteOpen = false;
+  let inQuotes = false;
 
-  for (const line of lines) {
-    if (buffer === '') {
-      buffer = line;
-    } else {
+  for (const rawLine of lines) {
+    const line = rawLine.trimStart();
+    if (!line) continue;
+
+    if (inQuotes) {
+      // Inside a quoted field — keep joining
       buffer += '\n' + line;
-    }
-    // Count quotes in this line to track open/close state
-    for (let c = 0; c < line.length; c++) {
-      if (line[c] === '"') {
-        if (c + 1 < line.length && line[c + 1] === '"') {
-          c++; // skip escaped ""
-        } else {
-          quoteOpen = !quoteOpen;
-        }
+      for (const ch of line) {
+        if (ch === '"') inQuotes = !inQuotes;
       }
-    }
-    if (!quoteOpen) {
-      fullLines.push(buffer);
-      buffer = '';
-    }
-  }
-  if (buffer.trim()) fullLines.push(buffer);
+      if (!inQuotes) {
+        result.push(buffer);
+        buffer = '';
+      }
+    } else {
+      // Detect if this line opens a quoted field that doesn't close
+      let tempInQuotes = false;
+      for (const ch of line) {
+        if (ch === '"') tempInQuotes = !tempInQuotes;
+      }
 
-  for (let i = 1; i < fullLines.length; i++) {
-    const line = fullLines[i];
-    if (!line.trim()) continue;
-
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let j = 0; j < line.length; j++) {
-      const char = line[j];
-      if (char === '"') {
-        if (j + 1 < line.length && line[j + 1] === '"') {
-          current += '"';
-          j++;
+      if (tempInQuotes) {
+        // Unclosed quote — start buffering multi-line field
+        buffer = line;
+        inQuotes = true;
+      } else if (isDataRowStart(line) || hasHeaderLine(line)) {
+        // Definitely a new row or header — flush buffer first
+        if (buffer) { result.push(buffer); buffer = ''; }
+        result.push(line);
+      } else if (!line.includes(',') && line.length > 0) {
+        // No comma, not in quotes → likely a word-wrapped continuation
+        if (result.length > 0) {
+          result[result.length - 1] += ' ' + line;
         } else {
-          inQuotes = !inQuotes;
+          buffer += (buffer ? ' ' : '') + line;
         }
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
+      } else if (result.length > 0 && !isDataRowStart(line) && !hasHeaderLine(line)) {
+        // Has commas but doesn't look like a new row — continuation of previous
+        result[result.length - 1] += ' ' + line;
+      } else if (buffer) {
+        buffer += ' ' + line;
       } else {
-        current += char;
+        result.push(line);
       }
     }
-    values.push(current.trim());
+  }
+  if (buffer) result.push(buffer);
+  return result.join('\n');
+}
 
-    const row: Record<string, string> = {};
-    headers.forEach((header, idx) => {
-      row[header] = values[idx]?.replace(/^"|"$/g, '').trim() || '';
+const CSV_COLUMNS = [
+  'testTypeId','questionText','optionA','optionB','optionC','optionD',
+  'correctAnswer','explanation','cefrLevel','difficulty','testSetId',
+  'conversation','article',
+] as const;
+
+function parseCSV(text: string): Record<string, string>[] {
+  const normalized = normalizeCSV(text);
+  const nonEmptyLines = normalized.split('\n').filter(l => l.trim());
+  const header = nonEmptyLines.length > 0 && hasHeaderLine(nonEmptyLines[0]);
+
+  if (!header) {
+    // No header — parse with default column names
+    const result = Papa.parse<string[]>(normalized, {
+      header: false,
+      skipEmptyLines: true,
     });
-    rows.push(row);
+    if (result.errors.length > 0) {
+      console.warn('CSV parse warnings:', result.errors);
+    }
+    const rows: Record<string, string>[] = [];
+    for (const values of result.data) {
+      const row: Record<string, string> = {};
+      CSV_COLUMNS.forEach((col, idx) => {
+        row[col] = String(values[idx] ?? '').trim();
+      });
+      rows.push(row);
+    }
+    return rows;
   }
 
-  return rows;
+  // Has header — let PapaParse auto-map columns
+  const result = Papa.parse<Record<string, string>>(normalized, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  if (result.errors.length > 0) {
+    console.warn('CSV parse warnings:', result.errors);
+  }
+
+  // Trim header names and values
+  const trimmed = result.data.map(row => {
+    const trimmedRow: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row)) {
+      trimmedRow[key.trim()] = String(value ?? '').trim();
+    }
+    return trimmedRow;
+  });
+
+  return trimmed;
 }
 
 export async function POST(request: NextRequest) {
@@ -448,13 +486,74 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  // Return CSV template with all test types
-  // Column order: testTypeId, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, cefrLevel, difficulty, testSetId, conversation, article
-  const template = `testTypeId,questionText,optionA,optionB,optionC,optionD,correctAnswer,explanation,cefrLevel,difficulty,testSetId,conversation,article
-focus-form,"Choose the correct form: She ___ to school every day.",go,goes,going,gone,B,Present simple with third person singular,B1,medium,,,,,
-focus-meaning,"What time is it?",It is morning.,It is 3 o'clock.,,,B,Asking about time,A1,easy,,"[{""speaker"":""A"",""name"":""Tom"",""text"":""What time is it?""},{""speaker"":""B"",""name"":""Jane"",""text"":""It is 3 o'"'"'clock.""}]",
-form-meaning,"Read the article and fill in the blanks.",,,,,,Fill in the blanks,B1,medium,,"{""title"":""Cooking with Kids"",""text"":""Cooking is {{1}} fun activity. Kids love {{2}} in the kitchen."",""blanks"":[{""id"":1,""correctAnswer"":""a""},{""id"":2,""correctAnswer"":""working""}]}",
-listening,"You will hear: The meeting starts at 9. What time does the meeting start?",8:00,9:00,10:00,11:00,B,Listening comprehension,B1,medium,,,,`;
+  // Return CSV template with all test types — generated via PapaParse for correctness
+  const templateRows = [
+    {
+      testTypeId: 'focus-form',
+      questionText: 'Choose the correct form: She ___ to school every day.',
+      optionA: 'go',
+      optionB: 'goes',
+      optionC: 'going',
+      optionD: 'gone',
+      correctAnswer: 'B',
+      explanation: 'Present simple with third person singular',
+      cefrLevel: 'B1',
+      difficulty: 'medium',
+      testSetId: '',
+      conversation: '',
+      article: '',
+    },
+    {
+      testTypeId: 'focus-meaning',
+      questionText: 'What time is it?',
+      optionA: 'It is morning.',
+      optionB: "It is 3 o'clock.",
+      optionC: '',
+      optionD: '',
+      correctAnswer: 'B',
+      explanation: 'Asking about time',
+      cefrLevel: 'A1',
+      difficulty: 'easy',
+      testSetId: '',
+      conversation: JSON.stringify([{ speaker: 'A', name: 'Tom', text: 'What time is it?' }, { speaker: 'B', name: 'Jane', text: "It's 3 o'clock." }]),
+      article: '',
+    },
+    {
+      testTypeId: 'form-meaning',
+      questionText: 'Read the article and fill in the blanks.',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctAnswer: '',
+      explanation: 'Fill in the blanks',
+      cefrLevel: 'B1',
+      difficulty: 'medium',
+      testSetId: '',
+      conversation: '',
+      article: JSON.stringify({ title: 'Cooking with Kids', text: 'Cooking is {{1}} fun activity. Kids love {{2}} in the kitchen.', blanks: [{ id: 1, correctAnswer: 'a' }, { id: 2, correctAnswer: 'working' }] }),
+    },
+    {
+      testTypeId: 'listening',
+      questionText: 'You will hear: The meeting starts at 9. What time does the meeting start?',
+      optionA: '8:00',
+      optionB: '9:00',
+      optionC: '10:00',
+      optionD: '11:00',
+      correctAnswer: 'B',
+      explanation: 'Listening comprehension',
+      cefrLevel: 'B1',
+      difficulty: 'medium',
+      testSetId: '',
+      conversation: '',
+      article: '',
+    },
+  ];
+
+  const template = Papa.unparse(templateRows, {
+    columns: [...CSV_COLUMNS],
+    header: true,
+  });
 
   return new NextResponse(template, {
     headers: {

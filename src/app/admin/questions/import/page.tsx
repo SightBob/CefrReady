@@ -396,10 +396,7 @@ export default function ImportQuestionsPage() {
 
             <div className="mt-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
               <p className="text-sm font-semibold text-slate-700 mb-2">ตัวอย่าง CSV สำเร็จรูป — copy แล้ววางในกล่องด้านบน</p>
-              <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto select-all">{`testTypeId,questionText,optionA,optionB,optionC,optionD,correctAnswer,explanation,cefrLevel,difficulty,testSetId,conversation,article
-form-meaning,"Read the article and fill in the blanks.",,,,,,Fill in the blanks using context,B1,medium,,"{""title"":""Daily Routine"",""text"":""She {{1}} her teeth every morning and then {{2}} breakfast."",""blanks"":[{""id"":1,""correctAnswer"":""brushes"",""hint"":""present simple""},{""id"":2,""correctAnswer"":""eats""}]}",
-focus-meaning,"What time is it?",It is morning.,It is 3 o'clock.,,,B,Asking about time,A1,easy,,"[{""speaker"":""A"",""name"":""Tom"",""text"":""What time is it?""},{""speaker"":""B"",""name"":""Jane"",""text"":""It is 3 o'clock.""}]",
-focus-form,"Choose the correct form: She ___ to school every day.",go,goes,going,gone,B,Present simple third person singular,B1,medium,,,,`}</pre>
+              <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto select-all">{`testTypeId,questionText,optionA,optionB,optionC,optionD,correctAnswer,explanation,cefrLevel,difficulty,testSetId,conversation,article form-meaning,Read the article and fill in the blanks.,,,,,,Fill in the blanks,B1,medium,,,"{""title"":""Daily Routine"",""text"":""She {{1}} her teeth every morning and then {{2}} breakfast."",""blanks"":[{""id"":1,""correctAnswer"":""brushes"",""hint"":""present simple""},{""id"":2,""correctAnswer"":""eats""}]}" focus-meaning,What time is it?,It is morning.,It is 3 o'clock.,,,B,Asking about time,A1,easy,,"[{""speaker"":""A"",""name"":""Tom"",""text"":""What time is it?""},{""speaker"":""B"",""name"":""Jane"",""text"":""It is 3 o'clock.""}]", focus-form,Choose the correct form: She ___ to school every day.,go,goes,going,gone,B,Present simple with third person singular,B1,medium,,,`}</pre>
             </div>
           </div>
         </div>

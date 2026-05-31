@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1780108086452,
+  "lastScanned": 1780200190229,
   "projectRoot": "C:\\Code\\CefrReady\\CefrReady",
   "techStack": {
     "languages": [
@@ -94,7 +94,7 @@
       "path": "csv_data",
       "purpose": null,
       "fileCount": 8,
-      "lastAccessed": 1780108086422,
+      "lastAccessed": 1780200190210,
       "keyFiles": [
         "focus-on-form-ready.csv",
         "formatted-form-meaning.csv",
@@ -107,7 +107,7 @@
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 1,
-      "lastAccessed": 1780108086423,
+      "lastAccessed": 1780200190210,
       "keyFiles": [
         "COOKIEYES_FIX.md"
       ]
@@ -115,8 +115,8 @@
     "drizzle": {
       "path": "drizzle",
       "purpose": null,
-      "fileCount": 9,
-      "lastAccessed": 1780108086429,
+      "fileCount": 10,
+      "lastAccessed": 1780200190215,
       "keyFiles": [
         "0000_illegal_sunset_bain.sql",
         "0001_tearful_edwin_jarvis.sql",
@@ -129,7 +129,7 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 5,
-      "lastAccessed": 1780108086429,
+      "lastAccessed": 1780200190215,
       "keyFiles": [
         "google71d699e0451c83b8.html",
         "llms.txt",
@@ -142,7 +142,7 @@
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 22,
-      "lastAccessed": 1780108086430,
+      "lastAccessed": 1780200190216,
       "keyFiles": [
         "add-extended-schema.ts",
         "add-flashcards-table.js",
@@ -155,7 +155,7 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 4,
-      "lastAccessed": 1780108086430,
+      "lastAccessed": 1780200190216,
       "keyFiles": [
         "instrumentation.ts",
         "middleware.ts",
@@ -167,16 +167,29 @@
       "path": "state",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1780108086430,
+      "lastAccessed": 1780200190216,
       "keyFiles": [
         "cancel-signal-state.json"
+      ]
+    },
+    "ฉากเริ่มต้น - 2026-05-30": {
+      "path": "ฉากเริ่มต้น - 2026-05-30",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1780200190216,
+      "keyFiles": [
+        "ฉากเริ่มต้น_-_2026-05-30_202605301025.mp4",
+        "ฉากเริ่มต้น_-_2026-05-30_202605301025_2.mp4",
+        "ฉากเริ่มต้น_-_2026-05-30_202605301025_3.mp4",
+        "ฉากเริ่มต้น_-_2026-05-30_202605301025_4.mp4",
+        "ฉากเริ่มต้น_-_2026-05-30_202605301025_5.mp4"
       ]
     },
     "src\\app": {
       "path": "src\\app",
       "purpose": "Application code",
       "fileCount": 12,
-      "lastAccessed": 1780108086432,
+      "lastAccessed": 1780200190218,
       "keyFiles": [
         "apple-icon.tsx",
         "error.tsx",
@@ -187,7 +200,7 @@
       "path": "src\\components",
       "purpose": "UI components",
       "fileCount": 40,
-      "lastAccessed": 1780108086432,
+      "lastAccessed": 1780200190218,
       "keyFiles": [
         "AnimatedCounter.tsx",
         "ArticleEditor.tsx",
@@ -198,7 +211,7 @@
       "path": "src\\lib",
       "purpose": "Library code",
       "fileCount": 11,
-      "lastAccessed": 1780108086433,
+      "lastAccessed": 1780200190218,
       "keyFiles": [
         "admin-auth.ts",
         "auth-utils.ts",
@@ -209,7 +222,7 @@
       "path": "src\\scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1780108086433,
+      "lastAccessed": 1780200190219,
       "keyFiles": [
         "fix-focus-speakers.ts",
         "fix-typo.ts"
@@ -225,8 +238,8 @@
     },
     {
       "path": "src\\db\\schema.ts",
-      "accessCount": 83,
-      "lastAccessed": 1780143935221,
+      "accessCount": 90,
+      "lastAccessed": 1780218670130,
       "type": "directory"
     },
     {
@@ -236,21 +249,27 @@
       "type": "file"
     },
     {
+      "path": "src",
+      "accessCount": 53,
+      "lastAccessed": 1780208330824,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\admin\\questions\\page.tsx",
+      "accessCount": 52,
+      "lastAccessed": 1780218928328,
+      "type": "file"
+    },
+    {
       "path": "src\\app\\progress\\ProgressContent.tsx",
       "accessCount": 49,
       "lastAccessed": 1779933509732,
       "type": "file"
     },
     {
-      "path": "src\\app\\admin\\questions\\page.tsx",
-      "accessCount": 45,
-      "lastAccessed": 1780131035419,
-      "type": "file"
-    },
-    {
-      "path": "src",
-      "accessCount": 41,
-      "lastAccessed": 1780133549146,
+      "path": "",
+      "accessCount": 42,
+      "lastAccessed": 1780218569733,
       "type": "directory"
     },
     {
@@ -314,9 +333,9 @@
       "type": "file"
     },
     {
-      "path": "",
+      "path": "src\\db",
       "accessCount": 13,
-      "lastAccessed": 1779944350820,
+      "lastAccessed": 1780208316531,
       "type": "directory"
     },
     {
@@ -497,12 +516,6 @@
       "path": "src\\components",
       "accessCount": 2,
       "lastAccessed": 1780030515552,
-      "type": "directory"
-    },
-    {
-      "path": "src\\db",
-      "accessCount": 1,
-      "lastAccessed": 1779693682110,
       "type": "directory"
     },
     {

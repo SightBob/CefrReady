@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"powershell -Command \\\"Format-Hex -Path 'src/app/admin/questions/new/page.tsx' -Count 10 | Select-Object -ExpandProperty Bytes | ForEach-Object { [string]::Format('{0:X2} ', $_) }\\\"\",\"descr...",
-  "error": "Exit code 1\nAt line:1 char:151\r\n+ ... Property Bytes | ForEach-Object { [string]::Format('{0:X2} ', extglob ...\r\n+                                                                  ~\r\nMissing expression after ','.\r\nAt line:1 char:152\r\n+ ... perty Bytes | ForEach-Object { [string]::Format('{0:X2} ', extglob) }\r\n+                                                                ~~~~~~~\r\nUnexpected token 'extglob' in expression or statement.\r\nAt line:1 char:122\r\n+ ... t 10 | Select-Object -ExpandPrope...",
-  "timestamp": "2026-05-30T08:50:14.367Z",
-  "retry_count": 2
+  "tool_input_preview": "{\"command\":\"cd \\\"c:\\\\Code\\\\CefrReady\\\\CefrReady\\\" && node test-parse.mjs\",\"description\":\"Test all 4 CSV parsing cases with expected row counts\"}",
+  "error": "Exit code 1\n=== No header ===\nRows: 1 ✓\nRow 0: type=form-meaning, keys=13, article=valid\n\n=== With header ===\nRows: 1 ✓\nRow 0: type=form-meaning, keys=13, article=valid\n\n=== Word-wrapped, no header ===\nRows: 1 ✓\nRow 0: type=form-meaning, keys=13, article=valid\n\n=== Word-wrapped, with header ===\nfile:///C:/Code/CefrReady/CefrReady/test-parse.mjs:74\r\n    for (const [k, v] of Object.entries(row)) out[k.trim()] = (v ?? '').trim();\r\n                                                                    ...",
+  "timestamp": "2026-05-31T10:12:33.093Z",
+  "retry_count": 1
 }

@@ -21,6 +21,7 @@ import {
   ScanLine,
   ChevronDown,
   ChevronUp,
+  Download,
 } from 'lucide-react';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
 import { toast } from 'sonner';
@@ -164,6 +165,33 @@ export default function QuestionsManagement() {
       console.error('Error fetching questions:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedTestType) params.set('testTypeId', selectedTestType);
+      if (selectedCefr) params.set('cefrLevel', selectedCefr);
+      const query = params.toString() ? `?${params.toString()}` : '';
+
+      const response = await fetch(`/api/admin/questions/export${query}`);
+      if (!response.ok) {
+        toast.error('ไม่สามารถส่งออกได้');
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = response.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'questions-export.csv';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('ส่งออก CSV สำเร็จ');
+    } catch (error) {
+      console.error('Error exporting questions:', error);
+      toast.error('เกิดข้อผิดพลาดในการส่งออก');
     }
   };
 
@@ -431,6 +459,13 @@ export default function QuestionsManagement() {
               <Upload className="w-4 h-4" />
               นำเข้า CSV
             </Link>
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-2 px-4 py-2 border border-emerald-200 bg-emerald-50 rounded-xl text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              ส่งออก CSV
+            </button>
             <Link
               href="/admin/test-sets"
               className="btn-primary inline-flex items-center gap-2"
