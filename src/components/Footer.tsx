@@ -7,7 +7,7 @@ export default function Footer() {
   return (
     <footer className="bg-white border-t border-[#EAEAEA] mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center gap-2 mb-3">
@@ -53,6 +53,24 @@ export default function Footer() {
                 'Listening',
               ].map((label) => (
                 <li key={label} className="text-sm text-[#787774]">{label}</li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h3 className="text-xs font-bold text-[#111] uppercase tracking-widest mb-3">นโยบาย</h3>
+            <ul className="space-y-2">
+              {[
+                { href: '/terms', label: 'เงื่อนไขการให้บริการ' },
+                { href: '/privacy', label: 'ความเป็นส่วนตัว' },
+                { href: '/refund', label: 'การคืนเงิน' },
+              ].map(({ href, label }) => (
+                <li key={href}>
+                  <Link href={href} className="text-sm text-[#787774] hover:text-[#111] transition-colors">
+                    {label}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
