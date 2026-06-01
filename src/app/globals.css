@@ -14,6 +14,12 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Focus visible — keyboard accessibility */
+  *:focus-visible {
+    outline: 2px solid oklch(0.5 0.15 280);
+    outline-offset: 2px;
+  }
 }
 
 @keyframes staggerFadeUp {

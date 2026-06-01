@@ -107,8 +107,11 @@ export default function Header() {
               {pathname.startsWith('/tests') && <TourReplayButton tourType="test" />}
               {pathname.startsWith('/flashcards') && <TourReplayButton tourType="flashcards" />}
               <button
-                className="p-2 rounded-lg hover:bg-slate-100"
+                className="p-3 rounded-lg hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label={isMenuOpen ? 'ปิดเมนู' : 'เปิดเมนู'}
+                aria-expanded={isMenuOpen}
+                aria-controls="mobile-nav"
               >
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>

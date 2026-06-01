@@ -8,12 +8,23 @@ import { ArrowLeft, FileText, ChevronRight, Clock } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { toast } from 'sonner';
 
-import TestLayout from '@/components/TestLayout';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import SelectableText from '@/components/SelectableText';
 
 import type { QuestionResult, Option, Blank } from '@/types/test';
 import dynamic from 'next/dynamic';
+
+const TestLayout = dynamic(() => import('@/components/TestLayout'), {
+  loading: () => (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
+      <div className="animate-pulse flex flex-col items-center gap-3">
+        <div className="h-8 w-8 rounded-full bg-primary-200 animate-spin" />
+        <p className="text-sm text-slate-400">กำลังโหลดข้อสอบ...</p>
+      </div>
+    </div>
+  ),
+  ssr: false,
+});
 
 const TestTour = dynamic(() => import('@/components/TestTour'), { ssr: false });
 const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'), {
