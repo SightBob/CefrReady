@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, varchar, integer, boolean, numeric, primaryKey, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, varchar, integer, boolean, numeric, primaryKey, index, jsonb, unique } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -163,6 +163,20 @@ export const userAnswers = pgTable('user_answers', {
   questionIdx: index('user_answers_question_idx').on(table.questionId),
 }));
 
+// Test feedback: user rating + comment after completing a test attempt
+export const testFeedback = pgTable('test_feedback', {
+  id: serial('id').primaryKey(),
+  attemptId: integer('attempt_id').notNull().references(() => testAttempts.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  rating: integer('rating').notNull(),
+  comment: text('comment'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  uniqueAttempt: unique('test_feedback_attempt_unique').on(table.attemptId),
+  userIdx: index('test_feedback_user_idx').on(table.userId),
+}));
+
 // User progress: averageScore stored as string (percentage with 2 decimal places)
 export const userProgress = pgTable('user_progress', {
   id: serial('id').primaryKey(),
@@ -266,6 +280,8 @@ export type DbArticleQuestion = typeof articleQuestions.$inferSelect;
 export type NewArticleQuestion = typeof articleQuestions.$inferInsert;
 export type DbFlashcard = typeof flashcards.$inferSelect;
 export type NewFlashcard = typeof flashcards.$inferInsert;
+export type DbTestFeedback = typeof testFeedback.$inferSelect;
+export type NewTestFeedback = typeof testFeedback.$inferInsert;
 
 // ============================================================
 // Question Reports (User-submitted problem reports)

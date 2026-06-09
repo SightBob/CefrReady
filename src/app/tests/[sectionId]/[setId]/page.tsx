@@ -91,12 +91,14 @@ function FormMeaningQuiz({
   setId,
   setName,
   onFinish,
+  onAttemptId,
 }: {
   questions: RawQuestion[];
   sectionId: string;
   setId: number;
   setName: string;
   onFinish: (score: number, totalBlanks: number) => void;
+  onAttemptId?: (id: number) => void;
 }) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -184,6 +186,9 @@ function FormMeaningQuiz({
       const data = await res.json();
 
       const serverCorrect = data.success ? data.data.correctAnswers : localCorrectCount;
+      if (data.success && data.data.attemptId) {
+        onAttemptId?.(data.data.attemptId);
+      }
       setIsSubmitted(true);
       setCorrectCount(serverCorrect);
     } finally {
@@ -451,6 +456,7 @@ export default function SetQuizPage() {
   const [unansweredCount, setUnansweredCount] = useState(0);
   const [testStartedAt] = useState(() => new Date().toISOString());
   const [formMeaningTotalBlanks, setFormMeaningTotalBlanks] = useState(0);
+  const [attemptId, setAttemptId] = useState<number | null>(null);
 
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
@@ -554,6 +560,7 @@ export default function SetQuizPage() {
       if (data.success) {
         setScore(data.data.correctAnswers);
         setResults(data.data.results ?? []);
+        setAttemptId(data.data.attemptId ?? null);
         setIsFinished(true);
       }
     } finally {
@@ -599,6 +606,7 @@ export default function SetQuizPage() {
         <TestResults
           score={score}
           totalQuestions={formMeaningTotalBlanks}
+          attemptId={attemptId}
           onRestart={() => router.push(`/tests/${sectionId}`)}
         />
       );
@@ -610,6 +618,7 @@ export default function SetQuizPage() {
         setId={setId}
         setName={setData.name}
         onFinish={(s, total) => { setScore(s); setFormMeaningTotalBlanks(total); setIsFinished(true); }}
+        onAttemptId={(id) => setAttemptId(id)}
       />
     );
   }
@@ -619,6 +628,7 @@ export default function SetQuizPage() {
       <TestResults
         score={score}
         totalQuestions={setData.questions.length}
+        attemptId={attemptId}
         onRestart={() => router.push(`/tests/${sectionId}`)}
       />
     );

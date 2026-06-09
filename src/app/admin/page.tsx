@@ -10,7 +10,8 @@ import {
   Settings,
   AlertTriangle,
   BookOpen,
-  Mail
+  Mail,
+  Star,
 } from 'lucide-react';
 
 interface Stats {
@@ -109,6 +110,15 @@ export default function AdminDashboard() {
       href: '/admin/contacts',
       color: 'from-cyan-500 to-blue-500',
       bgColor: 'bg-cyan-50',
+      count: 0,
+    },
+    {
+      title: 'คะแนนรีวิว',
+      description: 'รีวิวและความคิดเห็นจากผู้ใช้',
+      icon: Star,
+      href: '/admin/test-feedback',
+      color: 'from-amber-500 to-yellow-500',
+      bgColor: 'bg-amber-50',
       count: 0,
     },
   ];
