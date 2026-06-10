@@ -38,3 +38,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch feedback' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
+  try {
+    const { id } = await req.json();
+    if (!id || typeof id !== 'number') {
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    }
+
+    const deleted = await db.delete(testFeedback).where(eq(testFeedback.id, id)).returning();
+    if (deleted.length === 0) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('[DELETE /api/admin/test-feedback] error:', err);
+    return NextResponse.json({ error: 'Failed to delete feedback' }, { status: 500 });
+  }
+}

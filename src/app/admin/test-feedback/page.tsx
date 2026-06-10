@@ -10,7 +10,9 @@ import {
   Loader2,
   RefreshCw,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface TestFeedbackItem {
   id: number;
@@ -29,6 +31,7 @@ interface TestFeedbackItem {
 export default function AdminTestFeedbackPage() {
   const [feedback, setFeedback] = useState<TestFeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchFeedback = async () => {
     setLoading(true);
@@ -48,6 +51,33 @@ export default function AdminTestFeedbackPage() {
   useEffect(() => {
     fetchFeedback();
   }, []);
+
+  const handleDelete = (id: number) => {
+    toast('ต้องการลบรีวิวนี้หรือไม่?', {
+      description: 'การกระทำนี้ไม่สามารถย้อนกลับได้',
+      action: {
+        label: 'ลบ',
+        onClick: async () => {
+          setDeletingId(id);
+          try {
+            const res = await fetch('/api/admin/test-feedback', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id }),
+            });
+            if (res.ok) {
+              setFeedback(prev => prev.filter(f => f.id !== id));
+              toast.success('ลบรีวิวสำเร็จ');
+            }
+          } catch (err) {
+            console.error('Failed to delete:', err);
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+    });
+  };
 
   const avgRating = feedback.length > 0
     ? (feedback.reduce((sum, f) => sum + f.rating, 0) / feedback.length).toFixed(1)
@@ -206,12 +236,25 @@ export default function AdminTestFeedbackPage() {
                   </div>
 
                   {/* Right: Action */}
-                  <Link
-                    href={`/review/${item.attemptId}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0"
-                  >
-                    ดูผลสอบ
-                  </Link>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      href={`/review/${item.attemptId}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                    >
+                      ดูผลสอบ
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      disabled={deletingId === item.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {deletingId === item.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Trash2 className="w-3.5 h-3.5" />
+                      }
+                      ลบ
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

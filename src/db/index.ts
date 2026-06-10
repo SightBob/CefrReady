@@ -10,6 +10,9 @@ const globalForDb = global as unknown as { db: ReturnType<typeof drizzle> | unde
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: 1,
+  idleTimeoutMillis: 20_000,
+  maxLifetimeSeconds: 60,
 });
 
 export const db = globalForDb.db ?? drizzle(pool, { schema });
