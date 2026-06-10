@@ -105,6 +105,7 @@ export const metadata: Metadata = {
 
 import { Toaster } from 'sonner';
 import CookieYesScript from '@/components/CookieYesScript';
+import { PostHogProvider, PHCapture } from '@/lib/posthog';
 
 export default function RootLayout({
   children,
@@ -119,22 +120,25 @@ export default function RootLayout({
       </head>
       <body className={`${prompt.variable} ${pridi.variable} font-sans`}>
         <SessionProvider>
-          <div className="min-h-screen flex flex-col font-sans">
-            <Header />
-            <main className="flex-1">
-              <Suspense fallback={
-                <div className="flex items-center justify-center min-h-[60vh]">
-                  <div className="animate-pulse flex flex-col items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary-200" />
-                    <p className="text-sm text-slate-400">Loading...</p>
+          <PostHogProvider>
+            <PHCapture />
+            <div className="min-h-screen flex flex-col font-sans">
+              <Header />
+              <main className="flex-1">
+                <Suspense fallback={
+                  <div className="flex items-center justify-center min-h-[60vh]">
+                    <div className="animate-pulse flex flex-col items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary-200" />
+                      <p className="text-sm text-slate-400">Loading...</p>
+                    </div>
                   </div>
-                </div>
-              }>
-                {children}
-              </Suspense>
-            </main>
-            <Footer />
-          </div>
+                }>
+                  {children}
+                </Suspense>
+              </main>
+              <Footer />
+            </div>
+          </PostHogProvider>
         </SessionProvider>
         <Analytics />
         <GoogleAnalytics gaId="G-MNPQ9B7ZDL" />

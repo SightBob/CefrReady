@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import SelectableText from '@/components/SelectableText';
 
 import type { QuestionResult, Option, Blank } from '@/types/test';
+import { usePostHog } from '@/lib/posthog';
 import dynamic from 'next/dynamic';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
@@ -461,6 +462,10 @@ export default function SetQuizPage() {
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
 
+  // PostHog tracking
+  const posthog = usePostHog();
+  const testStartedAtRef = useRef<number>(0);
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/tests');
@@ -470,6 +475,18 @@ export default function SetQuizPage() {
       fetchSet();
     }
   }, [status, setId]);
+
+  // Track test_started when questions are loaded
+  useEffect(() => {
+    if (setData && posthog && testStartedAtRef.current === 0) {
+      testStartedAtRef.current = Date.now();
+      posthog.capture('test_started', {
+        section_id: sectionId,
+        test_set_id: setId,
+        test_type: sectionId,
+      });
+    }
+  }, [setData, posthog, sectionId, setId]);
 
   const fetchSet = async () => {
     try {
@@ -562,6 +579,17 @@ export default function SetQuizPage() {
         setResults(data.data.results ?? []);
         setAttemptId(data.data.attemptId ?? null);
         setIsFinished(true);
+        // Track test_submitted
+        if (posthog && testStartedAtRef.current > 0) {
+          const totalQuestions = data.data.results?.length ?? setData.questions.length;
+          posthog.capture('test_submitted', {
+            section_id: sectionId,
+            test_set_id: setId,
+            score: data.data.correctAnswers,
+            total_questions: totalQuestions,
+            time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
+          });
+        }
       }
     } finally {
       setSubmitting(false);
