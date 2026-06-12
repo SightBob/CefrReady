@@ -266,7 +266,7 @@ export default function AdminTestSetsPage() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => { setCreateTarget(section.id); setCreateName(''); setCreateDesc(''); }}
+                        onClick={() => { const n = section.testSets.length + 1; setCreateTarget(section.id); setCreateName(`${section.name} - Set ${n}`); setCreateDesc(`Set ${n} for ${section.name} Section`); }}
                         className="w-full flex items-center gap-2 px-6 py-3.5 text-sm text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors border-t border-slate-50"
                       >
                         <Plus className="w-4 h-4" />
