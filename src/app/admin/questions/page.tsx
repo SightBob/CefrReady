@@ -631,6 +631,9 @@ export default function QuestionsManagement() {
                           className="w-4 h-4 rounded border-slate-300 accent-indigo-600"
                         />
                       </th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        ID
+                      </th>
                       <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         ข้อสอบ
                       </th>
@@ -658,7 +661,7 @@ export default function QuestionsManagement() {
                     {filteredQuestions.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={8}
+                          colSpan={9}
                           className="px-6 py-16 text-center"
                         >
                           <BookOpen className="w-10 h-10 text-slate-200 mx-auto mb-2" />
@@ -681,6 +684,11 @@ export default function QuestionsManagement() {
                               onChange={() => toggleSelect(question.id)}
                               className="w-4 h-4 rounded border-slate-300 accent-indigo-600"
                             />
+                          </td>
+
+                          {/* ID */}
+                          <td className="px-4 py-4">
+                            <span className="text-xs font-mono text-slate-500">{question.id}</span>
                           </td>
 
                           {/* Question text */}

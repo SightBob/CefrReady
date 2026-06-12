@@ -11,6 +11,7 @@ import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
 import FormMeaningReviewSection from '@/components/FormMeaningReviewSection';
 import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
 import RelatedArticlesPanel from '@/components/RelatedArticlesPanel';
+import { usePostHog } from '@/lib/posthog';
 import type { TestTypeId, Option, ConversationLine, Article, Blank } from '@/types/test';
 
 interface AttemptData {
@@ -72,6 +73,7 @@ export default function ReviewPage() {
   const params = useParams();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const posthog = usePostHog();
   const [attempt, setAttempt] = useState<AttemptData | null>(null);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +117,9 @@ export default function ReviewPage() {
 
       setAttempt(data.data!.attempt);
       setReviewItems(data.data!.reviewItems);
+      posthog?.capture('test_result_reviewed', {
+        attempt_id: params.attemptId,
+      });
     } catch (err) {
       setError('Failed to load review data');
     } finally {

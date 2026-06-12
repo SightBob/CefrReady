@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, MessageSquare, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import StarRating from './StarRating';
+import { usePostHog } from '@/lib/posthog';
 
 interface TestResultsProps {
   score: number;
@@ -15,8 +16,16 @@ interface TestResultsProps {
 }
 
 export default function TestResults({ score, totalQuestions, isDemo = false, attemptId, onRestart }: TestResultsProps) {
+  const posthog = usePostHog();
   const percentage = Math.round((score / totalQuestions) * 100);
   const passed = percentage >= 70;
+
+  useEffect(() => {
+    posthog?.capture('test_result_viewed', {
+      score_percentage: percentage,
+      passed: percentage >= 70,
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');

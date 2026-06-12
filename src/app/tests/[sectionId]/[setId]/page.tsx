@@ -13,6 +13,7 @@ import SelectableText from '@/components/SelectableText';
 
 import type { QuestionResult, Option, Blank } from '@/types/test';
 import { usePostHog } from '@/lib/posthog';
+import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import dynamic from 'next/dynamic';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
@@ -480,10 +481,15 @@ export default function SetQuizPage() {
   useEffect(() => {
     if (setData && posthog && testStartedAtRef.current === 0) {
       testStartedAtRef.current = Date.now();
+      const levels = setData.questions.map(q => q.cefrLevel).filter(Boolean);
+      const levelCounts: Record<string, number> = {};
+      levels.forEach(l => { levelCounts[l] = (levelCounts[l] || 0) + 1; });
+      const targetLevel = Object.entries(levelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
       posthog.capture('test_started', {
         section_id: sectionId,
         test_set_id: setId,
         test_type: sectionId,
+        target_level: targetLevel,
       });
     }
   }, [setData, posthog, sectionId, setId]);
@@ -582,13 +588,27 @@ export default function SetQuizPage() {
         // Track test_submitted
         if (posthog && testStartedAtRef.current > 0) {
           const totalQuestions = data.data.results?.length ?? setData.questions.length;
+          const wrongIds = (data.data.results ?? [])
+            .filter((r: { isCorrect: boolean }) => !r.isCorrect)
+            .map((r: { questionId: number }) => r.questionId);
+          const scorePct = Math.round((data.data.correctAnswers / totalQuestions) * 100);
           posthog.capture('test_submitted', {
             section_id: sectionId,
             test_set_id: setId,
             score: data.data.correctAnswers,
             total_questions: totalQuestions,
             time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
+            wrong_question_ids: wrongIds,
+            score_percentage: scorePct,
           });
+          fetch('/api/progress')
+            .then(r => r.json())
+            .then(progress => {
+              if (progress.success && progress.data?.overall?.averageScore != null) {
+                posthog.people.set({ cefr_level: estimateCefrLevel(progress.data.overall.averageScore) });
+              }
+            })
+            .catch(() => {});
         }
       }
     } finally {

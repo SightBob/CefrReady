@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import posthog from 'posthog-js';
+import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
     posthog.init(key, {
       api_host: host || 'https://us.i.posthog.com',
+      defaults: '2026-01-30',
       person_profiles: 'identified_only',
       capture_pageview: false, // We capture manually via PHCapture
       loaded: (ph) => {
@@ -56,6 +58,15 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           email: session!.user.email,
           isAdmin: session!.user.isAdmin,
         });
+        // Fetch progress to set cefr_level person property
+        fetch('/api/progress')
+          .then(r => r.json())
+          .then(progress => {
+            if (progress.success && progress.data?.overall?.averageScore != null) {
+              posthogInstance.people.set({ cefr_level: estimateCefrLevel(progress.data.overall.averageScore) });
+            }
+          })
+          .catch(() => { /* non-critical */ });
         posthogInstance.capture('user_signed_in', { provider: 'google' });
       }
     } else if (previousSessionRef.current === true && session === null) {
@@ -87,12 +98,50 @@ export function PHCapture() {
   const pathname = usePathname();
   const posthog = usePostHog();
   const previousPathRef = useRef<string | null>(null);
+  const pageEnterTimeRef = useRef<number>(Date.now());
 
+  // Helper: fire $pageleave for a given URL with time spent
+  const firePageLeave = (url: string) => {
+    if (!posthog) return;
+    const duration = Math.round((Date.now() - pageEnterTimeRef.current) / 1000);
+    posthog.capture('$pageleave', {
+      $current_url: url,
+      $time_spent: duration,
+    });
+  };
+
+  // Capture $pageleave on tab hide / close / navigate away
+  useEffect(() => {
+    if (!posthog) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        firePageLeave(pathname);
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      firePageLeave(pathname);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [posthog, pathname]);
+
+  // Capture $pageview on route change, $pageleave for the previous route
   useEffect(() => {
     if (!posthog) return;
     if (pathname !== previousPathRef.current) {
+      if (previousPathRef.current) {
+        firePageLeave(previousPathRef.current);
+      }
       posthog.capture('$pageview', { $current_url: pathname });
       previousPathRef.current = pathname;
+      pageEnterTimeRef.current = Date.now();
     }
   }, [pathname, posthog]);
 
