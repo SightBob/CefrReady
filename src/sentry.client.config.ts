@@ -23,5 +23,19 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     'ResizeObserver loop limit exceeded',
     'Non-Error promise rejection captured',
   ],
+  beforeSend(event, hint) {
+    // Filter out "TypeError: Load failed" caused by OAuth redirect abort on Safari.
+    // NextAuth signIn('google') triggers a redirect that aborts the underlying fetch.
+    // Safari reports this as a TypeError; Chrome silently drops it.
+    const err = hint?.originalException;
+    if (
+      err instanceof Error &&
+      err.message.includes('Load failed') &&
+      event.request?.url?.includes('/auth/')
+    ) {
+      return null;
+    }
+    return event;
+  },
 });
 }

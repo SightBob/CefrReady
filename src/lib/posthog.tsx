@@ -37,6 +37,17 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       defaults: '2026-01-30',
       person_profiles: 'identified_only',
       capture_pageview: false, // We capture manually via PHCapture
+      // Filter OAuth redirect abort errors (Safari reports "Load failed" on
+      // navigation abort during signIn('google'), Chrome silently drops them)
+      before_send: (event) => {
+        if (!event) return null;
+        const exType = event.properties?.exception?.values?.[0]?.type;
+        const exValue = event.properties?.exception?.values?.[0]?.value as string | undefined;
+        if (exType === 'TypeError' && exValue?.includes('Load failed')) {
+          return null;
+        }
+        return event;
+      },
       loaded: (ph) => {
         setPosthogInstance(ph);
       },
