@@ -255,6 +255,32 @@ export const flashcards = pgTable('flashcards', {
 }));
 
 // ============================================================
+// Vocabularies (Must-Know vocabulary list)
+// ============================================================
+
+export const vocabularies = pgTable('vocabularies', {
+  id: serial('id').primaryKey(),
+  word: varchar('word', { length: 100 }).notNull(),
+  phonetic: varchar('phonetic', { length: 100 }),
+  partOfSpeech: varchar('part_of_speech', { length: 30 }),
+  definition: text('definition').notNull(),
+  example: text('example'),
+  thaiMeaning: varchar('thai_meaning', { length: 200 }).notNull(),
+  cefrLevel: varchar('cefr_level', { length: 5 }).notNull(), // A1-C2
+  topic: varchar('topic', { length: 100 }),
+  isPublished: boolean('is_published').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  wordIdx: index('vocabularies_word_idx').on(table.word),
+  levelIdx: index('vocabularies_level_idx').on(table.cefrLevel),
+  topicIdx: index('vocabularies_topic_idx').on(table.topic),
+}));
+
+export type DbVocabulary = typeof vocabularies.$inferSelect;
+export type NewVocabulary = typeof vocabularies.$inferInsert;
+
+// ============================================================
 // Drizzle-inferred types (for DB layer use)
 // ============================================================
 

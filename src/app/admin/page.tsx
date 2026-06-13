@@ -12,6 +12,7 @@ import {
   BookOpen,
   Mail,
   Star,
+  Languages,
 } from 'lucide-react';
 
 interface Stats {
@@ -92,6 +93,15 @@ export default function AdminDashboard() {
       href: '/admin/articles',
       color: 'from-indigo-500 to-violet-500',
       bgColor: 'bg-indigo-50',
+      count: 0,
+    },
+    {
+      title: 'คำศัพท์',
+      description: 'จัดการคำศัพท์ Must Know',
+      icon: Languages,
+      href: '/admin/vocabularies',
+      color: 'from-emerald-500 to-teal-500',
+      bgColor: 'bg-emerald-50',
       count: 0,
     },
     {

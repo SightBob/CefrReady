@@ -1,14 +1,14 @@
 import { db } from '@/db';
-import { articles } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import MustKnowClient, { DbArticle } from '@/components/MustKnowClient';
+import { articles, vocabularies } from '@/db/schema';
+import { eq, desc, count } from 'drizzle-orm';
+import MustKnowClient, { type DbArticle } from '@/components/MustKnowClient';
 import type { Metadata } from 'next';
 
-export const revalidate = 3600; // ISR caching
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: 'Must Know — หลักไวยากรณ์ภาษาอังกฤษที่ต้องรู้ก่อนสอบ CEFR',
-  description: 'รวมบทความสรุปไวยากรณ์ภาษาอังกฤษสำหรับสอบ CEFR — Tense, Articles, Prepositions และ Vocabulary ครอบคลุม A1-C2 อ่านฟรี',
+  title: 'Must Know — ไวยากรณ์และคำศัพท์ภาษาอังกฤษสำหรับสอบ CEFR',
+  description: 'รวมบทความสรุปไวยากรณ์และคำศัพท์ภาษาอังกฤษ ครอบคลุม A1–C2 อ่านฟรี',
   keywords: ['ไวยากรณ์ภาษาอังกฤษ', 'สรุปไวยากรณ์ CEFR', 'English grammar CEFR', 'must know CEFR', 'หลักภาษาอังกฤษ', 'เตรียมสอบ CEFR'],
   alternates: {
     canonical: 'https://cefr-ready.site/must-know',
@@ -27,25 +27,30 @@ export const metadata: Metadata = {
 };
 
 export default async function MustKnowPage() {
-  const data = await db
-    .select({
-      id: articles.id,
-      title: articles.title,
-      slug: articles.slug,
-      category: articles.category,
-      cefrLevel: articles.cefrLevel,
-      tags: articles.tags,
-      content: articles.content,
-    })
-    .from(articles)
-    .where(eq(articles.isPublished, true))
-    .orderBy(desc(articles.createdAt));
+  const [articleRows, vocabCountResult] = await Promise.all([
+    db
+      .select({
+        id: articles.id,
+        title: articles.title,
+        slug: articles.slug,
+        category: articles.category,
+        cefrLevel: articles.cefrLevel,
+        tags: articles.tags,
+        content: articles.content,
+      })
+      .from(articles)
+      .where(eq(articles.isPublished, true))
+      .orderBy(desc(articles.createdAt)),
+    db
+      .select({ count: count() })
+      .from(vocabularies)
+      .where(eq(vocabularies.isPublished, true)),
+  ]);
 
-  // Cast tags safely since it comes back as unknown from raw db in some queries, or string[]
-  const dbArticles: DbArticle[] = data.map((a) => ({
+  const dbArticles: DbArticle[] = articleRows.map((a) => ({
     ...a,
     tags: Array.isArray(a.tags) ? (a.tags as string[]) : [],
   }));
 
-  return <MustKnowClient dbArticles={dbArticles} />;
+  return <MustKnowClient dbArticles={dbArticles} totalVocabularies={vocabCountResult[0].count} />;
 }
