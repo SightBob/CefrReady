@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"c:\\\\Code\\\\CefrReady\\\\CefrReady\\\" && node test-parse.mjs\",\"description\":\"Test all 4 CSV parsing cases with expected row counts\"}",
-  "error": "Exit code 1\n=== No header ===\nRows: 1 ✓\nRow 0: type=form-meaning, keys=13, article=valid\n\n=== With header ===\nRows: 1 ✓\nRow 0: type=form-meaning, keys=13, article=valid\n\n=== Word-wrapped, no header ===\nRows: 1 ✓\nRow 0: type=form-meaning, keys=13, article=valid\n\n=== Word-wrapped, with header ===\nfile:///C:/Code/CefrReady/CefrReady/test-parse.mjs:74\r\n    for (const [k, v] of Object.entries(row)) out[k.trim()] = (v ?? '').trim();\r\n                                                                    ...",
-  "timestamp": "2026-05-31T10:12:33.093Z",
-  "retry_count": 1
-}

@@ -36,3 +36,4 @@ local_db_dump.sql
 
 # OMC
 .omc/
+.opencode/
