@@ -6,6 +6,11 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
+
+const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'), { ssr: false });
+const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'), { ssr: false });
+const FormMeaningQuiz = dynamic(() => import('@/components/FormMeaningQuiz'), { ssr: false });
 
 const TOTAL_QUESTIONS = 45;
 const TOTAL_SECONDS = 60 * 60;
@@ -212,7 +217,49 @@ export default function FullTestExamPage() {
           </div>
           <p className="text-lg font-medium text-slate-900 mb-6">{question.questionText}</p>
 
-          {question.testTypeId !== 'form-meaning' && (
+          {question.testTypeId === 'listening' && (
+            <ListeningAudioPlayer
+              audioUrl={question.audioUrl ?? undefined}
+              transcript={question.transcript ?? question.questionText}
+              questionText={question.questionText}
+              options={[
+                { key: 'A', value: question.optionA ?? '' },
+                { key: 'B', value: question.optionB ?? '' },
+                { key: 'C', value: question.optionC ?? '' },
+                { key: 'D', value: question.optionD ?? '' },
+              ]}
+              selectedAnswer={selectedAnswer}
+              correctAnswer={null}
+              explanation={null}
+              onAnswerSelect={setSelectedAnswer}
+            />
+          )}
+
+          {question.testTypeId === 'focus-meaning' && (
+            <FocusMeaningConversationCard
+              conversation={question.conversation ?? []}
+              question={question.questionText}
+              options={[
+                question.optionA ?? '',
+                question.optionB ?? '',
+                question.optionC ?? '',
+                question.optionD ?? '',
+              ]}
+              selectedAnswer={selectedAnswer ? ['A','B','C','D'].indexOf(selectedAnswer) : null}
+              correctAnswer={null}
+              explanation={''}
+              onAnswerSelect={(idx) => setSelectedAnswer(['A','B','C','D'][idx])}
+            />
+          )}
+
+          {question.testTypeId === 'form-meaning' && question.article && (
+            <FormMeaningQuiz
+              article={question.article}
+              onChange={(answers) => setSelectedAnswer(JSON.stringify(answers))}
+            />
+          )}
+
+          {question.testTypeId !== 'listening' && question.testTypeId !== 'focus-meaning' && question.testTypeId !== 'form-meaning' && (
             <div className="space-y-3">
               {['A', 'B', 'C', 'D'].map((key) => {
                 const value = question[`option${key}` as keyof Question] as string | null;
