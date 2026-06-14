@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getNextLevel, selectQuestion } from './algorithm';
+import { getNextLevel, selectQuestion, calculateRawScore, calculateMaxPossibleScore, normalizeScore, normalizedScoreToCefr } from './algorithm';
 import type { CefrLevel } from './constants';
 import type { DbQuestion } from './algorithm';
 
@@ -72,5 +72,26 @@ describe('selectQuestion', () => {
       requiredTestTypeId: 'focus-form',
     });
     expect(result).toBeNull();
+  });
+});
+
+describe('scoring', () => {
+  it('calculates raw and normalized score', () => {
+    const path = [
+      { cefrLevel: 'B1' as CefrLevel, wasCorrect: true },
+      { cefrLevel: 'B2' as CefrLevel, wasCorrect: true },
+      { cefrLevel: 'A2' as CefrLevel, wasCorrect: false },
+    ];
+    const raw = calculateRawScore(path);
+    const max = calculateMaxPossibleScore(path);
+    expect(raw).toBe(7);
+    expect(max).toBe(9);
+    expect(normalizeScore(raw, max)).toBe(93);
+  });
+
+  it('maps normalized score to CEFR', () => {
+    expect(normalizedScoreToCefr(93)).toBe('C1');
+    expect(normalizedScoreToCefr(45)).toBe('B1');
+    expect(normalizedScoreToCefr(0)).toBe('A1');
   });
 });

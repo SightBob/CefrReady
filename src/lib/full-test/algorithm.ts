@@ -1,5 +1,5 @@
 import type { questions } from '@/db/schema';
-import { type CefrLevel, CEFR_LEVELS, cefrIndex, clampLevel } from './constants';
+import { type CefrLevel, CEFR_LEVELS, CEFR_WEIGHTS, CEFR_SCORE_RANGES, cefrIndex, clampLevel } from './constants';
 
 export type DbQuestion = typeof questions.$inferSelect;
 
@@ -76,4 +76,36 @@ export function selectQuestion({
 
   // 4. Nothing available
   return null;
+}
+
+export function calculateRawScore(
+  path: Array<{ cefrLevel: CefrLevel; wasCorrect: boolean }>
+): number {
+  return path.reduce((sum, item) => {
+    if (!item.wasCorrect) return sum;
+    return sum + CEFR_WEIGHTS[item.cefrLevel];
+  }, 0);
+}
+
+export function calculateMaxPossibleScore(
+  path: Array<{ cefrLevel: CefrLevel }>
+): number {
+  return path.reduce((sum, item) => sum + CEFR_WEIGHTS[item.cefrLevel], 0);
+}
+
+export function normalizeScore(
+  rawScore: number,
+  maxPossibleScore: number
+): number {
+  if (maxPossibleScore <= 0) return 0;
+  return Math.round((rawScore / maxPossibleScore) * 120);
+}
+
+export function normalizedScoreToCefr(score: number): CefrLevel {
+  const entries = Object.entries(CEFR_SCORE_RANGES) as [CefrLevel, { min: number; max: number }][];
+  for (const [level, range] of entries) {
+    if (score >= range.min && score <= range.max) return level;
+  }
+  if (score < 1) return 'A1';
+  return 'C2';
 }
