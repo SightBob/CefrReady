@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { testAttempts, questions } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { FULL_TEST_PART_DISTRIBUTION, type CefrLevel } from '@/lib/full-test/constants';
+import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, type CefrLevel } from '@/lib/full-test/constants';
 import { selectQuestion } from '@/lib/full-test/algorithm';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
 
@@ -42,6 +42,14 @@ export async function GET() {
 
   const path = (attempt.adaptivePath ?? []) as Array<{ questionId: number; testTypeId: string }>;
   const nextIndex = path.length;
+
+  // If the user already answered the last question, submit the attempt instead of
+  // trying to index past the end of the distribution array.
+  if (nextIndex >= FULL_TEST_TOTAL_QUESTIONS) {
+    const result = await submitAttempt(attempt.id, user.id);
+    return NextResponse.json({ success: true, data: { expired: true, result } });
+  }
+
   const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
 
   const seenIds = new Set(path.map((p) => p.questionId));

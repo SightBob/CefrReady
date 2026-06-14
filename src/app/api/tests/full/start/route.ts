@@ -39,7 +39,7 @@ export async function POST() {
   const progress = await db
     .select()
     .from(userProgress)
-    .where(eq(userProgress.userId, user.id));
+    .where(and(eq(userProgress.userId, user.id), eq(userProgress.testTypeId, 'full-test')));
 
   const overallScore = progress[0]?.averageScore
     ? parseFloat(progress[0].averageScore)
@@ -48,21 +48,8 @@ export async function POST() {
     ? estimateCefrLevel(overallScore)
     : 'B1';
 
-  // Create attempt
-  const [attempt] = await db
-    .insert(testAttempts)
-    .values({
-      userId: user.id,
-      testTypeId: 'full-test',
-      status: 'in_progress',
-      currentLevel: startLevel,
-      timeRemainingSeconds: FULL_TEST_TOTAL_SECONDS,
-      lastActivityAt: new Date(),
-      adaptivePath: [],
-    })
-    .returning();
-
-  // Select first question (slot 0 = form-meaning)
+  // Select first question (slot 0 = form-meaning) before creating the attempt
+  // so we never leave an orphaned in-progress attempt if the pool is empty.
   const firstPart = FULL_TEST_PART_DISTRIBUTION[0];
   const pool = await db
     .select()
@@ -79,6 +66,20 @@ export async function POST() {
   if (!firstQuestion) {
     return NextResponse.json({ success: false, error: 'No questions available' }, { status: 500 });
   }
+
+  // Create attempt only after we know a question is available
+  const [attempt] = await db
+    .insert(testAttempts)
+    .values({
+      userId: user.id,
+      testTypeId: 'full-test',
+      status: 'in_progress',
+      currentLevel: startLevel,
+      timeRemainingSeconds: FULL_TEST_TOTAL_SECONDS,
+      lastActivityAt: new Date(),
+      adaptivePath: [],
+    })
+    .returning();
 
   return NextResponse.json({
     success: true,

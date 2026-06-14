@@ -7,15 +7,16 @@ import { getCurrentUser } from '@/lib/auth-utils';
 import {
   FULL_TEST_PART_DISTRIBUTION,
   FULL_TEST_TOTAL_QUESTIONS,
+  FULL_TEST_TOTAL_SECONDS,
   type CefrLevel,
 } from '@/lib/full-test/constants';
 import { getNextLevel, selectQuestion } from '@/lib/full-test/algorithm';
 
 const bodySchema = z.object({
-  attemptId: z.number(),
-  questionId: z.number(),
+  attemptId: z.number().int(),
+  questionId: z.number().int(),
   selectedAnswer: z.string(),
-  timeRemaining: z.number(),
+  timeRemaining: z.number().int().min(0).max(FULL_TEST_TOTAL_SECONDS),
 });
 
 export const dynamic = 'force-dynamic';
@@ -52,19 +53,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
   }
 
-  // Determine correctness
-  let isCorrect = false;
-  if (question.testTypeId === 'form-meaning' && question.article) {
-    const art = question.article as { blanks: Array<{ id: number; correctAnswer: string }> };
-    let parsed: Record<string, string> = {};
-    try { parsed = JSON.parse(selectedAnswer); } catch {}
-    isCorrect = art.blanks.every(
-      (b) => (parsed[String(b.id)] ?? '').toLowerCase().trim() === b.correctAnswer.toLowerCase().trim()
-    );
-  } else {
-    isCorrect = selectedAnswer.toLowerCase().trim() === (question.correctAnswer ?? '').toLowerCase().trim();
-  }
-
   const currentPath = (attempt.adaptivePath ?? []) as Array<{
     questionId: number;
     testTypeId: string;
@@ -74,6 +62,38 @@ export async function POST(request: NextRequest) {
     selectedAnswer: string;
     orderIndex: number;
   }>;
+
+  // Prevent duplicate answers via replay
+  if (currentPath.some((p) => p.questionId === questionId)) {
+    return NextResponse.json({ success: false, error: 'Question already answered' }, { status: 400 });
+  }
+
+  // Determine correctness
+  let isCorrect = false;
+  if (
+    question.testTypeId === 'form-meaning' &&
+    question.article &&
+    typeof question.article === 'object'
+  ) {
+    const art = question.article as { blanks?: Array<{ id: number; correctAnswer: string }> };
+    if (Array.isArray(art.blanks) && art.blanks.length > 0) {
+      let parsed: Record<string, string> = {};
+      try {
+        parsed = JSON.parse(selectedAnswer);
+      } catch {
+        // Leave parsed empty; the blanks comparison below will fail gracefully.
+      }
+      isCorrect = art.blanks.every(
+        (b) =>
+          (parsed[String(b.id)] ?? '').toLowerCase().trim() ===
+          b.correctAnswer.toLowerCase().trim()
+      );
+    }
+  } else {
+    isCorrect =
+      selectedAnswer.toLowerCase().trim() ===
+      (question.correctAnswer ?? '').toLowerCase().trim();
+  }
 
   const orderIndex = currentPath.length;
   const newPath = [

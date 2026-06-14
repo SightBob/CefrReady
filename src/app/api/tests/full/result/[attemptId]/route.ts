@@ -17,6 +17,10 @@ export async function GET(
   }
 
   const attemptId = parseInt(params.attemptId);
+  if (Number.isNaN(attemptId) || attemptId <= 0) {
+    return NextResponse.json({ success: false, error: 'Invalid attempt ID' }, { status: 400 });
+  }
+
   const [attempt] = await db
     .select()
     .from(testAttempts)

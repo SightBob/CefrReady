@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 400 });
   }
 
-  await db
+  const result = await db
     .update(testAttempts)
     .set({ status: 'cancelled' })
     .where(
@@ -29,7 +29,15 @@ export async function POST(request: NextRequest) {
         eq(testAttempts.userId, user.id),
         eq(testAttempts.status, 'in_progress')
       )
+    )
+    .returning();
+
+  if (result.length === 0) {
+    return NextResponse.json(
+      { success: false, error: 'Attempt not found or already completed' },
+      { status: 400 }
     );
+  }
 
   return NextResponse.json({ success: true });
 }

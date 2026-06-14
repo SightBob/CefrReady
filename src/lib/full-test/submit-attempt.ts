@@ -16,7 +16,10 @@ export async function submitAttempt(attemptId: number, userId: string) {
     .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId)));
 
   if (!attempt) throw new Error('Attempt not found');
-  if (attempt.status === 'completed') return buildResult(attempt);
+  if (attempt.status === 'completed') {
+    const score = parseFloat(attempt.score ?? '0');
+    return buildResult(attempt, score, normalizedScoreToCefr(score));
+  }
   if (attempt.status === 'cancelled') {
     throw new Error('Attempt was cancelled');
   }
