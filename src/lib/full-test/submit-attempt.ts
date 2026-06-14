@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { testAttempts, userAnswers, userProgress } from '@/db/schema';
+import { testAttempts, userAnswers, userProgress, type DbTestAttempt } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { type CefrLevel } from './constants';
 import {
@@ -17,6 +17,9 @@ export async function submitAttempt(attemptId: number, userId: string) {
 
   if (!attempt) throw new Error('Attempt not found');
   if (attempt.status === 'completed') return buildResult(attempt);
+  if (attempt.status === 'cancelled') {
+    throw new Error('Attempt was cancelled');
+  }
 
   const path = (attempt.adaptivePath ?? []) as Array<{
     questionId: number;
@@ -67,7 +70,7 @@ export async function submitAttempt(attemptId: number, userId: string) {
 }
 
 function buildResult(
-  attempt: any,
+  attempt: DbTestAttempt,
   normalized?: number,
   cefrLevel?: CefrLevel,
   correctCount?: number,

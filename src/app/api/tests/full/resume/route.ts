@@ -18,7 +18,11 @@ export async function GET() {
   const [attempt] = await db
     .select()
     .from(testAttempts)
-    .where(and(eq(testAttempts.userId, user.id), eq(testAttempts.status, 'in_progress')))
+    .where(and(
+      eq(testAttempts.userId, user.id),
+      eq(testAttempts.status, 'in_progress'),
+      eq(testAttempts.testTypeId, 'full-test')
+    ))
     .orderBy(sql`${testAttempts.startedAt} desc`)
     .limit(1);
 
@@ -44,7 +48,7 @@ export async function GET() {
   const pool = await db
     .select()
     .from(questions)
-    .where(eq(questions.testTypeId, nextPart));
+    .where(and(eq(questions.testTypeId, nextPart), eq(questions.active, 'true')));
 
   const nextQuestion = selectQuestion({
     questions: pool,

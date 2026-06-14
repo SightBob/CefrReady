@@ -23,7 +23,11 @@ export async function POST() {
   const existing = await db
     .select()
     .from(testAttempts)
-    .where(and(eq(testAttempts.userId, user.id), eq(testAttempts.status, 'in_progress')))
+    .where(and(
+      eq(testAttempts.userId, user.id),
+      eq(testAttempts.status, 'in_progress'),
+      eq(testAttempts.testTypeId, 'full-test')
+    ))
     .orderBy(sql`${testAttempts.startedAt} desc`)
     .limit(1);
 

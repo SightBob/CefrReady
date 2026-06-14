@@ -26,6 +26,10 @@ export async function GET(
     return NextResponse.json({ success: false, error: 'Attempt not found' }, { status: 404 });
   }
 
+  if (attempt.status !== 'completed') {
+    return NextResponse.json({ success: false, error: 'Attempt not completed' }, { status: 400 });
+  }
+
   return NextResponse.json({
     success: true,
     data: {

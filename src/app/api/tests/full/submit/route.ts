@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
   try {
     const result = await submitAttempt(parsed.data.attemptId, user.id);
     return NextResponse.json({ success: true, data: result });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 404 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ success: false, error: message }, { status: 404 });
   }
 }
