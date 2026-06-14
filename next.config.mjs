@@ -68,8 +68,10 @@ const sentryOptions = {
   project: process.env.SENTRY_PROJECT,
   silent: true,
   tunnelRoute: '/sentry-tunnel',
-  autoInstrumentServerFunctions: false,
-  autoInstrumentMiddleware: false,
+  webpack: {
+    autoInstrumentServerFunctions: false,
+    autoInstrumentMiddleware: false,
+  },
 };
 
 // Only wrap with Sentry config when DSN is provided

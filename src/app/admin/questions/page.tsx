@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Plus,
@@ -133,12 +133,7 @@ export default function QuestionsManagement() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [deletingDupId, setDeletingDupId] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchTestTypes();
-    fetchQuestions();
-  }, [selectedTestType]);
-
-  const fetchTestTypes = async () => {
+  const fetchTestTypes = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/test-types');
       if (response.ok) {
@@ -148,9 +143,9 @@ export default function QuestionsManagement() {
     } catch (error) {
       console.error('Error fetching test types:', error);
     }
-  };
+  }, []);
 
-  const fetchQuestions = async () => {
+  const fetchQuestions = useCallback(async () => {
     try {
       setLoading(true);
       const url = selectedTestType
@@ -166,7 +161,12 @@ export default function QuestionsManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedTestType]);
+
+  useEffect(() => {
+    fetchTestTypes();
+    fetchQuestions();
+  }, [fetchTestTypes, fetchQuestions]);
 
   const handleExportCSV = async () => {
     try {

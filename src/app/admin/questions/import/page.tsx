@@ -383,13 +383,13 @@ export default function ImportQuestionsPage() {
             <h3 className="text-sm font-semibold text-slate-700">รูปแบบ JSON สำหรับแต่ละประเภท</h3>
 
             <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
-              <p className="text-sm font-medium text-purple-700 mb-2">form-meaning — column "article"</p>
+              <p className="text-sm font-medium text-purple-700 mb-2">form-meaning — column &quot;article&quot;</p>
               <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto">{`{"title":"ชื่อบทความ","text":"The cat sat on the {{1}} and the {{2}}.","blanks":[{"id":1,"correctAnswer":"mat","hint":"เฟอร์นิเจอร์"},{"id":2,"correctAnswer":"dog"}]}`}</pre>
               <p className="text-xs text-purple-600 mt-2">{'ใช้ {{1}}, {{2}} ใน text เพื่อระบุตำแหน่งช่องว่าง — id ต้องตรงกับ blanks array'}</p>
             </div>
 
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-              <p className="text-sm font-medium text-blue-700 mb-2">focus-meaning — column "conversation"</p>
+              <p className="text-sm font-medium text-blue-700 mb-2">focus-meaning — column &quot;conversation&quot;</p>
               <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto">{`[{"speaker":"A","name":"Tom","text":"What time is it?"},{"speaker":"B","name":"Jane","text":"It's 3 o'clock."}]`}</pre>
               <p className="text-xs text-blue-600 mt-2">speaker: A/B/C/D, name: ชื่อผู้พูด (ไม่จำเป็น), text: ข้อความ</p>
             </div>

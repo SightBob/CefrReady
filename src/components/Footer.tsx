@@ -1,8 +1,15 @@
+'use client';
+
 import Link from 'next/link';
 import { GraduationCap, Facebook } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function Footer() {
-  const year = new Date().getFullYear();
+  const [year, setYear] = useState<number | null>(null);
+
+  useEffect(() => {
+    setYear(new Date().getFullYear());
+  }, []);
 
   return (
     <footer className="bg-white border-t border-[#EAEAEA] mt-auto">

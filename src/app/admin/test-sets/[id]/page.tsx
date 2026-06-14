@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -111,11 +111,7 @@ export default function TestSetDetailPage({ params }: { params: { id: string } }
   const [creating, setCreating] = useState(false);
   const [audioUploading, setAudioUploading] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [setId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/test-sets/${setId}`);
@@ -135,7 +131,11 @@ export default function TestSetDetailPage({ params }: { params: { id: string } }
     } finally {
       setLoading(false);
     }
-  };
+  }, [setId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleRemoveQuestion = async (questionId: number) => {
     if (!confirm('ลบข้อสอบนี้ออกจากชุด?')) return;

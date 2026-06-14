@@ -44,8 +44,8 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
       description,
       type: 'article',
       tags: Array.isArray(article.tags) ? (article.tags as string[]) : [],
-      publishedTime: (article as any).createdAt?.toISOString?.(),
-      modifiedTime: (article as any).updatedAt?.toISOString?.(),
+      publishedTime: article.createdAt.toISOString(),
+      modifiedTime: article.updatedAt.toISOString(),
     },
     twitter: {
       card: 'summary_large_image',
@@ -87,8 +87,8 @@ export default async function MustKnowArticlePage({ params }: ArticlePageProps) 
         title: article.title,
         description,
         url: `${BASE_URL}/must-know/${slug}`,
-        datePublished: (article as any).createdAt?.toISOString?.(),
-        dateModified: (article as any).updatedAt?.toISOString?.(),
+        datePublished: article.createdAt.toISOString(),
+        dateModified: article.updatedAt.toISOString(),
         tags: Array.isArray(article.tags) ? (article.tags as string[]) : [],
       })} />
       <JsonLd data={breadcrumbSchema([

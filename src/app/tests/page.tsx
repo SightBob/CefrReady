@@ -25,13 +25,7 @@ import { fetchSectionsFromDb } from '@/lib/sections';
 
 async function getSections(): Promise<SectionData[]> {
   try {
-    const rawSections = await fetchSectionsFromDb();
-    // Convert to SectionData format expected by frontend
-    return rawSections.map(s => ({
-      ...s,
-      icon: s.icon as any,
-      color: s.color as any,
-    }));
+    return await fetchSectionsFromDb();
   } catch (err) {
     console.error('[tests/page] Failed to fetch sections:', err);
   }

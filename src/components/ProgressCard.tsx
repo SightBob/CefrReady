@@ -17,7 +17,7 @@ interface ProgressCardProps {
   previousScore?: number;
 }
 
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, React.ElementType> = {
   'focus-form': PenTool,
   'focus-meaning': BookOpen,
   'form-meaning': Layers,

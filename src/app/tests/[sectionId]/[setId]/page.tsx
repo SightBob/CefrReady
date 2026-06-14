@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -467,34 +467,7 @@ export default function SetQuizPage() {
   const posthog = usePostHog();
   const testStartedAtRef = useRef<number>(0);
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/tests');
-      return;
-    }
-    if (status === 'authenticated' && !isNaN(setId)) {
-      fetchSet();
-    }
-  }, [status, setId]);
-
-  // Track test_started when questions are loaded
-  useEffect(() => {
-    if (setData && posthog && testStartedAtRef.current === 0) {
-      testStartedAtRef.current = Date.now();
-      const levels = setData.questions.map(q => q.cefrLevel).filter(Boolean);
-      const levelCounts: Record<string, number> = {};
-      levels.forEach(l => { levelCounts[l] = (levelCounts[l] || 0) + 1; });
-      const targetLevel = Object.entries(levelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-      posthog.capture('test_started', {
-        section_id: sectionId,
-        test_set_id: setId,
-        test_type: sectionId,
-        target_level: targetLevel,
-      });
-    }
-  }, [setData, posthog, sectionId, setId]);
-
-  const fetchSet = async () => {
+  const fetchSet = useCallback(async () => {
     try {
       const res = await fetch(`/api/test-sets/${setId}`);
       const data = await res.json();
@@ -520,7 +493,34 @@ export default function SetQuizPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setId, sectionId]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/tests');
+      return;
+    }
+    if (status === 'authenticated' && !isNaN(setId)) {
+      fetchSet();
+    }
+  }, [status, setId, sectionId, router, fetchSet]);
+
+  // Track test_started when questions are loaded
+  useEffect(() => {
+    if (setData && posthog && testStartedAtRef.current === 0) {
+      testStartedAtRef.current = Date.now();
+      const levels = setData.questions.map(q => q.cefrLevel).filter(Boolean);
+      const levelCounts: Record<string, number> = {};
+      levels.forEach(l => { levelCounts[l] = (levelCounts[l] || 0) + 1; });
+      const targetLevel = Object.entries(levelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      posthog.capture('test_started', {
+        section_id: sectionId,
+        test_set_id: setId,
+        test_type: sectionId,
+        target_level: targetLevel,
+      });
+    }
+  }, [setData, posthog, sectionId, setId]);
 
   const handleAnswer = (answer: string) => {
     if (selectedAnswer !== null) return;

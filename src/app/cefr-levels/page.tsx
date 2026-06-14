@@ -43,8 +43,8 @@ export default async function CefrLevelsPage() {
         title: article.title,
         description: article.content?.slice(0, 200)?.replace(/#+\s/g, '').replace(/[\*_`>\[\]]/g, '').trim() || '',
         url: `${BASE_URL}/cefr-levels`,
-        datePublished: (article as any).createdAt?.toISOString?.(),
-        dateModified: (article as any).updatedAt?.toISOString?.(),
+        datePublished: article.createdAt.toISOString(),
+        dateModified: article.updatedAt.toISOString(),
         tags,
       })} />
       <JsonLd data={breadcrumbSchema([

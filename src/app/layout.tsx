@@ -121,9 +121,13 @@ export default function RootLayout({
       <body className={`${prompt.variable} ${pridi.variable} font-sans`}>
         <SessionProvider>
           <PostHogProvider>
-            <PHCapture />
+            <Suspense fallback={null}>
+              <PHCapture />
+            </Suspense>
             <div className="min-h-screen flex flex-col font-sans">
-              <Header />
+              <Suspense fallback={null}>
+                <Header />
+              </Suspense>
               <main className="flex-1">
                 <Suspense fallback={
                   <div className="flex items-center justify-center min-h-[60vh]">

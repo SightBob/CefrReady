@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Check, LayoutList, Loader2 } from 'lucide-react';
 
 const SECTION_COLORS: Record<string, string> = {
@@ -39,13 +39,7 @@ export default function AssignToTestSetModal({
   const [assigning, setAssigning] = useState<number | null>(null);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchSections();
-    }
-  }, [isOpen]);
-
-  const fetchSections = async () => {
+  const fetchSections = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin/test-sets');
@@ -61,7 +55,13 @@ export default function AssignToTestSetModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterSectionId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchSections();
+    }
+  }, [isOpen, fetchSections]);
 
   const handleAssign = async (testSetId: number) => {
     setAssigning(testSetId);

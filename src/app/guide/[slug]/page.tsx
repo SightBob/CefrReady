@@ -12,8 +12,8 @@ export const revalidate = 3600;
 
 const BASE_URL = 'https://cefr-ready.site';
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const { slug } = params;
   const rows = await db
     .select()
     .from(articles)
@@ -40,8 +40,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function GuideDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export default async function GuideDetailPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const rows = await db
     .select()
     .from(articles)
@@ -59,8 +59,8 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
         title: article.title,
         description: article.content?.slice(0, 200)?.replace(/#+\s/g, '').replace(/[\*_`>\[\]]/g, '').trim() || '',
         url: `${BASE_URL}/guide/${slug}`,
-        datePublished: (article as any).createdAt?.toISOString?.(),
-        dateModified: (article as any).updatedAt?.toISOString?.(),
+        datePublished: article.createdAt.toISOString(),
+        dateModified: article.updatedAt.toISOString(),
         tags,
       })} />
       <JsonLd data={breadcrumbSchema([

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, Plus, Trash2, Upload, X, LayoutList } from 'lucide-react';
@@ -82,12 +82,7 @@ export default function EditQuestion() {
     article: { title: '', text: '', blanks: [] } as Article,
   });
 
-  useEffect(() => {
-    fetchTestTypes();
-    fetchQuestion();
-  }, [questionId]);
-
-  const fetchTestTypes = async () => {
+  const fetchTestTypes = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/test-types');
       if (response.ok) {
@@ -97,9 +92,9 @@ export default function EditQuestion() {
     } catch (error) {
       console.error('Error fetching test types:', error);
     }
-  };
+  }, []);
 
-  const fetchQuestion = async () => {
+  const fetchQuestion = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/questions/${questionId}`);
       if (response.ok) {
@@ -133,7 +128,12 @@ export default function EditQuestion() {
     } finally {
       setFetching(false);
     }
-  };
+  }, [questionId, router]);
+
+  useEffect(() => {
+    fetchTestTypes();
+    fetchQuestion();
+  }, [fetchTestTypes, fetchQuestion]);
 
   const handleRemoveFromSet = async (testSetId: number) => {
     try {

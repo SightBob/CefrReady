@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, LayoutDashboard } from 'lucide-react';
@@ -46,11 +46,7 @@ export default function EditTestTypePage() {
     active: 'true',
   });
 
-  useEffect(() => {
-    fetchTestType();
-  }, [id]);
-
-  const fetchTestType = async () => {
+  const fetchTestType = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/test-types/${id}`);
       if (response.ok) {
@@ -72,7 +68,11 @@ export default function EditTestTypePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchTestType();
+  }, [fetchTestType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

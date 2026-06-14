@@ -5,6 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 import { HelpCircle } from 'lucide-react';
 
 const TYPE_COLORS: Record<string, string> = {
@@ -64,7 +65,7 @@ function HardQuestionRow({
   );
 }
 
-function CustomBarTooltip({ active, payload }: any) {
+function CustomBarTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -161,7 +162,7 @@ export function QuestionAnalytics({
                       tick={{ fill: '#94A3B8', fontSize: 11 }}
                       tickFormatter={(v) => `${v}%`}
                     />
-                    <Tooltip content={<CustomBarTooltip />} />
+                    <Tooltip content={CustomBarTooltip} />
                     <Bar
                       dataKey="correctRate"
                       radius={[6, 6, 0, 0]}

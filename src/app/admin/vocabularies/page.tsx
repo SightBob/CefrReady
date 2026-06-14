@@ -45,7 +45,7 @@ export default function AdminVocabulariesPage() {
     if (params.get('cefrLevel')) setFilterLevel(params.get('cefrLevel')!);
   }, []);
 
-  useEffect(() => { fetchVocabularies(1); }, []);
+  useEffect(() => { fetchVocabularies(1); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchVocabularies = async (page: number) => {
     setLoading(true);

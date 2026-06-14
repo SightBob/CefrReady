@@ -16,6 +16,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CategoryData {
@@ -54,7 +55,7 @@ const SKILL_TIPS: Record<string, string> = {
 };
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
-function CustomLineTooltip({ active, payload }: any) {
+function CustomLineTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -178,7 +179,7 @@ export function HistoryLineChart({ attempts }: { attempts: AttemptData[] }) {
               tick={{ fill: '#AAAAAA', fontSize: 11 }}
               tickFormatter={(v) => `${v}`}
             />
-            <Tooltip content={<CustomLineTooltip />} />
+            <Tooltip content={CustomLineTooltip} />
             <Area
               type="monotone"
               dataKey="score"

@@ -32,7 +32,7 @@ import { fetchSectionsFromDb } from '@/lib/sections';
 async function getSectionWithSets(sectionId: string): Promise<SectionWithSets | null> {
   try {
     const rawSections = await fetchSectionsFromDb();
-    const sections: SectionWithSets[] = rawSections as any;
+    const sections: SectionWithSets[] = rawSections;
     return sections.find((s) => s.id === sectionId) ?? null;
   } catch (err) {
     console.error('[tests/sectionId] Failed to fetch section:', err);

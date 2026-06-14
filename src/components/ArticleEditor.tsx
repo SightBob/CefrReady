@@ -56,6 +56,7 @@ export default function ArticleEditor({ article, onChange }: ArticleEditorProps)
     if (JSON.stringify(newBlanks.map(b => b.id)) !== JSON.stringify(article.blanks.map(b => b.id))) {
       onChange({ ...article, blanks: newBlanks });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [article.text]);
 
   const insertBlank = () => {

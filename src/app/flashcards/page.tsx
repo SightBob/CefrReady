@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default async function FlashcardsPage() {
   const session = await auth();
   if (!session?.user) {
-    redirect('/login');
+    redirect('/');
   }
 
   return <FlashcardsClient />;

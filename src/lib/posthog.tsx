@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import posthog from 'posthog-js';
@@ -112,14 +112,14 @@ export function PHCapture() {
   const pageEnterTimeRef = useRef<number>(Date.now());
 
   // Helper: fire $pageleave for a given URL with time spent
-  const firePageLeave = (url: string) => {
+  const firePageLeave = useCallback((url: string) => {
     if (!posthog) return;
     const duration = Math.round((Date.now() - pageEnterTimeRef.current) / 1000);
     posthog.capture('$pageleave', {
       $current_url: url,
       $time_spent: duration,
     });
-  };
+  }, [posthog]);
 
   // Capture $pageleave on tab hide / close / navigate away
   useEffect(() => {
@@ -141,7 +141,7 @@ export function PHCapture() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [posthog, pathname]);
+  }, [posthog, pathname, firePageLeave]);
 
   // Capture $pageview on route change, $pageleave for the previous route
   useEffect(() => {
@@ -154,7 +154,7 @@ export function PHCapture() {
       previousPathRef.current = pathname;
       pageEnterTimeRef.current = Date.now();
     }
-  }, [pathname, posthog]);
+  }, [pathname, posthog, firePageLeave]);
 
   return null;
 }

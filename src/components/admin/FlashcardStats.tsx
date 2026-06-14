@@ -3,13 +3,14 @@
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
 } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 import { Sparkle, TrendingDown, CalendarCheck, Sticker } from 'lucide-react';
 
 const STATUS_COLORS = ['#F59E0B', '#3B82F6', '#10B981'];
 const STATUS_LABELS = ['ใหม่', 'กำลังเรียน', 'จำได้แล้ว'];
 const STATUS_KEYS = ['newCards', 'learningCards', 'masteredCards'] as const;
 
-function CustomPieTooltip({ active, payload }: any) {
+function CustomPieTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null;
   const d = payload[0];
   return (
@@ -67,7 +68,7 @@ export function FlashcardStats({
                       <Cell key={i} fill={STATUS_COLORS[i]} />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomPieTooltip />} />
+                  <Tooltip content={CustomPieTooltip} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

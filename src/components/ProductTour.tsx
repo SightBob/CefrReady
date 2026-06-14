@@ -231,7 +231,7 @@ export default function ProductTour({
         top = Math.max(80, top);
       }
 
-      setArrowPosition(arrow as any);
+      setArrowPosition(arrow);
       setArrowLeft(calculatedArrowLeft);
       setTooltipStyle({
         position: 'fixed',

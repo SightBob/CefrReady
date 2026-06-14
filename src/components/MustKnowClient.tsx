@@ -112,7 +112,7 @@ export default function MustKnowClient({ dbArticles, totalVocabularies }: MustKn
     if (activeTab === 'vocab') {
       fetchVocab(1, true);
     }
-  }, [activeTab, cefrRangeFilter, vocabSearch]);
+  }, [activeTab, cefrRangeFilter, vocabSearch, fetchVocab]);
 
   const categories = useMemo(() => {
     const cats = new Set<string>();

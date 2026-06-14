@@ -49,8 +49,8 @@ export default async function CefrPage() {
         title: article.title,
         description: plainDesc,
         url: `${BASE_URL}/cefr`,
-        datePublished: (article as any).createdAt?.toISOString?.(),
-        dateModified: (article as any).updatedAt?.toISOString?.(),
+        datePublished: article.createdAt.toISOString(),
+        dateModified: article.updatedAt.toISOString(),
         tags,
       })} />
       <JsonLd data={breadcrumbSchema([

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowLeft, CheckCircle, XCircle, Trophy, Clock, RotateCcw, ChevronRight } from 'lucide-react';
@@ -82,18 +82,7 @@ export default function ReviewPage() {
   const [grammarArticles, setGrammarArticles] = useState<ArticleSummary[]>([]);
   const [vocabularyArticles, setVocabularyArticles] = useState<ArticleSummary[]>([]);
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/');
-      return;
-    }
-    if (status === 'authenticated' && params.attemptId) {
-      fetchReviewData();
-      fetchArticles();
-    }
-  }, [status, params.attemptId]);
-
-  const fetchArticles = async () => {
+  const fetchArticles = useCallback(async () => {
     try {
       const res = await fetch('/api/articles');
       const json = await res.json();
@@ -103,9 +92,9 @@ export default function ReviewPage() {
         setVocabularyArticles(all.filter(a => a.category === 'vocabulary').slice(0, 3));
       }
     } catch { /* non-critical */ }
-  };
+  }, []);
 
-  const fetchReviewData = async () => {
+  const fetchReviewData = useCallback(async () => {
     try {
       const res = await fetch(`/api/tests/attempts/${params.attemptId}`);
       const data: ReviewResponse = await res.json();
@@ -125,7 +114,18 @@ export default function ReviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.attemptId, posthog]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/');
+      return;
+    }
+    if (status === 'authenticated' && params.attemptId) {
+      fetchReviewData();
+      fetchArticles();
+    }
+  }, [status, params.attemptId, router, fetchReviewData, fetchArticles]);
 
   // ─── Loading Skeleton ──────────────────────────────────────────
   if (loading) {
