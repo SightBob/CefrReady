@@ -3,13 +3,12 @@ import { db } from '@/db';
 import { testAttempts, userProgress, questions } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import {
   FULL_TEST_PART_DISTRIBUTION,
   FULL_TEST_TOTAL_SECONDS,
   type CefrLevel,
 } from '@/lib/full-test/constants';
-import { selectQuestion } from '@/lib/full-test/algorithm';
+import { selectQuestion, normalizedScoreToCefr } from '@/lib/full-test/algorithm';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +44,7 @@ export async function POST() {
     ? parseFloat(progress[0].averageScore)
     : 0;
   const startLevel = overallScore > 0
-    ? estimateCefrLevel(overallScore)
+    ? normalizedScoreToCefr(overallScore)
     : 'B1';
 
   // Select first question (slot 0 = form-meaning) before creating the attempt
