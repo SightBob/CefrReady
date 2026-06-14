@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import SectionCard, { type SectionData } from '@/components/SectionCard';
 import TestsLoginPrompt from './TestsLoginPrompt';
+import FullTestCard from '@/components/FullTestCard';
 
 export const metadata: Metadata = {
   title: 'ข้อสอบ CEFR ทุกทักษะ',
@@ -46,6 +47,8 @@ export default async function TestsPage() {
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Full Tests</h1>
           <p className="text-slate-600 mt-2">Complete tests with progress tracking and detailed results</p>
         </div>
+
+        <FullTestCard />
 
         <TestsLoginPrompt />
 
@@ -92,6 +95,8 @@ export default async function TestsPage() {
           ! Select a section to begin.
         </p>
       </div>
+
+      <FullTestCard />
 
       {sections.length === 0 ? (
         <div className="text-center py-16 text-slate-500">
