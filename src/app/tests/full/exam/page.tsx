@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
