@@ -15,6 +15,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "npx tsx scripts/seed-admin.ts",
+    "db:seed-full-test": "npx tsx scripts/seed-full-test-type.ts",
     "db:cleanup": "npx tsx scripts/cleanup-tables.ts",
     "db:add-questions": "npx tsx scripts/add-sample-questions.ts"
   },
