@@ -65,6 +65,11 @@ export async function GET() {
     requiredTestTypeId: nextPart,
   });
 
+  if (!nextQuestion) {
+    const result = await submitAttempt(attempt.id, user.id);
+    return NextResponse.json({ success: true, data: { expired: true, result, reason: 'pool_exhausted' } });
+  }
+
   return NextResponse.json({
     success: true,
     data: {
