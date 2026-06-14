@@ -118,6 +118,8 @@ Correct answer = 1, incorrect = 0.
 - **Question 1:** No prior data. Use the result of this question only.
   - Correct → move up 1 level.
   - Incorrect → move down 1 level.
+
+  **Note:** Since slot 1 is always a `form-meaning` question (all-or-nothing scoring per Section 6), this means the first level adjustment is based on an all-or-nothing result for a multi-blank item. This is an accepted design tradeoff — it may slightly bias the early trajectory downward if the user gets some but not all blanks correct on question 1.
 - **Question 2:** Use the average of the last 2 answers.
   - Average ≥ 0.7 → move up 1 level.
   - Average ≤ 0.3 → move down 1 level.
@@ -134,6 +136,8 @@ Level changes are capped at A1 (lowest) and C2 (highest).
 3. If all questions at that level have been used, fall back to the nearest CEFR level that still has unused questions.
 4. If absolutely no unused questions remain anywhere, use a previously seen question. If the pool is empty, end the test early.
 5. Respect the part distribution: the selected question must belong to the next required part in the sequence (see Part Distribution).
+
+**Note:** Fallback applies only to the CEFR level dimension. The part type (testTypeId) for each slot is always fixed per the Part Distribution sequence and is never changed by fallback logic. The algorithm filters by (fixed part type for this slot) AND (target/fallback CEFR level).
 
 ### Part Distribution
 
@@ -229,7 +233,7 @@ The single `form-meaning` question is an article with multiple blanks. It counts
 - `/tests` — Add a prominent "Full Mock Exam" card at the top. Existing section cards remain below.
 - `/tests/full` — Intro page with CEFR score table, part distribution, rules, and Start button.
 - `/tests/full/exam` — Active exam UI.
-- `/tests/full/results` — Results page with total score, CEFR level, per-part breakdown, and adaptive path summary.
+- `/tests/full/results` — Results page with total score, CEFR level, per-part breakdown, and adaptive path summary. Handles early termination gracefully if the question pool is exhausted before 45 questions.
 
 ### Reused Components
 
@@ -243,8 +247,12 @@ The single `form-meaning` question is an article with multiple blanks. It counts
 ### Exam UI Requirements
 
 - Show timer counting down from 60 minutes continuously.
-- Show progress: "Question X of 45".
+- Show progress: "Question X of 45" (or "Question X of N" if the exam ends early due to pool exhaustion).
 - No Pause button.
+
+**Note:** If the exam ends early due to pool exhaustion (Section 9.3), the progress indicator and results page must handle N < 45 questions gracefully:
+- Exam UI: "Question X of N" where N is the actual planned total (may be reduced mid-exam if pool exhaustion is detected early — though typically this would only be known near the end).
+- Results page: per-part breakdown and overall summary are based on questions actually delivered, not a hardcoded 45.
 - No Previous button.
 - Confirm before skipping an unanswered question.
 - Show Cancel Exam button with confirmation.
