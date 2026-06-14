@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { getNextLevel, selectQuestion, calculateRawScore, calculateMaxPossibleScore, normalizeScore, normalizedScoreToCefr } from './algorithm';
 import type { CefrLevel } from './constants';
-import type { DbQuestion } from './algorithm';
+import type { DbQuestion } from '@/db/schema';
 
 describe('getNextLevel', () => {
+  it('keeps current level with empty history', () => {
+    expect(getNextLevel('B1', [])).toBe('B1');
+  });
+
   it('moves up after first correct answer', () => {
     expect(getNextLevel('B1', [true])).toBe('B2');
   });
@@ -38,7 +42,9 @@ const makeQuestion = (id: number, testTypeId: string, cefrLevel: CefrLevel): DbQ
     testTypeId,
     cefrLevel,
     questionText: '',
-  } as unknown as DbQuestion);
+    active: 'true',
+    orderIndex: 0,
+  } as DbQuestion);
 
 describe('selectQuestion', () => {
   it('returns target level when available', () => {
@@ -114,5 +120,13 @@ describe('scoring', () => {
     expect(normalizedScoreToCefr(93)).toBe('C1');
     expect(normalizedScoreToCefr(45)).toBe('B1');
     expect(normalizedScoreToCefr(0)).toBe('A1');
+  });
+
+  it('maps boundary scores to CEFR', () => {
+    expect(normalizedScoreToCefr(1)).toBe('A1');
+    expect(normalizedScoreToCefr(20)).toBe('A1');
+    expect(normalizedScoreToCefr(21)).toBe('A2');
+    expect(normalizedScoreToCefr(120)).toBe('C2');
+    expect(normalizedScoreToCefr(200)).toBe('C2');
   });
 });

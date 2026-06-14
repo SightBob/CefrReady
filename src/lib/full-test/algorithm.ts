@@ -1,12 +1,12 @@
-import type { questions } from '@/db/schema';
+import { type DbQuestion } from '@/db/schema';
 import { type CefrLevel, CEFR_LEVELS, CEFR_WEIGHTS, CEFR_SCORE_RANGES, cefrIndex, clampLevel } from './constants';
-
-export type DbQuestion = typeof questions.$inferSelect;
 
 export function getNextLevel(
   currentLevel: CefrLevel,
   answerHistory: boolean[]
 ): CefrLevel {
+  if (answerHistory.length === 0) return currentLevel;
+
   const currentIndex = cefrIndex(currentLevel);
 
   // Question 1: use single result
