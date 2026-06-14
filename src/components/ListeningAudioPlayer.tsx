@@ -20,6 +20,7 @@ interface ListeningAudioPlayerProps {
   onAudioPlayed?: () => void;
   onAnswerSelect: (answer: string) => void;
   disabled?: boolean;
+  hideFeedback?: boolean;
 }
 
 export default function ListeningAudioPlayer({
@@ -33,6 +34,7 @@ export default function ListeningAudioPlayer({
   onAudioPlayed,
   onAnswerSelect,
   disabled = false,
+  hideFeedback = false,
 }: ListeningAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
@@ -127,7 +129,7 @@ export default function ListeningAudioPlayer({
   };
 
   const isCorrect = selectedAnswer === correctAnswer;
-  const showExplanation = selectedAnswer !== null && explanation !== null;
+  const showExplanation = selectedAnswer !== null && explanation !== null && !hideFeedback;
 
   const renderTranscript = (text: string) => {
     if (!text) return null;
@@ -241,7 +243,13 @@ export default function ListeningAudioPlayer({
           {options.map((opt) => {
             let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 ';
 
-            if (selectedAnswer === null) {
+            if (hideFeedback) {
+              if (selectedAnswer === opt.key) {
+                buttonClass += 'border-primary-500 bg-primary-50';
+              } else {
+                buttonClass += 'border-slate-200 hover:border-orange-300 hover:bg-orange-50';
+              }
+            } else if (selectedAnswer === null) {
               buttonClass += 'border-slate-200 hover:border-orange-300 hover:bg-orange-50';
             } else if (opt.key === correctAnswer && showExplanation) {
               buttonClass += 'border-emerald-500 bg-emerald-50';

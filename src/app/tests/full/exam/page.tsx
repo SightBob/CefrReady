@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
+import ConfirmModal from '@/components/ConfirmModal';
 
 const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'), { ssr: false });
 const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'), { ssr: false });
 const FormMeaningQuiz = dynamic(() => import('@/components/FormMeaningQuiz'), { ssr: false });
+const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'), { ssr: false });
 
 const TOTAL_QUESTIONS = 45;
 const TOTAL_SECONDS = 60 * 60;
@@ -29,6 +31,14 @@ interface Question {
   cefrLevel: string;
 }
 
+interface ExamState {
+  attemptId: number;
+  question: Question;
+  questionIndex: number;
+  totalQuestions: number;
+  timeRemaining: number;
+}
+
 export default function FullTestExamPage() {
   const { status } = useSession();
   const router = useRouter();
@@ -40,24 +50,32 @@ export default function FullTestExamPage() {
   const [timeRemaining, setTimeRemaining] = useState(TOTAL_SECONDS);
   const [submitting, setSubmitting] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
+  const [skipConfirmMessage, setSkipConfirmMessage] = useState('');
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  const attemptIdRef = useRef<number | null>(null);
+  const timeUpHandledRef = useRef(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/tests/full');
-      return;
-    }
-    if (status === 'authenticated') {
-      startOrResume();
-    }
-  }, [status, router]);
+    attemptIdRef.current = attemptId;
+  }, [attemptId]);
 
-  const startOrResume = async () => {
+  const loadState = useCallback((data: ExamState) => {
+    setAttemptId(data.attemptId);
+    setQuestion(data.question);
+    setQuestionIndex(data.questionIndex);
+    setTimeRemaining(data.timeRemaining ?? TOTAL_SECONDS);
+    setSelectedAnswer(null);
+  }, []);
+
+  const startOrResume = useCallback(async () => {
     try {
       const resumeRes = await fetch('/api/tests/full/resume');
       const resumeData = await resumeRes.json();
 
       if (resumeData.success && resumeData.data && !resumeData.data.expired) {
-        loadState(resumeData.data);
+        loadState(resumeData.data as ExamState);
         setLoading(false);
         return;
       }
@@ -74,9 +92,9 @@ export default function FullTestExamPage() {
       if (startData.data.resume) {
         const resumeRes2 = await fetch('/api/tests/full/resume');
         const resumeData2 = await resumeRes2.json();
-        loadState(resumeData2.data);
+        loadState(resumeData2.data as ExamState);
       } else {
-        loadState(startData.data);
+        loadState(startData.data as ExamState);
       }
     } catch (err) {
       toast.error('ไม่สามารถเริ่มข้อสอบได้');
@@ -84,49 +102,78 @@ export default function FullTestExamPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadState, router]);
 
-  const loadState = (data: any) => {
-    setAttemptId(data.attemptId);
-    setQuestion(data.question);
-    setQuestionIndex(data.questionIndex);
-    setTimeRemaining(data.timeRemaining ?? TOTAL_SECONDS);
-    setSelectedAnswer(null);
-  };
-
+  // Countdown timer
   useEffect(() => {
-    if (finished) return;
+    if (finished || loading) return;
     const interval = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleTimeUp();
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeRemaining((prev) => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [finished]);
+  }, [finished, loading]);
 
-  const handleTimeUp = async () => {
-    if (!attemptId) return;
+  const handleTimeUp = useCallback(async () => {
+    const id = attemptIdRef.current;
+    if (!id || timeUpHandledRef.current) return;
+    timeUpHandledRef.current = true;
     setFinished(true);
     await fetch('/api/tests/full/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ attemptId }),
+      body: JSON.stringify({ attemptId: id }),
     });
-    router.push(`/tests/full/results?attemptId=${attemptId}`);
+    router.push(`/tests/full/results?attemptId=${id}`);
+  }, [router]);
+
+  useEffect(() => {
+    if (finished || loading || timeRemaining > 0) return;
+    handleTimeUp();
+  }, [finished, loading, timeRemaining, handleTimeUp]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/tests/full');
+      return;
+    }
+    if (status === 'authenticated') {
+      startOrResume();
+    }
+  }, [status, router, startOrResume]);
+
+  const handleNextClick = () => {
+    if (!attemptId || !question || submitting) return;
+
+    if (question.testTypeId === 'form-meaning' && question.article) {
+      let answers: Record<number, string> = {};
+      try {
+        answers = selectedAnswer ? JSON.parse(selectedAnswer) : {};
+      } catch {
+        answers = {};
+      }
+      const allFilled = question.article.blanks.every((b) => answers[b.id]?.trim());
+      if (!allFilled) {
+        setSkipConfirmMessage('คุณยังไม่ได้กรอกคำตอบให้ครบทุกช่อง หากข้ามข้อนี้จะถือว่าคำตอบข้อนี้ผิด');
+        setSkipConfirmOpen(true);
+        return;
+      }
+    }
+
+    if (!selectedAnswer) {
+      setSkipConfirmMessage('คุณยังไม่ได้เลือกคำตอบ หากข้ามข้อนี้จะถือว่าคำตอบข้อนี้ผิด');
+      setSkipConfirmOpen(true);
+      return;
+    }
+    handleNext();
+  };
+
+  const confirmSkip = () => {
+    setSkipConfirmOpen(false);
+    handleNext();
   };
 
   const handleNext = async () => {
     if (!attemptId || !question || submitting) return;
-
-    if (!selectedAnswer) {
-      const confirmed = window.confirm('คุณยังไม่ได้เลือกคำตอบ ต้องการข้ามข้อนี้หรือไม่?');
-      if (!confirmed) return;
-    }
 
     setSubmitting(true);
     try {
@@ -144,6 +191,11 @@ export default function FullTestExamPage() {
       if (!data.success) throw new Error(data.error);
 
       if (data.data.finished) {
+        await fetch('/api/tests/full/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attemptId }),
+        });
         router.push(`/tests/full/results?attemptId=${attemptId}`);
         return;
       }
@@ -159,10 +211,14 @@ export default function FullTestExamPage() {
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancelClick = () => {
     if (!attemptId) return;
-    const confirmed = window.confirm('ต้องการยกเลิกการสอบ? คำตอบจะไม่ถูกบันทึก');
-    if (!confirmed) return;
+    setCancelConfirmOpen(true);
+  };
+
+  const confirmCancel = async () => {
+    if (!attemptId) return;
+    setCancelConfirmOpen(false);
     await fetch('/api/tests/full/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -196,7 +252,7 @@ export default function FullTestExamPage() {
 
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <button onClick={handleCancel} className="p-2 hover:bg-slate-100 rounded-lg">
+          <button onClick={handleCancelClick} className="p-2 hover:bg-slate-100 rounded-lg">
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
           <div className="flex items-center gap-4">
@@ -210,16 +266,12 @@ export default function FullTestExamPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 pb-24">
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 mb-6">
-          <div className="text-xs font-medium text-slate-500 uppercase mb-2">
-            {question.testTypeId.replace(/-/g, ' ')}
-          </div>
-          <p className="text-lg font-medium text-slate-900 mb-6">{question.questionText}</p>
-
-          {question.testTypeId === 'listening' && (
-            <ListeningAudioPlayer
-              audioUrl={question.audioUrl ?? undefined}
-              transcript={question.transcript ?? question.questionText}
+        {question.testTypeId === 'focus-form' ? (
+          <div className="mb-6">
+            <div className="text-xs font-medium text-slate-500 uppercase mb-2">
+              {question.testTypeId.replace(/-/g, ' ')}
+            </div>
+            <FocusFormQuestionCard
               questionText={question.questionText}
               options={[
                 { key: 'A', value: question.optionA ?? '' },
@@ -230,61 +282,66 @@ export default function FullTestExamPage() {
               selectedAnswer={selectedAnswer}
               correctAnswer={null}
               explanation={null}
+              conversation={question.conversation ?? null}
               onAnswerSelect={setSelectedAnswer}
+              disabled={submitting}
             />
-          )}
-
-          {question.testTypeId === 'focus-meaning' && (
-            <FocusMeaningConversationCard
-              conversation={question.conversation ?? []}
-              question={question.questionText}
-              options={[
-                question.optionA ?? '',
-                question.optionB ?? '',
-                question.optionC ?? '',
-                question.optionD ?? '',
-              ]}
-              selectedAnswer={selectedAnswer ? ['A','B','C','D'].indexOf(selectedAnswer) : null}
-              correctAnswer={null}
-              explanation={''}
-              onAnswerSelect={(idx) => setSelectedAnswer(['A','B','C','D'][idx])}
-            />
-          )}
-
-          {question.testTypeId === 'form-meaning' && question.article && (
-            <FormMeaningQuiz
-              article={question.article}
-              onChange={(answers) => setSelectedAnswer(JSON.stringify(answers))}
-            />
-          )}
-
-          {question.testTypeId !== 'listening' && question.testTypeId !== 'focus-meaning' && question.testTypeId !== 'form-meaning' && (
-            <div className="space-y-3">
-              {['A', 'B', 'C', 'D'].map((key) => {
-                const value = question[`option${key}` as keyof Question] as string | null;
-                if (!value) return null;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedAnswer(key)}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
-                      selectedAnswer === key
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-slate-100 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="font-bold mr-2">{key}.</span>
-                    {value}
-                  </button>
-                );
-              })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 mb-6">
+            <div className="text-xs font-medium text-slate-500 uppercase mb-2">
+              {question.testTypeId.replace(/-/g, ' ')}
             </div>
-          )}
-        </div>
+
+            {question.testTypeId === 'listening' && (
+              <ListeningAudioPlayer
+                audioUrl={question.audioUrl ?? undefined}
+                transcript={question.transcript ?? question.questionText}
+                questionText={question.questionText}
+                options={[
+                  { key: 'A', value: question.optionA ?? '' },
+                  { key: 'B', value: question.optionB ?? '' },
+                  { key: 'C', value: question.optionC ?? '' },
+                  { key: 'D', value: question.optionD ?? '' },
+                ]}
+                selectedAnswer={selectedAnswer}
+                correctAnswer={null}
+                explanation={null}
+                onAnswerSelect={setSelectedAnswer}
+                hideFeedback
+              />
+            )}
+
+            {question.testTypeId === 'focus-meaning' && (
+              <FocusMeaningConversationCard
+                conversation={question.conversation ?? []}
+                question={question.questionText}
+                options={[
+                  question.optionA ?? '',
+                  question.optionB ?? '',
+                  question.optionC ?? '',
+                  question.optionD ?? '',
+                ]}
+                selectedAnswer={selectedAnswer ? ['A','B','C','D'].indexOf(selectedAnswer) : null}
+                correctAnswer={null}
+                explanation={''}
+                onAnswerSelect={(idx) => setSelectedAnswer(['A','B','C','D'][idx])}
+                hideFeedback
+              />
+            )}
+
+            {question.testTypeId === 'form-meaning' && question.article && (
+              <FormMeaningQuiz
+                article={question.article}
+                onChange={(answers) => setSelectedAnswer(JSON.stringify(answers))}
+              />
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end">
           <button
-            onClick={handleNext}
+            onClick={handleNextClick}
             disabled={submitting}
             className="btn-primary py-3 px-8 disabled:opacity-50"
           >
@@ -292,6 +349,30 @@ export default function FullTestExamPage() {
           </button>
         </div>
       </main>
+
+      <ConfirmModal
+        isOpen={skipConfirmOpen}
+        title="ข้ามข้อนี้?"
+        description={skipConfirmMessage}
+        confirmLabel="ข้าม"
+        cancelLabel="ทำต่อ"
+        type="warning"
+        onConfirm={confirmSkip}
+        onCancel={() => setSkipConfirmOpen(false)}
+        isLoading={submitting}
+      />
+
+      <ConfirmModal
+        isOpen={cancelConfirmOpen}
+        title="ยกเลิกการสอบ?"
+        description="คำตอบทั้งหมดจะไม่ถูกบันทึก ต้องการยกเลิกการสอบหรือไม่?"
+        confirmLabel="ยกเลิก"
+        cancelLabel="ทำต่อ"
+        type="danger"
+        onConfirm={confirmCancel}
+        onCancel={() => setCancelConfirmOpen(false)}
+        isLoading={submitting}
+      />
     </div>
   );
 }

@@ -19,6 +19,7 @@ interface FocusMeaningConversationCardProps {
   explanation: string;
   onAnswerSelect: (answerIndex: number) => void;
   disabled?: boolean;
+  hideFeedback?: boolean;
 }
 
 export default function FocusMeaningConversationCard({
@@ -30,9 +31,10 @@ export default function FocusMeaningConversationCard({
   explanation,
   onAnswerSelect,
   disabled = false,
+  hideFeedback = false,
 }: FocusMeaningConversationCardProps) {
   const isCorrect = correctAnswer !== null && selectedAnswer === correctAnswer;
-  const showExplanation = selectedAnswer !== null;
+  const showExplanation = selectedAnswer !== null && !hideFeedback;
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
@@ -77,7 +79,13 @@ export default function FocusMeaningConversationCard({
         {options.map((option, index) => {
           let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 ';
 
-          if (selectedAnswer === null) {
+          if (hideFeedback) {
+            if (selectedAnswer === index) {
+              buttonClass += 'border-primary-500 bg-primary-50';
+            } else {
+              buttonClass += 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50';
+            }
+          } else if (selectedAnswer === null) {
             buttonClass += 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50';
           } else if (correctAnswer !== null && index === correctAnswer) {
             buttonClass += 'border-emerald-500 bg-emerald-50';

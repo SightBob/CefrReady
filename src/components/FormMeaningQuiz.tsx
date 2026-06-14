@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import SelectableText from './SelectableText';
 
 interface FormMeaningQuizProps {
   article: {
@@ -30,7 +31,12 @@ export default function FormMeaningQuiz({ article, onChange }: FormMeaningQuizPr
       if (idx === -1) return;
 
       if (idx > 0) {
-        parts.push(<span key={`text-${blank.id}`}>{remaining.slice(0, idx)}</span>);
+        const text = remaining.slice(0, idx);
+        parts.push(
+          <span key={`text-${blank.id}`}>
+            <SelectableText text={text} contextSentence={text} sourceType="article" inline />
+          </span>
+        );
       }
 
       parts.push(
@@ -47,13 +53,19 @@ export default function FormMeaningQuiz({ article, onChange }: FormMeaningQuizPr
       remaining = remaining.slice(idx + placeholder.length);
     });
 
-    parts.push(<span key="text-end">{remaining}</span>);
+    parts.push(
+      <span key="text-end">
+        <SelectableText text={remaining} contextSentence={remaining} sourceType="article" inline />
+      </span>
+    );
     return parts;
   };
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
-      <h2 className="text-xl font-bold text-slate-800 mb-4">{article.title}</h2>
+      <h2 className="text-xl font-bold text-slate-800 mb-4">
+        <SelectableText text={article.title} contextSentence={article.title} sourceType="article" inline />
+      </h2>
       <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
     </div>
   );

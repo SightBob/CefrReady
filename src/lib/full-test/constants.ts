@@ -23,9 +23,9 @@ export const CEFR_SCORE_RANGES: Record<CefrLevel, { min: number; max: number }> 
 export const FULL_TEST_TOTAL_SECONDS = 60 * 60; // 60 minutes
 
 export const FULL_TEST_PART_DISTRIBUTION = [
-  'form-meaning',
   ...Array(15).fill('focus-form'),
   ...Array(14).fill('focus-meaning'),
+  'form-meaning',
   ...Array(15).fill('listening'),
 ] as const;
 
