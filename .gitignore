@@ -34,6 +34,7 @@ local_db_dump.sql
 # Vercel
 .vercel
 
-# OMC
+# Internal tools
 .omc/
 .opencode/
+.claude/
