@@ -22,7 +22,7 @@ export function getNextLevel(
     return currentLevel;
   }
 
-  // Question 3+: weighted average of last 3-5
+  // Question 3+: simple moving average (flat average) of the last up to 5 answers
   const window = answerHistory.slice(-5);
   const avg = window.reduce((a, b) => a + (b ? 1 : 0), 0) / window.length;
   if (avg >= 0.7) return clampLevel(currentIndex + 1);
@@ -58,14 +58,21 @@ export function selectQuestion({
   if (candidate) return candidate;
 
   // 2. Fallback to nearest levels (alternate up/down)
+  const checkedLevels = new Set<CefrLevel>();
   for (let offset = 1; offset < CEFR_LEVELS.length; offset++) {
     const higher = clampLevel(levelIndex + offset);
-    candidate = findUnused(higher);
-    if (candidate) return candidate;
+    if (!checkedLevels.has(higher)) {
+      checkedLevels.add(higher);
+      candidate = findUnused(higher);
+      if (candidate) return candidate;
+    }
 
     const lower = clampLevel(levelIndex - offset);
-    candidate = findUnused(lower);
-    if (candidate) return candidate;
+    if (!checkedLevels.has(lower)) {
+      checkedLevels.add(lower);
+      candidate = findUnused(lower);
+      if (candidate) return candidate;
+    }
   }
 
   // 3. Reuse any previously seen question for this part type

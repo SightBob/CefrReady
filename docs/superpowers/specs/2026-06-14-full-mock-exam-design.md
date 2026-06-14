@@ -124,7 +124,7 @@ Correct answer = 1, incorrect = 0.
   - Average ≥ 0.7 → move up 1 level.
   - Average ≤ 0.3 → move down 1 level.
   - Otherwise → stay.
-- **Question 3 onwards:** Use a weighted average of the last 3–5 answers.
+- **Question 3 onwards:** Use a simple moving average (flat average) of the last 3–5 answers.
   - Same thresholds: ≥ 0.7 up, ≤ 0.3 down, otherwise stay.
 
 Level changes are capped at A1 (lowest) and C2 (highest).

@@ -26,7 +26,7 @@ describe('getNextLevel', () => {
     expect(getNextLevel('B1', [false, false])).toBe('A2');
   });
 
-  it('uses weighted window of last 5 answers', () => {
+  it('uses flat moving window of last 5 answers', () => {
     expect(getNextLevel('B1', [false, false, true, true, true, true])).toBe('B2');
     expect(getNextLevel('B1', [true, true, false, false, false, false])).toBe('A2');
   });
@@ -67,6 +67,27 @@ describe('selectQuestion', () => {
     const q = makeQuestion(3, 'listening', 'B1');
     const result = selectQuestion({
       questions: [q],
+      seenQuestionIds: new Set(),
+      targetLevel: 'B1',
+      requiredTestTypeId: 'focus-form',
+    });
+    expect(result).toBeNull();
+  });
+
+  it('reuses previously seen questions when all levels exhausted', () => {
+    const q = makeQuestion(1, 'focus-form', 'B1');
+    const result = selectQuestion({
+      questions: [q],
+      seenQuestionIds: new Set([1]),
+      targetLevel: 'B1',
+      requiredTestTypeId: 'focus-form',
+    });
+    expect(result?.id).toBe(1);
+  });
+
+  it('returns null when no questions match required type', () => {
+    const result = selectQuestion({
+      questions: [],
       seenQuestionIds: new Set(),
       targetLevel: 'B1',
       requiredTestTypeId: 'focus-form',
