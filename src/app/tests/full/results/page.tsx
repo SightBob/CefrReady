@@ -7,6 +7,13 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { CEFR_COLORS, CEFR_DESCRIPTIONS } from '@/lib/cefr-estimator';
 import type { CefrLevel } from '@/lib/cefr-estimator';
 
+const PART_LABELS: Record<string, string> = {
+  'focus-form': 'Grammar',
+  'focus-meaning': 'Vocabulary',
+  'form-meaning': 'Cloze (Fill-in-the-blank)',
+  'listening': 'Listening',
+};
+
 interface ResultData {
   attemptId: number;
   score: number;
@@ -14,6 +21,7 @@ interface ResultData {
   correctAnswers: number;
   totalQuestions: number;
   adaptivePath: Array<{ testTypeId: string; cefrLevel: string; wasCorrect: boolean }>;
+  perPart: Record<string, { total: number; correct: number }>;
 }
 
 export default function FullTestResultsPage() {
@@ -56,12 +64,7 @@ export default function FullTestResultsPage() {
     );
   }
 
-  const perPart = result.adaptivePath.reduce((acc, item) => {
-    if (!acc[item.testTypeId]) acc[item.testTypeId] = { total: 0, correct: 0 };
-    acc[item.testTypeId].total++;
-    if (item.wasCorrect) acc[item.testTypeId].correct++;
-    return acc;
-  }, {} as Record<string, { total: number; correct: number }>);
+  const perPart = result.perPart || {};
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -87,7 +90,7 @@ export default function FullTestResultsPage() {
         <div className="space-y-3">
           {Object.entries(perPart).map(([testTypeId, stats]) => (
             <div key={testTypeId} className="flex items-center justify-between">
-              <span className="text-slate-700 capitalize">{testTypeId.replace(/-/g, ' ')}</span>
+              <span className="text-slate-700">{PART_LABELS[testTypeId] || testTypeId.replace(/-/g, ' ')}</span>
               <span className="font-medium">{stats.correct}/{stats.total} ข้อ</span>
             </div>
           ))}

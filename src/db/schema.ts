@@ -143,7 +143,7 @@ export const testAttempts = pgTable('test_attempts', {
   startedAt: timestamp('started_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
   status: varchar('status', { length: 20 }).default('in_progress').notNull(),
-  currentLevel: varchar('current_level', { length: 10 }),
+  currentLevels: jsonb('current_levels').$type<Record<string, string>>().default({}),
   timeRemainingSeconds: integer('time_remaining_seconds'),
   lastActivityAt: timestamp('last_activity_at'),
   adaptivePath: jsonb('adaptive_path').$type<Array<{
@@ -154,6 +154,7 @@ export const testAttempts = pgTable('test_attempts', {
     wasCorrect: boolean;
     selectedAnswer: string;
     orderIndex: number;
+    reused?: boolean;
   }>>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),

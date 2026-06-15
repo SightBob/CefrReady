@@ -36,7 +36,7 @@ export default function FocusFormQuestionCard({
   disabled = false,
 }: FocusFormQuestionCardProps) {
   const isCorrect = selectedAnswer === correctAnswer;
-  const showExplanation = selectedAnswer !== null && explanation !== null;
+  const showExplanation = selectedAnswer !== null && explanation !== null && correctAnswer !== null;
 
 
   // Parse "Speaker: textSpeaker: text" into [{speaker, text}] lines (fallback when no structured conversation)
@@ -100,12 +100,16 @@ export default function FocusFormQuestionCard({
         {options.map((opt) => {
           const isSelected = selectedAnswer === opt.key;
           const isCorrectOption = opt.key === correctAnswer;
-          const showFeedback = selectedAnswer !== null;
+          const showFeedback = selectedAnswer !== null && correctAnswer !== null;
 
           let buttonClass = 'p-4 rounded-xl border-2 text-left transition-all duration-200 flex items-start gap-3 ';
 
           if (!showFeedback) {
-            buttonClass += 'border-slate-200 hover:border-primary-400 hover:bg-primary-50/50 hover:shadow-sm';
+            if (isSelected) {
+              buttonClass += 'border-primary-500 bg-primary-50 ring-1 ring-primary-500/20';
+            } else {
+              buttonClass += 'border-slate-200 hover:border-primary-400 hover:bg-primary-50/50 hover:shadow-sm';
+            }
           } else if (isCorrectOption) {
             buttonClass += 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20';
           } else if (isSelected) {
@@ -117,18 +121,22 @@ export default function FocusFormQuestionCard({
           return (
             <button
               key={opt.key}
+              type="button"
               onClick={() => onAnswerSelect(opt.key)}
-              disabled={selectedAnswer !== null || disabled}
+              disabled={showFeedback || disabled}
               className={buttonClass}
             >
-              <span className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold ${!showFeedback
-                ? 'bg-slate-100 text-slate-500'
-                : isCorrectOption
-                  ? 'bg-emerald-500 text-white'
-                  : isSelected
-                    ? 'bg-red-400 text-white'
-                    : 'bg-slate-100 text-slate-400'
-                }`}>
+              <span className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold ${
+                    !showFeedback
+                      ? isSelected
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-slate-100 text-slate-500'
+                      : isCorrectOption
+                        ? 'bg-emerald-500 text-white'
+                        : isSelected
+                          ? 'bg-red-400 text-white'
+                          : 'bg-slate-100 text-slate-400'
+                  }`}>
                 {opt.key}
               </span>
               <span className="font-medium text-slate-800 pt-0.5">

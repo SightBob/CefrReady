@@ -1,13 +1,44 @@
 import { db } from '@/db';
-import { testAttempts, userAnswers, userProgress, type DbTestAttempt } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { testAttempts, userAnswers, userProgress, questions, type DbTestAttempt } from '@/db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 import { type CefrLevel } from './constants';
 import {
   calculateRawScore,
   calculateMaxPossibleScore,
   normalizeScore,
   normalizedScoreToCefr,
+  calculateConfidence,
 } from './algorithm';
+
+interface ExpandedPathEntry {
+  questionId: number;
+  testTypeId: string;
+  cefrLevel: CefrLevel;
+  wasCorrect: boolean;
+  selectedAnswer: string;
+  reused?: boolean;
+}
+
+function expandPathForScoring(
+  path: Array<{ questionId: number; testTypeId: string; cefrLevel: CefrLevel; wasCorrect: boolean; selectedAnswer: string; reused?: boolean }>,
+  blankCounts: Map<number, { total: number; correct: number }>
+): ExpandedPathEntry[] {
+  const expanded: ExpandedPathEntry[] = [];
+  for (const entry of path) {
+    const blanks = blankCounts.get(entry.questionId);
+    if (blanks && blanks.total > 0) {
+      for (let i = 0; i < blanks.total; i++) {
+        expanded.push({
+          ...entry,
+          wasCorrect: i < blanks.correct,
+        });
+      }
+    } else {
+      expanded.push(entry);
+    }
+  }
+  return expanded;
+}
 
 export async function submitAttempt(attemptId: number, userId: string) {
   const [attempt] = await db
@@ -30,13 +61,55 @@ export async function submitAttempt(attemptId: number, userId: string) {
     cefrLevel: CefrLevel;
     wasCorrect: boolean;
     selectedAnswer: string;
+    orderIndex: number;
+    reused?: boolean;
   }>;
 
-  const rawScore = calculateRawScore(path);
-  const maxPossible = calculateMaxPossibleScore(path);
+  const formMeaningIds = path
+    .filter((p) => p.testTypeId === 'form-meaning')
+    .map((p) => p.questionId);
+
+  const blankCounts = new Map<number, { total: number; correct: number }>();
+
+  if (formMeaningIds.length > 0) {
+    const fmQuestions = await db
+      .select({ id: questions.id, article: questions.article })
+      .from(questions)
+      .where(inArray(questions.id, formMeaningIds));
+
+    for (const q of fmQuestions) {
+      const art = q.article as { blanks?: Array<{ id: number; correctAnswer: string }> } | null;
+      const blanks = art?.blanks;
+      if (!Array.isArray(blanks) || blanks.length === 0) continue;
+
+      const pathEntry = path.find((p) => p.questionId === q.id);
+      if (!pathEntry) continue;
+
+      let parsed: Record<string, string> = {};
+      try {
+        parsed = JSON.parse(pathEntry.selectedAnswer);
+      } catch { /* empty */ }
+
+      const blanksCorrect = blanks.filter(
+        (b) => (parsed[String(b.id)] ?? '').toLowerCase().trim() === b.correctAnswer.toLowerCase().trim()
+      ).length;
+
+      blankCounts.set(q.id, { total: blanks.length, correct: blanksCorrect });
+    }
+  }
+
+  const expandedPath = expandPathForScoring(path, blankCounts);
+  const expandedTotalQuestions = expandedPath.length;
+  const expandedCorrectCount = expandedPath.filter((p) => p.wasCorrect).length;
+
+  const rawScore = calculateRawScore(expandedPath);
+  const maxPossible = calculateMaxPossibleScore(expandedPath);
   const normalized = normalizeScore(rawScore, maxPossible);
   const cefrLevel = normalizedScoreToCefr(normalized);
-  const correctCount = path.filter((p) => p.wasCorrect).length;
+  const confidence = calculateConfidence(expandedTotalQuestions);
+
+  const reusedCount = path.filter((p) => p.reused).length;
+
   const now = new Date();
 
   await db
@@ -44,8 +117,8 @@ export async function submitAttempt(attemptId: number, userId: string) {
     .set({
       status: 'completed',
       score: normalized.toString(),
-      totalQuestions: path.length,
-      correctAnswers: correctCount,
+      totalQuestions: expandedTotalQuestions,
+      correctAnswers: expandedCorrectCount,
       completedAt: now,
     })
     .where(eq(testAttempts.id, attemptId));
@@ -69,7 +142,7 @@ export async function submitAttempt(attemptId: number, userId: string) {
     .from(testAttempts)
     .where(eq(testAttempts.id, attemptId));
 
-  return buildResult(updated, normalized, cefrLevel, correctCount, path.length);
+  return buildResult(updated, normalized, cefrLevel, expandedCorrectCount, expandedTotalQuestions, confidence, reusedCount);
 }
 
 function buildResult(
@@ -77,7 +150,9 @@ function buildResult(
   normalized?: number,
   cefrLevel?: CefrLevel,
   correctCount?: number,
-  totalQuestions?: number
+  totalQuestions?: number,
+  confidence?: 'high' | 'medium' | 'low',
+  reusedCount?: number,
 ) {
   return {
     attemptId: attempt.id,
@@ -86,6 +161,8 @@ function buildResult(
     correctAnswers: correctCount ?? attempt.correctAnswers,
     totalQuestions: totalQuestions ?? attempt.totalQuestions,
     adaptivePath: attempt.adaptivePath ?? [],
+    confidence: confidence ?? 'medium',
+    reusedCount: reusedCount ?? 0,
   };
 }
 

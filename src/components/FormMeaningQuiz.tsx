@@ -47,6 +47,7 @@ export default function FormMeaningQuiz({ article, onChange }: FormMeaningQuizPr
           placeholder={blank.hint?.split(' - ')[0] || 'Answer'}
           value={answers[blank.id] || ''}
           onChange={(e) => handleChange(blank.id, e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
         />
       );
 

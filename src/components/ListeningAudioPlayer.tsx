@@ -173,6 +173,7 @@ export default function ListeningAudioPlayer({
       {/* Audio Player */}
       <div className="flex flex-col items-center mb-6">
         <button
+          type="button"
           onClick={isPlaying ? handlePause : handlePlay}
           disabled={false}
           className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${
@@ -262,8 +263,9 @@ export default function ListeningAudioPlayer({
             return (
               <button
                 key={opt.key}
+                type="button"
                 onClick={(e) => {
-                  if (selectedAnswer === null && !disabled) {
+                  if (!showExplanation && !disabled) {
                     onAnswerSelect(opt.key);
                   }
                 }}

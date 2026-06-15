@@ -98,8 +98,9 @@ export default function FocusMeaningConversationCard({
           return (
             <button
               key={index}
+              type="button"
               onClick={(e) => {
-                if (selectedAnswer === null && !disabled) {
+                if (!showExplanation && !disabled) {
                   onAnswerSelect(index);
                 }
               }}

@@ -9,8 +9,9 @@ import {
   FULL_TEST_TOTAL_QUESTIONS,
   FULL_TEST_TOTAL_SECONDS,
   type CefrLevel,
+  type PerTypeLevels,
 } from '@/lib/full-test/constants';
-import { getNextLevel, selectQuestion } from '@/lib/full-test/algorithm';
+import { getNextLevel, selectQuestion, getPerTypeAnswerHistory, getInitialLevels } from '@/lib/full-test/algorithm';
 
 const bodySchema = z.object({
   attemptId: z.number().int(),
@@ -43,7 +44,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Attempt not found' }, { status: 404 });
   }
 
-  // Validate answer against DB
   const [question] = await db
     .select()
     .from(questions)
@@ -61,15 +61,51 @@ export async function POST(request: NextRequest) {
     wasCorrect: boolean;
     selectedAnswer: string;
     orderIndex: number;
+    reused?: boolean;
   }>;
 
-  // Prevent duplicate answers via replay
   if (currentPath.some((p) => p.questionId === questionId)) {
-    return NextResponse.json({ success: false, error: 'Question already answered' }, { status: 400 });
+    // Idempotent: question already processed — return current state instead of erroring.
+    // This handles double-clicks, React strict mode re-renders, and page refreshes.
+    const currentLevels: PerTypeLevels = (attempt.currentLevels as PerTypeLevels) ?? getInitialLevels('B1');
+    const nextIndex = currentPath.length;
+
+    if (nextIndex >= FULL_TEST_TOTAL_QUESTIONS) {
+      return NextResponse.json({ success: true, data: { finished: true } });
+    }
+
+    const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
+    const nextTypeLevel = (currentLevels[nextPart] as CefrLevel) ?? 'B1';
+    const seenIds = new Set(currentPath.map((p) => p.questionId));
+    const pool = await db
+      .select()
+      .from(questions)
+      .where(and(eq(questions.testTypeId, nextPart), eq(questions.active, 'true')));
+
+    const selection = selectQuestion({
+      questions: pool,
+      seenQuestionIds: seenIds,
+      targetLevel: nextTypeLevel,
+      requiredTestTypeId: nextPart,
+    });
+
+    if (!selection) {
+      return NextResponse.json({ success: true, data: { finished: true, reason: 'pool_exhausted' } });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        question: selection.question,
+        questionIndex: nextIndex,
+        finished: false,
+      },
+    });
   }
 
-  // Determine correctness
   let isCorrect = false;
+  let blanksCorrect = 0;
+  let blanksTotal = 0;
   if (
     question.testTypeId === 'form-meaning' &&
     question.article &&
@@ -83,11 +119,13 @@ export async function POST(request: NextRequest) {
       } catch {
         // Leave parsed empty; the blanks comparison below will fail gracefully.
       }
-      isCorrect = art.blanks.every(
+      blanksTotal = art.blanks.length;
+      blanksCorrect = art.blanks.filter(
         (b) =>
           (parsed[String(b.id)] ?? '').toLowerCase().trim() ===
           b.correctAnswer.toLowerCase().trim()
-      );
+      ).length;
+      isCorrect = blanksCorrect === blanksTotal;
     }
   } else {
     isCorrect =
@@ -96,6 +134,10 @@ export async function POST(request: NextRequest) {
   }
 
   const orderIndex = currentPath.length;
+  const seenQuestionIds = new Set(currentPath.map((p) => p.questionId));
+  const isReused = seenQuestionIds.has(questionId);
+  seenQuestionIds.add(questionId);
+
   const newPath = [
     ...currentPath,
     {
@@ -106,13 +148,35 @@ export async function POST(request: NextRequest) {
       wasCorrect: isCorrect,
       selectedAnswer,
       orderIndex,
+      reused: isReused,
     },
   ];
 
-  const answerHistory = newPath.map((p) => p.wasCorrect);
-  const nextLevel = getNextLevel((attempt.currentLevel as CefrLevel) ?? 'B1', answerHistory);
+  const currentLevels: PerTypeLevels = (attempt.currentLevels as PerTypeLevels) ?? getInitialLevels('B1');
+  const testTypeLevels = { ...currentLevels };
 
-  // Determine next part
+  // For form-meaning, expand into per-blank sub-entries for adaptive level adjustment
+  if (question.testTypeId === 'form-meaning' && blanksTotal > 0) {
+    const expandedHistory: boolean[] = [];
+    for (let i = 0; i < blanksTotal; i++) {
+      expandedHistory.push(i < blanksCorrect);
+    }
+    const typeHistory = getPerTypeAnswerHistory(newPath, question.testTypeId);
+    const combinedHistory = [...typeHistory.slice(0, -1), ...expandedHistory];
+    const updatedLevel = getNextLevel(
+      (testTypeLevels[question.testTypeId] as CefrLevel) ?? 'B1',
+      combinedHistory
+    );
+    testTypeLevels[question.testTypeId] = updatedLevel;
+  } else {
+    const typeHistory = getPerTypeAnswerHistory(newPath, question.testTypeId);
+    const updatedLevel = getNextLevel(
+      (testTypeLevels[question.testTypeId] as CefrLevel) ?? 'B1',
+      typeHistory
+    );
+    testTypeLevels[question.testTypeId] = updatedLevel;
+  }
+
   const nextIndex = newPath.length;
   if (nextIndex >= FULL_TEST_TOTAL_QUESTIONS) {
     await db
@@ -128,22 +192,21 @@ export async function POST(request: NextRequest) {
   }
 
   const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
+  const nextTypeLevel = (testTypeLevels[nextPart] as CefrLevel) ?? 'B1';
 
-  // Select next question
-  const seenIds = new Set(newPath.map((p) => p.questionId));
   const pool = await db
     .select()
     .from(questions)
     .where(and(eq(questions.testTypeId, nextPart), eq(questions.active, 'true')));
 
-  const nextQuestion = selectQuestion({
+  const selection = selectQuestion({
     questions: pool,
-    seenQuestionIds: seenIds,
-    targetLevel: nextLevel,
+    seenQuestionIds: seenQuestionIds,
+    targetLevel: nextTypeLevel,
     requiredTestTypeId: nextPart,
   });
 
-  if (!nextQuestion) {
+  if (!selection) {
     await db
       .update(testAttempts)
       .set({
@@ -159,7 +222,7 @@ export async function POST(request: NextRequest) {
     .update(testAttempts)
     .set({
       adaptivePath: newPath,
-      currentLevel: nextLevel,
+      currentLevels: testTypeLevels,
       timeRemainingSeconds: timeRemaining,
       lastActivityAt: new Date(),
     })
@@ -168,7 +231,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     success: true,
     data: {
-      question: nextQuestion,
+      question: selection.question,
       questionIndex: nextIndex,
       finished: false,
     },

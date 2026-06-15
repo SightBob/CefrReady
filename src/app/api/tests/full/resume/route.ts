@@ -3,8 +3,8 @@ import { db } from '@/db';
 import { testAttempts, questions } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, type CefrLevel } from '@/lib/full-test/constants';
-import { selectQuestion } from '@/lib/full-test/algorithm';
+import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, type CefrLevel, type PerTypeLevels } from '@/lib/full-test/constants';
+import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
 
 export const dynamic = 'force-dynamic';
@@ -43,14 +43,17 @@ export async function GET() {
   const path = (attempt.adaptivePath ?? []) as Array<{ questionId: number; testTypeId: string }>;
   const nextIndex = path.length;
 
-  // If the user already answered the last question, submit the attempt instead of
-  // trying to index past the end of the distribution array.
   if (nextIndex >= FULL_TEST_TOTAL_QUESTIONS) {
     const result = await submitAttempt(attempt.id, user.id);
     return NextResponse.json({ success: true, data: { expired: true, result } });
   }
 
   const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
+  const rawLevels = attempt.currentLevels as PerTypeLevels | null;
+  const currentLevels: PerTypeLevels = (rawLevels && Object.keys(rawLevels).length > 0)
+    ? rawLevels
+    : getInitialLevels('B1');
+  const nextTypeLevel = (currentLevels[nextPart] as CefrLevel) ?? 'B1';
 
   const seenIds = new Set(path.map((p) => p.questionId));
   const pool = await db
@@ -58,14 +61,14 @@ export async function GET() {
     .from(questions)
     .where(and(eq(questions.testTypeId, nextPart), eq(questions.active, 'true')));
 
-  const nextQuestion = selectQuestion({
+  const selection = selectQuestion({
     questions: pool,
     seenQuestionIds: seenIds,
-    targetLevel: (attempt.currentLevel as CefrLevel) ?? 'B1',
+    targetLevel: nextTypeLevel,
     requiredTestTypeId: nextPart,
   });
 
-  if (!nextQuestion) {
+  if (!selection) {
     const result = await submitAttempt(attempt.id, user.id);
     return NextResponse.json({ success: true, data: { expired: true, result, reason: 'pool_exhausted' } });
   }
@@ -74,7 +77,7 @@ export async function GET() {
     success: true,
     data: {
       attemptId: attempt.id,
-      question: nextQuestion,
+      question: selection.question,
       questionIndex: nextIndex,
       timeRemaining: realRemaining,
       totalQuestions: FULL_TEST_PART_DISTRIBUTION.length,

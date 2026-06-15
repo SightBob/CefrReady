@@ -214,6 +214,7 @@ export default function SelectableText({
             <div className="flex items-center gap-2">
               <span className="text-white font-bold text-lg">{popup.word}</span>
               <button
+                type="button"
                 onClick={() => handleSpeak(popup.word)}
                 className="p-1 rounded-full hover:bg-white/20 transition-colors"
               >
@@ -221,6 +222,7 @@ export default function SelectableText({
               </button>
             </div>
             <button
+              type="button"
               onClick={() => setPopup(null)}
               className="p-1 rounded-full hover:bg-white/20 transition-colors"
             >
@@ -254,7 +256,7 @@ export default function SelectableText({
                 type="text"
                 value={userMeaning}
                 onChange={(e) => setUserMeaning(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSave(); } }}
                 placeholder="พิมพ์ความหมายภาษาไทย..."
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 disabled={!session?.user}
@@ -276,6 +278,7 @@ export default function SelectableText({
               </div>
             ) : (
               <button
+                type="button"
                 onClick={handleSave}
                 disabled={saving}
                 className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-60"

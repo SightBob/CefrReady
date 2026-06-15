@@ -1,33 +1,57 @@
 import { type DbQuestion } from '@/db/schema';
-import { type CefrLevel, CEFR_LEVELS, CEFR_WEIGHTS, CEFR_SCORE_RANGES, cefrIndex, clampLevel } from './constants';
+import {
+  type CefrLevel,
+  type PerTypeLevels,
+  CEFR_LEVELS,
+  CEFR_WEIGHTS,
+  CEFR_SCORE_RANGES,
+  REUSE_WEIGHT_DISCOUNT,
+  MIN_WINDOW_BEFORE_ADJUST,
+  LEVEL_ADJUSTMENT_WINDOW,
+  THRESHOLD_UP,
+  THRESHOLD_DOWN,
+  MAJOR_STEP_UP,
+  MAJOR_STEP_DOWN,
+  MIN_QUESTIONS_FOR_CONFIDENT,
+  cefrIndex,
+  clampLevel,
+} from './constants';
 
 export function getNextLevel(
   currentLevel: CefrLevel,
   answerHistory: boolean[]
 ): CefrLevel {
-  if (answerHistory.length === 0) return currentLevel;
+  if (answerHistory.length < MIN_WINDOW_BEFORE_ADJUST) return currentLevel;
 
   const currentIndex = cefrIndex(currentLevel);
-
-  // Question 1: use single result
-  if (answerHistory.length === 1) {
-    return answerHistory[0] ? clampLevel(currentIndex + 1) : clampLevel(currentIndex - 1);
-  }
-
-  // Question 2: use last 2
-  if (answerHistory.length === 2) {
-    const avg = answerHistory.reduce((a, b) => a + (b ? 1 : 0), 0) / answerHistory.length;
-    if (avg >= 0.7) return clampLevel(currentIndex + 1);
-    if (avg <= 0.3) return clampLevel(currentIndex - 1);
-    return currentLevel;
-  }
-
-  // Question 3+: simple moving average (flat average) of the last up to 5 answers
-  const window = answerHistory.slice(-5);
+  const window = answerHistory.slice(-LEVEL_ADJUSTMENT_WINDOW);
   const avg = window.reduce((a, b) => a + (b ? 1 : 0), 0) / window.length;
-  if (avg >= 0.7) return clampLevel(currentIndex + 1);
-  if (avg <= 0.3) return clampLevel(currentIndex - 1);
+
+  if (avg >= MAJOR_STEP_UP) return clampLevel(currentIndex + 2);
+  if (avg <= MAJOR_STEP_DOWN) return clampLevel(currentIndex - 2);
+
+  if (avg >= THRESHOLD_UP) return clampLevel(currentIndex + 1);
+  if (avg <= THRESHOLD_DOWN) return clampLevel(currentIndex - 1);
+
   return currentLevel;
+}
+
+export function getPerTypeAnswerHistory(
+  path: Array<{ testTypeId: string; wasCorrect: boolean }>,
+  testTypeId: string
+): boolean[] {
+  return path
+    .filter((p) => p.testTypeId === testTypeId)
+    .map((p) => p.wasCorrect);
+}
+
+export function getInitialLevels(startLevel: CefrLevel): PerTypeLevels {
+  return {
+    'focus-form': startLevel,
+    'focus-meaning': startLevel,
+    'form-meaning': startLevel,
+    'listening': startLevel,
+  };
 }
 
 interface QuestionPool {
@@ -42,7 +66,7 @@ export function selectQuestion({
   seenQuestionIds,
   targetLevel,
   requiredTestTypeId,
-}: QuestionPool): DbQuestion | null {
+}: QuestionPool): { question: DbQuestion; reused: boolean } | null {
   const levelIndex = cefrIndex(targetLevel);
 
   const findUnused = (level: CefrLevel) =>
@@ -53,51 +77,53 @@ export function selectQuestion({
         !seenQuestionIds.has(q.id)
     );
 
-  // 1. Try target level
-  let candidate = findUnused(targetLevel);
-  if (candidate) return candidate;
+  const exactMatch = findUnused(targetLevel);
+  if (exactMatch) return { question: exactMatch, reused: false };
 
-  // 2. Fallback to nearest levels (alternate up/down)
   const checkedLevels = new Set<CefrLevel>();
   for (let offset = 1; offset < CEFR_LEVELS.length; offset++) {
     const higher = clampLevel(levelIndex + offset);
     if (!checkedLevels.has(higher)) {
       checkedLevels.add(higher);
-      candidate = findUnused(higher);
-      if (candidate) return candidate;
+      const candidate = findUnused(higher);
+      if (candidate) return { question: candidate, reused: false };
     }
 
     const lower = clampLevel(levelIndex - offset);
     if (!checkedLevels.has(lower)) {
       checkedLevels.add(lower);
-      candidate = findUnused(lower);
-      if (candidate) return candidate;
+      const candidate = findUnused(lower);
+      if (candidate) return { question: candidate, reused: false };
     }
   }
 
-  // 3. Reuse any previously seen question for this part type
-  candidate = questions.find(
+  const reused = questions.find(
     (q) => q.testTypeId === requiredTestTypeId
   );
-  if (candidate) return candidate;
+  if (reused) return { question: reused, reused: true };
 
-  // 4. Nothing available
   return null;
 }
 
 export function calculateRawScore(
-  path: Array<{ cefrLevel: CefrLevel; wasCorrect: boolean }>
+  path: Array<{ cefrLevel: CefrLevel; wasCorrect: boolean; reused?: boolean }>
 ): number {
   return path.reduce((sum, item) => {
     if (!item.wasCorrect) return sum;
-    return sum + CEFR_WEIGHTS[item.cefrLevel];
+    const weight = CEFR_WEIGHTS[item.cefrLevel];
+    const discount = item.reused ? REUSE_WEIGHT_DISCOUNT : 1;
+    return sum + weight * discount;
   }, 0);
 }
 
 export function calculateMaxPossibleScore(
-  path: Array<{ cefrLevel: CefrLevel }>
+  path: Array<{ cefrLevel: CefrLevel; reused?: boolean }>
 ): number {
-  return path.reduce((sum, item) => sum + CEFR_WEIGHTS[item.cefrLevel], 0);
+  return path.reduce((sum, item) => {
+    const weight = CEFR_WEIGHTS[item.cefrLevel];
+    const discount = item.reused ? REUSE_WEIGHT_DISCOUNT : 1;
+    return sum + weight * discount;
+  }, 0);
 }
 
 export function normalizeScore(
@@ -115,4 +141,12 @@ export function normalizedScoreToCefr(score: number): CefrLevel {
   }
   if (score < 1) return 'A1';
   return 'C2';
+}
+
+export function calculateConfidence(
+  totalQuestions: number
+): 'high' | 'medium' | 'low' {
+  if (totalQuestions >= MIN_QUESTIONS_FOR_CONFIDENT) return 'high';
+  if (totalQuestions >= 10) return 'medium';
+  return 'low';
 }
