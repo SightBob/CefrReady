@@ -67,26 +67,26 @@ export default function AssignToTestSetModal({
     setAssigning(testSetId);
     setProgress({ done: 0, total: questionIds.length });
 
-    let allSuccess = true;
-    for (const qId of questionIds) {
-      try {
-        const res = await fetch(`/api/admin/test-sets/${testSetId}/questions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ questionId: qId }),
-        });
-        if (!res.ok && res.status !== 409) {
-          allSuccess = false;
-        }
-      } catch {
-        allSuccess = false;
-      }
-      setProgress((p) => ({ ...p, done: p.done + 1 }));
-    }
+    try {
+      const res = await fetch(`/api/admin/test-sets/${testSetId}/questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionIds }),
+      });
 
-    setAssigning(null);
-    if (allSuccess) {
-      onAssignmentComplete();
+      if (res.ok) {
+        const data = await res.json();
+        setProgress({ done: questionIds.length, total: questionIds.length });
+        onAssignmentComplete();
+      } else {
+        const data = await res.json();
+        console.error('Bulk assign error:', data.error);
+        onAssignmentComplete();
+      }
+    } catch (err) {
+      console.error('Failed to assign questions:', err);
+    } finally {
+      setAssigning(null);
     }
   };
 

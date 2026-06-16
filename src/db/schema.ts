@@ -365,3 +365,26 @@ export const contactMessages = pgTable('contact_messages', {
 
 export type DbContactMessage = typeof contactMessages.$inferSelect;
 export type NewContactMessage = typeof contactMessages.$inferInsert;
+
+// ============================================================
+// Question Selection Logs (Adaptive test selection tracking)
+// ============================================================
+
+export const questionSelectionLogs = pgTable('question_selection_logs', {
+  id: serial('id').primaryKey(),
+  attemptId: integer('attempt_id').notNull().references(() => testAttempts.id, { onDelete: 'cascade' }),
+  testTypeId: varchar('test_type_id', { length: 50 }).notNull(),
+  questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  targetLevel: varchar('target_level', { length: 10 }).notNull(),
+  selectedLevel: varchar('selected_level', { length: 10 }).notNull(),
+  mode: varchar('mode', { length: 20 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  attemptIdx: index('qsl_attempt_idx').on(table.attemptId),
+  typeIdx: index('qsl_type_idx').on(table.testTypeId),
+  modeIdx: index('qsl_mode_idx').on(table.mode),
+  createdAtIdx: index('qsl_created_at_idx').on(table.createdAt),
+}));
+
+export type DbQuestionSelectionLog = typeof questionSelectionLogs.$inferSelect;
+export type NewQuestionSelectionLog = typeof questionSelectionLogs.$inferInsert;

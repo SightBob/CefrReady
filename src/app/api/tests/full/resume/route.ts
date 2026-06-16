@@ -7,6 +7,7 @@ import { checkRateLimit } from '@/lib/api-security';
 import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, type CefrLevel, type PerTypeLevels } from '@/lib/full-test/constants';
 import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
+import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,16 @@ export async function GET(request: Request) {
     const result = await submitAttempt(attempt.id, user.id);
     return NextResponse.json({ success: true, data: { expired: true, result, reason: 'pool_exhausted' } });
   }
+
+  const selectionMode = determineSelectionMode(selection.reused, selection.question.cefrLevel, nextTypeLevel);
+  await logQuestionSelection({
+    attemptId: attempt.id,
+    testTypeId: nextPart,
+    questionId: selection.question.id,
+    targetLevel: nextTypeLevel,
+    selectedLevel: selection.question.cefrLevel,
+    mode: selectionMode,
+  });
 
   return NextResponse.json({
     success: true,

@@ -14,6 +14,7 @@ import {
   cefrIndex,
 } from '@/lib/full-test/constants';
 import { getNextLevel, selectQuestion, getPerTypeAnswerHistory, getInitialLevels } from '@/lib/full-test/algorithm';
+import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
 
 const bodySchema = z.object({
   attemptId: z.number().int(),
@@ -101,6 +102,16 @@ export async function POST(request: NextRequest) {
     if (!selection) {
       return NextResponse.json({ success: true, data: { finished: true, reason: 'pool_exhausted' } });
     }
+
+    const selMode = determineSelectionMode(selection.reused, selection.question.cefrLevel, nextTypeLevel);
+    await logQuestionSelection({
+      attemptId,
+      testTypeId: nextPart,
+      questionId: selection.question.id,
+      targetLevel: nextTypeLevel,
+      selectedLevel: selection.question.cefrLevel,
+      mode: selMode,
+    });
 
     return NextResponse.json({
       success: true,
@@ -242,6 +253,16 @@ export async function POST(request: NextRequest) {
       lastActivityAt: new Date(),
     })
     .where(eq(testAttempts.id, attemptId));
+
+  const selMode2 = determineSelectionMode(selection.reused, selection.question.cefrLevel, nextTypeLevel);
+  await logQuestionSelection({
+    attemptId,
+    testTypeId: nextPart,
+    questionId: selection.question.id,
+    targetLevel: nextTypeLevel,
+    selectedLevel: selection.question.cefrLevel,
+    mode: selMode2,
+  });
 
   return NextResponse.json({
     success: true,

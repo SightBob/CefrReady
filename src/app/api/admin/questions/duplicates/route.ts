@@ -24,6 +24,11 @@ export async function GET() {
         q.difficulty,
         q.active,
         q."createdAt",
+        q."optionA",
+        q."optionB",
+        q."optionC",
+        q."optionD",
+        q."correctAnswer",
         LOWER(TRIM(q."questionText")) AS normalized_text
       FROM questions q
       INNER JOIN (
@@ -49,6 +54,11 @@ export async function GET() {
       difficulty: string | null;
       active: string;
       createdAt: string;
+      optionA: string | null;
+      optionB: string | null;
+      optionC: string | null;
+      optionD: string | null;
+      correctAnswer: string | null;
       normalized_text: string;
     }[];
 

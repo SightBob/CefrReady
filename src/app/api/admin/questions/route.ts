@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, testSetQuestions, testSets } from '@/db/schema';
-import { eq, desc, inArray, and, sql } from 'drizzle-orm';
+import { eq, desc, inArray, and, sql, count as drizzleCount } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+
+const PAGE_SIZE = 20;
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAdmin();
@@ -10,71 +12,52 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const testTypeId = searchParams.get('testTypeId');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10)));
+    const offset = (page - 1) * limit;
 
-    let allQuestions;
+    const baseWhere = testTypeId ? eq(questions.testTypeId, testTypeId) : undefined;
 
-    if (testTypeId) {
-      allQuestions = await db
-        .select({
-          id: questions.id,
-          testTypeId: questions.testTypeId,
-          questionText: questions.questionText,
-          optionA: questions.optionA,
-          optionB: questions.optionB,
-          optionC: questions.optionC,
-          optionD: questions.optionD,
-          correctAnswer: questions.correctAnswer,
-          explanation: questions.explanation,
-          difficulty: questions.difficulty,
-          cefrLevel: questions.cefrLevel,
-          active: questions.active,
-          orderIndex: questions.orderIndex,
-          createdAt: questions.createdAt,
-          conversation: questions.conversation,
-          article: questions.article,
-          audioUrl: questions.audioUrl,
-          transcript: questions.transcript,
-          testType: {
-            id: testTypes.id,
-            name: testTypes.name,
-          },
-        })
-        .from(questions)
-        .leftJoin(testTypes, eq(questions.testTypeId, testTypes.id))
-        .where(eq(questions.testTypeId, testTypeId))
-        .orderBy(desc(questions.createdAt));
-    } else {
-      allQuestions = await db
-        .select({
-          id: questions.id,
-          testTypeId: questions.testTypeId,
-          questionText: questions.questionText,
-          optionA: questions.optionA,
-          optionB: questions.optionB,
-          optionC: questions.optionC,
-          optionD: questions.optionD,
-          correctAnswer: questions.correctAnswer,
-          explanation: questions.explanation,
-          difficulty: questions.difficulty,
-          cefrLevel: questions.cefrLevel,
-          active: questions.active,
-          orderIndex: questions.orderIndex,
-          createdAt: questions.createdAt,
-          conversation: questions.conversation,
-          article: questions.article,
-          audioUrl: questions.audioUrl,
-          transcript: questions.transcript,
-          testType: {
-            id: testTypes.id,
-            name: testTypes.name,
-          },
-        })
-        .from(questions)
-        .leftJoin(testTypes, eq(questions.testTypeId, testTypes.id))
-        .orderBy(desc(questions.createdAt));
-    }
+    const [countRow] = await db
+      .select({ cnt: drizzleCount() })
+      .from(questions)
+      .where(baseWhere);
 
-    // Fetch test set memberships for all returned questions
+    const total = countRow?.cnt ?? 0;
+
+    const allQuestions = await db
+      .select({
+        id: questions.id,
+        testTypeId: questions.testTypeId,
+        questionText: questions.questionText,
+        optionA: questions.optionA,
+        optionB: questions.optionB,
+        optionC: questions.optionC,
+        optionD: questions.optionD,
+        correctAnswer: questions.correctAnswer,
+        explanation: questions.explanation,
+        difficulty: questions.difficulty,
+        cefrLevel: questions.cefrLevel,
+        active: questions.active,
+        orderIndex: questions.orderIndex,
+        createdAt: questions.createdAt,
+        conversation: questions.conversation,
+        article: questions.article,
+        audioUrl: questions.audioUrl,
+        transcript: questions.transcript,
+        testType: {
+          id: testTypes.id,
+          name: testTypes.name,
+        },
+      })
+      .from(questions)
+      .leftJoin(testTypes, eq(questions.testTypeId, testTypes.id))
+      .where(baseWhere)
+      .orderBy(desc(questions.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Fetch test set memberships for returned questions
     const questionIds = allQuestions.map((q) => q.id);
     let membershipMap: Record<number, { id: number; name: string; sectionId: string }[]> = {};
     if (questionIds.length > 0) {
@@ -103,7 +86,13 @@ export async function GET(request: NextRequest) {
       testSets: membershipMap[q.id] || [],
     }));
 
-    return NextResponse.json(questionsWithSets);
+    return NextResponse.json({
+      questions: questionsWithSets,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     console.error('Error fetching questions:', error);
     return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 });

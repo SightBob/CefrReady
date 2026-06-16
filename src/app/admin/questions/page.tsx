@@ -22,6 +22,8 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
 import { toast } from 'sonner';
@@ -88,6 +90,11 @@ interface DuplicateQuestion {
   difficulty: string | null;
   active: string;
   createdAt: string;
+  optionA: string | null;
+  optionB: string | null;
+  optionC: string | null;
+  optionD: string | null;
+  correctAnswer: string | null;
 }
 
 interface DuplicateGroup {
@@ -125,6 +132,10 @@ export default function QuestionsManagement() {
   const [assignTargetIds, setAssignTargetIds] = useState<number[]>([]);
   const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 20;
 
   // Duplicate scan state
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -132,6 +143,7 @@ export default function QuestionsManagement() {
   const [duplicateLoading, setDuplicateLoading] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [deletingDupId, setDeletingDupId] = useState<number | null>(null);
+  const [keepIds, setKeepIds] = useState<Record<string, number>>({});
 
   const fetchTestTypes = useCallback(async () => {
     try {
@@ -148,25 +160,33 @@ export default function QuestionsManagement() {
   const fetchQuestions = useCallback(async () => {
     try {
       setLoading(true);
-      const url = selectedTestType
-        ? `/api/admin/questions?testTypeId=${selectedTestType}`
-        : '/api/admin/questions';
-      const response = await fetch(url);
+      const params = new URLSearchParams();
+      if (selectedTestType) params.set('testTypeId', selectedTestType);
+      params.set('page', String(currentPage));
+      params.set('limit', String(PAGE_SIZE));
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const response = await fetch(`/api/admin/questions${query}`);
       if (response.ok) {
         const data = await response.json();
-        setQuestions(data);
+        setQuestions(data.questions || []);
+        setTotalCount(data.total || 0);
+        setTotalPages(data.totalPages || 1);
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
     } finally {
       setLoading(false);
     }
-  }, [selectedTestType]);
+  }, [selectedTestType, currentPage]);
 
   useEffect(() => {
     fetchTestTypes();
     fetchQuestions();
   }, [fetchTestTypes, fetchQuestions]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedTestType, selectedDifficulty, selectedCefr, searchTerm]);
 
   const handleExportCSV = async () => {
     try {
@@ -326,7 +346,16 @@ export default function QuestionsManagement() {
     try {
       const res = await fetch('/api/admin/questions/duplicates');
       const data = await res.json();
-      setDuplicateGroups(data.groups || []);
+      const groups = data.groups || [];
+      setDuplicateGroups(groups);
+      const initialKeep: Record<string, number> = {};
+      for (const group of groups) {
+        const key = `${group.testTypeId}::${group.normalizedText}`;
+        if (group.questions.length > 0) {
+          initialKeep[key] = group.questions[0].id;
+        }
+      }
+      setKeepIds(initialKeep);
     } catch (err) {
       console.error('Error scanning duplicates:', err);
       toast.error('ไม่สามารถสแกนข้อสอบซ้ำได้');
@@ -335,31 +364,49 @@ export default function QuestionsManagement() {
     }
   };
 
-  const deleteDuplicate = async (id: number) => {
-    setDeletingDupId(id);
-    try {
-      const res = await fetch(`/api/admin/questions/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setQuestions(prev => prev.filter(q => q.id !== id));
-        setDuplicateGroups(prev =>
-          prev
-            .map(group => ({
-              ...group,
-              questions: group.questions.filter(q => q.id !== id),
-              count: group.questions.filter(q => q.id !== id).length,
-            }))
-            .filter(group => group.count > 1)
-        );
-        toast.success('ลบข้อสอบซ้ำสำเร็จ');
-      } else {
-        toast.error('เกิดข้อผิดพลาดในการลบ');
-      }
-    } catch (err) {
-      console.error('Error deleting duplicate:', err);
-      toast.error('เกิดข้อผิดพลาดในการลบ');
-    } finally {
-      setDeletingDupId(null);
-    }
+  const deleteDuplicate = (id: number, groupKey: string) => {
+    toast('ต้องการลบข้อซ้ำนี้หรือไม่?', {
+      description: 'การกระทำนี้ไม่สามารถย้อนกลับได้',
+      action: {
+        label: 'ลบเลย',
+        onClick: async () => {
+          setDeletingDupId(id);
+          try {
+            const res = await fetch(`/api/admin/questions/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+              setQuestions(prev => prev.filter(q => q.id !== id));
+              setDuplicateGroups(prev => {
+                const updated = prev
+                  .map(group => {
+                    const remaining = group.questions.filter(q => q.id !== id);
+                    if (remaining.length === group.questions.length) return group;
+                    const newKey = `${group.testTypeId}::${group.normalizedText}`;
+                    if (keepIds[groupKey] === id && remaining.length > 0) {
+                      setKeepIds(k => ({ ...k, [groupKey]: remaining[0].id }));
+                    }
+                    return {
+                      ...group,
+                      questions: remaining,
+                      count: remaining.length,
+                    };
+                  })
+                  .filter(group => group.count > 1);
+                return updated;
+              });
+              toast.success('ลบข้อสอบซ้ำสำเร็จ');
+            } else {
+              toast.error('เกิดข้อผิดพลาดในการลบ');
+            }
+          } catch (err) {
+            console.error('Error deleting duplicate:', err);
+            toast.error('เกิดข้อผิดพลาดในการลบ');
+          } finally {
+            setDeletingDupId(null);
+          }
+        },
+      },
+      cancel: { label: 'ยกเลิก', onClick: () => {} },
+    });
   };
 
   const toggleGroup = (key: string) => {
@@ -913,24 +960,64 @@ export default function QuestionsManagement() {
               </div>
             </div>
 
-            {/* Footer count */}
+            {/* Footer count + pagination */}
             <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
               <p>
                 แสดง <span className="font-medium text-slate-700">{filteredQuestions.length}</span>{' '}
-                จาก <span className="font-medium text-slate-700">{questions.length}</span> ข้อสอบ
+                จาก <span className="font-medium text-slate-700">{totalCount}</span> ข้อสอบ
+                {totalPages > 1 && ` · หน้า ${currentPage}/${totalPages}`}
               </p>
-              {(searchTerm || selectedDifficulty || selectedCefr) && (
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedDifficulty('');
-                    setSelectedCefr('');
-                  }}
-                  className="text-primary-600 hover:text-primary-700 font-medium"
-                >
-                  ล้าง filter
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {(searchTerm || selectedDifficulty || selectedCefr) && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedDifficulty('');
+                      setSelectedCefr('');
+                    }}
+                    className="text-primary-600 hover:text-primary-700 font-medium mr-3"
+                  >
+                    ล้าง filter
+                  </button>
+                )}
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-default transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                      .map((p, i, arr) => (
+                        <span key={p} className="flex items-center">
+                          {i > 0 && arr[i - 1] !== p - 1 && (
+                            <span className="px-1 text-slate-300">…</span>
+                          )}
+                          <button
+                            onClick={() => setCurrentPage(p)}
+                            className={`min-w-[32px] h-8 rounded-lg text-xs font-medium transition-colors ${
+                              p === currentPage
+                                ? 'bg-primary-600 text-white'
+                                : 'hover:bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        </span>
+                      ))}
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                      className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-default transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
@@ -1204,31 +1291,75 @@ export default function QuestionsManagement() {
                         {/* Group Questions */}
                         {isExpanded && (
                           <div className="divide-y divide-slate-100">
-                            {group.questions.map((q, idx) => (
-                              <div key={q.id} className="flex items-center gap-3 px-4 py-3">
-                                <span className="text-xs text-slate-400 w-5">{idx + 1}</span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-slate-500">ID: {q.id} · {q.cefrLevel} · {q.difficulty || '—'}</p>
-                                  <p className="text-sm text-slate-700 line-clamp-1">{q.questionText}</p>
+                            {group.questions.map((q, idx) => {
+                              const isKeep = q.id === keepIds[key];
+                              return (
+                                <div key={q.id} className="px-4 py-3">
+                                  <div className="flex items-start gap-3">
+                                    <span className="text-xs text-slate-400 w-5 mt-0.5">{idx + 1}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs text-slate-500">ID: {q.id}</span>
+                                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cefrColors[q.cefrLevel] || 'bg-slate-100 text-slate-700'}`}>{q.cefrLevel}</span>
+                                        {q.difficulty && (
+                                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${difficultyColors[q.difficulty] || 'bg-slate-100 text-slate-600'}`}>{q.difficulty}</span>
+                                        )}
+                                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${q.active === 'true' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{q.active === 'true' ? 'ใช้งาน' : 'ปิด'}</span>
+                                      </div>
+                                      <p className="text-sm text-slate-700 line-clamp-2 mb-2">{q.questionText}</p>
+
+                                      {(q.optionA || q.optionB || q.optionC || q.optionD) && (
+                                        <div className="flex flex-wrap gap-1">
+                                          {(['A', 'B', 'C', 'D'] as const).map((opt) => {
+                                            const val = q[`option${opt}` as keyof DuplicateQuestion] as string | null;
+                                            if (!val) return null;
+                                            const isCorrect = q.correctAnswer === opt;
+                                            return (
+                                              <span
+                                                key={opt}
+                                                className={`text-xs px-2 py-0.5 rounded ${
+                                                  isCorrect
+                                                    ? 'bg-emerald-100 text-emerald-700 font-semibold'
+                                                    : 'bg-slate-100 text-slate-500'
+                                                }`}
+                                              >
+                                                {opt}: {val}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      {isKeep ? (
+                                        <span className="text-xs px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-semibold">เก็บ</span>
+                                      ) : (
+                                        <>
+                                          <button
+                                            onClick={() => setKeepIds(prev => ({ ...prev, [key]: q.id }))}
+                                            className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                                            title="เก็บข้อนี้แทน"
+                                          >
+                                            <CheckCircle className="w-4 h-4" />
+                                          </button>
+                                          <button
+                                            onClick={() => deleteDuplicate(q.id, key)}
+                                            disabled={deletingDupId === q.id}
+                                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                            title="ลบข้อซ้ำนี้"
+                                          >
+                                            {deletingDupId === q.id
+                                              ? <Loader2 className="w-4 h-4 animate-spin" />
+                                              : <Trash2 className="w-4 h-4" />
+                                            }
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                {idx > 0 && (
-                                  <button
-                                    onClick={() => deleteDuplicate(q.id)}
-                                    disabled={deletingDupId === q.id}
-                                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                                    title="ลบข้อซ้ำนี้"
-                                  >
-                                    {deletingDupId === q.id
-                                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                                      : <Trash2 className="w-4 h-4" />
-                                    }
-                                  </button>
-                                )}
-                                {idx === 0 && (
-                                  <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">ต้นฉบับ</span>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>

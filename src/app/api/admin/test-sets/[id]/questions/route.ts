@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-/** POST /api/admin/test-sets/[id]/questions — add a question to a set */
+/** POST /api/admin/test-sets/[id]/questions — add one or more questions to a set */
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const { error } = await requireAdmin();
   if (error) return error;
@@ -15,8 +15,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (isNaN(setId)) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 });
 
   try {
-    const { questionId } = await request.json();
-    if (!questionId) return NextResponse.json({ success: false, error: 'questionId required' }, { status: 400 });
+    const body = await request.json();
+    const questionIds: number[] = body.questionIds
+      ? (Array.isArray(body.questionIds) ? body.questionIds.map(Number) : [Number(body.questionIds)])
+      : body.questionId
+        ? [Number(body.questionId)]
+        : [];
+
+    if (questionIds.length === 0) {
+      return NextResponse.json({ success: false, error: 'questionId or questionIds required' }, { status: 400 });
+    }
 
     // Check set exists
     const [set] = await db.select().from(testSets).where(eq(testSets.id, setId)).limit(1);
@@ -28,22 +36,32 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .from(testSetQuestions)
       .where(eq(testSetQuestions.testSetId, setId));
 
-    const nextOrder = (countRow?.cnt ?? 0);
+    let nextOrder = countRow?.cnt ?? 0;
 
-    const [inserted] = await db
-      .insert(testSetQuestions)
-      .values({ testSetId: setId, questionId: Number(questionId), orderIndex: nextOrder })
-      .onConflictDoNothing()
-      .returning();
+    const inserted: Array<{ testSetId: number; questionId: number; orderIndex: number }> = [];
+    const skipped: number[] = [];
 
-    if (!inserted) {
-      return NextResponse.json({ success: false, error: 'Question already in this set' }, { status: 409 });
+    for (const qId of questionIds) {
+      const [row] = await db
+        .insert(testSetQuestions)
+        .values({ testSetId: setId, questionId: qId, orderIndex: nextOrder })
+        .onConflictDoNothing()
+        .returning();
+      if (row) {
+        inserted.push(row);
+        nextOrder++;
+      } else {
+        skipped.push(qId);
+      }
     }
 
-    return NextResponse.json({ success: true, data: inserted }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      data: { inserted: inserted.length, skipped: skipped.length },
+    }, { status: 201 });
   } catch (err) {
     console.error('[admin/test-sets/id/questions] POST error:', err);
-    return NextResponse.json({ success: false, error: 'Failed to add question' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to add question(s)' }, { status: 500 });
   }
 }
 

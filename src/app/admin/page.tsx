@@ -13,6 +13,7 @@ import {
   Mail,
   Star,
   Languages,
+  Database,
 } from 'lucide-react';
 
 interface Stats {
@@ -129,6 +130,15 @@ export default function AdminDashboard() {
       href: '/admin/test-feedback',
       color: 'from-amber-500 to-yellow-500',
       bgColor: 'bg-amber-50',
+      count: 0,
+    },
+    {
+      title: 'ภาพรวม Question Pool',
+      description: 'ดูการกระจายข้อสอบ ระดับ CEFR และ fallback/reuse',
+      icon: Database,
+      href: '/admin/question-pool',
+      color: 'from-sky-500 to-blue-600',
+      bgColor: 'bg-sky-50',
       count: 0,
     },
   ];

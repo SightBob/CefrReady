@@ -11,6 +11,7 @@ import {
 } from '@/lib/full-test/constants';
 import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
+import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +82,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'No questions available' }, { status: 500 });
   }
 
+  const targetLevel = initialLevels[firstPart] as CefrLevel;
+  const selectionMode = determineSelectionMode(firstResult.reused, firstResult.question.cefrLevel, targetLevel);
+
   const [attempt] = await db
     .insert(testAttempts)
     .values({
@@ -93,6 +97,15 @@ export async function POST(request: Request) {
       adaptivePath: [],
     })
     .returning();
+
+  await logQuestionSelection({
+    attemptId: attempt.id,
+    testTypeId: firstPart,
+    questionId: firstResult.question.id,
+    targetLevel,
+    selectedLevel: firstResult.question.cefrLevel,
+    mode: selectionMode,
+  });
 
   return NextResponse.json({
     success: true,
