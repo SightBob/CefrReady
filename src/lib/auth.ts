@@ -13,7 +13,7 @@ if (!process.env.NEXTAUTH_SECRET) {
   console.warn('Missing NEXTAUTH_SECRET env var - generate one with: openssl rand -base64 32');
 }
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'pawatsaekoo@gmail.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 // See auth.config.ts for the explanation of AnyTable
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,7 +47,7 @@ export const {
     // jwt() — runs on sign-in and every request in middleware/server components.
     // Store userId and isAdmin in the token so Edge can read them from the cookie.
     async jwt({ token, user }) {
-      if (user) {
+      if (user && ADMIN_EMAIL) {
         // First sign-in: user object is populated — fetch DB id and set admin flag
         token.id = user.id;
         token.isAdmin = user.email === ADMIN_EMAIL;

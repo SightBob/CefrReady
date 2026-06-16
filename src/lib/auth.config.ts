@@ -60,7 +60,7 @@ export const authConfig: NextAuthConfig = {
 
       if (isProtected) {
         if (!isLoggedIn) return Response.redirect(new URL('/', nextUrl));
-        if (auth.user?.email !== process.env.ADMIN_EMAIL) return Response.redirect(new URL('/', nextUrl));
+        if (!process.env.ADMIN_EMAIL || auth.user?.email !== process.env.ADMIN_EMAIL) return Response.redirect(new URL('/', nextUrl));
       }
 
       return true;

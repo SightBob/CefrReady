@@ -3,16 +3,24 @@ import { db } from '@/db';
 import { testAttempts, userProgress, questions } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
+import { validateOrigin, checkRateLimit } from '@/lib/api-security';
 import {
   FULL_TEST_PART_DISTRIBUTION,
   FULL_TEST_TOTAL_SECONDS,
   type CefrLevel,
 } from '@/lib/full-test/constants';
-import { selectQuestion, normalizedScoreToCefr, getInitialLevels } from '@/lib/full-test/algorithm';
+import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
+import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST() {
+export async function POST(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
+  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 5, keySuffix: 'start' });
+  if (rateLimitError) return rateLimitError;
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -50,7 +58,7 @@ export async function POST() {
     ? parseFloat(progress[0].averageScore)
     : 0;
   const startLevel: CefrLevel = overallScore > 0
-    ? normalizedScoreToCefr(overallScore)
+    ? estimateCefrLevel(overallScore)
     : 'B1';
 
   const initialLevels = getInitialLevels(startLevel);

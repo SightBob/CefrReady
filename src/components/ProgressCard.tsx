@@ -22,6 +22,7 @@ const iconMap: Record<string, React.ElementType> = {
   'focus-meaning': BookOpen,
   'form-meaning': Layers,
   'listening': Headphones,
+  'full-test': TrendingUp,
 };
 
 const colorMap: Record<string, string> = {
@@ -29,6 +30,7 @@ const colorMap: Record<string, string> = {
   'focus-meaning': 'from-emerald-500 to-teal-500',
   'form-meaning': 'from-purple-500 to-pink-500',
   'listening': 'from-orange-500 to-amber-500',
+  'full-test': 'from-indigo-500 to-violet-500',
 };
 
 const bgColorMap: Record<string, string> = {
@@ -36,6 +38,7 @@ const bgColorMap: Record<string, string> = {
   'focus-meaning': 'bg-emerald-50',
   'form-meaning': 'bg-purple-50',
   'listening': 'bg-orange-50',
+  'full-test': 'bg-indigo-50',
 };
 
 const scoreColorMap: Record<string, string> = {

@@ -41,6 +41,7 @@ const BASE_SKILLS: Record<string, { label: string; sectionHref: string }> = {
   'focus-meaning': { label: 'Focus Meaning', sectionHref: '/tests/focus-meaning' },
   'form-meaning':  { label: 'Form Meaning',  sectionHref: '/tests/form-meaning' },
   'listening':     { label: 'Listening',     sectionHref: '/tests/listening' },
+  'full-test':     { label: 'Full Mock Exam', sectionHref: '/tests/full' },
 };
 
 const SKILL_TIPS: Record<string, string> = {
@@ -52,6 +53,8 @@ const SKILL_TIPS: Record<string, string> = {
     'โจทย์ผสมต้องการทั้งไวยากรณ์และความหมาย ลองทำ Focus Form กับ Focus Meaning ก่อนครับ',
   'listening':
     'ฝึกฟังบ่อยๆ ในบริบทธรรมชาติ เช่น Podcast ภาษาอังกฤษ 10 นาทีต่อวันครับ',
+  'full-test':
+    'ทำ Full Mock Exam อย่างสม่ำเสมอเพื่อวัดระดับรวมทุกทักษะ และดูจุดที่ต้องปรับปรุงครับ',
 };
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────

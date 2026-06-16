@@ -3,13 +3,17 @@ import { db } from '@/db';
 import { testAttempts, questions } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
+import { checkRateLimit } from '@/lib/api-security';
 import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, type CefrLevel, type PerTypeLevels } from '@/lib/full-test/constants';
 import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 10, keySuffix: 'resume' });
+  if (rateLimitError) return rateLimitError;
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { userProgress, testAttempts, testTypes } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import ProgressContent from './ProgressContent';
 
 export const metadata: Metadata = {
@@ -63,7 +63,7 @@ export default async function ProgressPage() {
         completedAt: testAttempts.completedAt,
       })
       .from(testAttempts)
-      .where(eq(testAttempts.userId, session.user.id))
+      .where(and(eq(testAttempts.userId, session.user.id), eq(testAttempts.status, 'completed')))
       .orderBy(desc(testAttempts.completedAt))
       .limit(10),
     db.select().from(testTypes),

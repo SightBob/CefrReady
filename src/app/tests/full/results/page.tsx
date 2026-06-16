@@ -12,6 +12,7 @@ const PART_LABELS: Record<string, string> = {
   'focus-meaning': 'Vocabulary',
   'form-meaning': 'Cloze (Fill-in-the-blank)',
   'listening': 'Listening',
+  'full-test': 'Full Mock Exam',
 };
 
 interface ResultData {
@@ -76,8 +77,10 @@ export default function FullTestResultsPage() {
         <h1 className="text-3xl font-bold text-slate-900 mb-2">ผลการสอบจำลอง</h1>
         <p className="text-slate-600 mb-6">คะแนนรวมของคุณ</p>
 
-        <div className="text-5xl font-bold text-slate-900 mb-2">{result.score}</div>
-        <div className="text-slate-500 mb-6">จาก 120 คะแนน</div>
+        <div className="text-5xl font-bold text-slate-900 mb-2">{result.score}%</div>
+        <p className="text-slate-500 mb-6">
+          ถูก {result.correctAnswers} จาก {result.totalQuestions} ข้อ
+        </p>
 
         <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border ${CEFR_COLORS[result.cefrLevel]}`}>
           <span className="text-2xl font-bold">{result.cefrLevel}</span>

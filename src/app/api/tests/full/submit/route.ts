@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
+import { validateOrigin, checkRateLimit } from '@/lib/api-security';
 
 const bodySchema = z.object({ attemptId: z.number() });
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
+  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 10, keySuffix: 'submit' });
+  if (rateLimitError) return rateLimitError;
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

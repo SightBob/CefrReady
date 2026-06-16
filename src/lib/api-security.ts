@@ -1,0 +1,38 @@
+import { NextResponse } from 'next/server';
+import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from './rate-limit';
+
+const ALLOWED_ORIGINS = [
+  process.env.NEXTAUTH_URL,
+  'https://cefr-ready.site',
+  'https://cefr-ready.vercel.app',
+  'http://localhost:3000',
+].filter(Boolean) as string[];
+
+export function validateOrigin(request: Request): Response | null {
+  const origin = request.headers.get('origin') || request.headers.get('referer');
+  if (!origin) return null;
+
+  if (!ALLOWED_ORIGINS.some((allowed) => origin.startsWith(allowed))) {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+
+  return null;
+}
+
+export async function checkRateLimit(
+  request: Request,
+  options: { windowMs?: number; maxRequests?: number; keySuffix?: string } = {}
+): Promise<Response | null> {
+  const identifier = getRateLimitIdentifier(request) + (options.keySuffix ? `:${options.keySuffix}` : '');
+  const rl = await rateLimit(identifier, {
+    windowMs: options.windowMs ?? 60_000,
+    maxRequests: options.maxRequests ?? 10,
+  });
+
+  if (rl.limited) return rateLimitResponse(rl.retryAfterMs);
+  return null;
+}
+
+export function jsonResponse(body: unknown, status = 200): NextResponse {
+  return NextResponse.json(body, { status });
+}

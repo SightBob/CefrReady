@@ -5,10 +5,9 @@ import { type CefrLevel } from './constants';
 import {
   calculateRawScore,
   calculateMaxPossibleScore,
-  normalizeScore,
-  normalizedScoreToCefr,
   calculateConfidence,
 } from './algorithm';
+import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 interface ExpandedPathEntry {
   questionId: number;
@@ -49,7 +48,7 @@ export async function submitAttempt(attemptId: number, userId: string) {
   if (!attempt) throw new Error('Attempt not found');
   if (attempt.status === 'completed') {
     const score = parseFloat(attempt.score ?? '0');
-    return buildResult(attempt, score, normalizedScoreToCefr(score));
+    return buildResult(attempt, score, estimateCefrLevel(score));
   }
   if (attempt.status === 'cancelled') {
     throw new Error('Attempt was cancelled');
@@ -99,29 +98,32 @@ export async function submitAttempt(attemptId: number, userId: string) {
   }
 
   const expandedPath = expandPathForScoring(path, blankCounts);
-  const expandedTotalQuestions = expandedPath.length;
-  const expandedCorrectCount = expandedPath.filter((p) => p.wasCorrect).length;
-
   const rawScore = calculateRawScore(expandedPath);
   const maxPossible = calculateMaxPossibleScore(expandedPath);
-  const normalized = normalizeScore(rawScore, maxPossible);
-  const cefrLevel = normalizedScoreToCefr(normalized);
-  const confidence = calculateConfidence(expandedTotalQuestions);
+  const confidence = calculateConfidence(path.length);
+
+  const totalQuestions = path.length;
+  const correctAnswers = path.filter((p) => p.wasCorrect).length;
+  const percentageScore = totalQuestions > 0
+    ? Math.round((correctAnswers / totalQuestions) * 100 * 100) / 100
+    : 0;
+  const cefrLevel = estimateCefrLevel(percentageScore);
 
   const reusedCount = path.filter((p) => p.reused).length;
 
   const now = new Date();
 
-  await db
+  const [updated] = await db
     .update(testAttempts)
     .set({
       status: 'completed',
-      score: normalized.toString(),
-      totalQuestions: expandedTotalQuestions,
-      correctAnswers: expandedCorrectCount,
+      score: percentageScore.toString(),
+      totalQuestions,
+      correctAnswers,
       completedAt: now,
     })
-    .where(eq(testAttempts.id, attemptId));
+    .where(eq(testAttempts.id, attemptId))
+    .returning();
 
   if (path.length > 0) {
     await db.insert(userAnswers).values(
@@ -135,19 +137,14 @@ export async function submitAttempt(attemptId: number, userId: string) {
     );
   }
 
-  await updateUserProgress(userId, 'full-test', normalized);
+  await updateUserProgress(userId, 'full-test', percentageScore);
 
-  const [updated] = await db
-    .select()
-    .from(testAttempts)
-    .where(eq(testAttempts.id, attemptId));
-
-  return buildResult(updated, normalized, cefrLevel, expandedCorrectCount, expandedTotalQuestions, confidence, reusedCount);
+  return buildResult(updated, percentageScore, cefrLevel, correctAnswers, totalQuestions, confidence, reusedCount);
 }
 
 function buildResult(
   attempt: DbTestAttempt,
-  normalized?: number,
+  score?: number,
   cefrLevel?: CefrLevel,
   correctCount?: number,
   totalQuestions?: number,
@@ -156,7 +153,7 @@ function buildResult(
 ) {
   return {
     attemptId: attempt.id,
-    score: normalized ?? parseFloat(attempt.score ?? '0'),
+    score: score ?? parseFloat(attempt.score ?? '0'),
     cefrLevel: cefrLevel ?? null,
     correctAnswers: correctCount ?? attempt.correctAnswers,
     totalQuestions: totalQuestions ?? attempt.totalQuestions,

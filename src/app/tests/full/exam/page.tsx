@@ -2,14 +2,16 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmModal from '@/components/ConfirmModal';
-import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
-import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
-import FormMeaningQuiz from '@/components/FormMeaningQuiz';
-import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
+
+const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'));
+const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'));
+const FormMeaningQuiz = dynamic(() => import('@/components/FormMeaningQuiz'));
+const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
 
 const TOTAL_QUESTIONS = 45;
 const TOTAL_SECONDS = 60 * 60;
@@ -79,7 +81,6 @@ export default function FullTestExamPage() {
   const startOrResume = useCallback(async () => {
     if (initializedRef.current || attemptIdRef.current) return;
     initializedRef.current = true;
-    console.log('[startOrResume] called');
     try {
       const resumeRes = await fetch('/api/tests/full/resume');
       const resumeData = await resumeRes.json();
@@ -127,15 +128,33 @@ export default function FullTestExamPage() {
 
   const handleTimeUp = useCallback(async () => {
     const id = attemptIdRef.current;
-    if (!id || timeUpHandledRef.current) return;
+    if (!id || timeUpHandledRef.current || submittingRef.current) return;
     timeUpHandledRef.current = true;
+    submittingRef.current = true;
+    setSubmitting(true);
     setFinished(true);
-    await fetch('/api/tests/full/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ attemptId: id }),
-    });
-    router.push(`/tests/full/results?attemptId=${id}`);
+    try {
+      const submitRes = await fetch('/api/tests/full/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attemptId: id }),
+      });
+      const submitData = await submitRes.json();
+      if (!submitData.success) {
+        toast.error(submitData.error || 'เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่');
+        timeUpHandledRef.current = false;
+        submittingRef.current = false;
+        setSubmitting(false);
+        return;
+      }
+      router.push(`/tests/full/results?attemptId=${id}`);
+    } catch (err) {
+      toast.error('เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่');
+      console.error(err);
+      timeUpHandledRef.current = false;
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   }, [router]);
 
   useEffect(() => {
@@ -188,7 +207,6 @@ export default function FullTestExamPage() {
   const handleNext = async () => {
     if (!attemptIdRef.current || !question || submittingRef.current) return;
 
-    console.log('[handleNext] called with question:', question?.id, 'answer:', selectedAnswerRef.current);
     submittingRef.current = true;
     setSubmitting(true);
     try {
@@ -203,15 +221,16 @@ export default function FullTestExamPage() {
         }),
       });
       const data = await res.json();
-      console.log('[handleNext] response:', JSON.stringify(data));
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error || 'Unknown error');
 
       if (data.data.finished) {
-        await fetch('/api/tests/full/submit', {
+        const submitRes = await fetch('/api/tests/full/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ attemptId: attemptIdRef.current }),
         });
+        const submitData = await submitRes.json();
+        if (!submitData.success) throw new Error(submitData.error || 'Submit failed');
         router.push(`/tests/full/results?attemptId=${attemptIdRef.current}`);
         return;
       }
@@ -221,7 +240,8 @@ export default function FullTestExamPage() {
       selectedAnswerRef.current = null;
       setSelectedAnswer(null);
     } catch (err) {
-      toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
+      const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+      toast.error(msg);
       console.error(err);
     } finally {
       submittingRef.current = false;
@@ -358,7 +378,7 @@ export default function FullTestExamPage() {
           </div>
         )}
 
-          <div className="flex justify-end">
+          <div className="hidden md:flex justify-end">
             <button
               type="button"
               onClick={handleNextClick}
@@ -370,6 +390,18 @@ export default function FullTestExamPage() {
           </div>
         </div>
       </main>
+
+      {/* Mobile Bottom Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3 flex items-center justify-end">
+        <button
+          type="button"
+          onClick={handleNextClick}
+          disabled={submitting}
+          className="btn-primary text-sm py-2.5 px-5 disabled:opacity-50"
+        >
+          {submitting ? 'กำลังบันทึก...' : 'ข้อต่อไป'}
+        </button>
+      </div>
 
       <ConfirmModal
         isOpen={skipConfirmOpen}

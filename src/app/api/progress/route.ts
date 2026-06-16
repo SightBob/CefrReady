@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { userProgress, testAttempts, testTypes } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
           completedAt: testAttempts.completedAt,
         })
         .from(testAttempts)
-        .where(eq(testAttempts.userId, user.id))
+        .where(and(eq(testAttempts.userId, user.id), eq(testAttempts.status, 'completed')))
         .orderBy(desc(testAttempts.completedAt))
         .limit(10),
       db.select().from(testTypes),

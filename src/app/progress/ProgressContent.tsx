@@ -35,6 +35,14 @@ const SmartInsights = dynamic(
   { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
 );
 
+const TEST_TYPE_NAMES: Record<string, string> = {
+  'focus-form': 'Grammar',
+  'focus-meaning': 'Vocabulary',
+  'form-meaning': 'Cloze',
+  'listening': 'Listening',
+  'full-test': 'Full Mock Exam',
+};
+
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 interface ProgressData {
@@ -209,7 +217,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
             subtext="ประเภทข้อสอบ"
           >
             <AnimatedCounter value={progress.byCategory.length} />
-            <span className="text-base font-normal text-[#AAAAAA]">/4</span>
+            <span className="text-base font-normal text-[#AAAAAA]">/5</span>
           </StatCard>
         </div>
       )}
@@ -297,7 +305,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
                     <ProgressCard
                       key={category.testTypeId}
                       testTypeId={category.testTypeId}
-                      testTypeName={category.testTypeId
+                      testTypeName={TEST_TYPE_NAMES[category.testTypeId] || category.testTypeId
                         .split('-')
                         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
                         .join(' ')}

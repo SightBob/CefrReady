@@ -3,7 +3,9 @@ import { db } from '@/db';
 import { testAttempts, questions } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { normalizedScoreToCefr, calculateConfidence } from '@/lib/full-test/algorithm';
+import { checkRateLimit } from '@/lib/api-security';
+import { estimateCefrLevel } from '@/lib/cefr-estimator';
+import { calculateConfidence } from '@/lib/full-test/algorithm';
 import { type CefrLevel } from '@/lib/full-test/constants';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +24,9 @@ export async function GET(
   request: Request,
   { params }: { params: { attemptId: string } }
 ) {
+  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 30, keySuffix: 'result' });
+  if (rateLimitError) return rateLimitError;
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -46,7 +51,7 @@ export async function GET(
   }
 
   const score = parseFloat(attempt.score ?? '0');
-  const cefrLevel = attempt.score ? normalizedScoreToCefr(score) : null;
+  const cefrLevel = attempt.score ? estimateCefrLevel(score) : null;
   const totalQuestions = attempt.totalQuestions ?? 0;
   const confidence = calculateConfidence(totalQuestions);
   const path = (attempt.adaptivePath ?? []) as PathEntry[];
