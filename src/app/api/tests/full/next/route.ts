@@ -11,6 +11,7 @@ import {
   FULL_TEST_TOTAL_SECONDS,
   type CefrLevel,
   type PerTypeLevels,
+  cefrIndex,
 } from '@/lib/full-test/constants';
 import { getNextLevel, selectQuestion, getPerTypeAnswerHistory, getInitialLevels } from '@/lib/full-test/algorithm';
 
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
       seenQuestionIds: seenIds,
       targetLevel: nextTypeLevel,
       requiredTestTypeId: nextPart,
+      direction: 'neutral',
     });
 
     if (!selection) {
@@ -200,7 +202,11 @@ export async function POST(request: NextRequest) {
   }
 
   const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
+  const prevLevel = (currentLevels[nextPart] as CefrLevel) ?? 'B1';
   const nextTypeLevel = (testTypeLevels[nextPart] as CefrLevel) ?? 'B1';
+  const direction: 'up' | 'down' | 'neutral' =
+    cefrIndex(nextTypeLevel) > cefrIndex(prevLevel) ? 'up' :
+    cefrIndex(nextTypeLevel) < cefrIndex(prevLevel) ? 'down' : 'neutral';
 
   const pool = await db
     .select()
@@ -212,6 +218,7 @@ export async function POST(request: NextRequest) {
     seenQuestionIds: seenQuestionIds,
     targetLevel: nextTypeLevel,
     requiredTestTypeId: nextPart,
+    direction,
   });
 
   if (!selection) {

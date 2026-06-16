@@ -59,6 +59,7 @@ interface QuestionPool {
   seenQuestionIds: Set<number>;
   targetLevel: CefrLevel;
   requiredTestTypeId: string;
+  direction?: 'up' | 'down' | 'neutral';
 }
 
 export function selectQuestion({
@@ -66,6 +67,7 @@ export function selectQuestion({
   seenQuestionIds,
   targetLevel,
   requiredTestTypeId,
+  direction = 'neutral',
 }: QuestionPool): { question: DbQuestion; reused: boolean } | null {
   const levelIndex = cefrIndex(targetLevel);
 
@@ -83,24 +85,45 @@ export function selectQuestion({
   const checkedLevels = new Set<CefrLevel>();
   for (let offset = 1; offset < CEFR_LEVELS.length; offset++) {
     const higher = clampLevel(levelIndex + offset);
-    if (!checkedLevels.has(higher)) {
-      checkedLevels.add(higher);
-      const candidate = findUnused(higher);
+    const lower = clampLevel(levelIndex - offset);
+
+    let primary: CefrLevel;
+    let secondary: CefrLevel | null = null;
+
+    if (direction === 'up') {
+      primary = higher;
+      if (!checkedLevels.has(lower)) secondary = lower;
+    } else if (direction === 'down') {
+      primary = lower;
+      if (!checkedLevels.has(higher)) secondary = higher;
+    } else {
+      primary = higher;
+      if (!checkedLevels.has(lower) && lower !== higher) secondary = lower;
+    }
+
+    if (!checkedLevels.has(primary)) {
+      checkedLevels.add(primary);
+      const candidate = findUnused(primary);
       if (candidate) return { question: candidate, reused: false };
     }
 
-    const lower = clampLevel(levelIndex - offset);
-    if (!checkedLevels.has(lower)) {
-      checkedLevels.add(lower);
-      const candidate = findUnused(lower);
+    if (secondary) {
+      checkedLevels.add(secondary);
+      const candidate = findUnused(secondary);
       if (candidate) return { question: candidate, reused: false };
     }
   }
 
-  const reused = questions.find(
-    (q) => q.testTypeId === requiredTestTypeId
-  );
-  if (reused) return { question: reused, reused: true };
+  const reusedCandidates = questions
+    .filter((q) => q.testTypeId === requiredTestTypeId)
+    .sort(
+      (a, b) =>
+        Math.abs(cefrIndex(a.cefrLevel as CefrLevel) - levelIndex) -
+        Math.abs(cefrIndex(b.cefrLevel as CefrLevel) - levelIndex)
+    );
+  if (reusedCandidates.length > 0) {
+    return { question: reusedCandidates[0], reused: true };
+  }
 
   return null;
 }
