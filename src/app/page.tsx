@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import DemoTestsSection from '@/components/DemoTestsSection';
 import ProgressStats from '@/components/ProgressStats';
 import FaqAccordion from '@/components/FaqAccordion';
@@ -48,38 +49,55 @@ const TEST_TYPES = [
   { name: 'Listening', count: '30', color: 'from-orange-500 to-amber-500', bg: 'bg-orange-50', icon: Headphones },
 ];
 
-export default async function Home() {
+async function UserProgressSection() {
   const session = await auth();
+  if (!session?.user?.id) return null;
+
   let testsTaken = 0;
   let averageScore = 0;
 
-  if (session?.user?.id) {
-    try {
-      const progressRows = await db
-        .select()
-        .from(userProgress)
-        .where(eq(userProgress.userId, session.user.id));
+  try {
+    const progressRows = await db
+      .select()
+      .from(userProgress)
+      .where(eq(userProgress.userId, session.user.id));
 
-      if (progressRows.length > 0) {
-        let totalTests = 0;
-        let totalScore = 0;
-        for (const p of progressRows) {
-          const taken = p.testsTaken || 0;
-          const avg =
-            typeof p.averageScore === 'string'
-              ? parseFloat(p.averageScore)
-              : p.averageScore || 0;
-          totalTests += taken;
-          totalScore += avg * taken;
-        }
-        testsTaken = totalTests;
-        averageScore = totalTests > 0 ? Math.round(totalScore / totalTests) : 0;
+    if (progressRows.length > 0) {
+      let totalTests = 0;
+      let totalScore = 0;
+      for (const p of progressRows) {
+        const taken = p.testsTaken || 0;
+        const avg =
+          typeof p.averageScore === 'string'
+            ? parseFloat(p.averageScore)
+            : p.averageScore || 0;
+        totalTests += taken;
+        totalScore += avg * taken;
       }
-    } catch {
-      // Non-fatal
+      testsTaken = totalTests;
+      averageScore = totalTests > 0 ? Math.round(totalScore / totalTests) : 0;
     }
+  } catch {
+    // Non-fatal
   }
 
+  return (
+    <section className="mb-16">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-slate-800">ความก้าวหน้าของคุณ</h2>
+        <Link
+          href="/progress"
+          className="text-sm text-primary-600 hover:text-primary-700 font-medium hover:underline"
+        >
+          ดูทั้งหมด →
+        </Link>
+      </div>
+      <ProgressStats testsTaken={testsTaken} averageScore={averageScore} />
+    </section>
+  );
+}
+
+export default function Home() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* SEO: Structured Data */}
@@ -187,21 +205,10 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* PROGRESS — logged in only */}
-      {session?.user && (
-        <section className="mb-16">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">ความก้าวหน้าของคุณ</h2>
-            <Link
-              href="/progress"
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium hover:underline"
-            >
-              ดูทั้งหมด →
-            </Link>
-          </div>
-          <ProgressStats testsTaken={testsTaken} averageScore={averageScore} />
-        </section>
-      )}
+      {/* PROGRESS — logged in only, streamed separately to not block LCP */}
+      <Suspense fallback={null}>
+        <UserProgressSection />
+      </Suspense>
 
       {/* DEMO */}
       <section className="mb-20">

@@ -74,7 +74,17 @@ const sentryOptions = {
   },
 };
 
+// Bundle analyzer (ANALYZE=true to generate report at .next/analyze)
+const withBundleAnalyzer = (await import('@next/bundle-analyzer')).default({
+  enabled: process.env.ANALYZE === 'true',
+  analyzerMode: 'static',
+  reportFilename: '.next/analyze/[name].html',
+  openAnalyzer: false,
+});
+
 // Only wrap with Sentry config when DSN is provided
-export default process.env.NEXT_PUBLIC_SENTRY_DSN
+const finalConfig = process.env.NEXT_PUBLIC_SENTRY_DSN
   ? withSentryConfig(nextConfig, sentryOptions)
   : nextConfig;
+
+export default withBundleAnalyzer(finalConfig);

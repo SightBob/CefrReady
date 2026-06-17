@@ -103,8 +103,8 @@ export const metadata: Metadata = {
   },
 };
 
-import { Toaster } from 'sonner';
 import CookieYesScript from '@/components/CookieYesScript';
+import ToasterWrapper from '@/components/ToasterWrapper';
 import { PostHogProvider, PHCapture } from '@/lib/posthog';
 
 export default function RootLayout({
@@ -147,7 +147,7 @@ export default function RootLayout({
         <Analytics />
         <GoogleAnalytics gaId="G-MNPQ9B7ZDL" />
         <SpeedInsights />
-        <Toaster position="top-center" richColors />
+        <ToasterWrapper />
       </body>
     </html>
   );

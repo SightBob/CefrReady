@@ -8,9 +8,6 @@ import { ArrowLeft, FileText, ChevronRight, Clock } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { toast } from 'sonner';
 
-import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
-import SelectableText from '@/components/SelectableText';
-
 import type { QuestionResult, Option, Blank } from '@/types/test';
 import { usePostHog } from '@/lib/posthog';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
@@ -41,6 +38,8 @@ const TestResults = dynamic(() => import('@/components/TestResults'), {
   ssr: false,
   loading: () => <div className="animate-pulse bg-slate-100 rounded-2xl h-32 flex items-center justify-center"><p className="text-slate-400 text-sm">Loading results...</p></div>,
 });
+const SelectableText = dynamic(() => import('@/components/SelectableText'), { ssr: false });
+const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'), { ssr: false });
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

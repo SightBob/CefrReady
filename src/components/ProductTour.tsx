@@ -265,6 +265,7 @@ export default function ProductTour({
 
   return (
     <div className="product-tour-overlay" aria-modal="true" role="dialog" aria-label="Product Tour">
+      <style>{tourStyles}</style>
       {/* Backdrop */}
       <div className="fixed inset-0 z-[9998]" onClick={handleComplete}>
         <svg className="w-full h-full" style={{ position: 'absolute', top: 0, left: 0 }}>
@@ -397,3 +398,26 @@ export default function ProductTour({
 export function resetProductTour(storageKey = STORAGE_KEY_HOME) {
   try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
 }
+
+/* ─── Inline Tour Styles ────────────────────────────────────────────────── */
+const tourStyles = `
+@keyframes tourTooltipIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes tourSpotlightPulse {
+  0%, 100% { box-shadow: 0 0 20px 4px rgba(99, 102, 241, 0.2); }
+  50% { box-shadow: 0 0 28px 8px rgba(99, 102, 241, 0.35); }
+}
+.tour-tooltip { animation: tourTooltipIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+.tour-spotlight-ring { animation: tourSpotlightPulse 2s ease-in-out infinite; }
+.tour-spotlight-rect { transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+.tour-arrow { position: absolute; width: 14px; height: 14px; background: white; border: 1px solid #e2e8f0; transform: rotate(45deg); z-index: -1; }
+.tour-arrow-top { top: -7px; left: 50%; margin-left: -7px; border-bottom: none; border-right: none; }
+.tour-arrow-bottom { bottom: -7px; left: 50%; margin-left: -7px; border-top: none; border-left: none; }
+@media (prefers-reduced-motion: reduce) {
+  .tour-tooltip { animation: none; opacity: 1; }
+  .tour-spotlight-ring { animation: none; }
+  .tour-spotlight-rect { transition: none; }
+}
+`;

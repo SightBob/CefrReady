@@ -5,7 +5,7 @@ import { BookOpen, Menu, X, LogOut, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
-import { TourReplayButton } from './HomeTour';
+import TourReplayButton from './TourReplayButton';
 
 export default function Header() {
   const { data: session, status } = useSession();

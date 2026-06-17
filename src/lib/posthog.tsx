@@ -37,6 +37,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       defaults: '2026-01-30',
       person_profiles: 'identified_only',
       capture_pageview: false, // We capture manually via PHCapture
+      disable_surveys: true, // Surveys widget not used
       // Filter OAuth redirect abort errors (Safari reports "Load failed" on
       // navigation abort during signIn('google'), Chrome silently drops them)
       before_send: (event) => {
