@@ -47,7 +47,7 @@ export default function FormMeaningArticleCard({
       if (splitIndex !== -1) {
         parts.push(
           <span key={keyIndex++}>
-            <SelectableText text={text.substring(0, splitIndex)} contextSentence={article.text} sourceType="article" />
+            <SelectableText text={text.substring(0, splitIndex)} contextSentence={article.text} />
           </span>
         );
 
@@ -99,7 +99,7 @@ export default function FormMeaningArticleCard({
 
     parts.push(
       <span key={keyIndex}>
-        <SelectableText text={text} contextSentence={article.text} sourceType="article" />
+        <SelectableText text={text} contextSentence={article.text} />
       </span>
     );
     return parts;

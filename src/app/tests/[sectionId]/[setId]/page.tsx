@@ -219,7 +219,7 @@ function FormMeaningQuiz({
       if (idx !== -1) {
         parts.push(
           <span key={key++}>
-            <SelectableText text={text.substring(0, idx)} contextSentence={combinedArticle.text} sourceType="article" inline={true} />
+            <SelectableText text={text.substring(0, idx)} contextSentence={combinedArticle.text} inline={true} />
           </span>
         );
         const isCorrect = isSubmitted && answers[blank.id]?.toLowerCase() === blank.correctAnswer.toLowerCase();
@@ -249,14 +249,14 @@ function FormMeaningQuiz({
             {isSubmitted && isWrong && (
               <span className="flex items-center gap-1 mt-1">
                 <span className="text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                  <SelectableText text={blank.correctAnswer} contextSentence={blank.correctAnswer} sourceType="article" />
+                  <SelectableText text={blank.correctAnswer} contextSentence={blank.correctAnswer} />
                 </span>
               </span>
             )}
             {isSubmitted && isEmpty && (
               <span className="flex items-center gap-1 mt-1">
                 <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
-                  Answer: <SelectableText text={blank.correctAnswer} contextSentence={blank.correctAnswer} sourceType="article" />
+                  Answer: <SelectableText text={blank.correctAnswer} contextSentence={blank.correctAnswer} />
                 </span>
               </span>
             )}
@@ -267,7 +267,7 @@ function FormMeaningQuiz({
     });
     parts.push(
       <span key={key}>
-        <SelectableText text={text} contextSentence={combinedArticle.text} sourceType="article" inline={true} />
+        <SelectableText text={text} contextSentence={combinedArticle.text} inline={true} />
       </span>
     );
     return parts;
@@ -348,7 +348,7 @@ function FormMeaningQuiz({
             <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-6">
-            <SelectableText text={combinedArticle.title} contextSentence={combinedArticle.title} sourceType="article" />
+            <SelectableText text={combinedArticle.title} contextSentence={combinedArticle.title} />
           </h2>
           <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
         </div>

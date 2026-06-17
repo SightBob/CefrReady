@@ -66,7 +66,6 @@ export default function TermsPage() {
               <li>แบบทดสอบทักษะภาษาอังกฤษ ประกอบด้วย Focus on Form, Focus on Meaning, Form &amp; Meaning และ Listening</li>
               <li>ระบบประเมินระดับ CEFR (A1–C2)</li>
               <li>ระบบติดตามความก้าวหน้า</li>
-              <li>ไฟล์ช่วยจำ (Flashcards) พร้อมระบบ spaced repetition</li>
               <li>บทความไวยากรณ์ภาษาอังกฤษ</li>
             </ul>
             <p className="mt-2">
@@ -75,8 +74,7 @@ export default function TermsPage() {
             <p>
               CEFR Ready is an online platform providing English proficiency
               tests (grammar, vocabulary, cloze, and listening), CEFR level
-              estimation (A1–C2), progress tracking, flashcards with spaced
-              repetition, and grammar articles. All services are delivered
+              estimation (A1–C2), progress tracking, and grammar articles. All services are delivered
               digitally via the website. No physical goods are provided.
             </p>
           </section>

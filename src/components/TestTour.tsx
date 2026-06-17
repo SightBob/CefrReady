@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { MousePointerClick, BookmarkPlus, Star } from 'lucide-react';
+import { MousePointerClick, Star } from 'lucide-react';
 import { resetProductTour } from './ProductTour';
 import type { TourStep } from './ProductTour';
 
@@ -22,14 +22,13 @@ const TEST_TOUR_STEPS: TourStep[] = [
   {
     target: 'test-article-text',
     title: 'คลิกคำศัพท์เพื่อแปลได้ทันที! 🔍',
-    description: 'คลิกที่คำศัพท์ภาษาอังกฤษใดๆ ก็ได้ในบทความ เพื่อดูคำแปลภาษาไทยและความหมาย แล้วกดบันทึกเป็น Flashcard ได้เลย',
+    description: 'คลิกที่คำศัพท์ภาษาอังกฤษใดๆ ก็ได้ในบทความ เพื่อดูคำแปลภาษาไทยและความหมาย',
     icon: <MousePointerClick className="w-6 h-6" />,
     position: 'bottom',
     hint: (
       <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-        <BookmarkPlus className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-800 leading-relaxed">
-          <strong>เคล็ดลับ:</strong> คำที่บันทึกจะถูกเพิ่มเข้า Flashcard อัตโนมัติ ทบทวนได้ทุกเมื่อ!
+          <strong>เคล็ดลับ:</strong> คลิกที่คำศัพท์เพื่อดูความหมายและคำแปลภาษาไทยได้ทันที!
         </p>
       </div>
     ),

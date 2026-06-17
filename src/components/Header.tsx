@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Menu, X, LogOut, Shield, Layers } from 'lucide-react';
+import { BookOpen, Menu, X, LogOut, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -54,12 +54,6 @@ export default function Header() {
               <Link href="/tests" className={navLink('/tests')} data-tour="nav-tests">ข้อสอบ</Link>
               <Link href="/progress" className={navLink('/progress')}>พัฒนาการ</Link>
               <Link href="/must-know" className={navLink('/must-know')} data-tour="nav-mustknow">Must Know</Link>
-              {session?.user && (
-                <Link href="/flashcards" className={`inline-flex items-center gap-1.5 ${navLink('/flashcards')}`} data-tour="nav-flashcards">
-                  <Layers className="w-3.5 h-3.5" />
-                  Flashcards
-                </Link>
-              )}
               <Link href="/contact" className={navLink('/contact')}>ติดต่อเรา</Link>
               {session?.user?.isAdmin && (
                 <Link href="/admin" className={`inline-flex items-center gap-1.5 ${navLink('/admin')}`}>
@@ -72,7 +66,6 @@ export default function Header() {
             <div className="hidden lg:flex items-center gap-2 min-w-[140px] justify-end">
               {pathname === '/' && <TourReplayButton tourType="home" />}
               {pathname.startsWith('/tests') && <TourReplayButton tourType="test" />}
-              {pathname.startsWith('/flashcards') && <TourReplayButton tourType="flashcards" />}
               {status === 'loading' ? (
                 <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
               ) : session?.user ? (
@@ -105,7 +98,6 @@ export default function Header() {
             <div className="flex lg:hidden items-center gap-1">
               {pathname === '/' && <TourReplayButton tourType="home" />}
               {pathname.startsWith('/tests') && <TourReplayButton tourType="test" />}
-              {pathname.startsWith('/flashcards') && <TourReplayButton tourType="flashcards" />}
               <button
                 className="p-3 rounded-lg hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -127,7 +119,6 @@ export default function Header() {
                   { href: '/tests', label: 'ข้อสอบ' },
                   { href: '/progress', label: 'พัฒนาการ' },
                   { href: '/must-know', label: 'Must Know' },
-                  ...(session?.user ? [{ href: '/flashcards', label: 'Flashcards' }] : []),
                   { href: '/contact', label: 'ติดต่อเรา' },
                 ].map(({ href, label }) => (
                   <Link

@@ -154,7 +154,7 @@ export default function ListeningAudioPlayer({
               {speaker.charAt(0)}
             </span>
             <span className="text-slate-800 leading-relaxed">
-              <SelectableText text={content} contextSentence={content} sourceType="question" />
+              <SelectableText text={content} contextSentence={content} />
             </span>
           </div>
         );
@@ -162,7 +162,7 @@ export default function ListeningAudioPlayer({
       
       return (
         <p key={idx} className="mb-2 text-slate-800 leading-relaxed last:mb-0">
-          <SelectableText text={trimmed} contextSentence={trimmed} sourceType="question" />
+          <SelectableText text={trimmed} contextSentence={trimmed} />
         </p>
       );
     });
@@ -237,7 +237,7 @@ export default function ListeningAudioPlayer({
 
       <div className="border-t border-slate-100 pt-6">
         <p className="text-lg font-medium text-slate-800 mb-4">
-          <SelectableText text={questionText || "What did you hear?"} contextSentence={questionText} sourceType="question" inline={true} />
+          <SelectableText text={questionText || "What did you hear?"} contextSentence={questionText} inline={true} />
         </p>
 
         <div className="grid grid-cols-1 gap-3">
@@ -272,7 +272,7 @@ export default function ListeningAudioPlayer({
                 className={buttonClass}
               >
                 <span className="font-medium text-slate-800">
-                  <SelectableText text={opt.value} contextSentence={opt.value} sourceType="listening_option" inline={true} />
+                  <SelectableText text={opt.value} contextSentence={opt.value} inline={true} />
                 </span>
               </button>
             );

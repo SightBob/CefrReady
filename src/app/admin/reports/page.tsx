@@ -10,7 +10,6 @@ import {
   Activity,
 } from 'lucide-react';
 import { QuestionAnalytics } from '@/components/admin/QuestionAnalytics';
-import { FlashcardStats } from '@/components/admin/FlashcardStats';
 
 interface ReportData {
   overview: {
@@ -43,14 +42,6 @@ interface ReportData {
       wrongCount: number;
       correctRate: number;
     }>;
-  };
-  flashcardStats: {
-    total: number;
-    newCards: number;
-    learningCards: number;
-    masteredCards: number;
-    avgEase: number;
-    dueToday: number;
   };
   userRetention: {
     newUsersThisMonth: number;
@@ -430,14 +421,11 @@ export default function AdminReportsPage() {
               </div>
             </div>
 
-            {/* ─── Row: Question Analytics + Flashcard Stats ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <QuestionAnalytics
-                correctRateByType={data.questionAnalytics.correctRateByType}
-                hardestQuestions={data.questionAnalytics.hardestQuestions}
-              />
-              <FlashcardStats {...data.flashcardStats} />
-            </div>
+            {/* ─── Question Analytics ─── */}
+            <QuestionAnalytics
+              correctRateByType={data.questionAnalytics.correctRateByType}
+              hardestQuestions={data.questionAnalytics.hardestQuestions}
+            />
 
             {/* ─── Top Performers ─── */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">

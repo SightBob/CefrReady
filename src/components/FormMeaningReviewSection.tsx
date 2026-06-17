@@ -107,7 +107,7 @@ export default function FormMeaningReviewSection({ items }: FormMeaningReviewSec
 
     parts.push(
       <span key={key++}>
-        <SelectableText text={text.substring(0, idx)} contextSentence={article.text} sourceType="article" inline={true} />
+        <SelectableText text={text.substring(0, idx)} contextSentence={article.text} inline={true} />
       </span>
     );
 
@@ -133,14 +133,14 @@ export default function FormMeaningReviewSection({ items }: FormMeaningReviewSec
           <span className="flex items-center gap-1 mt-1">
             <ArrowRight className="w-3 h-3 text-emerald-500" />
             <span className="text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-              <SelectableText text={blank.correctAnswer} contextSentence={blank.correctAnswer} sourceType="article" />
+              <SelectableText text={blank.correctAnswer} contextSentence={blank.correctAnswer} />
             </span>
           </span>
         )}
         {!userVal && (
           <span className="flex items-center gap-1 mt-1">
             <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-              Answer: <SelectableText text={blank.correctAnswer} contextSentence={blank.correctAnswer} sourceType="article" />
+              Answer: <SelectableText text={blank.correctAnswer} contextSentence={blank.correctAnswer} />
             </span>
           </span>
         )}
@@ -152,7 +152,7 @@ export default function FormMeaningReviewSection({ items }: FormMeaningReviewSec
 
   parts.push(
     <span key={key}>
-      <SelectableText text={text} contextSentence={article.text} sourceType="article" inline={true} />
+      <SelectableText text={text} contextSentence={article.text} inline={true} />
     </span>
   );
 
@@ -166,7 +166,7 @@ export default function FormMeaningReviewSection({ items }: FormMeaningReviewSec
       </div>
 
       <h2 className="text-xl font-bold text-slate-800 mb-6">
-        <SelectableText text={article.title} contextSentence={article.title} sourceType="article" />
+        <SelectableText text={article.title} contextSentence={article.title} />
       </h2>
 
       <div className="text-lg text-slate-700 leading-relaxed">{parts}</div>

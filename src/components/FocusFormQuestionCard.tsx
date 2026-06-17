@@ -61,7 +61,7 @@ export default function FocusFormQuestionCard({
             <div className="flex-1 pt-1">
               <span className="text-sm font-semibold text-slate-500">{line.speaker}</span>
               <div className="text-slate-700 leading-relaxed">
-                <SelectableText text={line.text} contextSentence={line.text} sourceType="question" />
+                <SelectableText text={line.text} contextSentence={line.text} />
               </div>
             </div>
           </div>
@@ -77,7 +77,7 @@ export default function FocusFormQuestionCard({
     if (!hasDialogue) {
       return (
         <div className="text-lg md:text-xl text-slate-800 leading-relaxed">
-          <SelectableText text={questionText} contextSentence={questionText} sourceType="question" />
+          <SelectableText text={questionText} contextSentence={questionText} />
         </div>
       );
     }
@@ -140,7 +140,7 @@ export default function FocusFormQuestionCard({
                 {opt.key}
               </span>
               <span className="font-medium text-slate-800 pt-0.5">
-                <SelectableText text={opt.value} contextSentence={opt.value} sourceType="question" />
+                <SelectableText text={opt.value} contextSentence={opt.value} />
               </span>
             </button>
           );

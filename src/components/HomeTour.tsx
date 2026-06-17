@@ -54,7 +54,7 @@ export default function HomeTour() {
 }
 
 // Separate replay button for Header
-export function TourReplayButton({ tourType = 'home' }: { tourType?: 'home' | 'test' | 'flashcards' }) {
+export function TourReplayButton({ tourType = 'home' }: { tourType?: 'home' | 'test' }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -64,7 +64,6 @@ export function TourReplayButton({ tourType = 'home' }: { tourType?: 'home' | 't
     // Determine the correct event name based on the tour type
     const eventName = 
       tourType === 'test' ? 'cefrready-start-test-tour' : 
-      tourType === 'flashcards' ? 'cefrready-start-flashcards-tour' : 
       'cefrready-start-tour';
       
     // Dispatch the custom event

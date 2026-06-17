@@ -2,7 +2,7 @@
 
 ## Overview
 
-CefrReady is an English proficiency testing platform aligned with the CEFR (Common European Framework of Reference) standard. Users take grammar, vocabulary, cloze, and listening tests; the system estimates their CEFR level (A1–C2) and tracks progress over time. Includes flashcards with spaced repetition (SM-2), grammar articles, and an admin panel for content management.
+CefrReady is an English proficiency testing platform aligned with the CEFR (Common European Framework of Reference) standard. Users take grammar, vocabulary, cloze, and listening tests; the system estimates their CEFR level (A1–C2) and tracks progress over time. Includes grammar articles and an admin panel for content management.
 
 ## Tech Stack
 
@@ -39,7 +39,7 @@ npm run db:seed      # Seed admin user
 ```
 src/
 ├── app/                    # Next.js App Router
-│   ├── (pages)/            # Public pages: /, /tests, /progress, /flashcards, etc.
+│   ├── (pages)/            # Public pages: /, /tests, /progress, etc.
 │   ├── admin/              # Admin panel pages
 │   ├── api/                # API route handlers
 │   │   ├── admin/          # Admin-only endpoints (guarded by requireAdmin)
@@ -54,7 +54,6 @@ src/
 │   ├── auth.ts             # Full NextAuth config (server-side, uses DB)
 │   ├── auth.config.ts      # Edge-safe auth config (no DB imports)
 │   ├── admin-auth.ts       # requireAdmin() helper for API routes
-│   ├── sm2.ts              # SM-2 spaced repetition algorithm
 │   └── rate-limit.ts       # Upstash rate limiting
 ├── middleware.ts            # Edge middleware — route protection
 └── types/                  # Shared TypeScript types
@@ -90,7 +89,6 @@ JWT strategy is used (not database sessions) so middleware can verify sessions w
 - **Test Types**: `focus-form` (grammar), `focus-meaning` (vocabulary), `form-meaning` (cloze), `listening`
 - **Test Sets**: groups of ~20 questions per section
 - **Questions**: linked to articles and test sets via junction tables
-- **SM-2 Algorithm**: `src/lib/sm2.ts` — quality ratings 1/3/4/5, ease factor min 1.3, status flow: `new` → `learning` → `mastered`
 
 ### Security Headers
 
@@ -122,7 +120,7 @@ When adding external scripts/resources, update the CSP headers in `next.config.m
 
 ### Components
 - Client components explicitly marked with `"use client"`
-- Large client components: `TestLayout.tsx` (~35KB), `FlashcardsClient.tsx` (~31KB), `MustKnowClient.tsx` (~17KB)
+- Large client components: `TestLayout.tsx` (~35KB), `MustKnowClient.tsx` (~17KB)
 - Admin editor components in `src/components/` (e.g., `GrammarArticleEditor.tsx`)
 
 ## Environment Variables

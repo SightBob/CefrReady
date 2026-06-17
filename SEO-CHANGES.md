@@ -16,8 +16,8 @@
 เพิ่ม `openGraph` + `twitter` ให้ทุกหน้า:
 - `/tests`, `/tests/layout`, `/tests/[sectionId]`
 - `/demo`, `/demo/layout`
-- `/progress`, `/flashcards`
-- `/must-know`, `/must-know/layout`, `/must-know/[slug]`
+- `/progress`
+
 
 ### 4. Canonical URLs
 เพิ่ม `alternates.canonical` ให้ทุกหน้าที่ขาด:

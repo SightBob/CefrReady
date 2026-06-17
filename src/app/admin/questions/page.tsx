@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Plus,
@@ -124,6 +124,7 @@ export default function QuestionsManagement() {
   const [testTypes, setTestTypes] = useState<TestType[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedTestType, setSelectedTestType] = useState<string>('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
   const [selectedCefr, setSelectedCefr] = useState<string>('');
@@ -162,6 +163,9 @@ export default function QuestionsManagement() {
       setLoading(true);
       const params = new URLSearchParams();
       if (selectedTestType) params.set('testTypeId', selectedTestType);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (selectedDifficulty) params.set('difficulty', selectedDifficulty);
+      if (selectedCefr) params.set('cefrLevel', selectedCefr);
       params.set('page', String(currentPage));
       params.set('limit', String(PAGE_SIZE));
       const query = params.toString() ? `?${params.toString()}` : '';
@@ -177,7 +181,12 @@ export default function QuestionsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTestType, currentPage]);
+  }, [selectedTestType, debouncedSearch, selectedDifficulty, selectedCefr, currentPage]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchTestTypes();
@@ -186,7 +195,7 @@ export default function QuestionsManagement() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedTestType, selectedDifficulty, selectedCefr, searchTerm]);
+  }, [selectedTestType, selectedDifficulty, selectedCefr, debouncedSearch]);
 
   const handleExportCSV = async () => {
     try {
@@ -458,20 +467,12 @@ export default function QuestionsManagement() {
     }
   };
 
-  const filteredQuestions = questions.filter((q) => {
-    const matchesSearch = q.questionText
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesDifficulty =
-      !selectedDifficulty || q.difficulty === selectedDifficulty;
-    const matchesCefr = !selectedCefr || q.cefrLevel === selectedCefr;
-    return matchesSearch && matchesDifficulty && matchesCefr;
-  });
+  const filteredQuestions = questions;
 
   // Stats
-  const statsTotal = questions.length;
+  const statsTotal = totalCount;
   const statsActive = questions.filter((q) => q.active === 'true').length;
-  const statsInactive = statsTotal - statsActive;
+  const statsInactive = questions.filter((q) => q.active !== 'true').length;
   const statsNoSet = questions.filter(
     (q) => !q.testSets || q.testSets.length === 0
   ).length;

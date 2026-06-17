@@ -34,7 +34,7 @@ export default function FormMeaningQuiz({ article, onChange }: FormMeaningQuizPr
         const text = remaining.slice(0, idx);
         parts.push(
           <span key={`text-${blank.id}`}>
-            <SelectableText text={text} contextSentence={text} sourceType="article" inline />
+            <SelectableText text={text} contextSentence={text} inline />
           </span>
         );
       }
@@ -56,7 +56,7 @@ export default function FormMeaningQuiz({ article, onChange }: FormMeaningQuizPr
 
     parts.push(
       <span key="text-end">
-        <SelectableText text={remaining} contextSentence={remaining} sourceType="article" inline />
+        <SelectableText text={remaining} contextSentence={remaining} inline />
       </span>
     );
     return parts;
@@ -65,7 +65,7 @@ export default function FormMeaningQuiz({ article, onChange }: FormMeaningQuizPr
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
       <h2 className="text-xl font-bold text-slate-800 mb-4">
-        <SelectableText text={article.title} contextSentence={article.title} sourceType="article" inline />
+        <SelectableText text={article.title} contextSentence={article.title} inline />
       </h2>
       <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { X, ChevronRight, ChevronLeft, Sparkles, BookOpen, Layers, GraduationCap, MousePointerClick } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Sparkles, BookOpen, Layers, GraduationCap } from 'lucide-react';
 
 // ─── Tour Step Definition ────────────────────────────────────────────────────
 
@@ -34,21 +34,6 @@ const DEFAULT_STEPS: TourStep[] = [
     description: 'รวมไวยากรณ์และคำศัพท์สำคัญที่ต้องรู้ แบ่งตามระดับ CEFR ตั้งแต่ A1 ถึง C2',
     icon: <Sparkles className="w-6 h-6" />,
     position: 'bottom',
-  },
-  {
-    target: 'nav-flashcards',
-    title: '💡 ฟีเจอร์ลับ! คลิกคำศัพท์ → Flashcard',
-    description: 'ตอนทำข้อสอบ ลองคลิกที่คำศัพท์ภาษาอังกฤษดูสิ! ระบบจะแสดงความหมายและให้บันทึกเป็น Flashcard ส่วนตัวได้เลย',
-    icon: <MousePointerClick className="w-6 h-6" />,
-    position: 'bottom',
-    hint: (
-      <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-        <MousePointerClick className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-800 leading-relaxed">
-          <strong>ลองดู:</strong> ตอนทำข้อสอบ เอาเมาส์ชี้ที่คำศัพท์ภาษาอังกฤษ → จะมีไฮไลท์สีเหลือง → คลิกเลย!
-        </p>
-      </div>
-    ),
   },
   {
     target: 'hero-cta',

@@ -63,7 +63,7 @@ export default function FocusMeaningConversationCard({
                   <div className="text-xs font-semibold text-slate-500 mb-0.5">{line.name}</div>
                 )}
               <div className="text-slate-700 leading-relaxed">
-                <SelectableText text={line.text} contextSentence={line.text} sourceType="question" />
+                <SelectableText text={line.text} contextSentence={line.text} />
               </div>
             </div>
           </div>
@@ -72,7 +72,7 @@ export default function FocusMeaningConversationCard({
       </div>
 
       <div className="text-lg font-medium text-slate-800 mb-6">
-        <SelectableText text={question} contextSentence={question} sourceType="question" />
+        <SelectableText text={question} contextSentence={question} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
@@ -107,7 +107,7 @@ export default function FocusMeaningConversationCard({
               className={buttonClass}
             >
               <span className="font-medium text-slate-800">
-                <SelectableText text={option} contextSentence={option} sourceType="meaning_option" inline={true} />
+                <SelectableText text={option} contextSentence={option} inline={true} />
               </span>
             </button>
           );

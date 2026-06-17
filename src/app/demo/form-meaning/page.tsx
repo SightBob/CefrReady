@@ -84,7 +84,7 @@ export default function DemoFormMeaningPage() {
               <SelectableText
                 text={text.substring(0, splitIndex)}
                 contextSentence={article.text}
-                sourceType="article"
+               
                 inline={true}
               />
             </span>
@@ -144,7 +144,7 @@ export default function DemoFormMeaningPage() {
           <SelectableText
             text={text}
             contextSentence={article.text}
-            sourceType="article"
+           
             inline={true}
           />
         </span>

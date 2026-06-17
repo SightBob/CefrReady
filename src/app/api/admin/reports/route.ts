@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import {
   users, testAttempts, testTypes, userProgress,
-  userAnswers, questions, flashcards, questionReports,
+  userAnswers, questions, questionReports,
 } from '@/db/schema';
 import { count, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
@@ -162,18 +162,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 3. Flashcard stats
-    const [flashcardStats] = await db
-      .select({
-        total: count(),
-        newCount: sql<number>`SUM(CASE WHEN ${flashcards.status} = 'new' THEN 1 ELSE 0 END)`,
-        learningCount: sql<number>`SUM(CASE WHEN ${flashcards.status} = 'learning' THEN 1 ELSE 0 END)`,
-        masteredCount: sql<number>`SUM(CASE WHEN ${flashcards.status} = 'mastered' THEN 1 ELSE 0 END)`,
-        avgEase: sql<number>`ROUND(AVG(${flashcards.easeFactor}), 2)`,
-        dueTodayCount: sql<number>`SUM(CASE WHEN ${flashcards.nextReviewAt} IS NOT NULL AND ${flashcards.nextReviewAt} <= NOW() THEN 1 ELSE 0 END)`,
-      })
-      .from(flashcards);
-
     // 4. User retention — new users this month, active users, avg sessions
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
@@ -265,14 +253,6 @@ export async function GET(request: NextRequest) {
         questionAnalytics: {
           correctRateByType: correctRateByTypeNamed,
           hardestQuestions,
-        },
-        flashcardStats: {
-          total: Number(flashcardStats?.total ?? 0),
-          newCards: Number(flashcardStats?.newCount ?? 0),
-          learningCards: Number(flashcardStats?.learningCount ?? 0),
-          masteredCards: Number(flashcardStats?.masteredCount ?? 0),
-          avgEase: Number(flashcardStats?.avgEase ?? 0),
-          dueToday: Number(flashcardStats?.dueTodayCount ?? 0),
         },
         userRetention: {
           newUsersThisMonth: Number(userRetention?.newUsersThisMonth ?? 0),

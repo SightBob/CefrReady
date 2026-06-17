@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Validate input: only allow letters, hyphens, apostrophes, max 100 chars
-  if (word.length > 100 || !/^[a-zA-Z'-]+$/.test(word)) {
+  if (word.length > 100 || !/^[a-zA-Z'\s-]+$/.test(word)) {
     return NextResponse.json({ error: 'Invalid word format' }, { status: 400 });
   }
 

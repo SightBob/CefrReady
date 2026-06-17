@@ -49,7 +49,6 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-6 space-y-1">
               <li>ข้อมูลบัญชี Google (ชื่อ อีเมล รูปโปรไฟล์) — ผ่าน Google OAuth</li>
               <li>ข้อมูลผลการทดสอบและความก้าวหน้าในการเรียน</li>
-              <li>ข้อมูลไฟล์ช่วยจำ (Flashcards) ที่คุณสร้างหรือแก้ไข</li>
             </ul>
 
             <h3 className="text-lg font-medium text-slate-700 mb-2 mt-4">

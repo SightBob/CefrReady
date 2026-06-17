@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, testSetQuestions, testSets } from '@/db/schema';
-import { eq, desc, inArray, and, sql, count as drizzleCount } from 'drizzle-orm';
+import { eq, desc, inArray, and, sql, count as drizzleCount, ilike } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 const PAGE_SIZE = 20;
@@ -12,11 +12,20 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const testTypeId = searchParams.get('testTypeId');
+    const search = searchParams.get('search');
+    const difficulty = searchParams.get('difficulty');
+    const cefrLevel = searchParams.get('cefrLevel');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10)));
     const offset = (page - 1) * limit;
 
-    const baseWhere = testTypeId ? eq(questions.testTypeId, testTypeId) : undefined;
+    const conditions = [];
+    if (testTypeId) conditions.push(eq(questions.testTypeId, testTypeId));
+    if (difficulty) conditions.push(eq(questions.difficulty, difficulty));
+    if (cefrLevel) conditions.push(eq(questions.cefrLevel, cefrLevel));
+    if (search) conditions.push(ilike(questions.questionText, `%${search}%`));
+
+    const baseWhere = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [countRow] = await db
       .select({ cnt: drizzleCount() })

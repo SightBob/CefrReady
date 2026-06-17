@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { BookmarkPlus, Check, Loader2, X, Volume2, BookOpen } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { X, Loader2, Volume2, BookOpen, Languages } from 'lucide-react';
 
 interface DictMeaning {
   partOfSpeech: string;
@@ -19,45 +18,83 @@ interface DictData {
 
 interface PopupState {
   word: string;
-  x: number;
-  y: number;
+  rect: DOMRect;
+}
+
+interface SelectionState {
+  text: string;
   rect: DOMRect;
 }
 
 interface SelectableTextProps {
   text: string;
-  contextSentence?: string; // ถ้าไม่ส่งมา จะใช้ประโยคจาก text เอง
-  sourceType?: 'question' | 'listening_transcript' | 'listening_option' | 'meaning_conversation' | 'meaning_question' | 'meaning_option' | 'article' | 'form_option' | 'other';
-  sourceId?: number;
+  contextSentence?: string;
   className?: string;
   inline?: boolean;
+}
+
+function getPopupPosition(rect: DOMRect, maxHeight: number, width: number) {
+  const gap = 8;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let left = rect.left;
+  if (left + width > viewportWidth - 16) left = viewportWidth - width - 16;
+  if (left < 8) left = 8;
+
+  const spaceBelow = viewportHeight - rect.bottom - gap;
+  const spaceAbove = rect.top - gap;
+  const fitsBelow = spaceBelow >= Math.min(maxHeight, 250);
+
+  if (fitsBelow) {
+    return {
+      left: `${left}px`,
+      top: `${rect.bottom + gap}px`,
+      maxHeight: `${Math.min(spaceBelow - 8, maxHeight)}px`,
+    };
+  }
+  return {
+    left: `${left}px`,
+    bottom: `${viewportHeight - rect.top + gap}px`,
+    maxHeight: `${Math.min(spaceAbove - 8, maxHeight)}px`,
+  };
+}
+
+function getBadgePosition(rect: DOMRect, badgeWidth: number, badgeHeight: number) {
+  const gap = 8;
+  const viewportHeight = window.innerHeight;
+
+  const spaceAbove = rect.top - gap;
+  const fitsAbove = spaceAbove >= badgeHeight + 4;
+
+  let left = rect.left + rect.width / 2 - badgeWidth / 2;
+  if (left + badgeWidth > window.innerWidth - 8) left = window.innerWidth - badgeWidth - 8;
+  if (left < 8) left = 8;
+
+  if (fitsAbove) {
+    return { left: `${left}px`, top: `${rect.top - badgeHeight - gap}px` };
+  }
+  return { left: `${left}px`, top: `${rect.bottom + gap}px` };
 }
 
 export default function SelectableText({
   text,
   contextSentence,
-  sourceType = 'other',
-  sourceId,
   className = '',
   inline = false,
 }: SelectableTextProps) {
-  const { data: session } = useSession();
   const [popup, setPopup] = useState<PopupState | null>(null);
   const [dictData, setDictData] = useState<DictData | null>(null);
   const [dictLoading, setDictLoading] = useState(false);
-  const [userMeaning, setUserMeaning] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [alreadyExists, setAlreadyExists] = useState(false);
+  const [selectionState, setSelectionState] = useState<SelectionState | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastSelectionRef = useRef<SelectionState | null>(null);
 
-  // แยกข้อความเป็นคำๆ (รองรับ punctuation)
   const tokens = text.split(/(\s+|(?=[.,!?;:'"""()[\]—–-])|(?<=[.,!?;:'"""()[\]—–-]))/);
 
   const fetchDictionary = useCallback(async (word: string) => {
-    // ลบ punctuation ออกก่อนค้นหา
-    const cleanWord = word.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
+    const cleanWord = word.replace(/[^a-zA-Z'\s-]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
     if (!cleanWord || cleanWord.length < 2) return;
 
     setDictLoading(true);
@@ -73,50 +110,26 @@ export default function SelectableText({
     }
   }, []);
 
+  const openWordPopup = useCallback((word: string, rect: DOMRect) => {
+    setSelectionState(null);
+    window.getSelection()?.removeAllRanges();
+    setPopup({ word, rect });
+    fetchDictionary(word);
+  }, [fetchDictionary]);
+
   const handleWordClick = useCallback((word: string, e: React.MouseEvent<HTMLSpanElement>) => {
     e.stopPropagation();
     e.preventDefault();
     const cleanWord = word.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
     if (!cleanWord || cleanWord.length < 2) return;
-
     const spanRect = (e.target as HTMLElement).getBoundingClientRect();
-    setPopup({ word: cleanWord, x: spanRect.left, y: spanRect.bottom, rect: spanRect });
-    setUserMeaning('');
-    setSaved(false);
-    setAlreadyExists(false);
-    fetchDictionary(cleanWord);
-  }, [fetchDictionary]);
+    openWordPopup(cleanWord, spanRect);
+  }, [openWordPopup]);
 
-  const handleSave = async () => {
-    if (!session?.user || !popup) return;
-    setSaving(true);
-
-    try {
-      const res = await fetch('/api/flashcards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          term: popup.word,
-          contextSentence: contextSentence || text,
-          sourceType,
-          sourceId,
-          userMeaning: userMeaning.trim() || null,
-          dictData: dictData && !dictData.notFound ? dictData : null,
-        }),
-      });
-
-      if (res.status === 409) {
-        setAlreadyExists(true);
-      } else if (res.ok) {
-        setSaved(true);
-        setTimeout(() => setPopup(null), 1200);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleTranslateSelection = useCallback(() => {
+    if (!selectionState) return;
+    openWordPopup(selectionState.text, selectionState.rect);
+  }, [selectionState, openWordPopup]);
 
   const handleSpeak = (word: string) => {
     if ('speechSynthesis' in window) {
@@ -126,7 +139,39 @@ export default function SelectableText({
     }
   };
 
-  // ปิด popup เมื่อคลิกนอก
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) {
+        lastSelectionRef.current = null;
+        return;
+      }
+      const text = sel.toString().trim();
+      if (!text || text.length < 2 || !containerRef.current?.contains(sel.anchorNode)) {
+        lastSelectionRef.current = null;
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      lastSelectionRef.current = { text, rect: range.getBoundingClientRect() };
+    };
+
+    const handleRelease = () => {
+      if (lastSelectionRef.current) {
+        setSelectionState(lastSelectionRef.current);
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('mouseup', handleRelease);
+    document.addEventListener('touchend', handleRelease);
+
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('mouseup', handleRelease);
+      document.removeEventListener('touchend', handleRelease);
+    };
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
@@ -137,206 +182,156 @@ export default function SelectableText({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // คำนวณตำแหน่ง popup ให้ไม่เกินหน้าจอ (flip ขึ้นบนถ้าล้นล่าง)
-  const getPopupStyle = (): React.CSSProperties => {
-    if (!popup) return {};
-    const popupWidth = 300;
-    const maxPopupHeight = 420;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const gap = 8;
-
-    let left = popup.rect.left;
-    if (left + popupWidth > viewportWidth - 16) {
-      left = viewportWidth - popupWidth - 16;
-    }
-    if (left < 8) left = 8;
-
-    // Check if popup fits below the word
-    const spaceBelow = viewportHeight - popup.rect.bottom - gap;
-    const spaceAbove = popup.rect.top - gap;
-    const fitsBelow = spaceBelow >= Math.min(maxPopupHeight, 250);
-
-    if (fitsBelow) {
-      return {
-        position: 'fixed',
-        left: `${left}px`,
-        top: `${popup.rect.bottom + gap}px`,
-        width: `${popupWidth}px`,
-        maxHeight: `${Math.min(spaceBelow - 8, maxPopupHeight)}px`,
-        zIndex: 9999,
-      };
-    } else {
-      // Flip above
-      return {
-        position: 'fixed',
-        left: `${left}px`,
-        bottom: `${viewportHeight - popup.rect.top + gap}px`,
-        width: `${popupWidth}px`,
-        maxHeight: `${Math.min(spaceAbove - 8, maxPopupHeight)}px`,
-        zIndex: 9999,
-      };
-    }
-  };
+  const popupPos = popup ? getPopupPosition(popup.rect, 420, 300) : null;
+  const badgePos = selectionState ? getBadgePosition(selectionState.rect, 80, 32) : null;
 
   const Container = inline ? 'span' : 'div';
   const TextWrapper = inline ? 'span' : 'p';
 
   return (
-    <Container ref={containerRef} className={`relative ${className}`}>
-      {/* ข้อความที่คลิกได้ */}
-      <TextWrapper className={inline ? '' : 'leading-relaxed'}>
-        {tokens.map((token, i) => {
-          const isWord = /[a-zA-Z]/.test(token);
-          if (!isWord) return <span key={i}>{token}</span>;
-          return (
-            <span
-              key={i}
-              onClick={(e) => handleWordClick(token, e)}
-              className="cursor-pointer rounded px-0.5 transition-colors duration-150 hover:bg-amber-100 hover:text-amber-900 active:bg-amber-200"
-              title="คลิกเพื่อเพิ่มใน Flashcard"
-            >
-              {token}
-            </span>
-          );
-        })}
-      </TextWrapper>
+    <>
+      {/* Selection highlight color */}
+      <style>{`
+        .selectable-text ::selection {
+          background: #fbbf24;
+          color: #1e1b4b;
+        }
+        .selectable-text ::-moz-selection {
+          background: #fbbf24;
+          color: #1e1b4b;
+        }
+      `}</style>
 
-      {/* Popup */}
-      {popup && (
-        <div
-          ref={popupRef}
-          style={getPopupStyle()}
-          className="bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col animate-in fade-in slide-in-from-top-2 duration-150"
-        >
-          {/* Header — always visible */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-t-2xl shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-white font-bold text-lg">{popup.word}</span>
+      <Container ref={containerRef} className={`selectable-text relative ${className}`}>
+        <TextWrapper className={inline ? '' : 'leading-relaxed'}>
+          {tokens.map((token, i) => {
+            const isWord = /[a-zA-Z]/.test(token);
+            if (!isWord) return <span key={i}>{token}</span>;
+            return (
+              <span
+                key={i}
+                onClick={(e) => handleWordClick(token, e)}
+                className="cursor-pointer rounded px-0.5 transition-colors duration-150 hover:bg-amber-100 hover:text-amber-900 active:bg-amber-200"
+                title="คลิกเพื่อดูคำแปล | ลากเลือกวลี"
+              >
+                {token}
+              </span>
+            );
+          })}
+        </TextWrapper>
+
+        {/* Selection translate badge */}
+        {selectionState && badgePos && (
+          <button
+            type="button"
+            onClick={handleTranslateSelection}
+            style={{
+              position: 'fixed',
+              left: badgePos.left,
+              top: badgePos.top,
+              zIndex: 1000,
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold rounded-full shadow-lg animate-in fade-in zoom-in-75 duration-150 hover:from-indigo-700 hover:to-violet-700 active:scale-95"
+          >
+            <Languages className="w-3.5 h-3.5" />
+            แปล
+          </button>
+        )}
+
+        {/* Dictionary popup */}
+        {popup && popupPos && (
+          <div
+            ref={popupRef}
+            style={{
+              position: 'fixed',
+              left: popupPos.left,
+              top: popupPos.top,
+              bottom: popupPos.bottom,
+              width: '300px',
+              maxHeight: popupPos.maxHeight,
+              zIndex: 9999,
+            }}
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col animate-in fade-in slide-in-from-top-2 duration-150"
+          >
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-t-2xl shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-white font-bold text-lg truncate">{popup.word}</span>
+                <button
+                  type="button"
+                  onClick={() => handleSpeak(popup.word)}
+                  className="p-1 rounded-full hover:bg-white/20 transition-colors shrink-0"
+                >
+                  <Volume2 className="w-4 h-4 text-white/80" />
+                </button>
+              </div>
               <button
                 type="button"
-                onClick={() => handleSpeak(popup.word)}
-                className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                onClick={() => setPopup(null)}
+                className="p-1 rounded-full hover:bg-white/20 transition-colors shrink-0"
               >
-                <Volume2 className="w-4 h-4 text-white/80" />
+                <X className="w-4 h-4 text-white/80" />
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setPopup(null)}
-              className="p-1 rounded-full hover:bg-white/20 transition-colors"
-            >
-              <X className="w-4 h-4 text-white/80" />
-            </button>
-          </div>
 
-          {/* Save section — always visible below header */}
-          <div className="px-4 py-3 border-b border-slate-100 shrink-0 bg-white">
-            {/* Thai Translation (quick glance) */}
-            {!dictLoading && dictData?.translation_th && (
-              <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 mb-3">
-                <p className="text-indigo-700 font-medium text-sm">
-                  แปลว่า: <span className="text-indigo-900 text-base">{dictData.translation_th}</span>
-                </p>
-              </div>
-            )}
-            {dictLoading && (
-              <div className="flex items-center gap-2 text-slate-500 text-sm py-2 mb-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>กำลังค้นหา...</span>
-              </div>
-            )}
-
-            {/* User Meaning Input */}
-            <div className="mb-3">
-              <label className="text-xs font-medium text-slate-600 mb-1 block">
-                ความหมายของคุณ <span className="text-slate-400">(ไม่บังคับ)</span>
-              </label>
-              <input
-                type="text"
-                value={userMeaning}
-                onChange={(e) => setUserMeaning(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSave(); } }}
-                placeholder="พิมพ์ความหมายภาษาไทย..."
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                disabled={!session?.user}
-              />
-            </div>
-
-            {/* Save Button */}
-            {!session?.user ? (
-              <p className="text-xs text-slate-400 text-center">เข้าสู่ระบบเพื่อบันทึก Flashcard</p>
-            ) : alreadyExists ? (
-              <div className="flex items-center justify-center gap-2 py-2 text-sm text-amber-600">
-                <Check className="w-4 h-4" />
-                <span>มีในคลัง Flashcard แล้ว</span>
-              </div>
-            ) : saved ? (
-              <div className="flex items-center justify-center gap-2 py-2 text-sm text-emerald-600">
-                <Check className="w-4 h-4" />
-                <span>บันทึกแล้ว! ✨</span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-60"
-              >
-                {saving ? (
+            <div className="px-4 py-3 border-b border-slate-100 shrink-0 bg-white">
+              {!dictLoading && dictData?.translation_th && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5">
+                  <p className="text-indigo-700 font-medium text-sm">
+                    แปลว่า: <span className="text-indigo-900 text-base">{dictData.translation_th}</span>
+                  </p>
+                </div>
+              )}
+              {dictLoading && (
+                <div className="flex items-center gap-2 text-slate-500 text-sm py-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <BookmarkPlus className="w-4 h-4" />
-                )}
-                {saving ? 'กำลังบันทึก...' : 'เพิ่มใน Flashcard'}
-              </button>
-            )}
-          </div>
+                  <span>กำลังค้นหา...</span>
+                </div>
+              )}
+            </div>
 
-          {/* Scrollable dictionary details */}
-          <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
-          <div className="px-4 py-3">
-            {!dictLoading && dictData?.notFound && !dictData?.translation_th && (
+            <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
+              <div className="px-4 py-3">
+            {!dictLoading && (!dictData?.meanings?.length || (dictData?.notFound && !dictData?.translation_th)) && (
               <p className="text-slate-400 text-sm italic py-1">ไม่พบในพจนานุกรม</p>
             )}
 
-            {!dictLoading && dictData && !dictData.notFound && (
+            {!dictLoading && dictData && !dictData.notFound && !!dictData.meanings?.length && (
               <div className="space-y-2">
-                {dictData.phonetic && (
-                  <p className="text-slate-500 text-sm font-mono">{dictData.phonetic}</p>
-                )}
-                {dictData.meanings.slice(0, 2).map((m, i) => (
-                  <div key={i}>
-                    <span className="inline-block text-xs font-semibold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full mb-1">
-                      {m.partOfSpeech}
-                    </span>
-                    <p className="text-slate-700 text-sm leading-relaxed">
-                      {m.definitions[0]?.definition}
-                    </p>
-                    {m.definitions[0]?.example && (
-                      <p className="text-slate-400 text-xs mt-0.5 italic">
-                        &ldquo;{m.definitions[0].example}&rdquo;
-                      </p>
+                    {dictData.phonetic && (
+                      <p className="text-slate-500 text-sm font-mono">{dictData.phonetic}</p>
                     )}
+                    {(dictData.meanings ?? []).slice(0, 2).map((m, i) => (
+                      <div key={i}>
+                        <span className="inline-block text-xs font-semibold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full mb-1">
+                          {m.partOfSpeech}
+                        </span>
+                        <p className="text-slate-700 text-sm leading-relaxed">
+                          {m.definitions[0]?.definition}
+                        </p>
+                        {m.definitions[0]?.example && (
+                          <p className="text-slate-400 text-xs mt-0.5 italic">
+                            &ldquo;{m.definitions[0].example}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
 
-            {/* Context Sentence */}
-            <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-100">
-              <div className="flex items-center gap-1 mb-1">
-                <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-                <span className="text-xs font-medium text-amber-700">บริบท</span>
+                <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-100">
+                  <div className="flex items-center gap-1 mb-1">
+                    <BookOpen className="w-3.5 h-3.5 text-amber-600" />
+                    <span className="text-xs font-medium text-amber-700">บริบท</span>
+                  </div>
+                  <p className="text-xs text-amber-800 leading-relaxed line-clamp-2">
+                    {contextSentence || text}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-amber-800 leading-relaxed line-clamp-2">
-                {contextSentence || text}
-              </p>
             </div>
           </div>
-          </div>{/* end scrollable body */}
-        </div>
-      )}
-    </Container>
+        )}
+      </Container>
+    </>
   );
 }
