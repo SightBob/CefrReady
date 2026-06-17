@@ -22,7 +22,6 @@ const TestLayout = dynamic(() => import('@/components/TestLayout'), {
       </div>
     </div>
   ),
-  ssr: false,
 });
 
 const TestTour = dynamic(() => import('@/components/TestTour'), { ssr: false });
@@ -38,8 +37,8 @@ const TestResults = dynamic(() => import('@/components/TestResults'), {
   ssr: false,
   loading: () => <div className="animate-pulse bg-slate-100 rounded-2xl h-32 flex items-center justify-center"><p className="text-slate-400 text-sm">Loading results...</p></div>,
 });
-const SelectableText = dynamic(() => import('@/components/SelectableText'), { ssr: false });
-const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'), { ssr: false });
+const SelectableText = dynamic(() => import('@/components/SelectableText'));
+const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
-import posthog from 'posthog-js';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -22,7 +21,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const [posthogInstance, setPosthogInstance] = useState<any>(null);
   const previousSessionRef = useRef<boolean | null>(null);
 
-  // Initialize PostHog (CSR only)
+  // Initialize PostHog after critical rendering, using requestIdleCallback
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
@@ -32,27 +31,34 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    posthog.init(key, {
-      api_host: host || 'https://us.i.posthog.com',
-      defaults: '2026-01-30',
-      person_profiles: 'identified_only',
-      capture_pageview: false, // We capture manually via PHCapture
-      disable_surveys: true, // Surveys widget not used
-      // Filter OAuth redirect abort errors (Safari reports "Load failed" on
-      // navigation abort during signIn('google'), Chrome silently drops them)
-      before_send: (event) => {
-        if (!event) return null;
-        const exType = event.properties?.exception?.values?.[0]?.type;
-        const exValue = event.properties?.exception?.values?.[0]?.value as string | undefined;
-        if (exType === 'TypeError' && exValue?.includes('Load failed')) {
-          return null;
-        }
-        return event;
-      },
-      loaded: (ph) => {
-        setPosthogInstance(ph);
-      },
-    });
+    const init = async () => {
+      const { default: posthog } = await import('posthog-js');
+      posthog.init(key, {
+        api_host: host || 'https://us.i.posthog.com',
+        defaults: '2026-01-30',
+        person_profiles: 'identified_only',
+        capture_pageview: false,
+        disable_surveys: true,
+        before_send: (event) => {
+          if (!event) return null;
+          const exType = event.properties?.exception?.values?.[0]?.type;
+          const exValue = event.properties?.exception?.values?.[0]?.value as string | undefined;
+          if (exType === 'TypeError' && exValue?.includes('Load failed')) {
+            return null;
+          }
+          return event;
+        },
+        loaded: (ph) => {
+          setPosthogInstance(ph);
+        },
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(init);
+    } else {
+      setTimeout(init, 0);
+    }
   }, []);
 
   // Auth tracking: identify users and track sign-in/out events
@@ -64,13 +70,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     const isCurrentlyLoggedIn = !!session?.user;
 
     if (isCurrentlyLoggedIn) {
-      // User signed in or session active
       if (previousSessionRef.current !== true) {
         posthogInstance.identify(session!.user.id!, {
           email: session!.user.email,
           isAdmin: session!.user.isAdmin,
         });
-        // Fetch progress to set cefr_level person property
         fetch('/api/progress')
           .then(r => r.json())
           .then(progress => {
@@ -82,7 +86,6 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         posthogInstance.capture('user_signed_in', { provider: 'google' });
       }
     } else if (previousSessionRef.current === true && session === null) {
-      // User signed out
       posthogInstance.reset();
       posthogInstance.capture('user_signed_out');
     }
@@ -112,7 +115,6 @@ export function PHCapture() {
   const previousPathRef = useRef<string | null>(null);
   const pageEnterTimeRef = useRef<number>(Date.now());
 
-  // Helper: fire $pageleave for a given URL with time spent
   const firePageLeave = useCallback((url: string) => {
     if (!posthog) return;
     const duration = Math.round((Date.now() - pageEnterTimeRef.current) / 1000);
@@ -122,7 +124,6 @@ export function PHCapture() {
     });
   }, [posthog]);
 
-  // Capture $pageleave on tab hide / close / navigate away
   useEffect(() => {
     if (!posthog) return;
 
@@ -144,7 +145,6 @@ export function PHCapture() {
     };
   }, [posthog, pathname, firePageLeave]);
 
-  // Capture $pageview on route change, $pageleave for the previous route
   useEffect(() => {
     if (!posthog) return;
     if (pathname !== previousPathRef.current) {

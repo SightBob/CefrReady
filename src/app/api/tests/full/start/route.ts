@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const originError = validateOrigin(request);
   if (originError) return originError;
 
-  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 5, keySuffix: 'start' });
+  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 10, keySuffix: 'start' });
   if (rateLimitError) return rateLimitError;
 
   const user = await getCurrentUser();

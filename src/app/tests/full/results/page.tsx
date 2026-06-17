@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle, MessageSquare, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { CEFR_COLORS, CEFR_DESCRIPTIONS } from '@/lib/cefr-estimator';
 import type { CefrLevel } from '@/lib/cefr-estimator';
+import StarRating from '@/components/StarRating';
 
 const PART_LABELS: Record<string, string> = {
   'focus-form': 'Grammar',
@@ -31,12 +33,22 @@ export default function FullTestResultsPage() {
   const [result, setResult] = useState<ResultData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
   useEffect(() => {
     if (!attemptId) {
       setLoading(false);
       return;
     }
-    fetch(`/api/tests/full/result/${attemptId}`)
+    const numId = Number(attemptId);
+    if (isNaN(numId)) {
+      setLoading(false);
+      return;
+    }
+    fetch(`/api/tests/full/result/${numId}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
@@ -45,6 +57,25 @@ export default function FullTestResultsPage() {
         setLoading(false);
       });
   }, [attemptId]);
+
+  const handleFeedbackSubmit = async () => {
+    if (!attemptId || rating === 0 || submittingFeedback) return;
+    setSubmittingFeedback(true);
+    try {
+      const res = await fetch('/api/tests/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attemptId: Number(attemptId), rating, comment: comment || undefined }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setFeedbackSubmitted(true);
+      toast.success('ขอบคุณสำหรับคะแนน!');
+    } catch {
+      toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -86,6 +117,20 @@ export default function FullTestResultsPage() {
           <span className="text-2xl font-bold">{result.cefrLevel}</span>
           <span className="text-sm">{CEFR_DESCRIPTIONS[result.cefrLevel]}</span>
         </div>
+
+        <div className="mt-6 bg-red-50 border-2 border-red-300 rounded-xl px-5 py-4 text-sm text-red-800 text-left leading-relaxed">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-base">ข้อควรทราบ:</strong>
+              <p className="mt-1">
+                ระดับ CEFR ที่แสดงเป็นผลการประเมินจากข้อสอบในระบบ CEFR Ready เพื่อการฝึกฝนเท่านั้น
+                <span className="font-semibold underline decoration-red-400 underline-offset-2"> ไม่ใช่ผลสอบ CEFR อย่างเป็นทางการ</span>
+                และอาจแตกต่างจากผลที่ได้รับในการสอบจริง
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 mb-8">
@@ -99,6 +144,52 @@ export default function FullTestResultsPage() {
           ))}
         </div>
       </div>
+
+      {attemptId && !feedbackSubmitted && (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 mb-8">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="bg-amber-100 p-2 rounded-xl">
+              <MessageSquare className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">ให้คะแนนการทดสอบ</h3>
+              <p className="text-xs text-slate-500">ช่วยเราปรับปรุงให้ดีขึ้น</p>
+            </div>
+          </div>
+
+          <StarRating value={rating} onChange={setRating} size="lg" />
+
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            maxLength={1000}
+            rows={3}
+            placeholder="ความคิดเห็นเพิ่มเติม (ไม่บังคับ)"
+            className="w-full border border-slate-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-300 transition-colors placeholder:text-slate-300 mt-4"
+          />
+          <p className="text-xs text-slate-400 text-right mt-1">{comment.length}/1000</p>
+
+          <button
+            onClick={handleFeedbackSubmit}
+            disabled={rating === 0 || submittingFeedback}
+            className="w-full mt-4 py-2.5 bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 active:scale-95 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center gap-2"
+          >
+            {submittingFeedback ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> กำลังส่ง...</>
+            ) : (
+              'ส่งคะแนน'
+            )}
+          </button>
+        </div>
+      )}
+
+      {attemptId && feedbackSubmitted && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-8 text-center">
+          <CheckCircle className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+          <p className="font-medium text-emerald-800">ขอบคุณสำหรับคะแนน!</p>
+          <p className="text-sm text-emerald-600">คะแนนของคุณช่วยเราปรับปรุงการทดสอบให้ดีขึ้น</p>
+        </div>
+      )}
 
       <div className="flex gap-4 justify-center">
         <Link href="/tests/full" className="btn-primary">

@@ -35,8 +35,8 @@ interface SelectableTextProps {
 
 function getPopupPosition(rect: DOMRect, maxHeight: number, width: number) {
   const gap = 8;
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 768;
 
   let left = rect.left;
   if (left + width > viewportWidth - 16) left = viewportWidth - width - 16;
@@ -62,13 +62,14 @@ function getPopupPosition(rect: DOMRect, maxHeight: number, width: number) {
 
 function getBadgePosition(rect: DOMRect, badgeWidth: number, badgeHeight: number) {
   const gap = 8;
-  const viewportHeight = window.innerHeight;
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 768;
 
   const spaceAbove = rect.top - gap;
   const fitsAbove = spaceAbove >= badgeHeight + 4;
 
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
   let left = rect.left + rect.width / 2 - badgeWidth / 2;
-  if (left + badgeWidth > window.innerWidth - 8) left = window.innerWidth - badgeWidth - 8;
+  if (left + badgeWidth > viewportWidth - 8) left = viewportWidth - badgeWidth - 8;
   if (left < 8) left = 8;
 
   if (fitsAbove) {
