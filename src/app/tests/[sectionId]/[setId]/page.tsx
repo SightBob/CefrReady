@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { ArrowLeft, FileText, ChevronRight, Clock } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { toast } from 'sonner';
+import { ApiError, apiFetch } from '@/lib/api-fetch';
 
 import type { QuestionResult, Option, Blank } from '@/types/test';
 import { usePostHog } from '@/lib/posthog';
@@ -168,7 +169,7 @@ function FormMeaningQuiz({
         }
       });
 
-      const res = await fetch('/api/tests/submit', {
+      const res = await apiFetch('/api/tests/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -191,6 +192,17 @@ function FormMeaningQuiz({
       }
       setIsSubmitted(true);
       setCorrectCount(serverCorrect);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error('กรุณาเข้าสู่ระบบใหม่');
+        return;
+      }
+      if (err instanceof ApiError && err.status === 429) {
+        const secs = err.message.split(':')[1] || '60';
+        toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
+      } else {
+        toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -564,7 +576,7 @@ export default function SetQuizPage() {
     setSubmitting(true);
     setShowSubmitConfirm(false);
     try {
-      const res = await fetch('/api/tests/submit', {
+      const res = await apiFetch('/api/tests/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -608,6 +620,17 @@ export default function SetQuizPage() {
             })
             .catch(() => {});
         }
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error('กรุณาเข้าสู่ระบบใหม่');
+        return;
+      }
+      if (err instanceof ApiError && err.status === 429) {
+        const secs = err.message.split(':')[1] || '60';
+        toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
+      } else {
+        toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
       }
     } finally {
       setSubmitting(false);

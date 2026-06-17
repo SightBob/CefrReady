@@ -7,35 +7,12 @@ import { useSession } from 'next-auth/react';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmModal from '@/components/ConfirmModal';
+import { ApiError, apiFetch } from '@/lib/api-fetch';
 
 const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'));
 const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'));
 const FormMeaningQuiz = dynamic(() => import('@/components/FormMeaningQuiz'));
 const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
-
-class ApiError extends Error {
-  status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.status = status;
-  }
-}
-
-async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
-  const res = await fetch(url, options);
-  if (res.status === 401) {
-    throw new ApiError('SESSION_EXPIRED', 401);
-  }
-  if (res.status === 429) {
-    const retryAfter = res.headers.get('Retry-After');
-    const seconds = retryAfter ? parseInt(retryAfter, 10) : 60;
-    throw new ApiError(`RATE_LIMITED:${seconds}`, 429);
-  }
-  if (!res.ok) {
-    throw new ApiError(`HTTP ${res.status}`, res.status);
-  }
-  return res;
-}
 
 const TOTAL_QUESTIONS = 45;
 const TOTAL_SECONDS = 60 * 60;

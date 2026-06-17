@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, AlertTriangle, MessageSquare, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { CEFR_COLORS, CEFR_DESCRIPTIONS } from '@/lib/cefr-estimator';
 import type { CefrLevel } from '@/lib/cefr-estimator';
 import StarRating from '@/components/StarRating';
+import { ApiError, apiFetch } from '@/lib/api-fetch';
 
 const PART_LABELS: Record<string, string> = {
   'focus-form': 'Grammar',
@@ -29,6 +30,7 @@ interface ResultData {
 
 export default function FullTestResultsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const attemptId = searchParams.get('attemptId');
   const [result, setResult] = useState<ResultData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,30 +50,61 @@ export default function FullTestResultsPage() {
       setLoading(false);
       return;
     }
-    fetch(`/api/tests/full/result/${numId}`)
-      .then((r) => r.json())
+    apiFetch(`/api/tests/full/result/${numId}`)
+      .then((res) => res.json())
       .then((data) => {
         if (data.success) {
           setResult(data.data);
         }
+      })
+      .catch((err) => {
+        if (err instanceof ApiError) {
+          if (err.status === 401) {
+            toast.error('กรุณาเข้าสู่ระบบใหม่');
+            router.push('/tests/full');
+            return;
+          }
+          if (err.status === 429) {
+            const secs = err.message.split(':')[1] || '60';
+            toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
+            return;
+          }
+        }
+        toast.error('ไม่สามารถโหลดผลสอบได้');
+      })
+      .finally(() => {
         setLoading(false);
       });
-  }, [attemptId]);
+  }, [attemptId, router]);
 
   const handleFeedbackSubmit = async () => {
     if (!attemptId || rating === 0 || submittingFeedback) return;
     setSubmittingFeedback(true);
     try {
-      const res = await fetch('/api/tests/feedback', {
+      const res = await apiFetch('/api/tests/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attemptId: Number(attemptId), rating, comment: comment || undefined }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setFeedbackSubmitted(true);
-      toast.success('ขอบคุณสำหรับคะแนน!');
-    } catch {
-      toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      const data = await res.json();
+      if (data.success) {
+        setFeedbackSubmitted(true);
+        toast.success('ขอบคุณสำหรับคะแนน!');
+      } else {
+        toast.error(data.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error('กรุณาเข้าสู่ระบบใหม่');
+        router.push('/tests/full');
+        return;
+      }
+      if (err instanceof ApiError && err.status === 429) {
+        const secs = err.message.split(':')[1] || '60';
+        toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
+      } else {
+        toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      }
     } finally {
       setSubmittingFeedback(false);
     }
