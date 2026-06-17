@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
+import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 import { auth } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -11,11 +11,17 @@ const createUserSchema = z.object({
   image: z.string().url().optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'users-get' });
+  if (ipThrottleError) return ipThrottleError;
+
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const rateLimitError = await checkUserRateLimit(session.user.id!, { windowMs: 60_000, maxRequests: 5, keySuffix: 'users-get' });
+  if (rateLimitError) return rateLimitError;
 
   try {
     const [user] = await db
@@ -36,13 +42,16 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'users-post' });
+  if (ipThrottleError) return ipThrottleError;
+
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const rl = await rateLimit(getRateLimitIdentifier(request), { windowMs: 60_000, maxRequests: 5 });
-  if (rl.limited) return rateLimitResponse(rl.retryAfterMs);
+  const rateLimitError = await checkUserRateLimit(session.user.id!, { windowMs: 60_000, maxRequests: 5, keySuffix: 'users-post' });
+  if (rateLimitError) return rateLimitError;
 
   try {
     const body = await request.json();

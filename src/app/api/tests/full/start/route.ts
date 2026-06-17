@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { testAttempts, userProgress, questions } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { validateOrigin, checkRateLimit } from '@/lib/api-security';
+import { validateOrigin, checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 import {
   FULL_TEST_PART_DISTRIBUTION,
   FULL_TEST_TOTAL_SECONDS,
@@ -19,13 +19,16 @@ export async function POST(request: Request) {
   const originError = validateOrigin(request);
   if (originError) return originError;
 
-  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 10, keySuffix: 'start' });
-  if (rateLimitError) return rateLimitError;
+  const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'full-start' });
+  if (ipThrottleError) return ipThrottleError;
 
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
+
+  const rateLimitError = await checkUserRateLimit(user.id, { windowMs: 60_000, maxRequests: 10, keySuffix: 'start' });
+  if (rateLimitError) return rateLimitError;
 
   // Cancel any stale in_progress attempts for this user before starting a new one.
   // This handles leftover attempts from before schema changes or abandoned sessions.

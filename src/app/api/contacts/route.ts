@@ -12,8 +12,13 @@ const contactSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const rl = await rateLimit(getRateLimitIdentifier(request), { windowMs: 60_000, maxRequests: 3 });
-  if (rl.limited) return rateLimitResponse(rl.retryAfterMs);
+  const identifier = getRateLimitIdentifier(request);
+
+  const perMinuteRl = await rateLimit(identifier, { windowMs: 60_000, maxRequests: 3 });
+  if (perMinuteRl.limited) return rateLimitResponse(perMinuteRl.retryAfterMs);
+
+  const perDayRl = await rateLimit(identifier + ':contacts:daily', { windowMs: 86_400_000, maxRequests: 10 });
+  if (perDayRl.limited) return rateLimitResponse(perDayRl.retryAfterMs);
 
   try {
     const body = await request.json();

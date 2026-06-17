@@ -4,7 +4,7 @@ import { db } from '@/db';
 import { testAttempts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { validateOrigin, checkRateLimit } from '@/lib/api-security';
+import { validateOrigin, checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 
 const bodySchema = z.object({ attemptId: z.number() });
 
@@ -14,13 +14,16 @@ export async function POST(request: NextRequest) {
   const originError = validateOrigin(request);
   if (originError) return originError;
 
-  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 10, keySuffix: 'cancel' });
-  if (rateLimitError) return rateLimitError;
+  const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'full-cancel' });
+  if (ipThrottleError) return ipThrottleError;
 
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
+
+  const rateLimitError = await checkUserRateLimit(user.id, { windowMs: 60_000, maxRequests: 10, keySuffix: 'cancel' });
+  if (rateLimitError) return rateLimitError;
 
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {

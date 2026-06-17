@@ -13,6 +13,30 @@ const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMea
 const FormMeaningQuiz = dynamic(() => import('@/components/FormMeaningQuiz'));
 const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
 
+class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
+  const res = await fetch(url, options);
+  if (res.status === 401) {
+    throw new ApiError('SESSION_EXPIRED', 401);
+  }
+  if (res.status === 429) {
+    const retryAfter = res.headers.get('Retry-After');
+    const seconds = retryAfter ? parseInt(retryAfter, 10) : 60;
+    throw new ApiError(`RATE_LIMITED:${seconds}`, 429);
+  }
+  if (!res.ok) {
+    throw new ApiError(`HTTP ${res.status}`, res.status);
+  }
+  return res;
+}
+
 const TOTAL_QUESTIONS = 45;
 const TOTAL_SECONDS = 60 * 60;
 
@@ -82,7 +106,7 @@ export default function FullTestExamPage() {
     if (initializedRef.current || attemptIdRef.current) return;
     initializedRef.current = true;
     try {
-      const resumeRes = await fetch('/api/tests/full/resume');
+      const resumeRes = await apiFetch('/api/tests/full/resume');
       const resumeData = await resumeRes.json();
 
       if (resumeData.success && resumeData.data && !resumeData.data.expired) {
@@ -97,12 +121,12 @@ export default function FullTestExamPage() {
         return;
       }
 
-      const startRes = await fetch('/api/tests/full/start', { method: 'POST' });
+      const startRes = await apiFetch('/api/tests/full/start', { method: 'POST' });
       const startData = await startRes.json();
       if (!startData.success) throw new Error(startData.error);
 
       if (startData.data.resume) {
-        const resumeRes2 = await fetch('/api/tests/full/resume');
+        const resumeRes2 = await apiFetch('/api/tests/full/resume');
         const resumeData2 = await resumeRes2.json();
         loadState(resumeData2.data as ExamState);
       } else {
@@ -110,7 +134,17 @@ export default function FullTestExamPage() {
       }
     } catch (err) {
       initializedRef.current = false;
-      toast.error('ไม่สามารถเริ่มข้อสอบได้');
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error('กรุณาเข้าสู่ระบบใหม่');
+        router.push('/tests/full');
+        return;
+      }
+      if (err instanceof ApiError && err.status === 429) {
+        const secs = err.message.split(':')[1] || '60';
+        toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
+      } else {
+        toast.error('ไม่สามารถเริ่มข้อสอบได้');
+      }
       console.error(err);
     } finally {
       setLoading(false);
@@ -134,7 +168,7 @@ export default function FullTestExamPage() {
     setSubmitting(true);
     setFinished(true);
     try {
-      const submitRes = await fetch('/api/tests/full/submit', {
+      const submitRes = await apiFetch('/api/tests/full/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attemptId: id }),
@@ -149,7 +183,17 @@ export default function FullTestExamPage() {
       }
       router.push(`/tests/full/results?attemptId=${id}`);
     } catch (err) {
-      toast.error('เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่');
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error('กรุณาเข้าสู่ระบบใหม่');
+        router.push('/tests/full');
+        return;
+      }
+      if (err instanceof ApiError && err.status === 429) {
+        const secs = err.message.split(':')[1] || '60';
+        toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่');
+      }
       console.error(err);
       timeUpHandledRef.current = false;
       submittingRef.current = false;
@@ -210,7 +254,7 @@ export default function FullTestExamPage() {
     submittingRef.current = true;
     setSubmitting(true);
     try {
-      const res = await fetch('/api/tests/full/next', {
+      const res = await apiFetch('/api/tests/full/next', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -224,7 +268,7 @@ export default function FullTestExamPage() {
       if (!data.success) throw new Error(data.error || 'Unknown error');
 
       if (data.data.finished) {
-        const submitRes = await fetch('/api/tests/full/submit', {
+        const submitRes = await apiFetch('/api/tests/full/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ attemptId: attemptIdRef.current }),
@@ -240,8 +284,18 @@ export default function FullTestExamPage() {
       selectedAnswerRef.current = null;
       setSelectedAnswer(null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
-      toast.error(msg);
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error('กรุณาเข้าสู่ระบบใหม่');
+        router.push('/tests/full');
+        return;
+      }
+      if (err instanceof ApiError && err.status === 429) {
+        const secs = err.message.split(':')[1] || '60';
+        toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
+      } else {
+        const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+        toast.error(msg);
+      }
       console.error(err);
     } finally {
       submittingRef.current = false;
@@ -257,7 +311,7 @@ export default function FullTestExamPage() {
   const confirmCancel = async () => {
     if (!attemptIdRef.current) return;
     setCancelConfirmOpen(false);
-    await fetch('/api/tests/full/cancel', {
+    await apiFetch('/api/tests/full/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ attemptId: attemptIdRef.current }),

@@ -341,7 +341,8 @@ export const questionReports = pgTable('question_reports', {
 }, (table) => ({
   questionIdx: index('qr_question_idx').on(table.questionId),
   statusIdx: index('qr_status_idx').on(table.status),
-}));
+  userQuestionUnique: unique('qr_user_question_unique').on(table.questionId, table.userId),
+}))
 
 export type DbQuestionReport = typeof questionReports.$inferSelect;
 export type NewQuestionReport = typeof questionReports.$inferInsert;

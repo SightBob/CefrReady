@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { testFeedback, testAttempts } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
+import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 import { z } from 'zod';
 
 const feedbackBodySchema = z.object({
@@ -15,8 +15,8 @@ const feedbackBodySchema = z.object({
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  const rl = await rateLimit(getRateLimitIdentifier(request), { windowMs: 60_000, maxRequests: 10 });
-  if (rl.limited) return rateLimitResponse(rl.retryAfterMs);
+  const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'tests-feedback' });
+  if (ipThrottleError) return ipThrottleError;
 
   try {
     const user = await getCurrentUser();
@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const rateLimitError = await checkUserRateLimit(user.id, { windowMs: 60_000, maxRequests: 10, keySuffix: 'feedback' });
+    if (rateLimitError) return rateLimitError;
 
     const body = await request.json();
     const parsed = feedbackBodySchema.safeParse(body);

@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { testAttempts, questions } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { checkRateLimit } from '@/lib/api-security';
+import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import { calculateConfidence } from '@/lib/full-test/algorithm';
 import { type CefrLevel } from '@/lib/full-test/constants';
@@ -22,17 +22,21 @@ interface PathEntry {
 
 export async function GET(
   request: Request,
-  { params }: { params: { attemptId: string } }
+  { params }: { params: Promise<{ attemptId: string }> }
 ) {
-  const rateLimitError = await checkRateLimit(request, { windowMs: 60_000, maxRequests: 30, keySuffix: 'result' });
-  if (rateLimitError) return rateLimitError;
+  const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'full-result' });
+  if (ipThrottleError) return ipThrottleError;
 
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const attemptId = parseInt(params.attemptId);
+  const rateLimitError = await checkUserRateLimit(user.id, { windowMs: 60_000, maxRequests: 30, keySuffix: 'result' });
+  if (rateLimitError) return rateLimitError;
+
+  const { attemptId: attemptIdStr } = await params;
+  const attemptId = parseInt(attemptIdStr);
   if (Number.isNaN(attemptId) || attemptId <= 0) {
     return NextResponse.json({ success: false, error: 'Invalid attempt ID' }, { status: 400 });
   }

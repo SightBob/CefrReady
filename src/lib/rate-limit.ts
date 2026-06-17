@@ -18,18 +18,23 @@ export async function rateLimit(
   const key = `rl:${identifier}`;
   const windowSeconds = Math.ceil(windowMs / 1000);
 
-  const current = await redis.incr(key);
+  try {
+    const current = await redis.incr(key);
 
-  if (current === 1) {
-    await redis.expire(key, windowSeconds);
+    if (current === 1) {
+      await redis.expire(key, windowSeconds);
+    }
+
+    if (current > maxRequests) {
+      const ttl = await redis.ttl(key);
+      return { limited: true, retryAfterMs: ttl * 1000 };
+    }
+
+    return { limited: false, retryAfterMs: 0 };
+  } catch (error) {
+    console.error('[rate-limit] Redis error, failing open:', error);
+    return { limited: false, retryAfterMs: 0 };
   }
-
-  if (current > maxRequests) {
-    const ttl = await redis.ttl(key);
-    return { limited: true, retryAfterMs: ttl * 1000 };
-  }
-
-  return { limited: false, retryAfterMs: 0 };
 }
 
 export function rateLimitResponse(retryAfterMs: number) {

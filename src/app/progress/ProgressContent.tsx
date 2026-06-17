@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import React from 'react';
 import {
   ArrowLeft,
   Target,
@@ -21,17 +22,14 @@ import AnimatedCounter from '@/components/AnimatedCounter';
 import StatCard from '@/components/StatCard';
 import ProgressCard from '@/components/ProgressCard';
 import TestHistoryTable from '@/components/TestHistoryTable';
+import SmartInsights from '@/components/SmartInsights';
 
 const SkillRadarChart = dynamic(
-  () => import('@/components/ProgressAnalytics').then((m) => m.SkillRadarChart),
+  () => import('@/components/ChartComponents').then((m) => m.SkillRadarChart),
   { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
 );
 const HistoryLineChart = dynamic(
-  () => import('@/components/ProgressAnalytics').then((m) => m.HistoryLineChart),
-  { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
-);
-const SmartInsights = dynamic(
-  () => import('@/components/ProgressAnalytics').then((m) => m.SmartInsights),
+  () => import('@/components/ChartComponents').then((m) => m.HistoryLineChart),
   { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
 );
 
@@ -78,6 +76,36 @@ function ImprovementBadge({ improvementText }: { improvementText: { label: strin
       {improvementText.label}
     </span>
   );
+}
+
+// ─── Deferred Section (renders children after browser idle) ─────────────
+
+function DeferredAnalytics({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    if (mounted.current) return;
+    mounted.current = true;
+
+    const trigger = () => setReady(true);
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(trigger, { timeout: 1500 });
+    } else {
+      setTimeout(trigger, 300);
+    }
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="space-y-5 mb-10">
+        <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-[2rem]" />
+        <div className="h-80 animate-pulse bg-[#F7F6F3] rounded-[2rem]" />
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -222,8 +250,9 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
         </div>
       )}
 
-      {/* ── Bento Analytics Grid ───────────────────────────────────────────── */}
+      {/* ── Bento Analytics Grid (deferred) ──────────────────────── */}
       {hasData && (
+      <DeferredAnalytics>
         <section className="mb-10 grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Left Column: Radar + Insights */}
           <div className="lg:col-span-1 flex flex-col gap-5">
@@ -330,6 +359,7 @@ export default function ProgressContent({ progress }: { progress: ProgressData }
             </div>
           </div>
         </section>
+      </DeferredAnalytics>
       )}
 
       {/* ── Test History ────────────────────────────────────────────────────── */}

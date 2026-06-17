@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { questions, questionReports } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
+import { checkIpThrottle } from '@/lib/api-security';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
 import { z } from 'zod';
 
@@ -17,8 +18,24 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const rl = await rateLimit(getRateLimitIdentifier(req), { windowMs: 60_000, maxRequests: 5 });
-  if (rl.limited) return rateLimitResponse(rl.retryAfterMs);
+  const ip = getRateLimitIdentifier(req);
+
+  const ipThrottleError = await checkIpThrottle(req, { keySuffix: 'question-report' });
+  if (ipThrottleError) return ipThrottleError;
+
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+
+  if (userId) {
+    const userRl = await rateLimit(`user:${userId}:report-daily`, { windowMs: 86_400_000, maxRequests: 15 });
+    if (userRl.limited) return rateLimitResponse(userRl.retryAfterMs);
+  } else {
+    const perMinuteRl = await rateLimit(`${ip}:report-min`, { windowMs: 60_000, maxRequests: 5 });
+    if (perMinuteRl.limited) return rateLimitResponse(perMinuteRl.retryAfterMs);
+
+    const perDayRl = await rateLimit(`${ip}:report-daily`, { windowMs: 86_400_000, maxRequests: 20 });
+    if (perDayRl.limited) return rateLimitResponse(perDayRl.retryAfterMs);
+  }
 
   try {
     const { id } = await params;
@@ -37,7 +54,6 @@ export async function POST(
     }
     const { issueType, comment } = parsed.data;
 
-    // ตรวจว่า question มีอยู่จริง
     const [question] = await db
       .select({ id: questions.id })
       .from(questions)
@@ -47,21 +63,28 @@ export async function POST(
       return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
 
-    // Anonymous หรือ logged-in ก็ได้
-    const session = await auth();
+    try {
+      const [report] = await db
+        .insert(questionReports)
+        .values({
+          questionId,
+          userId,
+          issueType,
+          comment: comment?.trim() || null,
+          status: 'pending',
+        })
+        .returning();
 
-    const [report] = await db
-      .insert(questionReports)
-      .values({
-        questionId,
-        userId: session?.user?.id ?? null,
-        issueType,
-        comment: comment?.trim() || null,
-        status: 'pending',
-      })
-      .returning();
-
-    return NextResponse.json(report, { status: 201 });
+      return NextResponse.json(report, { status: 201 });
+    } catch (insertError: unknown) {
+      if (insertError && typeof insertError === 'object' && 'code' in insertError && (insertError as { code: string }).code === '23505') {
+        return NextResponse.json(
+          { error: 'You have already reported this question' },
+          { status: 409 }
+        );
+      }
+      throw insertError;
+    }
   } catch (error) {
     console.error('[POST /api/questions/[id]/report] error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
