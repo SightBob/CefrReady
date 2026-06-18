@@ -12,14 +12,16 @@ const TYPE_COLORS: Record<string, string> = {
   'focus-form':    '#3B82F6',
   'focus-meaning': '#10B981',
   'form-meaning':  '#8B5CF6',
-  listening:       '#F97316',
+  'listening':       '#F97316',
+  'full-test':       '#F43F5E',
 };
 
 const TYPE_GRADIENTS: Record<string, string> = {
   'focus-form':    'from-blue-50 to-blue-100',
   'focus-meaning': 'from-emerald-50 to-emerald-100',
   'form-meaning':  'from-purple-50 to-purple-100',
-  listening:       'from-orange-50 to-orange-100',
+  'listening':       'from-orange-50 to-orange-100',
+  'full-test':       'from-rose-50 to-rose-100',
 };
 
 function HardQuestionRow({

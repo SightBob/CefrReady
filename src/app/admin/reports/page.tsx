@@ -7,7 +7,8 @@ import {
   ArrowLeft, BarChart3, Users, Target, TrendingUp,
   Award, Loader2, RefreshCw, Download, UserPlus,
   UserCheck, AlertCircle, CheckCircle, Clock,
-  Activity,
+  Activity, ClipboardCheck, Timer, XCircle,
+  PlayCircle,
 } from 'lucide-react';
 import { QuestionAnalytics } from '@/components/admin/QuestionAnalytics';
 
@@ -54,6 +55,32 @@ interface ReportData {
     trend: Array<{ week: string; count: number }>;
   };
   cefrDistribution: Array<{ level: string; count: number }>;
+  fullTestAnalytics: {
+    totalAttempts: number;
+    completedCount: number;
+    inProgressCount: number;
+    cancelledCount: number;
+    completionRate: number;
+    avgScore: number;
+    avgTimeSecs: number;
+    perPart: Array<{
+      testTypeId: string;
+      label: string;
+      total: number;
+      correct: number;
+      rate: number;
+    }>;
+    cefrDistribution: Array<{ level: string; count: number }>;
+    recentAttempts: Array<{
+      id: number;
+      score: number;
+      cefrLevel: string;
+      totalQuestions: number;
+      correctAnswers: number;
+      completedAt: string | null;
+      user: { id: string; name: string | null; email: string; image: string | null } | null;
+    }>;
+  };
 }
 
 const BUCKET_ORDER = ['Below 50%', '50–69%', '70–89%', '90–100%'];
@@ -67,7 +94,8 @@ const TYPE_COLORS: Record<string, string> = {
   'focus-form':    'bg-blue-500',
   'focus-meaning':  'bg-emerald-500',
   'form-meaning':   'bg-purple-500',
-  listening:        'bg-orange-500',
+  'listening':      'bg-orange-500',
+  'full-test':      'bg-rose-500',
 };
 const CEFR_COLORS: Record<string, string> = {
   A1: '#EF4444', A2: '#F97316', B1: '#EAB308',
@@ -502,6 +530,199 @@ export default function AdminReportsPage() {
                 </div>
               )}
             </div>
+
+            {/* ─── Full Mock Exam Analytics ─── */}
+            {data.fullTestAnalytics && data.fullTestAnalytics.totalAttempts > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <h2 className="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2">
+                  <ClipboardCheck className="w-5 h-5 text-rose-500" />
+                  รายละเอียด Full Mock Exam
+                </h2>
+
+                {/* Stat cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+                  <div className="bg-slate-50 rounded-xl p-4 text-center">
+                    <p className="text-xs text-slate-500 mb-1">ทั้งหมด</p>
+                    <p className="text-2xl font-bold text-slate-800">{data.fullTestAnalytics.totalAttempts}</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-xl p-4 text-center">
+                    <p className="text-xs text-emerald-600 mb-1 flex items-center justify-center gap-1">
+                      <CheckCircle className="w-3 h-3" />สำเร็จ
+                    </p>
+                    <p className="text-2xl font-bold text-emerald-700">{data.fullTestAnalytics.completedCount}</p>
+                  </div>
+                  <div className="bg-blue-50 rounded-xl p-4 text-center">
+                    <p className="text-xs text-blue-600 mb-1 flex items-center justify-center gap-1">
+                      <PlayCircle className="w-3 h-3" />กำลังทำ
+                    </p>
+                    <p className="text-2xl font-bold text-blue-700">{data.fullTestAnalytics.inProgressCount}</p>
+                  </div>
+                  <div className="bg-red-50 rounded-xl p-4 text-center">
+                    <p className="text-xs text-red-600 mb-1 flex items-center justify-center gap-1">
+                      <XCircle className="w-3 h-3" />ยกเลิก/หมดเวลา
+                    </p>
+                    <p className="text-2xl font-bold text-red-700">{data.fullTestAnalytics.cancelledCount}</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-xl p-4 text-center">
+                    <p className="text-xs text-amber-600 mb-1">อัตราสำเร็จ</p>
+                    <p className="text-2xl font-bold text-amber-700">{data.fullTestAnalytics.completionRate}%</p>
+                  </div>
+                </div>
+
+                {/* Score + Time */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 rounded-xl p-5">
+                    <p className="text-xs text-rose-600 mb-1">คะแนนเฉลี่ย (สำเร็จ)</p>
+                    <p className={`text-3xl font-bold ${
+                      data.fullTestAnalytics.avgScore >= 70 ? 'text-emerald-600' :
+                      data.fullTestAnalytics.avgScore >= 50 ? 'text-amber-600' : 'text-red-500'
+                    }`}>
+                      {data.fullTestAnalytics.avgScore}%
+                    </p>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-5">
+                    <p className="text-xs text-blue-600 mb-1 flex items-center gap-1">
+                      <Timer className="w-3.5 h-3.5" />เวลาเฉลี่ย (สำเร็จ)
+                    </p>
+                    <p className="text-3xl font-bold text-blue-700">
+                      {data.fullTestAnalytics.avgTimeSecs > 0
+                        ? `${Math.floor(data.fullTestAnalytics.avgTimeSecs / 60)}:${String(data.fullTestAnalytics.avgTimeSecs % 60).padStart(2, '0')}`
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Per-part breakdown */}
+                {data.fullTestAnalytics.perPart.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3">ผลตามส่วน (Per-Part Breakdown)</h3>
+                    <div className="space-y-3">
+                      {data.fullTestAnalytics.perPart.map((part) => {
+                        const PART_COLORS: Record<string, string> = {
+                          'focus-form': 'bg-blue-500',
+                          'focus-meaning': 'bg-emerald-500',
+                          'form-meaning': 'bg-purple-500',
+                          'listening': 'bg-orange-500',
+                        };
+                        return (
+                          <div key={part.testTypeId}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-sm font-medium text-slate-700">{part.label}</span>
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className="text-slate-500">{part.correct}/{part.total} ข้อ</span>
+                                <span className={`font-semibold ${
+                                  part.rate >= 70 ? 'text-emerald-600' :
+                                  part.rate >= 50 ? 'text-amber-600' : 'text-red-500'
+                                }`}>
+                                  {part.rate}%
+                                </span>
+                              </div>
+                            </div>
+                            <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${PART_COLORS[part.testTypeId] ?? 'bg-slate-400'}`}
+                                style={{ width: `${part.rate}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* CEFR distribution for full test */}
+                {data.fullTestAnalytics.cefrDistribution.some((c) => c.count > 0) && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3">การกระจายระดับ CEFR</h3>
+                    <div className="space-y-2">
+                      {data.fullTestAnalytics.cefrDistribution.map((c) => {
+                        const maxCefr = Math.max(...data.fullTestAnalytics.cefrDistribution.map((x) => x.count), 1);
+                        const pct = maxCefr > 0 ? Math.round((c.count / maxCefr) * 100) : 0;
+                        return (
+                          <div key={c.level} className="flex items-center gap-3">
+                            <div
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                              style={{ backgroundColor: CEFR_COLORS[c.level] }}
+                            >
+                              {c.level}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-slate-600 font-medium">{CEFR_LABELS[c.level]}</span>
+                                <span className="text-slate-500">{c.count} คน</span>
+                              </div>
+                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{ width: `${pct}%`, backgroundColor: CEFR_COLORS[c.level] }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent full-test attempts */}
+                {data.fullTestAnalytics.recentAttempts.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3">การทดสอบล่าสุด</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-slate-100">
+                            <th className="text-left text-xs font-semibold text-slate-400 pb-3 pr-4">ผู้ใช้</th>
+                            <th className="text-right text-xs font-semibold text-slate-400 pb-3 pr-4">คะแนน</th>
+                            <th className="text-right text-xs font-semibold text-slate-400 pb-3 pr-4">ถูก/ทั้งหมด</th>
+                            <th className="text-right text-xs font-semibold text-slate-400 pb-3">CEFR</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.fullTestAnalytics.recentAttempts.map((a) => (
+                            <tr key={a.id} className="border-b border-slate-50 last:border-0">
+                              <td className="py-2.5 pr-4">
+                                <div className="flex items-center gap-2">
+                                  {a.user?.image ? (
+                                    <Image src={a.user.image} alt={a.user?.name ?? 'User'} width={28} height={28} className="rounded-full object-cover" />
+                                  ) : (
+                                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                                      {(a.user?.name ?? a.user?.email ?? '?')[0].toUpperCase()}
+                                    </div>
+                                  )}
+                                  <span className="text-sm text-slate-700 truncate max-w-[120px]">{a.user?.name ?? '—'}</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 pr-4 text-right">
+                                <span className={`font-semibold ${
+                                  a.score >= 70 ? 'text-emerald-600' :
+                                  a.score >= 50 ? 'text-amber-600' : 'text-red-500'
+                                }`}>
+                                  {a.score}%
+                                </span>
+                              </td>
+                              <td className="py-2.5 pr-4 text-right text-sm text-slate-500">
+                                {a.correctAnswers}/{a.totalQuestions}
+                              </td>
+                              <td className="py-2.5 text-right">
+                                <div
+                                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-xs font-bold text-white"
+                                  style={{ backgroundColor: CEFR_COLORS[a.cefrLevel] }}
+                                >
+                                  {a.cefrLevel}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         )}

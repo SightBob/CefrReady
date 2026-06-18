@@ -237,6 +237,121 @@ export async function GET(request: NextRequest) {
       cefrDist[level] = (cefrDist[level] ?? 0) + 1;
     }
 
+    // 7. Full Mock Exam analytics
+    const fullTestAttempts = await db
+      .select({
+        id: testAttempts.id,
+        userId: testAttempts.userId,
+        score: testAttempts.score,
+        status: testAttempts.status,
+        totalQuestions: testAttempts.totalQuestions,
+        correctAnswers: testAttempts.correctAnswers,
+        timeRemainingSeconds: testAttempts.timeRemainingSeconds,
+        adaptivePath: testAttempts.adaptivePath,
+        currentLevels: testAttempts.currentLevels,
+        startedAt: testAttempts.startedAt,
+        completedAt: testAttempts.completedAt,
+      })
+      .from(testAttempts)
+      .where(sql`${testAttempts.testTypeId} = 'full-test'`)
+      .orderBy(sql`${testAttempts.id} DESC`);
+
+    const totalFullTests = fullTestAttempts.length;
+    const completedFullTests = fullTestAttempts.filter((a) => a.status === 'completed');
+    const inProgressFullTests = fullTestAttempts.filter((a) => a.status === 'in_progress').length;
+    const completedCount = completedFullTests.length;
+    const cancelledCount = totalFullTests - completedCount - inProgressFullTests;
+
+    const completionRate = totalFullTests > 0 ? Math.round((completedCount / totalFullTests) * 1000) / 10 : 0;
+
+    const fullTestScores = completedFullTests
+      .map((a) => parseFloat(a.score ?? '0'))
+      .filter((s) => s > 0);
+    const fullTestAvgScore = fullTestScores.length > 0
+      ? Math.round((fullTestScores.reduce((s, v) => s + v, 0) / fullTestScores.length) * 10) / 10
+      : 0;
+
+    const fullTestTimesSecs = completedFullTests
+      .filter((a) => a.timeRemainingSeconds != null)
+      .map((a) => 3600 - (a.timeRemainingSeconds ?? 0));
+    const avgTimeSecs = fullTestTimesSecs.length > 0
+      ? Math.round(fullTestTimesSecs.reduce((s, v) => s + v, 0) / fullTestTimesSecs.length)
+      : 0;
+
+    const PART_LABELS: Record<string, string> = {
+      'focus-form': 'Grammar',
+      'focus-meaning': 'Vocabulary',
+      'form-meaning': 'Cloze',
+      'listening': 'Listening',
+    };
+
+    const perPartTotals: Record<string, { total: number; correct: number }> = {};
+    for (const attempt of completedFullTests) {
+      const path = (attempt.adaptivePath ?? []) as Array<{
+        questionId: number; testTypeId: string; wasCorrect: boolean;
+      }>;
+      for (const entry of path) {
+        const key = entry.testTypeId;
+        if (!perPartTotals[key]) perPartTotals[key] = { total: 0, correct: 0 };
+        perPartTotals[key].total++;
+        if (entry.wasCorrect) perPartTotals[key].correct++;
+      }
+    }
+
+    const fullTestPerPart = Object.entries(perPartTotals).map(([type, data]) => ({
+      testTypeId: type,
+      label: PART_LABELS[type] ?? type,
+      total: data.total,
+      correct: data.correct,
+      rate: data.total > 0 ? Math.round((data.correct / data.total) * 1000) / 10 : 0,
+    }));
+
+    const fullTestCefrDist: Record<string, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
+    for (const score of fullTestScores) {
+      const level = estimateCefrLevel(score);
+      fullTestCefrDist[level] = (fullTestCefrDist[level] ?? 0) + 1;
+    }
+
+    const recentFullTests = completedFullTests.slice(0, 10).map((a) => {
+      const sc = parseFloat(a.score ?? '0');
+      return {
+        id: a.id,
+        score: sc,
+        cefrLevel: estimateCefrLevel(sc),
+        totalQuestions: a.totalQuestions ?? 0,
+        correctAnswers: a.correctAnswers ?? 0,
+        completedAt: a.completedAt ? new Date(a.completedAt).toISOString() : null,
+      };
+    });
+
+    const recentFullTestUserIds = Array.from(new Set(completedFullTests.slice(0, 10).map((a) => a.userId)));
+    const recentFullTestUsers = recentFullTestUserIds.length > 0
+      ? await db
+          .select({ id: users.id, name: users.name, email: users.email, image: users.image })
+          .from(users)
+          .where(sql`${users.id} = ANY(ARRAY[${sql.join(recentFullTestUserIds.map((id) => sql`${id}`), sql`, `)}]::text[])`)
+      : [];
+    const recentUserMap = new Map(recentFullTestUsers.map((u) => [u.id, u]));
+
+    const fullTestAnalytics = {
+      totalAttempts: totalFullTests,
+      completedCount,
+      inProgressCount: inProgressFullTests,
+      cancelledCount,
+      completionRate,
+      avgScore: fullTestAvgScore,
+      avgTimeSecs,
+      perPart: fullTestPerPart,
+      cefrDistribution: Object.entries(fullTestCefrDist).map(([level, count]) => ({ level, count })),
+      recentAttempts: recentFullTests.slice(0, 10).map((a) => {
+        const attempt = completedFullTests.find((c) => c.id === a.id);
+        return {
+          ...a,
+          user: attempt ? (recentUserMap.get(attempt.userId) ?? null) : null,
+        };
+      }),
+    };
+
     return NextResponse.json({
       success: true,
       data: {
@@ -268,6 +383,7 @@ export async function GET(request: NextRequest) {
           level,
           count,
         })),
+        fullTestAnalytics,
       },
     });
   } catch (err) {
