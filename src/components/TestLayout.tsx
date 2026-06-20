@@ -29,7 +29,7 @@ interface Section {
 
 interface TestLayoutProps {
   title?: string;
-  duration?: string;
+  durationMinutes?: number;
   totalQuestions?: number;
   currentQuestion?: number;
   answers?: Array<string | number | null>;
@@ -44,11 +44,12 @@ interface TestLayoutProps {
   currentQuestionId?: number;
 }
 
-const QUESTIONS_PER_PAGE = 20;
+const QUESTIONS_PER_PAGE = 24;
+const DEFAULT_DURATION_MINUTES = 20;
 
 export default function TestLayout({
   title = '',
-  duration = '',
+  durationMinutes,
   totalQuestions = 0,
   currentQuestion = 0,
   answers = [],
@@ -74,7 +75,9 @@ export default function TestLayout({
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'unanswered'>('all');
 
-  const EXAM_DURATION = 20 * 60;
+  const effectiveMinutes = durationMinutes && durationMinutes > 0 ? durationMinutes : DEFAULT_DURATION_MINUTES;
+  const EXAM_DURATION = effectiveMinutes * 60;
+  const durationLabel = `${effectiveMinutes} min`;
 
   const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
 
@@ -176,7 +179,7 @@ export default function TestLayout({
                 <h1 className="font-bold text-slate-900">{title}</h1>
                 <div className="flex items-center gap-2 text-sm text-slate-500">
                   <Clock className="w-4 h-4" />
-                  <span>{duration}</span>
+                  <span>{durationLabel}</span>
                   <span className="mx-1">•</span>
                   <span>{totalQuestions} questions</span>
                 </div>

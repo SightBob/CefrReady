@@ -196,7 +196,7 @@ export default function DemoFocusFormPage() {
   return (
     <TestLayout
       title="Focus on Form (Demo)"
-      duration="5 min"
+      durationMinutes={5}
       totalQuestions={questions.length}
       currentQuestion={currentQuestion}
       answers={answers.map((a, i) => a !== null ? i : null as unknown as number)}

@@ -186,7 +186,7 @@ export default function DemoFocusMeaningPage() {
   return (
     <TestLayout
       title="Focus on Meaning (Demo)"
-      duration="5 min"
+      durationMinutes={5}
       totalQuestions={questions.length}
       currentQuestion={currentQuestion}
       answers={answers}

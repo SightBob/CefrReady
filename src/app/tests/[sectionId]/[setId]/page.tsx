@@ -67,6 +67,7 @@ interface SetData {
   sectionId: string;
   name: string;
   description: string | null;
+  duration: number | null;
   questions: RawQuestion[];
 }
 
@@ -711,7 +712,7 @@ export default function SetQuizPage() {
     return (
       <TestLayout
         title={setData.name}
-        duration="15 min"
+        durationMinutes={setData.duration ?? undefined}
         totalQuestions={setData.questions.length}
         currentQuestion={currentQuestion}
         answers={answers}
@@ -752,7 +753,7 @@ export default function SetQuizPage() {
     return (
       <TestLayout
         title={setData.name}
-        duration="15 min"
+        durationMinutes={setData.duration ?? undefined}
         totalQuestions={setData.questions.length}
         currentQuestion={currentQuestion}
         answers={answers}
@@ -797,7 +798,7 @@ export default function SetQuizPage() {
     <>
     <TestLayout
       title={setData.name}
-      duration="15 min"
+      durationMinutes={setData.duration ?? undefined}
       totalQuestions={setData.questions.length}
       currentQuestion={currentQuestion}
       answers={answers}

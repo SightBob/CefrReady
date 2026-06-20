@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { testSets, testSetQuestions, questions } from '@/db/schema';
+import { testSets, testSetQuestions, questions, testTypes } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 
@@ -24,8 +24,16 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   try {
     const [set] = await db
-      .select()
+      .select({
+        id: testSets.id,
+        sectionId: testSets.sectionId,
+        name: testSets.name,
+        description: testSets.description,
+        isActive: testSets.isActive,
+        duration: testTypes.duration,
+      })
       .from(testSets)
+      .innerJoin(testTypes, eq(testTypes.id, testSets.sectionId))
       .where(eq(testSets.id, setId))
       .limit(1);
 
@@ -64,6 +72,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         sectionId: set.sectionId,
         name: set.name,
         description: set.description,
+        duration: set.duration,
         questions: setQuestions,
       },
     });

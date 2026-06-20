@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
-import { ArrowLeft, Clock } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmModal from '@/components/ConfirmModal';
+import ReportModal from '@/components/ReportModal';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
 import { FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL_SECONDS } from '@/lib/full-test/constants';
 
@@ -53,6 +54,8 @@ export default function FullTestExamPage() {
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
   const [skipConfirmMessage, setSkipConfirmMessage] = useState('');
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportedQuestions, setReportedQuestions] = useState<Set<number>>(new Set());
 
   const attemptIdRef = useRef<number | null>(null);
   const endTimeRef = useRef<number>(0);
@@ -348,6 +351,26 @@ export default function FullTestExamPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 pb-24">
+        <div className="flex items-center justify-end mb-3">
+          <button
+            type="button"
+            onClick={() => setShowReportModal(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-orange-600 transition-colors"
+            aria-label="แจ้งปัญหาข้อสอบ"
+          >
+            {question && reportedQuestions.has(question.id) ? (
+              <>
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>แจ้งแล้ว</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>แจ้งปัญหา</span>
+              </>
+            )}
+          </button>
+        </div>
         <div>
             {question.testTypeId === 'focus-form' ? (
               <div key={question.id} className="mb-6">
@@ -470,6 +493,17 @@ export default function FullTestExamPage() {
         onCancel={() => setCancelConfirmOpen(false)}
         isLoading={submitting}
       />
+
+      {showReportModal && question && (
+        <ReportModal
+          questionId={question.id}
+          questionNumber={questionIndex + 1}
+          onClose={() => setShowReportModal(false)}
+          onSuccess={() =>
+            setReportedQuestions((prev) => new Set(prev).add(question.id))
+          }
+        />
+      )}
     </div>
   );
 }
