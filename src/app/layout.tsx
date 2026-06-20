@@ -8,20 +8,21 @@ import Script from 'next/script';
 import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { GoogleAnalytics } from '@next/third-parties/google';
+import GoogleAnalyticsLazy from '@/components/GoogleAnalyticsLazy';
 
 const prompt = Prompt({
-  weight: ['400', '500', '600', '700', '900'],
+  weight: ['400', '500', '600', '700'],
   subsets: ['latin', 'thai'],
   variable: '--font-prompt',
   display: 'swap',
 });
 
 const pridi = Pridi({
-  weight: ['400', '700'],
+  weight: ['400'],
   subsets: ['latin', 'thai'],
   variable: '--font-pridi',
   display: 'swap',
+  preload: false,
 });
 
 const BASE_URL = 'https://cefr-ready.site';
@@ -30,7 +31,6 @@ const SITE_NAME = 'CEFR Ready';
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
   themeColor: '#ffffff',
 };
 
@@ -113,10 +113,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="th">
+    <html lang="th" className="no-js">
       <head>
         <meta name="application-name" content={SITE_NAME} />
         <meta name="mobile-web-app-capable" content="yes" />
+        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.remove('no-js')" }} />
       </head>
       <body className={`${prompt.variable} ${pridi.variable} font-sans`}>
         <SessionProvider refetchOnWindowFocus={false}>
@@ -145,7 +146,7 @@ export default function RootLayout({
           </PostHogProvider>
         </SessionProvider>
         <Analytics />
-        <GoogleAnalytics gaId="G-MNPQ9B7ZDL" />
+        <GoogleAnalyticsLazy />
         <SpeedInsights />
         <ToasterWrapper />
       </body>

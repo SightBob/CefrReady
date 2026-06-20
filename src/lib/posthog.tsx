@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
-import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -86,14 +85,6 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           email: session!.user.email,
           isAdmin: session!.user.isAdmin,
         });
-        fetch('/api/progress')
-          .then(r => r.json())
-          .then(progress => {
-            if (progress.success && progress.data?.overall?.averageScore != null) {
-              posthogInstance.people.set({ cefr_level: estimateCefrLevel(progress.data.overall.averageScore) });
-            }
-          })
-          .catch(() => { /* non-critical */ });
         posthogInstance.capture('user_signed_in', { provider: 'google' });
       }
     } else if (previousSessionRef.current === true && session === null) {

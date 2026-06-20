@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Clock,
@@ -61,6 +62,7 @@ export default function TestLayout({
   isSubmitted = false,
   currentQuestionId,
 }: TestLayoutProps) {
+  const router = useRouter();
   const [showNavPanel, setShowNavPanel] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportedQuestions, setReportedQuestions] = useState<Set<number>>(new Set());
@@ -748,7 +750,7 @@ export default function TestLayout({
                 ทำต่อ
               </button>
               <button
-                onClick={() => { window.location.href = '/tests'; }}
+                onClick={() => { router.push('/tests'); }}
                 className="flex-1 py-2.5 px-4 rounded-xl bg-red-500 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
               >
                 ออกจากข้อสอบ

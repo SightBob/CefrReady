@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { userProgress } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import dynamic from 'next/dynamic';
 
 const HomeTour = dynamic(() => import('@/components/HomeTour'), { ssr: false });
@@ -57,26 +57,21 @@ async function UserProgressSection() {
   let averageScore = 0;
 
   try {
-    const progressRows = await db
-      .select()
+    const [agg] = await db
+      .select({
+        testsTaken: sql<number>`COALESCE(SUM(${userProgress.testsTaken}), 0)`,
+        averageScore: sql<number>`COALESCE(
+          ROUND(
+            SUM(${userProgress.averageScore}::numeric * ${userProgress.testsTaken})
+            / NULLIF(SUM(${userProgress.testsTaken}), 0)
+          ), 0
+        )`,
+      })
       .from(userProgress)
       .where(eq(userProgress.userId, session.user.id));
 
-    if (progressRows.length > 0) {
-      let totalTests = 0;
-      let totalScore = 0;
-      for (const p of progressRows) {
-        const taken = p.testsTaken || 0;
-        const avg =
-          typeof p.averageScore === 'string'
-            ? parseFloat(p.averageScore)
-            : p.averageScore || 0;
-        totalTests += taken;
-        totalScore += avg * taken;
-      }
-      testsTaken = totalTests;
-      averageScore = totalTests > 0 ? Math.round(totalScore / totalTests) : 0;
-    }
+    testsTaken = Number(agg?.testsTaken ?? 0);
+    averageScore = Number(agg?.averageScore ?? 0);
   } catch {
     // Non-fatal
   }

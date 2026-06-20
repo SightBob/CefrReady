@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { userProgress, testAttempts, testTypes } from '@/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, sql } from 'drizzle-orm';
 import ProgressContent from './ProgressContent';
 
 export const metadata: Metadata = {
@@ -51,7 +51,7 @@ export default async function ProgressPage() {
   }
 
   // Fetch progress data server-side
-  const [progressByType, recentAttempts, allTestTypes] = await Promise.all([
+  const [progressByType, recentAttempts, allTestTypes, overallAgg] = await Promise.all([
     db.select().from(userProgress).where(eq(userProgress.userId, session.user.id)),
     db
       .select({
@@ -67,6 +67,18 @@ export default async function ProgressPage() {
       .orderBy(desc(testAttempts.completedAt))
       .limit(10),
     db.select().from(testTypes),
+    db
+      .select({
+        totalTests: sql<number>`COALESCE(SUM(${userProgress.testsTaken}), 0)`,
+        overallAverage: sql<number>`COALESCE(
+          ROUND(
+            SUM(${userProgress.averageScore}::numeric * ${userProgress.testsTaken})
+            / NULLIF(SUM(${userProgress.testsTaken}), 0)
+          ), 0
+        )`,
+      })
+      .from(userProgress)
+      .where(eq(userProgress.userId, session.user.id)),
   ]);
 
   // Build test type name map
@@ -75,21 +87,18 @@ export default async function ProgressPage() {
     testTypeMap.set(tt.id, { name: tt.name, icon: tt.icon || '' });
   });
 
-  // Calculate overall statistics
-  let totalTests = 0;
-  let totalScore = 0;
+  // Build per-category breakdown (still needs rows; overall is computed by SQL)
   const byCategory = progressByType.map((p) => {
     const testsTaken = p.testsTaken || 0;
     const avgScore =
       typeof p.averageScore === 'string'
         ? parseFloat(p.averageScore)
         : p.averageScore || 0;
-    totalTests += testsTaken;
-    totalScore += avgScore * testsTaken;
     return { testTypeId: p.testTypeId, averageScore: avgScore, testsTaken };
   });
 
-  const overallAverage = totalTests > 0 ? Math.round(totalScore / totalTests) : 0;
+  const totalTests = Number(overallAgg?.[0]?.totalTests ?? 0);
+  const overallAverage = Number(overallAgg?.[0]?.overallAverage ?? 0);
 
   const formattedAttempts = recentAttempts.map((attempt) => ({
     id: attempt.id,

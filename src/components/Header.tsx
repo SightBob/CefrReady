@@ -1,182 +1,20 @@
-'use client';
-
 import Link from 'next/link';
-import { BookOpen, Menu, X, LogOut, Shield } from 'lucide-react';
-import { useState } from 'react';
-import { useSession, signIn, signOut } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
-import TourReplayButton from './TourReplayButton';
+import { auth } from '@/lib/auth';
+import HeaderClient from './HeaderClient';
 
-export default function Header() {
-  const { data: session, status } = useSession();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const pathname = usePathname();
-
-  const handleLogout = () => {
-    signOut({ callbackUrl: '/' });
-  };
-
-  const handleLogin = () => {
-    Promise.resolve(signIn('google', { callbackUrl: '/tests' })).catch(() => {});
-  };
-
-  const userName = session?.user?.name ?? session?.user?.email?.split('@')[0] ?? 'User';
-
-  // Helper: active nav link class
-  const navLink = (href: string) =>
-    `text-sm font-medium transition-colors ${pathname === href
-      ? 'text-[#111] font-semibold border-b-2 border-[#111] pb-0.5'
-      : 'text-slate-500 hover:text-[#111]'
-    }`;
+export default async function Header() {
+  const session = await auth();
 
   return (
-    <>
-      <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100" style={{ minHeight: '4rem' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center gap-2.5 group" aria-label="CEFR Ready หน้าหลัก">
-              {/* Logo badge */}
-              <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200 shrink-0">
-                <span className="text-white font-black text-sm tracking-tighter select-none">CR</span>
-              </div>
-              {/* Site name */}
-              <div className="flex flex-col leading-none">
-                <span className="text-base font-extrabold tracking-tight bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
-                  CEFR Ready
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium tracking-wide hidden sm:block">ฝึกข้อสอบมาตรฐาน CEFR</span>
-              </div>
-            </Link>
-
-            {/* Desktop Navigation */}
-            <nav className="hidden min-[992px]:flex items-center gap-4 xl:gap-6">
-              <Link href="/" className={navLink('/')}>หน้าหลัก</Link>
-              <Link href="/tests" className={navLink('/tests')} data-tour="nav-tests">ข้อสอบ</Link>
-              <Link href="/progress" className={navLink('/progress')}>พัฒนาการ</Link>
-              <Link href="/must-know" className={navLink('/must-know')} data-tour="nav-mustknow">Must Know</Link>
-              <Link href="/contact" className={navLink('/contact')}>ติดต่อเรา</Link>
-              {session?.user?.isAdmin && (
-                <Link href="/admin" className={`inline-flex items-center gap-1.5 ${navLink('/admin')}`}>
-                  <Shield className="w-3.5 h-3.5" />
-                  Admin
-                </Link>
-              )}
-            </nav>
-
-            <div className="hidden lg:flex items-center gap-2 min-w-[140px] justify-end">
-              {pathname === '/' && <TourReplayButton tourType="home" />}
-              {pathname.startsWith('/tests') && <TourReplayButton tourType="test" />}
-              {status === 'loading' ? (
-                <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
-              ) : session?.user ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-slate-100 rounded-full pl-1 pr-3 py-1">
-                    <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                      {userName.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium text-slate-700">{userName}</span>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                    title="ออกจากระบบ"
-                  >
-                    <LogOut className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={handleLogin}
-                  className="inline-flex items-center gap-2 bg-[#111] text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#333] transition-colors"
-                >
-                  เข้าสู่ระบบ
-                </button>
-              )}
-            </div>
-
-            {/* Mobile Buttons */}
-            <div className="flex lg:hidden items-center gap-1">
-              {pathname === '/' && <TourReplayButton tourType="home" />}
-              {pathname.startsWith('/tests') && <TourReplayButton tourType="test" />}
-              <button
-                className="p-3 rounded-lg hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                aria-label={isMenuOpen ? 'ปิดเมนู' : 'เปิดเมนู'}
-                aria-expanded={isMenuOpen}
-                aria-controls="mobile-nav"
-              >
-                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile Navigation */}
-          {isMenuOpen && (
-            <nav className="lg:hidden py-4 border-t border-slate-100 animate-slide-up">
-              <div className="flex flex-col gap-1">
-                {[
-                  { href: '/', label: 'หน้าหลัก' },
-                  { href: '/tests', label: 'ข้อสอบ' },
-                  { href: '/progress', label: 'พัฒนาการ' },
-                  { href: '/must-know', label: 'Must Know' },
-                  { href: '/contact', label: 'ติดต่อเรา' },
-                ].map(({ href, label }) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`px-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${pathname === href
-                      ? 'bg-slate-100 text-[#111] font-semibold'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-[#111]'
-                      }`}
-                  >
-                    {label}
-                  </Link>
-                ))}
-                {session?.user?.isAdmin && (
-                  <Link
-                    href="/admin"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="px-2 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"
-                  >
-                    <Shield className="w-4 h-4" />
-                    Admin
-                  </Link>
-                )}
-
-                <div className="border-t border-slate-100 mt-2 pt-3">
-                  {status === 'loading' ? (
-                    <div className="w-24 h-8 bg-slate-200 rounded animate-pulse" />
-                  ) : session?.user ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                          {userName.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-sm font-medium text-slate-700">{userName}</span>
-                      </div>
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#111] transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        ออกจากระบบ
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => { handleLogin(); setIsMenuOpen(false); }}
-                      className="w-full bg-[#111] text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-[#333] transition-colors"
-                    >
-                      เข้าสู่ระบบ
-                    </button>
-                  )}
-                </div>
-              </div>
-            </nav>
-          )}
-        </div>
-      </header>
-    </>
+    <HeaderClient
+      session={session ? {
+        user: {
+          id: session.user?.id ?? null,
+          name: session.user?.name ?? null,
+          email: session.user?.email ?? null,
+          isAdmin: session.user?.isAdmin ?? false,
+        },
+      } : null}
+    />
   );
 }

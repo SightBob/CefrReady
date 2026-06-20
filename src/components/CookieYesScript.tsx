@@ -63,24 +63,32 @@ export default function CookieYesScript() {
       return consent;
     };
 
-    // Poll for widget initialization
+    // Poll for widget initialization with exponential backoff (cap ~30s total)
+    let timeoutId: ReturnType<typeof setTimeout>;
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds
-    const pollInterval = setInterval(() => {
+    const maxAttempts = 8;
+
+    const tick = () => {
       attempts++;
       if (checkWidget()) {
-        clearInterval(pollInterval);
         checkConsent();
-      } else if (attempts >= maxAttempts) {
-        clearInterval(pollInterval);
+        return;
+      }
+      if (attempts >= maxAttempts) {
         // eslint-disable-next-line no-console
-        console.log('[CookieYes] Widget initialization timed out after 30s');
+        console.log('[CookieYes] Widget initialization timed out');
         // eslint-disable-next-line no-console
         console.log('[CookieYes] Try running: window.resetCookieYesAndReload()');
+        return;
       }
-    }, 1000);
+      // 1s, 2s, 4s, 8s, 16s, 32s — capped
+      const delay = Math.min(1000 * 2 ** (attempts - 1), 8000);
+      timeoutId = setTimeout(tick, delay);
+    };
 
-    return () => clearInterval(pollInterval);
+    timeoutId = setTimeout(tick, 1000);
+
+    return () => clearTimeout(timeoutId);
   }, [scriptLoaded]);
 
   return (
