@@ -12,6 +12,7 @@ import {
   type CefrLevel,
   type PerTypeLevels,
   cefrIndex,
+  CEFR_LEVELS,
 } from '@/lib/full-test/constants';
 import { getNextLevel, selectQuestion, getPerTypeAnswerHistory, getInitialLevels } from '@/lib/full-test/algorithm';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
       .from(questions)
       .where(and(eq(questions.testTypeId, nextPart), eq(questions.active, 'true')));
 
-    const selection = selectQuestion({
+    let selection = selectQuestion({
       questions: pool,
       seenQuestionIds: seenIds,
       targetLevel: nextTypeLevel,
@@ -104,6 +105,22 @@ export async function POST(request: NextRequest) {
 
     if (!selection) {
       return NextResponse.json({ success: true, data: { finished: true, reason: 'pool_exhausted' } });
+    }
+
+    // Guard: if selected question has an invalid cefrLevel, re-select
+    if (!CEFR_LEVELS.includes(selection.question.cefrLevel as CefrLevel)) {
+      seenIds.add(selection.question.id);
+      const reselect = selectQuestion({
+        questions: pool,
+        seenQuestionIds: seenIds,
+        targetLevel: nextTypeLevel,
+        requiredTestTypeId: nextPart,
+        direction: 'neutral',
+      });
+      if (!reselect) {
+        return NextResponse.json({ success: true, data: { finished: true, reason: 'pool_exhausted' } });
+      }
+      selection = reselect;
     }
 
     const selMode = determineSelectionMode(selection.reused, selection.question.cefrLevel, nextTypeLevel);
@@ -178,27 +195,15 @@ export async function POST(request: NextRequest) {
   const currentLevels: PerTypeLevels = (attempt.currentLevels as PerTypeLevels) ?? getInitialLevels('B1');
   const testTypeLevels = { ...currentLevels };
 
-  // For form-meaning, expand into per-blank sub-entries for adaptive level adjustment
-  if (question.testTypeId === 'form-meaning' && blanksTotal > 0) {
-    const expandedHistory: boolean[] = [];
-    for (let i = 0; i < blanksTotal; i++) {
-      expandedHistory.push(i < blanksCorrect);
-    }
-    const typeHistory = getPerTypeAnswerHistory(newPath, question.testTypeId);
-    const combinedHistory = [...typeHistory.slice(0, -1), ...expandedHistory];
-    const updatedLevel = getNextLevel(
-      (testTypeLevels[question.testTypeId] as CefrLevel) ?? 'B1',
-      combinedHistory
-    );
-    testTypeLevels[question.testTypeId] = updatedLevel;
-  } else {
-    const typeHistory = getPerTypeAnswerHistory(newPath, question.testTypeId);
-    const updatedLevel = getNextLevel(
-      (testTypeLevels[question.testTypeId] as CefrLevel) ?? 'B1',
-      typeHistory
-    );
-    testTypeLevels[question.testTypeId] = updatedLevel;
-  }
+  // For adaptive purposes, treat form-meaning as a single aggregate entry.
+  // (Score granularity is per-blank in submit-attempt.ts, but adaptive
+  //  granularity is per-question — avoid multiple level jumps from one question.)
+  const typeHistory = getPerTypeAnswerHistory(newPath, question.testTypeId);
+  const updatedLevel = getNextLevel(
+    (testTypeLevels[question.testTypeId] as CefrLevel) ?? 'B1',
+    typeHistory
+  );
+  testTypeLevels[question.testTypeId] = updatedLevel;
 
   const nextIndex = newPath.length;
   if (nextIndex >= FULL_TEST_TOTAL_QUESTIONS) {
@@ -227,7 +232,7 @@ export async function POST(request: NextRequest) {
     .from(questions)
     .where(and(eq(questions.testTypeId, nextPart), eq(questions.active, 'true')));
 
-  const selection = selectQuestion({
+  let selection = selectQuestion({
     questions: pool,
     seenQuestionIds: seenQuestionIds,
     targetLevel: nextTypeLevel,
@@ -245,6 +250,21 @@ export async function POST(request: NextRequest) {
       })
       .where(eq(testAttempts.id, attemptId));
     return NextResponse.json({ success: true, data: { finished: true, reason: 'pool_exhausted' } });
+  }
+
+  // Guard: if selected question has an invalid cefrLevel, re-select
+  if (!CEFR_LEVELS.includes(selection.question.cefrLevel as CefrLevel)) {
+    seenQuestionIds.add(selection.question.id);
+    const reselect = selectQuestion({
+      questions: pool,
+      seenQuestionIds: seenQuestionIds,
+      targetLevel: nextTypeLevel,
+      requiredTestTypeId: nextPart,
+      direction,
+    });
+    if (reselect) {
+      selection = reselect;
+    }
   }
 
   await db

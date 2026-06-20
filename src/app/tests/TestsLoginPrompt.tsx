@@ -14,7 +14,7 @@ export default function TestsLoginPrompt() {
         Please login to access full tests with 20-30 questions each, save your progress, and track your improvement over time.
       </p>
       <button
-        onClick={() => signIn('google', { callbackUrl: '/tests' })}
+        onClick={() => Promise.resolve(signIn('google', { callbackUrl: '/tests' })).catch(() => {})}
         className="bg-white text-primary-600 px-6 py-2 rounded-lg font-medium hover:bg-primary-50 transition-colors inline-flex items-center gap-2"
       >
         <LogIn className="w-5 h-5" />

@@ -43,7 +43,7 @@ export const THRESHOLD_UP = 0.6;
 export const THRESHOLD_DOWN = 0.4;
 
 // Major step thresholds: very strong signal jumps 2 levels
-export const MAJOR_STEP_UP = 0.9;
+export const MAJOR_STEP_UP = 0.8;
 export const MAJOR_STEP_DOWN = 0.1;
 
 // Minimum questions required for confident scoring result

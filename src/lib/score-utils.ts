@@ -1,3 +1,11 @@
+/**
+ * Scoring utilities for REGULAR (non-adaptive) section tests.
+ *
+ * NOTE: The adaptive full-test feature uses its own scoring logic in
+ * `src/lib/full-test/submit-attempt.ts` which incorporates CEFR weights
+ * and per-blank granularity. Do not mix these two systems.
+ */
+
 interface Answer {
   questionId: number;
   selectedAnswer: string;

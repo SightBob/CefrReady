@@ -41,10 +41,21 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         disable_surveys: true,
         before_send: (event) => {
           if (!event) return null;
-          const exType = event.properties?.exception?.values?.[0]?.type;
-          const exValue = event.properties?.exception?.values?.[0]?.value as string | undefined;
-          if (exType === 'TypeError' && exValue?.includes('Load failed')) {
-            return null;
+          const values = event.properties?.exception?.values;
+          if (Array.isArray(values)) {
+            const isLoadFailed = values.some(
+              (v) =>
+                v?.type === 'TypeError' &&
+                typeof v?.value === 'string' &&
+                v.value.includes('Load failed')
+            );
+            if (isLoadFailed) {
+              event.properties = {
+                ...event.properties,
+                investigation_load_failed: true,
+              };
+              return event;
+            }
           }
           return event;
         },

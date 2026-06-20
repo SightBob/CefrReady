@@ -8,14 +8,13 @@ import { ArrowLeft, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmModal from '@/components/ConfirmModal';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
+import { FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL_SECONDS } from '@/lib/full-test/constants';
 
 const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'));
 const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'));
 const FormMeaningQuiz = dynamic(() => import('@/components/FormMeaningQuiz'));
 const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
 
-const TOTAL_QUESTIONS = 45;
-const TOTAL_SECONDS = 60 * 60;
 
 interface Question {
   id: number;
@@ -48,7 +47,7 @@ export default function FullTestExamPage() {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [question, setQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState(TOTAL_SECONDS);
+  const [timeRemaining, setTimeRemaining] = useState(FULL_TEST_TOTAL_SECONDS);
   const [submitting, setSubmitting] = useState(false);
   const [finished, setFinished] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
@@ -56,6 +55,7 @@ export default function FullTestExamPage() {
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   const attemptIdRef = useRef<number | null>(null);
+  const endTimeRef = useRef<number>(0);
   const timeUpHandledRef = useRef(false);
   const submittingRef = useRef(false);
   const initializedRef = useRef(false);
@@ -74,7 +74,9 @@ export default function FullTestExamPage() {
     setAttemptId(data.attemptId);
     setQuestion(data.question);
     setQuestionIndex(data.questionIndex);
-    setTimeRemaining(data.timeRemaining ?? TOTAL_SECONDS);
+    const remaining = data.timeRemaining ?? FULL_TEST_TOTAL_SECONDS;
+    setTimeRemaining(remaining);
+    endTimeRef.current = Date.now() + remaining * 1000;
     selectedAnswerRef.current = null;
     setSelectedAnswer(null);
   }, []);
@@ -86,13 +88,13 @@ export default function FullTestExamPage() {
       const resumeRes = await apiFetch('/api/tests/full/resume');
       const resumeData = await resumeRes.json();
 
-      if (resumeData.success && resumeData.data && !resumeData.data.expired) {
+      if (resumeData.success && resumeData.data && !resumeData.data.expired && !resumeData.data.completed) {
         loadState(resumeData.data as ExamState);
         setLoading(false);
         return;
       }
 
-      if (resumeData.success && resumeData.data?.expired) {
+      if (resumeData.success && (resumeData.data?.expired || resumeData.data?.completed)) {
         const resultAttemptId = resumeData.data.result?.attemptId;
         router.push(resultAttemptId ? `/tests/full/results?attemptId=${resultAttemptId}` : '/tests/full/results');
         return;
@@ -128,20 +130,14 @@ export default function FullTestExamPage() {
     }
   }, [loadState, router]);
 
-  // Countdown timer
-  useEffect(() => {
-    if (finished || loading) return;
-    const interval = setInterval(() => {
-      setTimeRemaining((prev) => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [finished, loading]);
-
   const handleTimeUp = useCallback(async () => {
     const id = attemptIdRef.current;
     if (!id || timeUpHandledRef.current || submittingRef.current) return;
+    // Set both refs synchronously before any async work
     timeUpHandledRef.current = true;
     submittingRef.current = true;
+    // Pin endTimeRef into the past so subsequent ticks cannot re-fire
+    endTimeRef.current = Date.now() - 1;
     setSubmitting(true);
     setFinished(true);
     try {
@@ -177,6 +173,23 @@ export default function FullTestExamPage() {
       setSubmitting(false);
     }
   }, [router]);
+
+  // Countdown timer: delta-based to eliminate drift over long sessions
+  useEffect(() => {
+    if (finished || loading || !endTimeRef.current) return;
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+      setTimeRemaining(remaining);
+      if (remaining <= 0) {
+        handleTimeUp();
+      }
+    };
+
+    tick(); // Run immediately
+    const intervalId = setInterval(tick, 1000);
+    return () => clearInterval(intervalId);
+  }, [finished, loading, handleTimeUp]);
 
   useEffect(() => {
     if (finished || loading || timeRemaining > 0) return;
@@ -315,7 +328,7 @@ export default function FullTestExamPage() {
       <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
         <div
           className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all"
-          style={{ width: `${((questionIndex + 1) / TOTAL_QUESTIONS) * 100}%` }}
+          style={{ width: `${((questionIndex + 1) / FULL_TEST_TOTAL_QUESTIONS) * 100}%` }}
         />
       </div>
 
@@ -325,7 +338,7 @@ export default function FullTestExamPage() {
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600">ข้อ {questionIndex + 1}/{TOTAL_QUESTIONS}</span>
+            <span className="text-sm text-slate-600">ข้อ {questionIndex + 1}/{FULL_TEST_TOTAL_QUESTIONS}</span>
             <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-mono font-bold ${timeRemaining <= 120 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
               <Clock className="w-4 h-4" />
               {formatTime(timeRemaining)}

@@ -33,6 +33,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: result });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ success: false, error: message }, { status: 404 });
+
+    // Differentiate error types
+    if (message.includes('not found')) {
+      return NextResponse.json({ success: false, error: message }, { status: 404 });
+    }
+    // cancelled, already submitted, or already completed → 409 Conflict
+    if (message.includes('cancelled') || message.includes('already')) {
+      return NextResponse.json({ success: false, error: message }, { status: 409 });
+    }
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

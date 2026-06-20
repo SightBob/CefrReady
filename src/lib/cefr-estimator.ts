@@ -1,4 +1,6 @@
-export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+import { type CefrLevel } from '@/lib/full-test/constants';
+
+export type { CefrLevel };
 
 export function estimateCefrLevel(averageScore: number): CefrLevel {
   if (averageScore >= 90) return 'C2';

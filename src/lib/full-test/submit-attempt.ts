@@ -1,13 +1,14 @@
 import { db } from '@/db';
 import { testAttempts, userAnswers, userProgress, questions, type DbTestAttempt } from '@/db/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { type CefrLevel } from './constants';
 import {
   calculateRawScore,
   calculateMaxPossibleScore,
   calculateConfidence,
+  normalizeScore,
+  normalizedScoreToCefr,
 } from './algorithm';
-import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 interface ExpandedPathEntry {
   questionId: number;
@@ -48,7 +49,7 @@ export async function submitAttempt(attemptId: number, userId: string) {
   if (!attempt) throw new Error('Attempt not found');
   if (attempt.status === 'completed') {
     const score = parseFloat(attempt.score ?? '0');
-    return buildResult(attempt, score, estimateCefrLevel(score));
+    return buildResult(attempt, score);
   }
   if (attempt.status === 'cancelled') {
     throw new Error('Attempt was cancelled');
@@ -102,12 +103,17 @@ export async function submitAttempt(attemptId: number, userId: string) {
   const maxPossible = calculateMaxPossibleScore(expandedPath);
   const confidence = calculateConfidence(path.length);
 
-  const totalQuestions = path.length;
-  const correctAnswers = path.filter((p) => p.wasCorrect).length;
-  const percentageScore = totalQuestions > 0
-    ? Math.round((correctAnswers / totalQuestions) * 100 * 100) / 100
+  // Score granularity differs from adaptive granularity by design:
+  // - percentageScore: per-blank granularity for accurate final scoring
+  // - Adaptive engine (getNextLevel): per-question granularity (form-meaning = 1 entry) for stable level adjustment
+  const expandedTotal = expandedPath.length;
+  const expandedCorrect = expandedPath.filter((p) => p.wasCorrect).length;
+  const percentageScore = expandedTotal > 0
+    ? Math.round((expandedCorrect / expandedTotal) * 100 * 100) / 100
     : 0;
-  const cefrLevel = estimateCefrLevel(percentageScore);
+
+  const normalizedScore = normalizeScore(rawScore, maxPossible);
+  const cefrLevel = normalizedScoreToCefr(normalizedScore);
 
   const reusedCount = path.filter((p) => p.reused).length;
 
@@ -118,34 +124,41 @@ export async function submitAttempt(attemptId: number, userId: string) {
     .set({
       status: 'completed',
       score: percentageScore.toString(),
-      totalQuestions,
-      correctAnswers,
+      totalQuestions: expandedTotal,
+      correctAnswers: expandedCorrect,
       completedAt: now,
     })
-    .where(eq(testAttempts.id, attemptId))
+    .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.status, 'in_progress')))
     .returning();
 
+  if (!updated) {
+    throw new Error('Attempt already submitted or cancelled by another request');
+  }
+
   if (path.length > 0) {
-    await db.insert(userAnswers).values(
-      path.map((p) => ({
-        attemptId,
-        questionId: p.questionId,
-        selectedAnswer: p.selectedAnswer,
-        isCorrect: p.wasCorrect,
-        createdAt: now,
-      }))
-    );
+    await db
+      .insert(userAnswers)
+      .values(
+        path.map((p) => ({
+          attemptId,
+          questionId: p.questionId,
+          selectedAnswer: p.selectedAnswer,
+          isCorrect: p.wasCorrect,
+          createdAt: now,
+        }))
+      );
   }
 
   await updateUserProgress(userId, 'full-test', percentageScore);
 
-  return buildResult(updated, percentageScore, cefrLevel, correctAnswers, totalQuestions, confidence, reusedCount);
+  return buildResult(updated, percentageScore, cefrLevel, normalizedScore, expandedCorrect, expandedTotal, confidence, reusedCount);
 }
 
 function buildResult(
   attempt: DbTestAttempt,
   score?: number,
   cefrLevel?: CefrLevel,
+  normalizedScore?: number,
   correctCount?: number,
   totalQuestions?: number,
   confidence?: 'high' | 'medium' | 'low',
@@ -155,6 +168,7 @@ function buildResult(
     attemptId: attempt.id,
     score: score ?? parseFloat(attempt.score ?? '0'),
     cefrLevel: cefrLevel ?? null,
+    normalizedScore: normalizedScore ?? null,
     correctAnswers: correctCount ?? attempt.correctAnswers,
     totalQuestions: totalQuestions ?? attempt.totalQuestions,
     adaptivePath: attempt.adaptivePath ?? [],
@@ -171,12 +185,13 @@ async function updateUserProgress(userId: string, testTypeId: string, score: num
 
   if (existing.length > 0) {
     const p = existing[0];
-    const taken = (p.testsTaken ?? 0) + 1;
-    const prevAvg = parseFloat((p.averageScore ?? '0').toString()) || 0;
-    const newAvg = (prevAvg * (taken - 1) + score) / taken;
     await db
       .update(userProgress)
-      .set({ averageScore: newAvg.toString(), testsTaken: taken, lastAttemptAt: new Date() })
+      .set({
+        averageScore: sql`((${userProgress.averageScore}::numeric * ${userProgress.testsTaken}) + ${score}) / (${userProgress.testsTaken} + 1)`,
+        testsTaken: sql`${userProgress.testsTaken} + 1`,
+        lastAttemptAt: new Date(),
+      })
       .where(eq(userProgress.id, p.id));
   } else {
     await db.insert(userProgress).values({

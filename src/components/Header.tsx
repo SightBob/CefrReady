@@ -17,7 +17,7 @@ export default function Header() {
   };
 
   const handleLogin = () => {
-    signIn('google', { callbackUrl: '/tests' });
+    Promise.resolve(signIn('google', { callbackUrl: '/tests' })).catch(() => {});
   };
 
   const userName = session?.user?.name ?? session?.user?.email?.split('@')[0] ?? 'User';

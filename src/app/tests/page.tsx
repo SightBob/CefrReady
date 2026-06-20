@@ -48,9 +48,7 @@ export default async function TestsPage() {
           <p className="text-slate-600 mt-2">Complete tests with progress tracking and detailed results</p>
         </div>
 
-        <FullTestCard />
-
-        <TestsLoginPrompt />
+<TestsLoginPrompt />
 
         {/* Section Cards – disabled/blurred state */}
         <div className="relative mt-8">
@@ -68,6 +66,8 @@ export default async function TestsPage() {
             ))}
           </div>
         </div>
+
+        <FullTestCard disabled />
 
         <div className="mt-12 text-center">
           <p className="text-slate-600 mb-4">Want to try without logging in?</p>

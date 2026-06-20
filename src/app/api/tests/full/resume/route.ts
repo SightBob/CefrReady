@@ -4,7 +4,7 @@ import { testAttempts, questions } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
-import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, type CefrLevel, type PerTypeLevels } from '@/lib/full-test/constants';
+import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL_SECONDS, type CefrLevel, type PerTypeLevels } from '@/lib/full-test/constants';
 import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
@@ -41,7 +41,8 @@ export async function GET(request: Request) {
   const elapsedSeconds = Math.floor(
     (Date.now() - new Date(attempt.lastActivityAt ?? attempt.startedAt).getTime()) / 1000
   );
-  const realRemaining = (attempt.timeRemainingSeconds ?? 0) - elapsedSeconds;
+  const stored = Math.max(0, Math.min(FULL_TEST_TOTAL_SECONDS, attempt.timeRemainingSeconds ?? FULL_TEST_TOTAL_SECONDS));
+  const realRemaining = stored - elapsedSeconds;
 
   if (realRemaining <= 0) {
     const result = await submitAttempt(attempt.id, user.id);
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
 
   if (nextIndex >= FULL_TEST_TOTAL_QUESTIONS) {
     const result = await submitAttempt(attempt.id, user.id);
-    return NextResponse.json({ success: true, data: { expired: true, result } });
+    return NextResponse.json({ success: true, data: { completed: true, result } });
   }
 
   const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
 
   if (!selection) {
     const result = await submitAttempt(attempt.id, user.id);
-    return NextResponse.json({ success: true, data: { expired: true, result, reason: 'pool_exhausted' } });
+    return NextResponse.json({ success: true, data: { completed: true, result, reason: 'pool_exhausted' } });
   }
 
   const selectionMode = determineSelectionMode(selection.reused, selection.question.cefrLevel, nextTypeLevel);
