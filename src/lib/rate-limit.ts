@@ -51,7 +51,16 @@ export function rateLimitResponse(retryAfterMs: number) {
 }
 
 export function getRateLimitIdentifier(request: Request): string {
+  // SECURITY: prefer platform-trusted headers over the client-supplied
+  // X-Forwarded-For. On Vercel, x-vercel-forwarded-for and x-real-ip are set
+  // by the platform and cannot be spoofed by clients. Falling back to
+  // X-Forwarded-For (which any client can set) would let an attacker bypass
+  // every rate limit in the system by rotating a fake IP on each request.
+  const vercelIp =
+    request.headers.get('x-vercel-forwarded-for') ||
+    request.headers.get('x-real-ip');
+  if (vercelIp) return vercelIp.split(',')[0].trim();
+
   const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
-  return ip;
+  return forwarded ? forwarded.split(',')[0].trim() : 'unknown';
 }
