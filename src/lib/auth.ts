@@ -13,6 +13,16 @@ if (!process.env.NEXTAUTH_SECRET) {
   console.warn('Missing NEXTAUTH_SECRET env var - generate one with: openssl rand -base64 32');
 }
 
+// SECURITY: refuse to start the server in production with a weak JWT secret.
+// NextAuth signs the session JWT with NEXTAUTH_SECRET — a short/guessable value
+// lets anyone forge a session as any user (including the admin) without going
+// through OAuth. A 32-char minimum matches the output of `openssl rand -base64 32`
+// and rules out human-chosen phrases.
+//
+// The guard runs from src/instrumentation.ts at server-runtime startup only;
+// it cannot live here because `next build` evaluates this module with
+// NODE_ENV=production and would trip the check at build time.
+
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 // See auth.config.ts for the explanation of AnyTable

@@ -79,13 +79,15 @@ export async function POST(request: NextRequest) {
     );
     if (demoRl.limited) return rateLimitResponse(demoRl.retryAfterMs);
 
+    // SECURITY: demo responses omit `results` (which carries correctAnswer + explanation)
+    // — exposing these to unauthenticated clients lets attackers harvest the answer key
+    // by iterating question IDs. Demo users only get an aggregate score.
     return NextResponse.json({
       success: true,
       data: {
         score: Math.round(score),
         totalQuestions,
         correctAnswers: correctCount,
-        results,
         isDemo: true,
       },
     });

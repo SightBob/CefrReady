@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import DOMPurify from 'dompurify';
 import { ArrowLeft, Save, Trash2, Eye, EyeOff, BookOpen, Loader2 } from 'lucide-react';
 
 interface ArticleFormData {
@@ -84,7 +85,7 @@ export default function GrammarArticleEditor({ mode, articleId, initial }: Gramm
   };
 
   const renderMarkdown = (md: string) => {
-    return md
+    const html = md
       .replace(/^### (.+)$/gm, '<h3 class="text-base font-bold text-slate-800 mt-4 mb-1">$1</h3>')
       .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold text-slate-900 mt-5 mb-2">$1</h2>')
       .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold text-slate-900 mt-6 mb-2">$1</h1>')
@@ -94,6 +95,14 @@ export default function GrammarArticleEditor({ mode, articleId, initial }: Gramm
       .replace(/^- (.+)$/gm, '<li class="ml-4 text-slate-700 list-disc">$1</li>')
       .replace(/\n{2,}/g, '</p><p class="text-slate-700 mb-3">')
       .replace(/^(?!<[hlp])(.+)$/gm, '<p class="text-slate-700 mb-2">$1</p>');
+    // SECURITY: sanitize admin-authored markdown before rendering as HTML.
+    // Mirrors MarkdownContent.tsx so there's a single source of truth for the
+    // allowed tag/attr set; prevents `<img onerror>`, `<script>`, etc. from
+    // running in the admin preview (and any future user-rendered surface).
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['h1', 'h2', 'h3', 'p', 'div', 'span', 'strong', 'em', 'code', 'ul', 'ol', 'li', 'br'],
+      ALLOWED_ATTR: ['class'],
+    });
   };
 
   return (

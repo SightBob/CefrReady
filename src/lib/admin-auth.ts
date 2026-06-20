@@ -1,22 +1,19 @@
 import { auth } from './auth';
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
+import { requireAllowedOrigin } from './origin-security';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
-const ALLOWED_ORIGINS = [
-  process.env.NEXTAUTH_URL || 'https://cefr-ready.site',
-  'https://cefr-ready.site',
-  'https://cefr-ready.vercel.app',
-  'http://localhost:3000',
-];
-
 export async function requireAdmin() {
-  // CSRF: validate origin on mutating requests
+  // SECURITY: CSRF check on mutating requests — requires a browser-issued
+  // Origin/Referer header and compares the full URL against the allow-list.
+  // See origin-security.ts for why we no longer use startsWith or skip the
+  // check when the header is missing.
   const reqHeaders = await headers();
-  const origin = reqHeaders.get('origin') || reqHeaders.get('referer');
-  if (origin && !ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed))) {
-    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }), session: null };
+  const originError = requireAllowedOrigin(reqHeaders);
+  if (originError) {
+    return { error: originError, session: null };
   }
 
   const session = await auth();

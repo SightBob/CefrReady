@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkIpThrottle } from '@/lib/api-security';
 
 // GET /api/dictionary?word=xxx
 // ดึงความหมายจาก Free Dictionary API (ฟรี 100%)
 export async function GET(req: NextRequest) {
+  // SECURITY: rate-limit per IP before any upstream call. Each request fans out
+  // to dictionaryapi.dev + translate.googleapis.com, so an unauthenticated
+  // flood can exhaust Vercel function seconds, damage our IP reputation with
+  // Google Translate, and be used as an arbitrary-URL lookup oracle.
+  const ipThrottleError = await checkIpThrottle(req, {
+    windowMs: 60_000,
+    maxRequests: 15,
+    keySuffix: 'dictionary',
+  });
+  if (ipThrottleError) return ipThrottleError;
+
   const { searchParams } = new URL(req.url);
   const word = searchParams.get('word')?.trim();
 

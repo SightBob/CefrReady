@@ -1,22 +1,11 @@
 import { NextResponse } from 'next/server';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from './rate-limit';
-
-const ALLOWED_ORIGINS = [
-  process.env.NEXTAUTH_URL,
-  'https://cefr-ready.site',
-  'https://cefr-ready.vercel.app',
-  'http://localhost:3000',
-].filter(Boolean) as string[];
+import { requireAllowedOrigin } from './origin-security';
 
 export function validateOrigin(request: Request): Response | null {
-  const origin = request.headers.get('origin') || request.headers.get('referer');
-  if (!origin) return null;
-
-  if (!ALLOWED_ORIGINS.some((allowed) => origin.startsWith(allowed))) {
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
-
-  return null;
+  // SECURITY: delegates to the shared origin check that compares full URLs
+  // (not substring match) and rejects missing Origin headers. See origin-security.ts.
+  return requireAllowedOrigin(request);
 }
 
 export async function checkRateLimit(
