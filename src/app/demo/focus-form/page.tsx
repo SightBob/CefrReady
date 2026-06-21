@@ -95,15 +95,14 @@ export default function DemoFocusFormPage() {
   // ─── Loading Skeleton ────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl space-y-6">
-          <div className="h-4 w-48 bg-slate-200 rounded animate-pulse" />
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-4">
-            <div className="h-5 w-3/4 bg-slate-200 rounded animate-pulse" />
-            <div className="h-5 w-1/2 bg-slate-200 rounded animate-pulse" />
-            <div className="grid grid-cols-2 gap-3 pt-4">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="bg-white border-b border-slate-200 h-14" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white rounded-2xl border border-slate-100 p-6 md:p-8 animate-pulse" style={{ minHeight: '500px' }}>
+            <div className="h-5 w-3/4 bg-slate-200 rounded mb-4" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />
+                <div key={i} className="h-14 bg-slate-100 rounded-xl" />
               ))}
             </div>
           </div>

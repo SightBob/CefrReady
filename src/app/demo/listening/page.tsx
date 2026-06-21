@@ -67,10 +67,20 @@ export default function DemoListeningPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading questions...</p>
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="bg-white border-b border-slate-200 h-14" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white rounded-2xl border border-slate-100 p-6 md:p-8 animate-pulse" style={{ minHeight: '500px' }}>
+            <div className="h-6 w-1/2 bg-slate-200 rounded mb-4" />
+            <div className="bg-slate-50 rounded-xl p-6 mb-4">
+              <div className="h-20 bg-slate-100 rounded-lg" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-12 bg-slate-100 rounded-xl" />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );

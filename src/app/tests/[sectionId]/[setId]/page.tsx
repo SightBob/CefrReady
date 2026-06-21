@@ -16,10 +16,10 @@ import dynamic from 'next/dynamic';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
   loading: () => (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-      <div className="animate-pulse flex flex-col items-center gap-3">
-        <div className="h-8 w-8 rounded-full bg-primary-200 animate-spin" />
-        <p className="text-sm text-slate-400">กำลังโหลดข้อสอบ...</p>
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="bg-white border-b border-slate-200 h-14" />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6 md:p-8 animate-pulse" style={{ minHeight: '500px' }} />
       </div>
     </div>
   ),
@@ -28,15 +28,15 @@ const TestLayout = dynamic(() => import('@/components/TestLayout'), {
 const TestTour = dynamic(() => import('@/components/TestTour'), { ssr: false });
 const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'), {
   ssr: false,
-  loading: () => <div className="animate-pulse bg-slate-100 rounded-2xl h-48" />,
+  loading: () => <div className="animate-pulse bg-white rounded-2xl border border-slate-100 p-6 md:p-8" style={{ minHeight: '400px' }} />,
 });
 const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'), {
   ssr: false,
-  loading: () => <div className="animate-pulse bg-slate-100 rounded-2xl h-64" />,
+  loading: () => <div className="animate-pulse bg-white rounded-2xl border border-slate-100 p-6 md:p-8" style={{ minHeight: '500px' }} />,
 });
 const TestResults = dynamic(() => import('@/components/TestResults'), {
   ssr: false,
-  loading: () => <div className="animate-pulse bg-slate-100 rounded-2xl h-32 flex items-center justify-center"><p className="text-slate-400 text-sm">Loading results...</p></div>,
+  loading: () => <div className="animate-pulse bg-white rounded-2xl border border-slate-100 shadow-lg" style={{ minHeight: '400px' }} />,
 });
 const SelectableText = dynamic(() => import('@/components/SelectableText'));
 const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));

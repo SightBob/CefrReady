@@ -126,15 +126,20 @@ export default function RootLayout({
               <PHCapture />
             </Suspense>
             <div className="min-h-screen flex flex-col font-sans">
-              <Suspense fallback={null}>
+              <Suspense fallback={<div className="h-16 bg-white border-b border-slate-100" aria-hidden="true" />}>
                 <Header />
               </Suspense>
               <main className="flex-1">
                 <Suspense fallback={
-                  <div className="flex items-center justify-center min-h-[60vh]">
-                    <div className="animate-pulse flex flex-col items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary-200" />
-                      <p className="text-sm text-slate-400">Loading...</p>
+                  <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="space-y-4">
+                      <div className="h-5 w-32 bg-slate-100 rounded animate-pulse" />
+                      <div className="h-8 w-64 bg-slate-200 rounded-lg animate-pulse" />
+                      <div className="space-y-3 mt-6">
+                        {[0, 1, 2, 3].map((i) => (
+                          <div key={i} className="h-20 bg-white border border-slate-100 rounded-2xl animate-pulse" />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 }>

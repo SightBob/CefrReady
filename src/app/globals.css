@@ -49,15 +49,15 @@
 }
 
 .stagger-animate {
-  opacity: 0;
-  animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 1;
+  animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* No-JS fallback: if JS is disabled, the animation never starts and content
-   stays invisible. The inline script in layout.tsx removes this class on boot. */
-.no-js .stagger-animate {
-  opacity: 1;
-  animation: none;
+@media (prefers-reduced-motion: no-preference) {
+  .stagger-animate {
+    opacity: 0;
+    animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 }
 
 @layer components {
