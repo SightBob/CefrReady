@@ -67,6 +67,10 @@ export default function HeaderClient({ session }: HeaderClientProps) {
               <Link href="/progress" className={navLink('/progress')}>พัฒนาการ</Link>
               <Link href="/must-know" className={navLink('/must-know')} data-tour="nav-mustknow">Must Know</Link>
               <Link href="/contact" className={navLink('/contact')}>ติดต่อเรา</Link>
+              <Link href="/support" className={`inline-flex items-center gap-1.5 ${navLink('/support')}`}>
+                <Coffee className="w-3.5 h-3.5" />
+                เลี้ยงค่ากาแฟ
+              </Link>
               {session?.user?.isAdmin && (
                 <Link href="/admin" className={`inline-flex items-center gap-1.5 ${navLink('/admin')}`}>
                   <Shield className="w-3.5 h-3.5" />
@@ -130,6 +134,7 @@ export default function HeaderClient({ session }: HeaderClientProps) {
                   { href: '/progress', label: 'พัฒนาการ' },
                   { href: '/must-know', label: 'Must Know' },
                   { href: '/contact', label: 'ติดต่อเรา' },
+                  { href: '/support', label: 'เลี้ยงค่ากาแฟ' },
                 ].map(({ href, label }) => (
                   <Link
                     key={href}
