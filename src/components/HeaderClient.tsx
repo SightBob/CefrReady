@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Menu, X, LogOut, Shield } from 'lucide-react';
+import { Coffee, Menu, X, LogOut, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { signIn, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -182,6 +182,19 @@ export default function HeaderClient({ session }: HeaderClientProps) {
                 </div>
               </div>
             </nav>
+          )}
+
+          {pathname !== '/support' && (
+            <div className="border-t border-slate-100 py-2">
+              <Link
+                href="/support"
+                onClick={() => setIsMenuOpen(false)}
+                className="mx-auto flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 transition-colors"
+              >
+                <Coffee className="w-3.5 h-3.5" />
+                ชอบ CEFR Ready? เลี้ยงค่ากาแฟเราได้ที่นี่
+              </Link>
+            </div>
           )}
         </div>
       </header>
