@@ -2,8 +2,7 @@ import { auth } from './auth';
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { requireAllowedOrigin } from './origin-security';
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+import { isAdminEmail } from './admin-identity';
 
 export async function requireAdmin() {
   // SECURITY: CSRF check on mutating requests — requires a browser-issued
@@ -25,7 +24,7 @@ export async function requireAdmin() {
     };
   }
 
-  if (session.user.email !== ADMIN_EMAIL) {
+  if (!isAdminEmail(session.user.email)) {
     return {
       error: NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 }),
       session: null

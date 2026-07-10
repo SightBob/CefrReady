@@ -3,7 +3,7 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from '../db';
 import { accounts, users, verificationTokens } from '../db/schema';
 import { authConfig } from './auth.config';
-import { eq } from 'drizzle-orm';
+import { isAdminEmail } from './admin-identity';
 
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.warn('Missing Google OAuth env vars: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
@@ -22,8 +22,6 @@ if (!process.env.NEXTAUTH_SECRET) {
 // The guard runs from src/instrumentation.ts at server-runtime startup only;
 // it cannot live here because `next build` evaluates this module with
 // NODE_ENV=production and would trip the check at build time.
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 // See auth.config.ts for the explanation of AnyTable
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,11 +55,11 @@ export const {
     // jwt() — runs on sign-in and every request in middleware/server components.
     // Store userId and isAdmin in the token so Edge can read them from the cookie.
     async jwt({ token, user }) {
-      if (user && ADMIN_EMAIL) {
+      if (user) {
         // First sign-in: user object is populated — fetch DB id and set admin flag
         token.id = user.id;
-        token.isAdmin = user.email === ADMIN_EMAIL;
       }
+      token.isAdmin = isAdminEmail(user?.email ?? token.email);
       return token;
     },
 

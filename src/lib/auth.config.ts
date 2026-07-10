@@ -1,6 +1,7 @@
 import GoogleProvider from 'next-auth/providers/google';
 import type { NextAuthConfig, DefaultSession } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
+import { isAdminEmail } from './admin-identity';
 
 /**
  * Edge-compatible auth config — NO database adapter, NO Node.js modules.
@@ -60,7 +61,7 @@ export const authConfig: NextAuthConfig = {
 
       if (isProtected) {
         if (!isLoggedIn) return Response.redirect(new URL('/', nextUrl));
-        if (!process.env.ADMIN_EMAIL || auth.user?.email !== process.env.ADMIN_EMAIL) return Response.redirect(new URL('/', nextUrl));
+        if (!isAdminEmail(auth.user?.email)) return Response.redirect(new URL('/', nextUrl));
       }
 
       return true;
