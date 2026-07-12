@@ -1,169 +1,117 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Send, Facebook, Mail } from 'lucide-react';
+import { ArrowLeft, LockKeyhole, Send } from 'lucide-react';
+import { signIn, useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
 export default function ContactPage() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [subject, setSubject] = useState('');
+  const { status } = useSession();
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submitting) return;
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submittingRef.current || !message.trim()) return;
+
+    submittingRef.current = true;
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/contacts', {
+      const response = await fetch('/api/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, subject, message }),
+        body: JSON.stringify({ message }),
       });
-      const data = await res.json();
+      const data = (await response.json()) as { success?: boolean; error?: string };
 
-      if (data.success) {
-        toast.success('ส่งข้อความเรียบร้อยแล้ว! ทางเราจะติดต่อกลับโดยเร็ว');
-        setName('');
-        setEmail('');
-        setSubject('');
-        setMessage('');
-      } else {
+      if (!response.ok || !data.success) {
         toast.error(data.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+        return;
       }
+
+      toast.success('ขอบคุณสำหรับความคิดเห็น เราได้รับข้อความของคุณแล้ว');
+      setMessage('');
     } catch {
       toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-[100dvh] bg-[#FAFAFA]">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
-        {/* Header */}
+      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-[#787774] hover:text-[#111] transition-colors mb-8"
+          className="mb-8 inline-flex items-center gap-1.5 text-sm text-[#787774] transition-colors hover:text-[#111]"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           กลับหน้าหลัก
         </Link>
 
-        <h1 className="text-4xl md:text-5xl tracking-tighter leading-none font-bold text-[#111] mb-3">
-          ติดต่อเรา
+        <h1 className="mb-3 text-4xl font-bold leading-none tracking-tighter text-[#111] md:text-5xl">
+          แจ้งปัญหาและข้อเสนอแนะ
         </h1>
-        <p className="text-[#787774] text-sm leading-relaxed max-w-lg mb-10">
-          มีคำถาม ข้อเสนอแนะ หรือต้องการรายงานปัญหา? กรอกฟอร์มด้านล่างหรือติดต่อเราผ่าน Facebook
+        <p className="mb-10 max-w-2xl text-sm leading-relaxed text-[#787774]">
+          พบปัญหาในการใช้งาน หรือมีไอเดียที่อยากให้เราปรับปรุง? บอกเราได้เลย ทุกความคิดเห็นช่วยให้ CEFR Ready ดีขึ้น
         </p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-5">
+        {status === 'loading' ? (
+          <div className="flex min-h-64 items-center justify-center rounded-[1.5rem] border border-[#EAEAEA] bg-white">
+            <p className="text-sm text-[#787774]" role="status">กำลังโหลด...</p>
+          </div>
+        ) : status === 'unauthenticated' ? (
+          <div className="rounded-[1.5rem] border border-[#EAEAEA] bg-white p-8 text-center shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)]">
+            <LockKeyhole className="mx-auto mb-4 h-10 w-10 text-[#787774]" aria-hidden="true" />
+            <h2 className="text-lg font-semibold text-[#111]">เข้าสู่ระบบเพื่อส่งความคิดเห็น</h2>
+            <p className="mt-2 text-sm text-[#787774]">
+              เราจะผูกข้อความกับบัญชีของคุณเพื่อให้ตรวจสอบและติดต่อกลับได้
+            </p>
+            <button
+              type="button"
+              onClick={() => Promise.resolve(signIn('google', { callbackUrl: '/contact' })).catch(() => {})}
+              className="mt-6 rounded-full bg-[#111] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            >
+              เข้าสู่ระบบด้วย Google
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-[#111] uppercase tracking-widest mb-1.5">
-                ชื่อ
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="ชื่อ-นามสกุล"
-                className="w-full px-4 py-3 rounded-xl border border-[#EAEAEA] bg-white text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#111] uppercase tracking-widest mb-1.5">
-                อีเมล
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@email.com"
-                className="w-full px-4 py-3 rounded-xl border border-[#EAEAEA] bg-white text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#111] uppercase tracking-widest mb-1.5">
-                หัวข้อ
-              </label>
-              <input
-                type="text"
-                required
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="เรื่องที่ต้องการติดต่อ"
-                className="w-full px-4 py-3 rounded-xl border border-[#EAEAEA] bg-white text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#111] uppercase tracking-widest mb-1.5">
-                ข้อความ
+              <label htmlFor="feedback-message" className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-[#111]">
+                รายละเอียดปัญหาหรือข้อเสนอแนะ
               </label>
               <textarea
+                id="feedback-message"
                 required
-                rows={5}
+                minLength={1}
+                maxLength={5000}
+                rows={8}
+                aria-describedby="feedback-message-count"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="รายละเอียด..."
-                className="w-full px-4 py-3 rounded-xl border border-[#EAEAEA] bg-white text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 transition-all resize-none"
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder="เล่าให้เราฟังได้เลยว่าพบปัญหาอะไร หรืออยากให้เราปรับปรุงส่วนไหน..."
+                className="w-full resize-y rounded-xl border border-[#EAEAEA] bg-white px-4 py-3 text-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
               />
+              <p id="feedback-message-count" className="mt-1.5 text-right text-xs text-[#6B6B68]">
+                {message.length.toLocaleString()} / 5,000
+              </p>
             </div>
             <button
               type="submit"
-              disabled={submitting}
-              className="w-full bg-[#111] text-white text-sm font-semibold rounded-full px-6 py-3 hover:bg-[#2a2a2a] active:scale-[0.98] transition-all shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              disabled={submitting || !message.trim()}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-[#111] px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)] transition-all hover:bg-[#2a2a2a] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Send className="w-4 h-4" />
-              {submitting ? 'กำลังส่ง...' : 'ส่งข้อความ'}
+              <Send className="h-4 w-4" aria-hidden="true" />
+              {submitting ? 'กำลังส่ง...' : 'ส่งความคิดเห็น'}
             </button>
           </form>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white border border-[#EAEAEA] rounded-[1.5rem] p-6 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)]">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-[#1877F2]/10 rounded-xl flex items-center justify-center">
-                  <Facebook className="w-5 h-5 text-[#1877F2]" />
-                </div>
-                <div>
-                  <p className="font-semibold text-[#111] text-sm">Facebook</p>
-                  <p className="text-xs text-[#787774]">พูดคุยกับเราได้โดยตรง</p>
-                </div>
-              </div>
-              <a
-                href="https://www.facebook.com/profile.php?id=61590152890102"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-center text-sm font-semibold bg-[#1877F2] text-white rounded-full px-4 py-2.5 hover:bg-[#1565C0] transition-colors"
-              >
-                ไปที่ Facebook
-              </a>
-            </div>
-
-            <div className="bg-white border border-[#EAEAEA] rounded-[1.5rem] p-6 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)]">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
-                  <Mail className="w-5 h-5 text-primary-500" />
-                </div>
-                <div>
-                  <p className="font-semibold text-[#111] text-sm">ฟอร์มติดต่อ</p>
-                  <p className="text-xs text-[#787774]">ตอบกลับภายใน 24 ชม.</p>
-                </div>
-              </div>
-              <p className="text-xs text-[#AAAAAA]">
-                กรอกฟอร์มด้านซ้าย เราจะตอบกลับไปที่อีเมลของคุณ
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 }

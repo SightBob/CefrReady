@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { resetProductTour } from './ProductTour';
+import { HOME_TOUR_FINISHED_EVENT } from '@/lib/feedback-discovery';
 
 const ProductTour = dynamic(() => import('./ProductTour'), { ssr: false });
 
@@ -41,6 +42,7 @@ export default function HomeTour() {
   const handleComplete = () => {
     setShowTour(false);
     setForceOpen(false);
+    window.dispatchEvent(new Event(HOME_TOUR_FINISHED_EVENT));
   };
 
   return (

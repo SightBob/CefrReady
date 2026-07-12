@@ -31,7 +31,7 @@ export default function Footer() {
                 { href: '/progress', label: 'พัฒนาการ' },
                 { href: '/must-know', label: 'Must Know' },
                 { href: '/guide', label: 'CEFR Guide' },
-                { href: '/contact', label: 'ติดต่อเรา' },
+                { href: '/contact', label: 'ความคิดเห็น' },
                 { href: '/support', label: 'เลี้ยงค่ากาแฟ' },
               ].map(({ href, label }) => (
                 <li key={href}>

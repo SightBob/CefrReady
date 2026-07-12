@@ -2,38 +2,45 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { contactMessages } from '@/db/schema';
 import { z } from 'zod';
-import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { auth } from '@/lib/auth';
 
 const contactSchema = z.object({
-  name: z.string().min(1).max(100),
-  email: z.string().email().max(255),
-  subject: z.string().min(1).max(200),
-  message: z.string().min(1).max(5000),
+  message: z.string().trim().min(1).max(5000),
 });
 
 export async function POST(request: NextRequest) {
-  const identifier = getRateLimitIdentifier(request);
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, error: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+  }
 
-  const perMinuteRl = await rateLimit(identifier, { windowMs: 60_000, maxRequests: 3 });
+  const rateLimitKey = `user:${session.user.id}:contacts`;
+
+  const perMinuteRl = await rateLimit(`${rateLimitKey}:minute`, { windowMs: 60_000, maxRequests: 3 });
   if (perMinuteRl.limited) return rateLimitResponse(perMinuteRl.retryAfterMs);
 
-  const perDayRl = await rateLimit(identifier + ':contacts:daily', { windowMs: 86_400_000, maxRequests: 10 });
+  const perDayRl = await rateLimit(`${rateLimitKey}:daily`, { windowMs: 86_400_000, maxRequests: 10 });
   if (perDayRl.limited) return rateLimitResponse(perDayRl.retryAfterMs);
 
+  let body: unknown;
   try {
-    const body = await request.json();
-    const parsed = contactSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: 'ข้อมูลไม่ถูกต้อง', details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    }
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ success: false, error: 'ข้อมูลไม่ถูกต้อง' }, { status: 400 });
+  }
 
+  const parsed = contactSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { success: false, error: 'ข้อมูลไม่ถูกต้อง', details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  try {
     await db.insert(contactMessages).values({
-      name: parsed.data.name,
-      email: parsed.data.email,
-      subject: parsed.data.subject,
+      userId: session.user.id,
       message: parsed.data.message,
     });
 

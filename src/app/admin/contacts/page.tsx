@@ -2,22 +2,40 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Mail, MailOpen, Trash2, Eye } from 'lucide-react';
+import { ArrowLeft, Mail, Trash2 } from 'lucide-react';
 
 interface ContactMessage {
   id: number;
-  name: string;
-  email: string;
-  subject: string;
+  userId: string | null;
+  accountName: string | null;
+  accountEmail: string | null;
+  legacyName: string | null;
+  legacyEmail: string | null;
+  legacySubject: string | null;
   message: string;
   isRead: boolean;
   createdAt: string;
 }
 
+const getSenderName = (message: ContactMessage) =>
+  message.accountName || message.accountEmail || message.legacyName || 'ไม่ทราบผู้ส่ง';
+
+const getSenderEmail = (message: ContactMessage) =>
+  message.accountEmail || message.legacyEmail;
+
+const getReplyEmail = (message: ContactMessage) => {
+  const email = getSenderEmail(message)?.trim();
+  return email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+};
+
+const getSubject = (message: ContactMessage) =>
+  message.legacySubject || 'ความคิดเห็นจากผู้ใช้';
+
 export default function AdminContactsPage() {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
 
   useEffect(() => {
@@ -25,27 +43,33 @@ export default function AdminContactsPage() {
   }, []);
 
   const fetchMessages = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/admin/contacts');
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.data || []);
-        setUnreadCount(data.unreadCount || 0);
-      }
+      if (!res.ok) throw new Error('Failed to fetch contacts');
+
+      const data = await res.json();
+      setMessages(data.data || []);
+      setUnreadCount(data.unreadCount || 0);
     } catch (err) {
       console.error('Error fetching contacts:', err);
+      setError('ไม่สามารถโหลดความคิดเห็นได้ กรุณาลองอีกครั้ง');
     } finally {
       setLoading(false);
     }
   };
 
   const markAsRead = async (id: number) => {
+    setError(null);
     try {
-      await fetch(`/api/admin/contacts/${id}`, {
+      const res = await fetch(`/api/admin/contacts/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isRead: true }),
       });
+      if (!res.ok) throw new Error('Failed to mark contact as read');
+
       setMessages((prev) =>
         prev.map((m) => (m.id === id ? { ...m, isRead: true } : m))
       );
@@ -55,18 +79,27 @@ export default function AdminContactsPage() {
       }
     } catch (err) {
       console.error('Error marking as read:', err);
+      setError('ไม่สามารถทำเครื่องหมายว่าอ่านแล้วได้ กรุณาลองอีกครั้ง');
     }
   };
 
   const deleteMessage = async (id: number) => {
     if (!confirm('ลบข้อความนี้?')) return;
+    setError(null);
     try {
-      await fetch(`/api/admin/contacts/${id}`, { method: 'DELETE' });
-      setMessages((prev) => prev.filter((m) => m.id !== id));
+      const res = await fetch(`/api/admin/contacts/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete contact');
+
+      const deletedMessage = messages.find((message) => message.id === id);
+      setMessages((prev) => prev.filter((message) => message.id !== id));
+      if (deletedMessage && !deletedMessage.isRead) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
       if (selectedMessage?.id === id) setSelectedMessage(null);
-      fetchMessages();
+      await fetchMessages();
     } catch (err) {
       console.error('Error deleting:', err);
+      setError('ไม่สามารถลบความคิดเห็นได้ กรุณาลองอีกครั้ง');
     }
   };
 
@@ -84,6 +117,8 @@ export default function AdminContactsPage() {
       minute: '2-digit',
     });
 
+  const selectedReplyEmail = selectedMessage ? getReplyEmail(selectedMessage) : null;
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -92,7 +127,7 @@ export default function AdminContactsPage() {
             <Link href="/admin" className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-2">
               <ArrowLeft className="w-4 h-4" /> กลับ
             </Link>
-            <h1 className="text-3xl font-bold text-slate-900">ข้อความติดต่อ</h1>
+            <h1 className="text-3xl font-bold text-slate-900">ปัญหาและข้อเสนอแนะ</h1>
             <p className="text-slate-600 mt-1">
               {unreadCount > 0 ? `${unreadCount} ข้อความที่ยังไม่อ่าน` : 'ไม่มีข้อความใหม่'}
             </p>
@@ -104,10 +139,17 @@ export default function AdminContactsPage() {
           <div className={`${selectedMessage ? 'hidden md:block md:w-2/5' : 'w-full'} bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden`}>
             {loading ? (
               <div className="p-8 text-center text-slate-400">กำลังโหลด...</div>
+            ) : error && messages.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-red-600 mb-4">{error}</p>
+                <button type="button" onClick={fetchMessages} className="btn-primary text-sm py-2 px-4">
+                  ลองอีกครั้ง
+                </button>
+              </div>
             ) : messages.length === 0 ? (
               <div className="p-12 text-center">
                 <Mail className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">ยังไม่มีข้อความติดต่อ</p>
+                <p className="text-slate-500">ยังไม่มีความคิดเห็น</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-50">
@@ -124,10 +166,12 @@ export default function AdminContactsPage() {
                         <div className="flex items-center gap-2">
                           {!msg.isRead && <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />}
                           <p className={`text-sm truncate ${!msg.isRead ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
-                            {msg.name}
+                            {getSenderName(msg)}
                           </p>
                         </div>
-                        <p className="text-sm text-slate-500 truncate mt-0.5">{msg.subject}</p>
+                        <p className="text-sm text-slate-500 truncate mt-0.5">
+                          {msg.legacySubject || msg.message}
+                        </p>
                         <p className="text-xs text-slate-400 mt-1">{formatDate(msg.createdAt)}</p>
                       </div>
                     </div>
@@ -155,11 +199,15 @@ export default function AdminContactsPage() {
                 </button>
               </div>
 
-              <h2 className="text-xl font-bold text-slate-900 mb-1">{selectedMessage.subject}</h2>
+              <h2 className="text-xl font-bold text-slate-900 mb-1">{getSubject(selectedMessage)}</h2>
               <div className="flex items-center gap-3 text-sm text-slate-500 mb-6">
-                <span className="font-medium text-slate-700">{selectedMessage.name}</span>
-                <span>·</span>
-                <span>{selectedMessage.email}</span>
+                <span className="font-medium text-slate-700">{getSenderName(selectedMessage)}</span>
+                {getSenderEmail(selectedMessage) && (
+                  <>
+                    <span>·</span>
+                    <span>{getSenderEmail(selectedMessage)}</span>
+                  </>
+                )}
                 <span>·</span>
                 <span>{formatDate(selectedMessage.createdAt)}</span>
               </div>
@@ -168,17 +216,27 @@ export default function AdminContactsPage() {
                 {selectedMessage.message}
               </div>
 
-              <div className="mt-4 flex gap-3">
-                <a
-                  href={`mailto:${selectedMessage.email}?subject=Re: ${selectedMessage.subject}`}
-                  className="btn-primary text-sm py-2 px-4 inline-flex items-center gap-2"
-                >
-                  <Mail className="w-4 h-4" /> ตอบกลับอีเมล
-                </a>
-              </div>
+              {selectedReplyEmail && (
+                <div className="mt-4 flex gap-3">
+                  <a
+                    href={`mailto:${encodeURIComponent(selectedReplyEmail)}?subject=${encodeURIComponent(`Re: ${getSubject(selectedMessage)}`)}`}
+                    className="btn-primary text-sm py-2 px-4 inline-flex items-center gap-2"
+                  >
+                    <Mail className="w-4 h-4" /> ตอบกลับอีเมล
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>
+        {error && messages.length > 0 && (
+          <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{error}</span>
+            <button type="button" onClick={fetchMessages} className="font-medium underline">
+              ลองอีกครั้ง
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

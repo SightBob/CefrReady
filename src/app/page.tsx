@@ -24,6 +24,10 @@ import { eq, sql } from 'drizzle-orm';
 import dynamic from 'next/dynamic';
 
 const HomeTour = dynamic(() => import('@/components/HomeTour'), { ssr: false });
+const FeedbackDiscoveryModal = dynamic(
+  () => import('@/components/FeedbackDiscoveryModal'),
+  { ssr: false },
+);
 
 export const metadata: Metadata = {
   title: 'CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR',
@@ -267,6 +271,7 @@ export default function Home() {
 
       {/* Product Tour for first-time users */}
       <HomeTour />
+      <FeedbackDiscoveryModal />
     </div>
   );
 }

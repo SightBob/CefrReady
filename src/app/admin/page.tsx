@@ -115,7 +115,7 @@ export default function AdminDashboard() {
       count: 0,
     },
     {
-      title: 'ข้อความติดต่อ',
+      title: 'ปัญหาและข้อเสนอแนะ',
       description: 'ข้อความจากผู้ใช้งาน',
       icon: Mail,
       href: '/admin/contacts',

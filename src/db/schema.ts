@@ -353,15 +353,17 @@ export type NewQuestionReport = typeof questionReports.$inferInsert;
 
 export const contactMessages = pgTable('contact_messages', {
   id: serial('id').primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
-  email: varchar('email', { length: 255 }).notNull(),
-  subject: varchar('subject', { length: 200 }).notNull(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  name: varchar('name', { length: 100 }),
+  email: varchar('email', { length: 255 }),
+  subject: varchar('subject', { length: 200 }),
   message: text('message').notNull(),
   isRead: boolean('is_read').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   isReadIdx: index('contact_messages_is_read_idx').on(table.isRead),
+  userIdx: index('contact_messages_user_idx').on(table.userId),
 }));
 
 export type DbContactMessage = typeof contactMessages.$inferSelect;
