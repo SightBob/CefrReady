@@ -3,13 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Users, Search, Trash2, Mail, Calendar, BarChart2, ChevronUp, ChevronDown, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Users, Search, Trash2, Mail, Calendar, BarChart2, ChevronUp, ChevronDown, Loader2, AlertTriangle, Shield, ShieldOff } from 'lucide-react';
+import { toast } from 'sonner';
+import ConfirmModal from '@/components/ConfirmModal';
 
 interface User {
   id: string;
   name: string | null;
   email: string;
   image: string | null;
+  isAdmin: boolean;
   createdAt: string;
   totalAttempts: number;
   avgScore: number | null;
@@ -26,7 +29,9 @@ export default function AdminUsersPage() {
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [adminTarget, setAdminTarget] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -36,11 +41,55 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch('/api/admin/users');
       const json = await res.json();
-      if (json.success) setUsers(json.data);
+      if (json.success) {
+        setUsers(json.data);
+      } else {
+        toast.error('โหลดรายชื่อผู้ใช้ไม่สำเร็จ', {
+          description: json.error || 'กรุณาลองใหม่อีกครั้ง',
+        });
+      }
     } catch (err) {
       console.error('Failed to fetch users:', err);
+      toast.error('เชื่อมต่อระบบไม่สำเร็จ', {
+        description: 'ไม่สามารถโหลดรายชื่อผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง',
+      });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleAdmin = async (user: User) => {
+    const next = !user.isAdmin;
+    const displayName = user.name ?? user.email;
+
+    setTogglingId(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAdmin: next }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, isAdmin: next } : u)));
+        setAdminTarget(null);
+        toast.success(next ? 'มอบสิทธิ์แอดมินแล้ว' : 'ยกเลิกสิทธิ์แอดมินแล้ว', {
+          description: next
+            ? `${displayName} สามารถเข้าถึงเครื่องมือสำหรับแอดมินได้แล้ว`
+            : `${displayName} จะไม่สามารถเข้าถึงหน้าแอดมินได้หลังเข้าสู่ระบบครั้งถัดไป`,
+        });
+      } else {
+        toast.error('อัปเดตสิทธิ์ไม่สำเร็จ', {
+          description: json.error || 'กรุณาลองใหม่อีกครั้ง',
+        });
+      }
+    } catch (err) {
+      console.error('Toggle admin failed:', err);
+      toast.error('อัปเดตสิทธิ์ไม่สำเร็จ', {
+        description: 'เกิดปัญหาในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง',
+      });
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -55,10 +104,21 @@ export default function AdminUsersPage() {
       });
       if (res.ok) {
         setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+        toast.success('ลบผู้ใช้แล้ว', {
+          description: `${deleteTarget.name ?? deleteTarget.email} ถูกนำออกจากระบบเรียบร้อย`,
+        });
         setDeleteTarget(null);
+      } else {
+        const json = await res.json().catch(() => null);
+        toast.error('ลบผู้ใช้ไม่สำเร็จ', {
+          description: json?.error || 'กรุณาลองใหม่อีกครั้ง',
+        });
       }
     } catch (err) {
       console.error('Delete failed:', err);
+      toast.error('ลบผู้ใช้ไม่สำเร็จ', {
+        description: 'เกิดปัญหาในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง',
+      });
     } finally {
       setDeleting(false);
     }
@@ -191,6 +251,9 @@ export default function AdminUsersPage() {
                     <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       ครั้งล่าสุด
                     </th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      แอดมิน
+                    </th>
                     <th className="px-5 py-3.5" />
                   </tr>
                 </thead>
@@ -247,6 +310,35 @@ export default function AdminUsersPage() {
                       {/* Last attempt */}
                       <td className="px-5 py-4 text-slate-500 text-xs">
                         {formatDate(user.lastAttempt)}
+                      </td>
+
+                      {/* Admin toggle */}
+                      <td className="px-5 py-4">
+                        {user.email.toLowerCase() === 'pawatsaekoo@gmail.com' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700" title="Bootstrap admin — cannot be revoked via UI">
+                            <Shield className="w-3.5 h-3.5" /> แอดมินหลัก
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setAdminTarget(user)}
+                            disabled={togglingId === user.id}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.98] disabled:opacity-50 ${
+                              user.isAdmin
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 focus:ring-emerald-500'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 focus:ring-slate-400'
+                            }`}
+                            title={user.isAdmin ? 'ยกเลิกสิทธิ์แอดมิน' : 'มอบสิทธิ์แอดมิน'}
+                          >
+                            {togglingId === user.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : user.isAdmin ? (
+                              <Shield className="w-3.5 h-3.5" />
+                            ) : (
+                              <ShieldOff className="w-3.5 h-3.5" />
+                            )}
+                            {user.isAdmin ? 'แอดมิน' : 'ผู้ใช้'}
+                          </button>
+                        )}
                       </td>
 
                       {/* Delete */}
@@ -306,6 +398,23 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={adminTarget !== null}
+        title={adminTarget?.isAdmin ? 'ยกเลิกสิทธิ์แอดมิน' : 'มอบสิทธิ์แอดมิน'}
+        description={
+          adminTarget?.isAdmin
+            ? `${adminTarget.name ?? adminTarget.email} จะเข้าถึงหน้าแอดมินไม่ได้หลังจากเข้าสู่ระบบใหม่`
+            : `${adminTarget?.name ?? adminTarget?.email ?? 'ผู้ใช้นี้'} จะสามารถจัดการข้อสอบ ผู้ใช้ และข้อมูลระบบทั้งหมดได้`
+        }
+        confirmLabel={adminTarget?.isAdmin ? 'ยกเลิกสิทธิ์' : 'มอบสิทธิ์'}
+        type={adminTarget?.isAdmin ? 'warning' : 'success'}
+        isLoading={adminTarget !== null && togglingId === adminTarget.id}
+        onCancel={() => setAdminTarget(null)}
+        onConfirm={() => {
+          if (adminTarget) void handleToggleAdmin(adminTarget);
+        }}
+      />
     </div>
   );
 }

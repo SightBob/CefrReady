@@ -10,7 +10,7 @@ import JsonLd, { educationalTestSchema } from '@/components/JsonLd';
 type SectionWithSets = Omit<SectionData, 'testSets'> & { testSets: TestSetData[] };
 
 interface PageProps {
-  params: { sectionId: string };
+  params: Promise<{ sectionId: string }>;
 }
 
 const SECTION_ICON_CLASS: Record<string, string> = {
@@ -40,7 +40,8 @@ async function getSectionWithSets(sectionId: string): Promise<SectionWithSets | 
   }
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const { sectionId } = params;
   const section = await getSectionWithSets(sectionId);
   if (!section) return { title: 'Not Found' };
@@ -63,7 +64,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 import TestsLoginPrompt from '../TestsLoginPrompt';
 
-export default async function SectionPage({ params }: PageProps) {
+export default async function SectionPage(props: PageProps) {
+  const params = await props.params;
   const session = await auth();
   const section = await getSectionWithSets(params.sectionId as string);
   if (!section) notFound();

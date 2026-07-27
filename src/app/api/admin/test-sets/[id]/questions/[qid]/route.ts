@@ -7,10 +7,8 @@ import { requireAdmin } from '@/lib/admin-auth';
 export const dynamic = 'force-dynamic';
 
 /** DELETE /api/admin/test-sets/[id]/questions/[qid] — remove question from set */
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string; qid: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string; qid: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -41,8 +39,9 @@ export async function DELETE(
 /** PATCH /api/admin/test-sets/[id]/questions/[qid] — update order */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; qid: string } }
+  props: { params: Promise<{ id: string; qid: string }> }
 ) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 

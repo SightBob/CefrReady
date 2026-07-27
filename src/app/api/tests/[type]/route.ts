@@ -12,10 +12,8 @@ import { eq, sql, and } from 'drizzle-orm';
  * - cefrLevel: filter by CEFR level (optional)
  * - demo: if "true", include correctAnswer and explanation (default: false)
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { type: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ type: string }> }) {
+  const params = await props.params;
   try {
     const testTypeName = params.type;
     const searchParams = request.nextUrl.searchParams;

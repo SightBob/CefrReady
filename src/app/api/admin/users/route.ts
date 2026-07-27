@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { users, testAttempts, userProgress } from '@/db/schema';
 import { eq, count, desc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { DEFAULT_ADMIN_EMAIL } from '@/lib/admin-identity';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
         name: users.name,
         email: users.email,
         image: users.image,
+        isAdmin: users.isAdmin,
         createdAt: users.createdAt,
       })
       .from(users)

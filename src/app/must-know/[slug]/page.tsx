@@ -11,12 +11,13 @@ import JsonLd, { articleSchema, breadcrumbSchema } from '@/components/JsonLd';
 export const revalidate = 3600;
 
 interface ArticlePageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
-export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
+export async function generateMetadata(props: ArticlePageProps): Promise<Metadata> {
+  const params = await props.params;
   const { slug } = params;
 
   const [article] = await db
@@ -58,7 +59,8 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   };
 }
 
-export default async function MustKnowArticlePage({ params }: ArticlePageProps) {
+export default async function MustKnowArticlePage(props: ArticlePageProps) {
+  const params = await props.params;
   const { slug } = params;
 
   const [article] = await db

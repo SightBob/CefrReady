@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -80,7 +80,8 @@ interface Article {
   blanks: Blank[];
 }
 
-export default function TestSetDetailPage({ params }: { params: { id: string } }) {
+export default function TestSetDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const setId = parseInt(params.id);
 

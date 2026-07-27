@@ -61,7 +61,8 @@ export const authConfig: NextAuthConfig = {
 
       if (isProtected) {
         if (!isLoggedIn) return Response.redirect(new URL('/', nextUrl));
-        if (!isAdminEmail(auth.user?.email)) return Response.redirect(new URL('/', nextUrl));
+        const isAuthedAdmin = auth.user?.isAdmin === true || isAdminEmail(auth.user?.email);
+        if (!isAuthedAdmin) return Response.redirect(new URL('/', nextUrl));
       }
 
       return true;

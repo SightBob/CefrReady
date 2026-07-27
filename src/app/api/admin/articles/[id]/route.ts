@@ -7,10 +7,8 @@ import { requireAdmin } from '@/lib/admin-auth';
 export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/articles/[id] */
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -35,10 +33,8 @@ export async function GET(
 }
 
 /** PUT /api/admin/articles/[id] */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -81,10 +77,8 @@ export async function PUT(
 }
 
 /** DELETE /api/admin/articles/[id] */
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 

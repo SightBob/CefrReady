@@ -113,11 +113,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="th" className="no-js">
+    <html lang="th">
       <head>
         <meta name="application-name" content={SITE_NAME} />
         <meta name="mobile-web-app-capable" content="yes" />
-        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.remove('no-js')" }} />
       </head>
       <body className={`${prompt.variable} ${pridi.variable} font-sans`}>
         <SessionProvider refetchOnWindowFocus={false}>

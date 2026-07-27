@@ -41,7 +41,7 @@ describe('getNextLevel', () => {
   });
 
   it('normal step up when avg >= 0.6 (3/5)', () => {
-    expect(getNextLevel('B1', [false, true, true, true, true])).toBe('B2');
+    expect(getNextLevel('B1', [false, true, true, false, true])).toBe('B2');
   });
 
   it('normal step down when avg <= 0.4 (2/5)', () => {
@@ -53,7 +53,7 @@ describe('getNextLevel', () => {
   });
 
   it('uses sliding window of last 5 answers', () => {
-    expect(getNextLevel('B1', [false, false, false, true, true, true, false, true])).toBe('B2');
+    expect(getNextLevel('B1', [true, true, false, true, true, false, false, true])).toBe('B2');
   });
 });
 

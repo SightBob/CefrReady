@@ -7,10 +7,8 @@ import { requireAdmin } from '@/lib/admin-auth';
 export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/vocabularies/[id] */
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -29,10 +27,8 @@ export async function GET(
 }
 
 /** PUT /api/admin/vocabularies/[id] */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -86,10 +82,8 @@ export async function PUT(
 }
 
 /** DELETE /api/admin/vocabularies/[id] — soft delete by default, hard with ?hard=true */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 

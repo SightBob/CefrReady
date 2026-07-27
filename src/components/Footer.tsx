@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { GraduationCap, Facebook } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
+import { FacebookLogo } from '@phosphor-icons/react/dist/ssr';
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -92,7 +93,7 @@ export default function Footer() {
               className="text-[#787774] hover:text-[#1877F2] transition-colors"
               aria-label="CEFR Ready Facebook"
             >
-              <Facebook className="w-4 h-4" />
+              <FacebookLogo className="w-4 h-4" weight="fill" />
             </a>
           </div>
         </div>

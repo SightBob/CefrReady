@@ -7,7 +7,8 @@ import { requireAdmin } from '@/lib/admin-auth';
 export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/test-sets/[id] — get set detail with questions */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -37,7 +38,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 /** PATCH /api/admin/test-sets/[id] — update set metadata */
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -63,7 +65,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 /** DELETE /api/admin/test-sets/[id] — delete set (cascade removes questions) */
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 

@@ -3,6 +3,10 @@ import { withSentryConfig } from '@sentry/nextjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: ['pockiest-overwhelming-cordia.ngrok-free.dev'],
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@phosphor-icons/react'],
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [

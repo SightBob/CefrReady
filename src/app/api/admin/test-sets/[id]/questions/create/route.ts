@@ -10,10 +10,8 @@ export const dynamic = 'force-dynamic';
  * POST /api/admin/test-sets/[id]/questions/create
  * Creates a new question AND assigns it to the test set atomically
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 

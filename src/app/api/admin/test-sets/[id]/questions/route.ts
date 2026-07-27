@@ -7,7 +7,8 @@ import { requireAdmin } from '@/lib/admin-auth';
 export const dynamic = 'force-dynamic';
 
 /** POST /api/admin/test-sets/[id]/questions — add one or more questions to a set */
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -66,7 +67,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 }
 
 /** GET /api/admin/test-sets/[id]/questions — list questions in set with pool info */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin();
   if (error) return error;
 

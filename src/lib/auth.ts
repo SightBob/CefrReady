@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
+import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { accounts, users, verificationTokens } from '../db/schema';
 import { authConfig } from './auth.config';
@@ -55,11 +56,16 @@ export const {
     // jwt() — runs on sign-in and every request in middleware/server components.
     // Store userId and isAdmin in the token so Edge can read them from the cookie.
     async jwt({ token, user }) {
-      if (user) {
-        // First sign-in: user object is populated — fetch DB id and set admin flag
+      if (user?.id) {
         token.id = user.id;
+        const dbUser = await db
+          .select({ isAdmin: users.isAdmin })
+          .from(users)
+          .where(eq(users.id, user.id))
+          .limit(1)
+          .then((rows) => rows[0]);
+        token.isAdmin = dbUser?.isAdmin === true || isAdminEmail(user.email);
       }
-      token.isAdmin = isAdminEmail(user?.email ?? token.email);
       return token;
     },
 

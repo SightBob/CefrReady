@@ -11,7 +11,8 @@ export const dynamic = 'force-dynamic';
  * Auth-required endpoint: returns a test set with all its questions in order.
  * Used by the student test-taking page.
  */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

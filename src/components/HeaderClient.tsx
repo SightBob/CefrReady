@@ -3,25 +3,13 @@
 import Link from 'next/link';
 import { Coffee, Menu, X, LogOut, Shield } from 'lucide-react';
 import { useState } from 'react';
-import { signIn, signOut } from 'next-auth/react';
+import { signIn, signOut, useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import TourReplayButton from './TourReplayButton';
 
-interface HeaderSession {
-  user: {
-    id: string | null;
-    name: string | null;
-    email: string | null;
-    isAdmin: boolean;
-  };
-}
-
-interface HeaderClientProps {
-  session: HeaderSession | null;
-}
-
-export default function HeaderClient({ session }: HeaderClientProps) {
+export default function HeaderClient() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { data: session, status } = useSession();
   const pathname = usePathname();
 
   const handleLogout = () => {
@@ -33,6 +21,7 @@ export default function HeaderClient({ session }: HeaderClientProps) {
   };
 
   const userName = session?.user?.name ?? session?.user?.email?.split('@')[0] ?? 'User';
+  const isLoadingSession = status === 'loading';
 
   // Helper: active nav link class
   const navLink = (href: string) =>
@@ -82,7 +71,9 @@ export default function HeaderClient({ session }: HeaderClientProps) {
             <div className="hidden lg:flex items-center gap-2 min-w-[140px] justify-end">
               {pathname === '/' && <TourReplayButton tourType="home" />}
               {pathname.startsWith('/tests') && <TourReplayButton tourType="test" />}
-              {session?.user ? (
+              {isLoadingSession ? (
+                <div className="h-10 w-28 rounded-xl bg-slate-100 animate-pulse" aria-hidden="true" />
+              ) : session?.user ? (
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 bg-slate-100 rounded-full pl-1 pr-3 py-1">
                     <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
@@ -160,7 +151,9 @@ export default function HeaderClient({ session }: HeaderClientProps) {
                 )}
 
                 <div className="border-t border-slate-100 mt-2 pt-3">
-                  {session?.user ? (
+                  {isLoadingSession ? (
+                    <div className="h-10 rounded-xl bg-slate-100 animate-pulse" aria-hidden="true" />
+                  ) : session?.user ? (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white text-sm font-medium">

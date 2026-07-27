@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import DemoTestsSection from '@/components/DemoTestsSection';
-import ProgressStats from '@/components/ProgressStats';
+import HomeProgressClient from '@/components/HomeProgressClient';
+import HomeClientOverlays from '@/components/HomeClientOverlays';
 import FaqAccordion from '@/components/FaqAccordion';
 import JsonLd, { websiteSchema, courseSchema, faqSchema } from '@/components/JsonLd';
 import {
@@ -17,17 +18,6 @@ import {
   Headphones,
 } from 'lucide-react';
 import Link from 'next/link';
-import { auth } from '@/lib/auth';
-import { db } from '@/db';
-import { userProgress } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
-import dynamic from 'next/dynamic';
-
-const HomeTour = dynamic(() => import('@/components/HomeTour'), { ssr: false });
-const FeedbackDiscoveryModal = dynamic(
-  () => import('@/components/FeedbackDiscoveryModal'),
-  { ssr: false },
-);
 
 export const metadata: Metadata = {
   title: 'CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR',
@@ -52,49 +42,6 @@ const TEST_TYPES = [
   { name: 'Form & Meaning', count: '30', color: 'from-purple-500 to-pink-500', bg: 'bg-purple-50', icon: Layers },
   { name: 'Listening', count: '30', color: 'from-orange-500 to-amber-500', bg: 'bg-orange-50', icon: Headphones },
 ];
-
-async function UserProgressSection() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  let testsTaken = 0;
-  let averageScore = 0;
-
-  try {
-    const [agg] = await db
-      .select({
-        testsTaken: sql<number>`COALESCE(SUM(${userProgress.testsTaken}), 0)`,
-        averageScore: sql<number>`COALESCE(
-          ROUND(
-            SUM(${userProgress.averageScore}::numeric * ${userProgress.testsTaken})
-            / NULLIF(SUM(${userProgress.testsTaken}), 0)
-          ), 0
-        )`,
-      })
-      .from(userProgress)
-      .where(eq(userProgress.userId, session.user.id));
-
-    testsTaken = Number(agg?.testsTaken ?? 0);
-    averageScore = Number(agg?.averageScore ?? 0);
-  } catch {
-    // Non-fatal
-  }
-
-  return (
-    <section className="mb-16">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">ความก้าวหน้าของคุณ</h2>
-        <Link
-          href="/progress"
-          className="text-sm text-primary-600 hover:text-primary-700 font-medium hover:underline"
-        >
-          ดูทั้งหมด →
-        </Link>
-      </div>
-      <ProgressStats testsTaken={testsTaken} averageScore={averageScore} />
-    </section>
-  );
-}
 
 export default function Home() {
   return (
@@ -206,7 +153,7 @@ export default function Home() {
 
       {/* PROGRESS — logged in only, streamed separately to not block LCP */}
       <Suspense fallback={null}>
-        <UserProgressSection />
+        <HomeProgressClient />
       </Suspense>
 
       {/* DEMO */}
@@ -270,8 +217,7 @@ export default function Home() {
       </section>
 
       {/* Product Tour for first-time users */}
-      <HomeTour />
-      <FeedbackDiscoveryModal />
+      <HomeClientOverlays />
     </div>
   );
 }

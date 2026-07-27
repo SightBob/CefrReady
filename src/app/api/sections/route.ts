@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { fetchSectionsFromDb } from '@/lib/sections';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 const getCachedSections = unstable_cache(
   async () => fetchSectionsFromDb(),

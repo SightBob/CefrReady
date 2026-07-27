@@ -12,7 +12,8 @@ export const revalidate = 3600;
 
 const BASE_URL = 'https://cefr-ready.site';
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const { slug } = params;
   const rows = await db
     .select()
@@ -40,7 +41,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function GuideDetailPage({ params }: { params: { slug: string } }) {
+export default async function GuideDetailPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const { slug } = params;
   const rows = await db
     .select()
@@ -82,7 +84,6 @@ export default async function GuideDetailPage({ params }: { params: { slug: stri
           </span>
         </div>
       </header>
-
       <main className="max-w-3xl mx-auto px-6 pt-12 pb-24">
         <div className="mb-14 relative">
           <div className="absolute -left-6 top-0 w-1 h-16 bg-stone-800 rounded-r-full hidden md:block" />

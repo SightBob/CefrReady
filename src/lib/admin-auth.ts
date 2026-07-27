@@ -24,7 +24,8 @@ export async function requireAdmin() {
     };
   }
 
-  if (!isAdminEmail(session.user.email)) {
+  const isAuthedAdmin = session.user.isAdmin === true || isAdminEmail(session.user.email);
+  if (!isAuthedAdmin) {
     return {
       error: NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 }),
       session: null

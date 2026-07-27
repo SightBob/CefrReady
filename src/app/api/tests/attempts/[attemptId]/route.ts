@@ -11,10 +11,8 @@ export const dynamic = 'force-dynamic';
  * GET /api/tests/attempts/[attemptId]
  * Fetch a test attempt with full question details and user answers for review.
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { attemptId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ attemptId: string }> }) {
+  const params = await props.params;
   try {
     const user = await getCurrentUser();
 
