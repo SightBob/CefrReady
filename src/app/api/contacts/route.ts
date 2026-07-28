@@ -1,9 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { contactMessages } from '@/db/schema';
+import { contactMessages, testAttempts } from '@/db/schema';
 import { z } from 'zod';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { auth } from '@/lib/auth';
+import { and, eq, ilike } from 'drizzle-orm';
+
+export const SURVEY_MESSAGE_PREFIX = '[Mini Survey]';
+
+export async function GET(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, error: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+  }
+
+  const scope = request.nextUrl.searchParams.get('scope');
+  if (scope !== 'survey') {
+    return NextResponse.json({ success: false, error: 'ข้อมูลไม่ถูกต้อง' }, { status: 400 });
+  }
+
+  const [existing, attempts] = await Promise.all([
+    db
+      .select({ id: contactMessages.id })
+      .from(contactMessages)
+      .where(
+        and(
+          eq(contactMessages.userId, session.user.id),
+          ilike(contactMessages.message, `${SURVEY_MESSAGE_PREFIX}%`),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ id: testAttempts.id })
+      .from(testAttempts)
+      .where(eq(testAttempts.userId, session.user.id))
+      .limit(1),
+  ]);
+
+  return NextResponse.json({
+    success: true,
+    submitted: existing.length > 0,
+    eligible: attempts.length > 0,
+  });
+}
 
 const contactSchema = z.object({
   message: z.string().trim().min(1).max(5000),

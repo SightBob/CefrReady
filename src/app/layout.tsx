@@ -9,6 +9,7 @@ import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import GoogleAnalyticsLazy from '@/components/GoogleAnalyticsLazy';
+import TopLoadingBar from '@/components/TopLoadingBar';
 
 const prompt = Prompt({
   weight: ['400', '500', '600', '700'],
@@ -106,12 +107,17 @@ export const metadata: Metadata = {
 import CookieYesScript from '@/components/CookieYesScript';
 import ToasterWrapper from '@/components/ToasterWrapper';
 import { PostHogProvider, PHCapture } from '@/lib/posthog';
+import { headers } from 'next/headers';
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // SECURITY: per-request CSP nonce issued by src/proxy.ts (report M1).
+  // Reading headers() makes the layout dynamic — the standard trade-off of
+  // nonce-based CSP.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html lang="th">
       <head>
@@ -119,6 +125,9 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${prompt.variable} ${pridi.variable} font-sans`}>
+        <Suspense fallback={null}>
+          <TopLoadingBar />
+        </Suspense>
         <SessionProvider refetchOnWindowFocus={false}>
           <PostHogProvider>
             <Suspense fallback={null}>
@@ -150,7 +159,7 @@ export default function RootLayout({
           </PostHogProvider>
         </SessionProvider>
         <Analytics />
-        <GoogleAnalyticsLazy />
+        <GoogleAnalyticsLazy nonce={nonce} />
         <SpeedInsights />
         <ToasterWrapper />
       </body>

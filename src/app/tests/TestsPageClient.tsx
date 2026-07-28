@@ -7,6 +7,9 @@ import SectionCard, { type SectionData } from '@/components/SectionCard';
 import TestsLoginPrompt from './TestsLoginPrompt';
 import FullTestCard from '@/components/FullTestCard';
 
+// FeedbackDiscoveryModal intentionally not rendered — feature disabled until
+// the feedback survey launches.
+
 export default function TestsPageClient({ sections }: { sections: SectionData[] }) {
   const { data: session, status } = useSession();
   const isAuthenticated = status === 'authenticated' && Boolean(session?.user);
