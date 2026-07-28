@@ -52,6 +52,19 @@ export const authConfig: NextAuthConfig = {
     signIn: '/',
   },
   callbacks: {
+    // Map JWT fields onto the session. REQUIRED here (not just in auth.ts):
+    // src/proxy.ts builds its middleware from this config alone, so without
+    // this callback auth.user.isAdmin is undefined in the proxy and every
+    // DB-promoted admin gets redirected out of /admin even though their
+    // session is genuinely admin. Edge-safe — reads the token only, no DB.
+    session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.isAdmin = token.isAdmin as boolean;
+      }
+      return session;
+    },
+
     // authorized() runs in Edge — controls middleware access.
     // auth.user is populated from the JWT cookie — no DB call required.
     authorized({ auth, request: { nextUrl } }) {
