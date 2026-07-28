@@ -4,6 +4,9 @@ import { users, testAttempts, userProgress } from '@/db/schema';
 import { eq, count, desc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { DEFAULT_ADMIN_EMAIL } from '@/lib/admin-identity';
+import { z } from 'zod';
+
+const deleteBodySchema = z.object({ userId: z.string().min(1) });
 
 export const dynamic = 'force-dynamic';
 
@@ -56,13 +59,41 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error, session } = await requireAdmin();
   if (error) return error;
 
   try {
-    const { userId } = await request.json();
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'userId required' }, { status: 400 });
+    // SECURITY (report L1): validate body and apply the same guards as PATCH —
+    // no deleting the bootstrap admin (locks out recovery) or yourself.
+    const parsed = deleteBodySchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: 'Valid userId required' }, { status: 400 });
+    }
+    const { userId } = parsed.data;
+
+    const target = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    if (!target) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
+    if (target.email.toLowerCase() === DEFAULT_ADMIN_EMAIL) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete the bootstrap admin' },
+        { status: 400 }
+      );
+    }
+
+    if (target.id === session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete your own account' },
+        { status: 400 }
+      );
     }
 
     await db.delete(users).where(eq(users.id, userId));

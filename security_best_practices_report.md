@@ -74,15 +74,15 @@ However, there are **2 critical issue groups** requiring immediate action:
 
 | ID | File:Line | Issue | Fix |
 |----|-----------|-------|-----|
-| L1 | `src/app/api/admin/users/route.ts:58-74` | DELETE takes `userId` from an unvalidated JSON body (no Zod); no self-demotion / bootstrap-admin guard (unlike PATCH at `users/[id]/route.ts:34-47`) | Add Zod schema + same guards |
-| L2 | `src/app/api/tests/submit/route.ts:129,139` | Client-supplied `startedAt` trusted (forgeable durations); `testSetId` not validated against `testTypeId` (cross-set submissions pollute stats) | Clamp `startedAt <= now`; verify set belongs to type |
+| L1 | ~~`src/app/api/admin/users/route.ts`~~ **FIXED 2026-07-28** | DELETE takes `userId` from an unvalidated JSON body (no Zod); no self-demotion / bootstrap-admin guard (unlike PATCH at `users/[id]/route.ts:34-47`) | Zod schema + not-found check + same bootstrap-admin / self-delete guards added |
+| L2 | ~~`src/app/api/tests/submit/route.ts`~~ **FIXED 2026-07-28** | Client-supplied `startedAt` trusted (forgeable durations); `testSetId` not validated against `testTypeId` (cross-set submissions pollute stats) | `startedAt` clamped to `<= now`; set/type mismatch rejected with 400 |
 | L3 | `src/app/api/tests/full/submit/route.ts:35-45` | Internal `err.message` returned to clients on 500 | Generic message for 500s |
 | L4 | ~~`src/components/JsonLd.tsx:11`~~ **FIXED 2026-07-28** (with M1) | `JSON.stringify(data)` into `<script>` via `dangerouslySetInnerHTML` — `</script>` inside a string value breaks out | Escaped `<` → `<` + nonce attribute added |
-| L5 | `src/app/api/admin/export/route.ts` | CSV export doesn't escape formula-injection chars (`=`, `+`, `-`, `@`) in user-controlled names | Prefix dangerous leading chars with `'` |
+| L5 | ~~`src/app/api/admin/export/route.ts`~~ **FIXED 2026-07-28** | CSV export doesn't escape formula-injection chars (`=`, `+`, `-`, `@`) in user-controlled names | Dangerous leading chars prefixed with `'` |
 | L6 | `src/lib/rate-limit.ts:34-37` | Rate limiter fails open on Redis outage — all limits vanish during an Upstash incident | Fail closed for the most sensitive endpoints (test fetch/submit) |
 | L7 | `src/app/api/auth/*` (NextAuth handler) | No application-level rate limit on sign-in/callback endpoints | Low risk (NextAuth has CSRF/state), consider light IP throttle |
 | L8 | ~~`next.config.mjs:6`~~ **FIXED 2026-07-28** | `allowedDevOrigins` contains an ngrok domain | Hardcoded domain removed; tunnel dev now works via `NGROK_ORIGIN` env var in `.env.local` (documented in `.env.example`) |
-| L9 | `src/lib/auth.ts:58-68` | JWT `isAdmin` refreshed only at sign-in; a demoted admin keeps access until token expiry | Shorten JWT maxAge or re-check `users.isAdmin` in `requireAdmin()` |
+| L9 | ~~`src/lib/auth.ts:58-68`~~ **FIXED 2026-07-28** | JWT `isAdmin` refreshed only at sign-in; a demoted admin keeps access until token expiry | `requireAdmin()` now re-checks `users.isAdmin` in the DB on every call (bootstrap email still passes as recovery path) |
 
 ---
 

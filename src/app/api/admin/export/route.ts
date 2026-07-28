@@ -55,7 +55,11 @@ export async function GET() {
     ]);
 
     const escape = (v: unknown) => {
-      const s = String(v);
+      let s = String(v);
+      // SECURITY (report L5): a leading = + - @ is executed as a formula when
+      // the CSV is opened in Excel/Sheets (CSV injection). Prefix with ' to
+      // force text — user names are attacker-controlled.
+      if (/^[=+\-@]/.test(s)) s = `'${s}`;
       return s.includes(',') || s.includes('"') || s.includes('\n')
         ? `"${s.replace(/"/g, '""')}"`
         : s;

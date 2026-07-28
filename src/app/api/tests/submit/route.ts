@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { questions, testAttempts, userAnswers, userProgress, testTypes } from '@/db/schema';
+import { questions, testAttempts, userAnswers, userProgress, testTypes, testSets } from '@/db/schema';
 import { eq, inArray, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { calculateScore } from '@/lib/score-utils';
@@ -126,7 +126,26 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
-  const actualStartedAt = clientStartedAt ? new Date(clientStartedAt) : now;
+  // SECURITY (report L2): client-supplied startedAt is forgeable — never
+  // trust a future timestamp, and reject set/type mismatches that pollute stats.
+  const actualStartedAt =
+    clientStartedAt && new Date(clientStartedAt) <= now ? new Date(clientStartedAt) : now;
+
+  if (testSetId !== undefined) {
+    const setBelongsToType = await db
+      .select({ id: testSets.id })
+      .from(testSets)
+      .where(and(eq(testSets.id, parseInt(String(testSetId))), eq(testSets.sectionId, testTypeId)))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    if (!setBelongsToType) {
+      return NextResponse.json(
+        { success: false, error: 'Test set does not belong to this test type' },
+        { status: 400 }
+      );
+    }
+  }
 
   // Save test attempt
   let newAttempt;
