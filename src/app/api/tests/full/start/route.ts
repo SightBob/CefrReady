@@ -12,6 +12,7 @@ import {
 import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
+import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,7 +115,8 @@ export async function POST(request: Request) {
     success: true,
     data: {
       attemptId: attempt.id,
-      question: firstResult.question,
+      // SECURITY: never send correctAnswer/explanation pre-submission (C3).
+      question: sanitizeQuestionForClient(firstResult.question),
       questionIndex: 0,
       totalQuestions: FULL_TEST_PART_DISTRIBUTION.length,
       timeRemaining: FULL_TEST_TOTAL_SECONDS,

@@ -2,8 +2,17 @@ import { db } from '@/db';
 import { vocabularies } from '@/db/schema';
 import { eq, asc, ilike, or, and, count } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
+import { checkIpThrottle } from '@/lib/api-security';
 
 export async function GET(req: NextRequest) {
+  // SECURITY: uncached ilike search hits the DB directly — throttle to keep
+  // the endpoint from being a cheap DoS vector (report M3).
+  const ipThrottleError = await checkIpThrottle(req, {
+    keySuffix: 'vocabularies',
+    maxRequests: 30,
+  });
+  if (ipThrottleError) return ipThrottleError;
+
   const { searchParams } = new URL(req.url);
 
   const page = Math.max(1, Number(searchParams.get('page') || '1'));

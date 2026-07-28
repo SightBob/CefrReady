@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { articles } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { unstable_cache } from 'next/cache';
+import { checkIpThrottle } from '@/lib/api-security';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,10 +22,14 @@ const getCachedArticle = unstable_cache(
 
 /** GET /api/articles/[slug] — get single published article by slug (public) */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    // SECURITY: throttle public endpoint (report M3).
+    const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'article-slug' });
+    if (ipThrottleError) return ipThrottleError;
+
     const { slug } = await params;
     const row = await getCachedArticle(slug);
 

@@ -29,15 +29,17 @@ function GaPageTracker() {
   return null;
 }
 
-export default function GoogleAnalyticsLazy() {
+export default function GoogleAnalyticsLazy({ nonce }: { nonce?: string }) {
   return (
     <>
       <Script
         id="ga-gtag-src"
         strategy="lazyOnload"
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+        nonce={nonce}
       />
-      <Script id="ga-gtag-init" strategy="lazyOnload">
+      {/* SECURITY: inline bootstrap needs the per-request CSP nonce (M1). */}
+      <Script id="ga-gtag-init" strategy="lazyOnload" nonce={nonce}>
         {`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}

@@ -16,6 +16,7 @@ import {
 } from '@/lib/full-test/constants';
 import { getNextLevel, selectQuestion, getPerTypeAnswerHistory, getInitialLevels } from '@/lib/full-test/algorithm';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
+import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
 
 const bodySchema = z.object({
   attemptId: z.number().int(),
@@ -136,7 +137,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        question: selection.question,
+        // SECURITY: never send correctAnswer/explanation pre-submission (C3).
+        question: sanitizeQuestionForClient(selection.question),
         questionIndex: nextIndex,
         finished: false,
       },
@@ -290,7 +292,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     success: true,
     data: {
-      question: selection.question,
+      // SECURITY: never send correctAnswer/explanation pre-submission (C3).
+      question: sanitizeQuestionForClient(selection.question),
       questionIndex: nextIndex,
       finished: false,
     },

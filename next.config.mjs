@@ -3,7 +3,14 @@ import { withSentryConfig } from '@sentry/nextjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  allowedDevOrigins: ['pockiest-overwhelming-cordia.ngrok-free.dev'],
+  // Dev tunnel origin (e.g. ngrok) comes from env so the domain is never
+  // hardcoded in the repo — ngrok free domains are recycled and a stale
+  // committed domain could end up trusted by someone else's tunnel (L8).
+  // Set NGROK_ORIGIN in .env.local / .env — bare host, no protocol
+  // (allowedDevOrigins matches hosts; a https:// prefix silently breaks it).
+  ...(process.env.NGROK_ORIGIN
+    ? { allowedDevOrigins: [process.env.NGROK_ORIGIN.replace(/^https?:\/\//, '')] }
+    : {}),
   experimental: {
     optimizePackageImports: ['lucide-react', '@phosphor-icons/react'],
   },
@@ -23,6 +30,9 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Non-CSP security headers for everything. The page CSP is issued
+        // per-request with a nonce by src/proxy.ts (report M1) — setting it
+        // here too would produce two CSP headers and break nonce handling.
         source: '/(.*)',
         headers: [
           {
@@ -45,21 +55,16 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
           },
+        ],
+      },
+      {
+        // API routes are not covered by the proxy matcher — give them a
+        // restrictive static CSP (they never render HTML).
+        source: '/api/(.*)',
+        headers: [
           {
             key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://www.googletagmanager.com https://*.posthog.com",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://pub-e915c92ac05f48ccabfe327469bf4599.r2.dev",
-              "font-src 'self' data: https://fonts.gstatic.com",
-              "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://va.vercel-scripts.com https://www.google-analytics.com https://*.posthog.com",
-              "worker-src blob: https://*.posthog.com",
-              "frame-ancestors 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "media-src 'self' blob: https://pub-e915c92ac05f48ccabfe327469bf4599.r2.dev",
-            ].join('; '),
+            value: "default-src 'none'; frame-ancestors 'none'",
           },
         ],
       },

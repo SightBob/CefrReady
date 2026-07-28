@@ -1,14 +1,25 @@
+import { headers } from 'next/headers';
+
 const BASE_URL = 'https://cefr-ready.site';
 
 interface JsonLdProps {
   data: Record<string, unknown>;
 }
 
-export default function JsonLd({ data }: JsonLdProps) {
+export default async function JsonLd({ data }: JsonLdProps) {
+  // SECURITY: per-request CSP nonce from src/proxy.ts (M1) lets this inline
+  // script run without 'unsafe-inline'; escaping '<' prevents a </script>
+  // breakout if a value ever contains one (L4).
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      nonce={nonce}
+      // Browsers hide the nonce content attribute (getAttribute returns "")
+      // by design, so React hydration always sees a server/client mismatch
+      // on this attribute. The nonce works correctly regardless.
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, '\\u003c') }}
     />
   );
 }

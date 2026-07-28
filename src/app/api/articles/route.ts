@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { articles } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { unstable_cache } from 'next/cache';
+import { checkIpThrottle } from '@/lib/api-security';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,11 @@ const getCachedArticles = unstable_cache(
 /** GET /api/articles — list published articles (public) */
 export async function GET(request: NextRequest) {
   try {
+    // SECURITY: throttle public endpoint (report M3). Cached, so the default
+    // 100 req/min budget is plenty for real users.
+    const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'articles' });
+    if (ipThrottleError) return ipThrottleError;
+
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || undefined;
     const rows = await getCachedArticles(category);

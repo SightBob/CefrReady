@@ -6,6 +6,7 @@ import {
   type NextRequest,
 } from 'next/server';
 import { authConfig } from '@/lib/auth.config';
+import { buildCsp } from '@/lib/csp';
 
 /**
  * Proxy uses the lightweight auth config (NO DB and NO pg).
@@ -17,11 +18,26 @@ import { authConfig } from '@/lib/auth.config';
  *                                   ↳ NO @/db, NO drizzle-orm, NO pg
  */
 const { auth } = NextAuth(authConfig);
-const continueRequest: NextMiddleware = () => NextResponse.next();
-const authProxy = auth(continueRequest);
+
+// SECURITY: besides auth, the proxy issues a per-request CSP nonce and sets
+// the Content-Security-Policy header (report M1). The nonce reaches server
+// components through the x-nonce request header so they can mark their
+// inline scripts (JSON-LD, GA bootstrap) as trusted.
+const securityProxy = auth(function cspNonceProxy(request) {
+  const nonce = btoa(crypto.randomUUID());
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set(
+    'Content-Security-Policy',
+    buildCsp(nonce, process.env.NODE_ENV === 'development')
+  );
+  return response;
+}) as unknown as NextMiddleware;
 
 export function proxy(request: NextRequest, event: NextFetchEvent) {
-  return authProxy(request, event);
+  return securityProxy(request, event);
 }
 
 export const config = {

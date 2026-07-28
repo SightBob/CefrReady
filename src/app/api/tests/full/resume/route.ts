@@ -8,6 +8,7 @@ import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL
 import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
+import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,7 +97,8 @@ export async function GET(request: Request) {
     success: true,
     data: {
       attemptId: attempt.id,
-      question: selection.question,
+      // SECURITY: never send correctAnswer/explanation pre-submission (C3).
+      question: sanitizeQuestionForClient(selection.question),
       questionIndex: nextIndex,
       timeRemaining: realRemaining,
       totalQuestions: FULL_TEST_PART_DISTRIBUTION.length,
