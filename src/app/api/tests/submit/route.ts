@@ -142,6 +142,9 @@ export async function POST(request: NextRequest) {
         correctAnswers: correctCount,
         startedAt: actualStartedAt,
         completedAt: now,
+        // status column defaults to 'in_progress' — must set explicitly or the
+        // attempt is invisible to /progress, which filters status='completed'
+        status: 'completed',
       })
       .returning();
   } catch (error) {
