@@ -2,7 +2,6 @@
 
 import { ArrowLeft, Lock } from 'lucide-react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import SectionCard, { type SectionData } from '@/components/SectionCard';
 import TestsLoginPrompt from './TestsLoginPrompt';
 import FullTestCard from '@/components/FullTestCard';
@@ -10,10 +9,13 @@ import FullTestCard from '@/components/FullTestCard';
 // FeedbackDiscoveryModal intentionally not rendered — feature disabled until
 // the feedback survey launches.
 
-export default function TestsPageClient({ sections }: { sections: SectionData[] }) {
-  const { data: session, status } = useSession();
-  const isAuthenticated = status === 'authenticated' && Boolean(session?.user);
-  const isLoadingSession = status === 'loading';
+interface TestsPageClientProps {
+  sections: SectionData[];
+  user: { name: string | null; email: string | null } | null;
+}
+
+export default function TestsPageClient({ sections, user }: TestsPageClientProps) {
+  const isAuthenticated = Boolean(user);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -27,7 +29,7 @@ export default function TestsPageClient({ sections }: { sections: SectionData[] 
           <p className="text-slate-600 mt-2">
             Welcome back,{' '}
             <span className="font-semibold text-primary-600">
-              {session.user?.name || session.user?.email}
+              {user!.name || user!.email}
             </span>
             ! Select a section to begin.
           </p>
@@ -36,7 +38,7 @@ export default function TestsPageClient({ sections }: { sections: SectionData[] 
         )}
       </div>
 
-      {!isAuthenticated && !isLoadingSession && <TestsLoginPrompt />}
+      {!isAuthenticated && <TestsLoginPrompt />}
 
       <FullTestCard disabled={!isAuthenticated} />
 
@@ -50,7 +52,7 @@ export default function TestsPageClient({ sections }: { sections: SectionData[] 
           {sections.map((section) => (
             <div key={section.id} className="relative">
               <SectionCard section={section} disabled={!isAuthenticated} />
-              {!isAuthenticated && !isLoadingSession && (
+              {!isAuthenticated && (
                 <div className="absolute inset-0 bg-slate-100/50 rounded-2xl flex items-center justify-center">
                   <div className="bg-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-slate-600">
                     <Lock className="w-5 h-5" />
@@ -63,7 +65,7 @@ export default function TestsPageClient({ sections }: { sections: SectionData[] 
         </div>
       )}
 
-      {!isAuthenticated && !isLoadingSession && (
+      {!isAuthenticated && (
         <div className="mt-12 text-center">
           <p className="text-slate-600 mb-4">Want to try without logging in?</p>
           <Link href="/demo" className="btn-secondary inline-flex items-center gap-2">

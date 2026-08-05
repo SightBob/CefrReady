@@ -3,24 +3,29 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
+import type { PostHog } from 'posthog-js';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 interface PostHogContextValue {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  posthog: any;
+  posthog: PostHog | null;
 }
 
 const PostHogContext = createContext<PostHogContextValue>({ posthog: null });
 
+// Paths where session replay is recorded (100% sample — replay is the heaviest
+// PostHog feature, so it stays off everywhere else).
+const REPLAY_PATHS = ['/tests', '/demo'];
+const isReplayPath = (path: string) => REPLAY_PATHS.some((p) => path.startsWith(p));
+
 // ─── Provider ──────────────────────────────────────────────────────────────────
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [posthogInstance, setPosthogInstance] = useState<any>(null);
+  const [posthogInstance, setPosthogInstance] = useState<PostHog | null>(null);
   const previousSessionRef = useRef<boolean | null>(null);
 
-  // Initialize PostHog after critical rendering, using requestIdleCallback
+  // Initialize PostHog after page load + idle, so it never competes with
+  // critical rendering or early user interaction (INP).
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
@@ -38,6 +43,13 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         person_profiles: 'identified_only',
         capture_pageview: false,
         disable_surveys: true,
+        autocapture: false,
+        capture_performance: false,
+        // Replay starts via startSessionRecording() on replay paths only.
+        disable_session_recording: true,
+        session_recording: {
+          maskAllInputs: true,
+        },
         before_send: (event) => {
           if (!event) return null;
           const values = event.properties?.exception?.values;
@@ -59,15 +71,22 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           return event;
         },
         loaded: (ph) => {
-          setPosthogInstance(ph);
+          setPosthogInstance(ph as PostHog);
         },
       });
     };
 
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(init);
+    const schedule = () => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(init, { timeout: 3000 });
+      } else {
+        setTimeout(init, 0);
+      }
+    };
+    if (document.readyState === 'complete') {
+      schedule();
     } else {
-      setTimeout(init, 0);
+      window.addEventListener('load', schedule, { once: true });
     }
   }, []);
 
@@ -156,6 +175,12 @@ export function PHCapture() {
       posthog.capture('$pageview', { $current_url: pathname });
       previousPathRef.current = pathname;
       pageEnterTimeRef.current = Date.now();
+
+      if (isReplayPath(pathname)) {
+        posthog.startSessionRecording();
+      } else if (posthog.sessionRecordingStarted()) {
+        posthog.stopSessionRecording();
+      }
     }
   }, [pathname, posthog, firePageLeave]);
 

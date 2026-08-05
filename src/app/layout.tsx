@@ -104,7 +104,6 @@ export const metadata: Metadata = {
   },
 };
 
-import CookieYesScript from '@/components/CookieYesScript';
 import ToasterWrapper from '@/components/ToasterWrapper';
 import { PostHogProvider, PHCapture } from '@/lib/posthog';
 import { headers } from 'next/headers';
