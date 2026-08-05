@@ -55,6 +55,7 @@ interface ReportData {
     trend: Array<{ week: string; count: number }>;
   };
   cefrDistribution: Array<{ level: string; count: number }>;
+  attemptCountDistribution: Array<{ bucket: string; count: number }>;
   fullTestAnalytics: {
     totalAttempts: number;
     completedCount: number;
@@ -105,6 +106,10 @@ const CEFR_LABELS: Record<string, string> = {
   A1: 'A1 (Beginner)', A2: 'A2 (Elementary)', B1: 'B1 (Intermediate)',
   B2: 'B2 (Upper-Int)', C1: 'C1 (Advanced)', C2: 'C2 (Proficiency)',
 };
+// Engagement gradient: grey (never tried) → deep emerald (power users)
+const ATTEMPT_BUCKET_COLORS = [
+  '#94A3B8', '#60A5FA', '#34D399', '#10B981', '#059669', '#047857', '#065F46',
+];
 
 function estimateCefrLevel(score: number): string {
   if (score >= 90) return 'C2';
@@ -365,8 +370,8 @@ export default function AdminReportsPage() {
               </div>
             </div>
 
-            {/* ─── Row: User Retention + Question Reports ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* ─── Row: User Retention + Question Reports + Attempt Count ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* User Retention */}
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
@@ -445,6 +450,43 @@ export default function AdminReportsPage() {
                   </div>
                 ) : (
                   <p className="text-slate-400 text-sm">ยังไม่มีรายงาน</p>
+                )}
+              </div>
+              {/* Attempt Count Distribution */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <h2 className="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2">
+                  <Target className="w-5 h-5 text-indigo-500" />
+                  จำนวนครั้งที่ทำข้อสอบต่อคน
+                </h2>
+                {data.attemptCountDistribution.every((b) => b.count === 0) ? (
+                  <p className="text-slate-500 text-sm">ยังไม่มีข้อมูล</p>
+                ) : (
+                  <div className="space-y-3">
+                    {data.attemptCountDistribution.map((b, i) => {
+                      const maxBucket = Math.max(...data.attemptCountDistribution.map((x) => x.count), 1);
+                      const pct = Math.round((b.count / maxBucket) * 100);
+                      const share = data.overview.totalUsers > 0
+                        ? Math.round((b.count / data.overview.totalUsers) * 100)
+                        : 0;
+                      return (
+                        <div key={b.bucket}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-slate-700">{b.bucket}</span>
+                            <span className="text-xs text-slate-500">{b.count} คน ({share}%)</span>
+                          </div>
+                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${pct}%`,
+                                backgroundColor: ATTEMPT_BUCKET_COLORS[i],
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>

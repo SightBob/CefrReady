@@ -81,6 +81,8 @@ export const questions = pgTable('questions', {
   optionD: text('option_d'),
   correctAnswer: varchar('correct_answer', { length: 1 }),
   explanation: text('explanation'),
+  // Grammar topic label (e.g. "Present Perfect") — shown to users for further study
+  grammarTopic: varchar('grammar_topic', { length: 200 }),
 
   // Structured data for complex question types
   conversation: jsonb('conversation'),  // focus-meaning: [{speaker, text}]

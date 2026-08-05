@@ -237,6 +237,37 @@ export async function GET(request: NextRequest) {
       cefrDist[level] = (cefrDist[level] ?? 0) + 1;
     }
 
+    // 6b. Attempt-count distribution — completed attempts per user, bucketed
+    const completedAttemptsPerUser = await db
+      .select({
+        userId: testAttempts.userId,
+        cnt: count(),
+      })
+      .from(testAttempts)
+      .where(sql`${testAttempts.status} = 'completed'`)
+      .groupBy(testAttempts.userId);
+
+    const ATTEMPT_BUCKET_DEFS = [
+      { bucket: '0 ครั้ง', test: (n: number) => n === 0 },
+      { bucket: '1 ครั้ง', test: (n: number) => n === 1 },
+      { bucket: '2–3 ครั้ง', test: (n: number) => n >= 2 && n <= 3 },
+      { bucket: '4–5 ครั้ง', test: (n: number) => n >= 4 && n <= 5 },
+      { bucket: '6–10 ครั้ง', test: (n: number) => n >= 6 && n <= 10 },
+      { bucket: '11–20 ครั้ง', test: (n: number) => n >= 11 && n <= 20 },
+      { bucket: 'มากกว่า 20 ครั้ง', test: (n: number) => n > 20 },
+    ];
+    const attemptBucketCounts = ATTEMPT_BUCKET_DEFS.map(() => 0);
+    for (const u of completedAttemptsPerUser) {
+      const idx = ATTEMPT_BUCKET_DEFS.findIndex((b) => b.test(Number(u.cnt)));
+      if (idx >= 0) attemptBucketCounts[idx]++;
+    }
+    // Users with zero completed attempts = total users minus users with any completed attempt
+    attemptBucketCounts[0] = (totalUsers?.count ?? 0) - completedAttemptsPerUser.length;
+    const attemptCountDistribution = ATTEMPT_BUCKET_DEFS.map((b, i) => ({
+      bucket: b.bucket,
+      count: attemptBucketCounts[i],
+    }));
+
     // 7. Full Mock Exam analytics
     const fullTestAttempts = await db
       .select({
@@ -383,6 +414,7 @@ export async function GET(request: NextRequest) {
           level,
           count,
         })),
+        attemptCountDistribution,
         fullTestAnalytics,
       },
     });

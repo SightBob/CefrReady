@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, testSetQuestions, testSets } from '@/db/schema';
-import { eq, desc, inArray, and, sql, count as drizzleCount, ilike } from 'drizzle-orm';
+import { eq, asc, desc, inArray, notInArray, and, sql, count as drizzleCount, ilike } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 const PAGE_SIZE = 20;
@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const difficulty = searchParams.get('difficulty');
     const cefrLevel = searchParams.get('cefrLevel');
+    const testSetId = searchParams.get('testSetId');
+    const sort = searchParams.get('sort');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10)));
     const offset = (page - 1) * limit;
@@ -24,6 +26,24 @@ export async function GET(request: NextRequest) {
     if (difficulty) conditions.push(eq(questions.difficulty, difficulty));
     if (cefrLevel) conditions.push(eq(questions.cefrLevel, cefrLevel));
     if (search) conditions.push(ilike(questions.questionText, `%${search}%`));
+    if (testSetId === 'none') {
+      conditions.push(
+        notInArray(questions.id, db.select({ id: testSetQuestions.questionId }).from(testSetQuestions))
+      );
+    } else if (testSetId) {
+      const setId = Number(testSetId);
+      if (!Number.isNaN(setId)) {
+        conditions.push(
+          inArray(
+            questions.id,
+            db
+              .select({ id: testSetQuestions.questionId })
+              .from(testSetQuestions)
+              .where(eq(testSetQuestions.testSetId, setId))
+          )
+        );
+      }
+    }
 
     const baseWhere = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -62,7 +82,13 @@ export async function GET(request: NextRequest) {
       .from(questions)
       .leftJoin(testTypes, eq(questions.testTypeId, testTypes.id))
       .where(baseWhere)
-      .orderBy(desc(questions.createdAt))
+      .orderBy(
+        sort === 'id-asc'
+          ? asc(questions.id)
+          : sort === 'id-desc'
+            ? desc(questions.id)
+            : desc(questions.createdAt)
+      )
       .limit(limit)
       .offset(offset);
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Papa from 'papaparse';
 import { db } from '@/db';
 import { questions, testSetQuestions } from '@/db/schema';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, inArray, notInArray, ilike } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +19,7 @@ const COLUMNS = [
   'explanation',
   'cefrLevel',
   'difficulty',
+  'grammarTopic',
   'testSetId',
   'conversation',
   'article',
@@ -35,6 +36,7 @@ interface CsvRow {
   explanation: string;
   cefrLevel: string;
   difficulty: string;
+  grammarTopic: string;
   testSetId: string;
   conversation: string;
   article: string;
@@ -49,22 +51,66 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const testTypeId = searchParams.get('testTypeId') || undefined;
     const cefrLevel = searchParams.get('cefrLevel') || undefined;
+    const difficulty = searchParams.get('difficulty') || undefined;
+    const search = searchParams.get('search') || undefined;
+    const testSetId = searchParams.get('testSetId') || undefined;
+
+    const conditions = [
+      testTypeId ? eq(questions.testTypeId, testTypeId) : undefined,
+      cefrLevel ? eq(questions.cefrLevel, cefrLevel) : undefined,
+      difficulty ? eq(questions.difficulty, difficulty) : undefined,
+      search ? ilike(questions.questionText, `%${search}%`) : undefined,
+    ];
+
+    if (testSetId === 'none') {
+      conditions.push(
+        notInArray(questions.id, db.select({ id: testSetQuestions.questionId }).from(testSetQuestions))
+      );
+    } else if (testSetId) {
+      const setId = Number(testSetId);
+      if (!Number.isNaN(setId)) {
+        conditions.push(
+          inArray(
+            questions.id,
+            db
+              .select({ id: testSetQuestions.questionId })
+              .from(testSetQuestions)
+              .where(eq(testSetQuestions.testSetId, setId))
+          )
+        );
+      }
+    }
 
     // Fetch questions
     const allQuestions = await db
       .select()
       .from(questions)
-      .where(
-        and(
-          testTypeId ? eq(questions.testTypeId, testTypeId) : undefined,
-          cefrLevel ? eq(questions.cefrLevel, cefrLevel) : undefined,
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(asc(questions.id));
 
     if (allQuestions.length === 0) {
       return NextResponse.json({ error: 'No questions found to export' }, { status: 404 });
     }
+
+    // Map each question to its first assigned test set (single id per CSV cell)
+    const questionIds = allQuestions.map((q) => q.id);
+    const memberships = await db
+      .select({
+        questionId: testSetQuestions.questionId,
+        testSetId: testSetQuestions.testSetId,
+      })
+      .from(testSetQuestions)
+      .where(inArray(testSetQuestions.questionId, questionIds))
+      .orderBy(asc(testSetQuestions.testSetId));
+    const firstSetByQuestion = new Map<number, number>();
+    for (const m of memberships) {
+      if (!firstSetByQuestion.has(m.questionId)) {
+        firstSetByQuestion.set(m.questionId, m.testSetId);
+      }
+    }
+    const numericSetFilter = testSetId && testSetId !== 'none' && !Number.isNaN(Number(testSetId))
+      ? Number(testSetId)
+      : undefined;
 
     // Convert to CSV rows — format matches import template exactly
     const rows: CsvRow[] = allQuestions.map((q) => ({
@@ -78,7 +124,8 @@ export async function GET(request: NextRequest) {
       explanation: q.explanation ?? '',
       cefrLevel: q.cefrLevel,
       difficulty: q.difficulty ?? 'medium',
-      testSetId: '', // Import handles test-set assignment separately
+      grammarTopic: q.grammarTopic ?? '',
+      testSetId: String(numericSetFilter ?? firstSetByQuestion.get(q.id) ?? ''),
       conversation: q.conversation ? JSON.stringify(q.conversation) : '',
       article: q.article ? JSON.stringify(q.article) : '',
     }));
@@ -93,6 +140,9 @@ export async function GET(request: NextRequest) {
     const parts: string[] = ['questions'];
     if (testTypeId) parts.push(testTypeId);
     if (cefrLevel) parts.push(cefrLevel);
+    if (difficulty) parts.push(difficulty);
+    if (testSetId === 'none') parts.push('no-set');
+    else if (testSetId) parts.push(`set-${testSetId}`);
     parts.push(new Date().toISOString().slice(0, 10));
     const filename = `${parts.join('-')}.csv`;
 

@@ -128,6 +128,9 @@ export default function QuestionsManagement() {
   const [selectedTestType, setSelectedTestType] = useState<string>('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
   const [selectedCefr, setSelectedCefr] = useState<string>('');
+  const [testSetsList, setTestSetsList] = useState<TestSetAssignment[]>([]);
+  const [selectedTestSet, setSelectedTestSet] = useState<string>('');
+  const [sortId, setSortId] = useState<'' | 'asc' | 'desc'>('');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignTargetIds, setAssignTargetIds] = useState<number[]>([]);
@@ -136,7 +139,7 @@ export default function QuestionsManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const PAGE_SIZE = 20;
+  const [pageSize, setPageSize] = useState(20);
 
   // Duplicate scan state
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -158,6 +161,19 @@ export default function QuestionsManagement() {
     }
   }, []);
 
+  const fetchTestSets = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/test-sets');
+      if (response.ok) {
+        const data = await response.json();
+        const sections: { testSets?: TestSetAssignment[] }[] = data.data || [];
+        setTestSetsList(sections.flatMap((s) => s.testSets || []));
+      }
+    } catch (error) {
+      console.error('Error fetching test sets:', error);
+    }
+  }, []);
+
   const fetchQuestions = useCallback(async () => {
     try {
       setLoading(true);
@@ -166,8 +182,10 @@ export default function QuestionsManagement() {
       if (debouncedSearch) params.set('search', debouncedSearch);
       if (selectedDifficulty) params.set('difficulty', selectedDifficulty);
       if (selectedCefr) params.set('cefrLevel', selectedCefr);
+      if (selectedTestSet) params.set('testSetId', selectedTestSet);
+      if (sortId) params.set('sort', `id-${sortId}`);
       params.set('page', String(currentPage));
-      params.set('limit', String(PAGE_SIZE));
+      params.set('limit', String(pageSize));
       const query = params.toString() ? `?${params.toString()}` : '';
       const response = await fetch(`/api/admin/questions${query}`);
       if (response.ok) {
@@ -181,7 +199,7 @@ export default function QuestionsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTestType, debouncedSearch, selectedDifficulty, selectedCefr, currentPage]);
+  }, [selectedTestType, debouncedSearch, selectedDifficulty, selectedCefr, selectedTestSet, sortId, currentPage, pageSize]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
@@ -190,18 +208,22 @@ export default function QuestionsManagement() {
 
   useEffect(() => {
     fetchTestTypes();
+    fetchTestSets();
     fetchQuestions();
-  }, [fetchTestTypes, fetchQuestions]);
+  }, [fetchTestTypes, fetchTestSets, fetchQuestions]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedTestType, selectedDifficulty, selectedCefr, debouncedSearch]);
+  }, [selectedTestType, selectedDifficulty, selectedCefr, selectedTestSet, debouncedSearch, sortId, pageSize]);
 
   const handleExportCSV = async () => {
     try {
       const params = new URLSearchParams();
       if (selectedTestType) params.set('testTypeId', selectedTestType);
       if (selectedCefr) params.set('cefrLevel', selectedCefr);
+      if (selectedDifficulty) params.set('difficulty', selectedDifficulty);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (selectedTestSet) params.set('testSetId', selectedTestSet);
       const query = params.toString() ? `?${params.toString()}` : '';
 
       const response = await fetch(`/api/admin/questions/export${query}`);
@@ -566,7 +588,7 @@ export default function QuestionsManagement() {
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="relative lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
@@ -611,6 +633,20 @@ export default function QuestionsManagement() {
               {CEFR_LEVELS.map((lvl) => (
                 <option key={lvl} value={lvl}>
                   {lvl}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedTestSet}
+              onChange={(e) => setSelectedTestSet(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">ชุดข้อสอบทั้งหมด</option>
+              <option value="none">ยังไม่อยู่ใน Set</option>
+              {testSetsList.map((ts) => (
+                <option key={ts.id} value={String(ts.id)}>
+                  {ts.name} ({ts.sectionId})
                 </option>
               ))}
             </select>
@@ -679,8 +715,23 @@ export default function QuestionsManagement() {
                           className="w-4 h-4 rounded border-slate-300 accent-indigo-600"
                         />
                       </th>
-                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        ID
+                      <th className="px-4 py-3.5 text-left">
+                        <button
+                          onClick={() =>
+                            setSortId((s) => (s === '' ? 'desc' : s === 'desc' ? 'asc' : ''))
+                          }
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-800 transition-colors"
+                          title="เรียงตาม ID"
+                        >
+                          ID
+                          {sortId === 'asc' ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-primary-600" />
+                          ) : sortId === 'desc' ? (
+                            <ChevronDown className="w-3.5 h-3.5 text-primary-600" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-300" />
+                          )}
+                        </button>
                       </th>
                       <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         ข้อสอบ
@@ -969,18 +1020,30 @@ export default function QuestionsManagement() {
                 {totalPages > 1 && ` · หน้า ${currentPage}/${totalPages}`}
               </p>
               <div className="flex items-center gap-2">
-                {(searchTerm || selectedDifficulty || selectedCefr) && (
+                {(searchTerm || selectedDifficulty || selectedCefr || selectedTestSet) && (
                   <button
                     onClick={() => {
                       setSearchTerm('');
                       setSelectedDifficulty('');
                       setSelectedCefr('');
+                      setSelectedTestSet('');
                     }}
                     className="text-primary-600 hover:text-primary-700 font-medium mr-3"
                   >
                     ล้าง filter
                   </button>
                 )}
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n} / หน้า
+                    </option>
+                  ))}
+                </select>
                 {totalPages > 1 && (
                   <div className="flex items-center gap-1">
                     <button

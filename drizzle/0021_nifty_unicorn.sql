@@ -1,0 +1,1 @@
+ALTER TABLE "questions" ADD COLUMN "grammar_topic" varchar(200);
