@@ -45,7 +45,7 @@ const TEST_TYPES = [
 
 export default function Home() {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white">
       {/* SEO: Structured Data */}
       <JsonLd data={websiteSchema()} />
       <JsonLd data={courseSchema()} />
@@ -59,91 +59,81 @@ export default function Home() {
         { question: 'คะแนนที่ต้องได้เพื่อผ่าน CEFR คือเท่าไร?', answer: 'ขึ้นอยู่กับมหาวิทยาลัยและสาขาวิชา โดยทั่วไปมักต้องผ่านระดับ B1 ขึ้นไป ควรตรวจสอบกับมหาวิทยาลัยของคุณโดยตรงสำหรับข้อกำหนดล่าสุด CEFR Ready ช่วยฝึกทุกระดับเพื่อให้คุณมั่นใจก่อนสอบจริง' },
       ])} />
       {/* HERO — Split layout */}
-      <section className="min-h-[75dvh] md:min-h-[80dvh] lg:min-h-[85dvh] flex items-center relative overflow-hidden py-12 md:py-0">
-        {/* Background atmosphere */}
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-br from-primary-50/50 to-accent-50/30 -z-10" />
-        <div className="absolute top-20 right-20 w-96 h-96 bg-primary-100/40 rounded-full blur-3xl -z-10" />
-        <div className="absolute bottom-20 left-20 w-64 h-64 bg-accent-100/30 rounded-full blur-3xl -z-10" />
+      <section
+        className="
+          min-h-dvh
+          flex items-center relative overflow-hidden py-12
+          -mt-16
+          pt-24
+          isolate
+          before:absolute before:inset-0 before:-z-10
+          before:bg-[linear-gradient(360deg,#F7AAFB_0%,#AA91F4_32%,#5675EB_67%,#5675EB_100%)]
+          before:opacity-[86%]
+        "
+      >        {/* Background atmosphere */}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center w-full">
+
+
+        <div className='absolute size-[9.375rem] top-[12.5rem] right-[-4.688rem] rounded-full bg-[#FFFFFF] bg-opacity-35'></div>
+        <div className='absolute size-[3.125rem] top-[10.625rem] right-[4.688rem] rounded-full bg-[#FFFFFF] bg-opacity-35'></div>
+        <div className='absolute size-[8.375rem] top-[12.5rem] left-[-4.688rem] rounded-full bg-[#FFFFFF] bg-opacity-35'></div>
+        <div className='absolute size-[4.125rem] top-[20.625rem] left-[4.688rem] rounded-full bg-[#FFFFFF] bg-opacity-35'></div>
+
+        <div className=" items-center w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Left: Copy */}
-          <div className="space-y-6 md:space-y-8">
+          <div className="">
+
             <div
-              className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium stagger-animate"
-              style={{ animationDelay: '0ms' }}
-            >
-              <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary-500 shrink-0" />
-              ข้อสอบมาตรฐาน CEFR — A1 ถึง C2
+              className="flex flex-col items-center text-2xl sm:text-3xl md:text-[1.875rem] text-[#FFFFFF] font-bold !leading-[0.7] tracking-tight stagger-animate">
+              <span>เตรียมพร้อมสอบกับ</span>
+              <br />
+              <span className="text-[#FFFFFF] text-5xl sm:text-6xl md:text-[4.375rem] leading-none">CEFR <span className='text-[#FDFF9E]'>Ready!</span></span>
+              <br />
+              <span className='text-sm sm:text-base md:text-[1.25rem] font-semibold leading-snug max-w-xs sm:max-w-md md:max-w-lg'>ข้อสอบครอบคลุมทุกทักษะ พร้อมคำอธิบายทุกข้อแบบเข้าใจง่าย</span>
             </div>
 
-            <h1
-              className="text-[3rem] sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight stagger-animate"
-              style={{ animationDelay: '100ms' }}
-            >
-              เตรียมพร้อมสอบ
-              <br />
-              <span className="text-primary-600">CEFR Ready</span>
-              <br />
-              ครบทุกทักษะ
-            </h1>
-
-            <p
-              className="text-base md:text-lg lg:text-xl text-slate-600 max-w-xl leading-relaxed stagger-animate"
-              style={{ animationDelay: '200ms' }}
-            >
-              ฝึกกับข้อสอบ <strong className="text-slate-800">Focus on Form</strong>,{' '}
-              <strong className="text-slate-800">Focus on Meaning</strong>,{' '}
-              <strong className="text-slate-800">Form &amp; Meaning</strong> และ{' '}
-              <strong className="text-slate-800">Listening</strong>{' '}
-              พร้อมคำอธิบายที่เข้าใจง่ายทุกข้อ
-            </p>
 
             <div
-              className="flex items-center gap-3 flex-wrap stagger-animate"
+              className="flex items-center justify-center gap-3 flex-wrap stagger-animate mt-10 sm:mt-12"
               style={{ animationDelay: '300ms' }}
             >
-              <Link href="/tests" className="btn-primary inline-flex items-center gap-2 text-sm md:text-base px-5 py-3 md:px-8 md:py-4" data-tour="hero-cta">
+              <div className='flex flex-wrap justify-center gap-3 bg-white px-3 py-2 rounded-full'>
+                <Link href="/tests" className="bg-[#6D88EE] text-white rounded-full inline-flex items-center gap-2 text-sm md:text-base px-5 py-3 md:px-8 md:py-4" data-tour="hero-cta">
                 เริ่มทำข้อสอบ
-                <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
               </Link>
-              <Link href="/demo" className="btn-secondary inline-flex items-center gap-2 text-sm md:text-base px-5 py-3 md:px-8 md:py-4">
+              <Link href="/demo" className="bg-[#F0F0F0] rounded-full inline-flex items-center gap-2 text-sm md:text-base px-5 py-3 md:px-8 md:py-4">
                 ลองทำตัวอย่าง
               </Link>
+              </div>
             </div>
 
-            <div
-              className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 md:gap-3 stagger-animate"
-              style={{ animationDelay: '400ms' }}
-            >
-              {FEATURES.map(({ icon: Icon, label, desc }) => (
-                <div
-                  key={label}
-                  className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 md:px-4 md:py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
-                >
-                  <Icon className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary-500 shrink-0" />
-                  <div className="text-left">
-                    <p className="text-xs md:text-sm font-semibold text-slate-800 leading-tight">{label}</p>
-                    <p className="text-xs text-slate-400 hidden sm:block">{desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
 
-          {/* Right: Test types grid — hidden on small mobile, shown from sm up */}
-          <div className="hidden sm:grid grid-cols-2 gap-3 md:gap-4 stagger-animate" style={{ animationDelay: '500ms' }}>
+          {/* Right: Test types grid — 1 col mobile, 2 col tablet, 4 col desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 stagger-animate mt-8 sm:mt-10 md:mt-12 bg-white bg-opacity-35 rounded-[2.75rem] p-4 sm:p-6 md:p-[2rem]" style={{ animationDelay: '500ms' }}>
             {TEST_TYPES.map((type) => {
               const Icon = type.icon;
               return (
                 <div
                   key={type.name}
-                  className={`${type.bg} rounded-2xl p-4 md:p-6 border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300`}
+                  className={`bg-[#F8F8F8] rounded-2xl p-4 border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300`}
                 >
                   <div className={`bg-gradient-to-br ${type.color} w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center mb-3 md:mb-4`}>
                     <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
                   <h3 className="font-bold text-slate-800 text-sm md:text-base mb-1">{type.name}</h3>
-                  <p className="text-xs md:text-sm text-slate-500">{type.count} ข้อสอบ</p>
+                  <p className='text-xs sm:text-sm md:text-[0.885rem]'>ทดสอบความรู้ของคุณเกี่ยวกับ โครงสร้างไวยากรณ์ รูปแบบคำกริยา และแพทเทิร์นประโยค</p>
+
+                  <div className='flex items-center space-x-4 mt-6 md:mt-8'>
+                    <div className='flex items-center space-x-2 md:space-x-3'>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" className="lucide lucide-clock w-4 h-4" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                      <p className="text-xs md:text-sm text-slate-500">{type.count} นาที</p>
+                    </div>
+                    <div className='flex items-center space-x-2 md:space-x-3'>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" className="lucide lucide-layout-grid w-4 h-4" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>
+                      <p className="text-xs md:text-sm text-slate-500">9 เซ็ต</p>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -158,17 +148,20 @@ export default function Home() {
 
       {/* DEMO */}
       <section className="mb-20">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">ลองทำข้อสอบตัวอย่าง</h2>
-            <p className="text-sm text-slate-500 mt-1">ไม่ต้องสมัครสมาชิก</p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800">ลองทำข้อสอบตัวอย่าง</h2>
+              <p className="text-sm text-slate-500 mt-1">ไม่ต้องสมัครสมาชิก</p>
+            </div>
           </div>
+          <DemoTestsSection showInfoBanner={false} />
         </div>
-        <DemoTestsSection showInfoBanner={false} />
       </section>
 
       {/* CTA Section — SEO target section */}
       <section className="mb-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden bg-gradient-to-br from-primary-900 to-primary-700 rounded-3xl px-8 py-12 md:px-16 md:py-16 text-white">
           <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
@@ -201,10 +194,12 @@ export default function Home() {
             </div>
           </div>
         </div>
+        </div>
       </section>
 
       {/* FAQ Section — visible on page for SEO */}
       <section className="mb-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
@@ -213,6 +208,7 @@ export default function Home() {
             <p className="text-slate-500">เกี่ยวกับ CEFR Ready และการสอบ CEFR</p>
           </div>
           <FaqAccordion />
+        </div>
         </div>
       </section>
 

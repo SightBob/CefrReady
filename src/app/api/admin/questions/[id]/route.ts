@@ -19,8 +19,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     // Fetch test set memberships for this question
     const memberships = await db
       .select({
-        setId: testSets.id,
-        setName: testSets.name,
+        id: testSets.id,
+        name: testSets.name,
         sectionId: testSets.sectionId,
         orderIndex: testSetQuestions.orderIndex,
       })

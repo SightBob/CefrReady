@@ -25,6 +25,7 @@ export default function ImportQuestionsPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,6 +107,9 @@ export default function ImportQuestionsPage() {
 
       const data = await response.json();
       setResult(data);
+      if (data.success) {
+        setShowSuccessModal(true);
+      }
     } catch (error) {
       setResult({
         success: false,
@@ -401,6 +405,33 @@ export default function ImportQuestionsPage() {
           </div>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center animate-fade-in">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">นำเข้าสำเร็จ</h2>
+            <p className="text-slate-600 mb-6">
+              นำเข้าข้อสอบเรียบร้อยแล้ว {result?.importedCount ?? result?.validRows ?? ''} ข้อ
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  clearAll();
+                }}
+                className="btn-primary"
+              >
+                นำเข้าไฟล์อื่นต่อ
+              </button>
+              <Link href="/admin/questions" className="btn-secondary">
+                กลับหน้าข้อสอบ
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

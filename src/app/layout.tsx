@@ -136,7 +136,7 @@ export default async function RootLayout({
               <Suspense fallback={<div className="h-16 bg-white border-b border-slate-100" aria-hidden="true" />}>
                 <Header />
               </Suspense>
-              <main className="flex-1">
+              <main className="flex-1 pt-16">
                 <Suspense fallback={
                   <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div className="space-y-4">

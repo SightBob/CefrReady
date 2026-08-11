@@ -287,6 +287,37 @@ function parseCSV(text: string): Record<string, string>[] {
   return trimmed;
 }
 
+function normalizeText(s: string | null | undefined): string {
+  return (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function normalizeConversation(raw: unknown): string {
+  if (!raw) return '';
+  let convo = raw;
+  if (typeof raw === 'string') {
+    try { convo = JSON.parse(raw); } catch { return normalizeText(raw); }
+  }
+  if (!Array.isArray(convo)) return normalizeText(String(raw));
+  return convo
+    .map((m: { speaker?: string; name?: string; text?: string }) =>
+      `${normalizeText(m?.speaker)}|${normalizeText(m?.name)}|${normalizeText(m?.text)}`)
+    .join(';;');
+}
+
+function buildDedupKey(
+  testTypeId: string,
+  questionText: string,
+  conversation: unknown,
+  options: Array<string | null | undefined>,
+): string {
+  return [
+    normalizeText(testTypeId),
+    normalizeText(questionText),
+    normalizeConversation(conversation),
+    options.map(normalizeText).join('|'),
+  ].join('::');
+}
+
 export async function POST(request: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
@@ -322,10 +353,13 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Duplicate check: within this CSV file ──────────────────────────
+    // Dedup key: questionText + conversation + options (normalized)
     const seenInFile = new Map<string, number>();
     const inFileDuplicateRows = new Set<number>();
     rows.forEach((row, idx) => {
-      const key = `${row.testTypeId}::${row.questionText.toLowerCase().trim()}`;
+      const key = buildDedupKey(row.testTypeId, row.questionText, row.conversation, [
+        row.optionA, row.optionB, row.optionC, row.optionD,
+      ]);
       if (seenInFile.has(key)) {
         inFileDuplicateRows.add(idx);
         allWarnings.push(`Row ${idx + 2}: ข้อสอบซ้ำกับ Row ${seenInFile.get(key)! + 2} ในไฟล์ CSV เดียวกัน — ข้ามแถวนี้`);
@@ -339,17 +373,29 @@ export async function POST(request: NextRequest) {
     let existingNormalized = new Set<string>();
     if (uniqueTestTypeIds.length > 0) {
       const existingRows = await db
-        .select({ testTypeId: questions.testTypeId, questionText: questions.questionText })
+        .select({
+          testTypeId: questions.testTypeId,
+          questionText: questions.questionText,
+          optionA: questions.optionA,
+          optionB: questions.optionB,
+          optionC: questions.optionC,
+          optionD: questions.optionD,
+          conversation: questions.conversation,
+        })
         .from(questions)
         .where(inArray(questions.testTypeId, uniqueTestTypeIds));
       existingNormalized = new Set(
-        existingRows.map(q => `${q.testTypeId}::${q.questionText.toLowerCase().trim()}`)
+        existingRows.map(q => buildDedupKey(q.testTypeId, q.questionText, q.conversation, [
+          q.optionA, q.optionB, q.optionC, q.optionD,
+        ]))
       );
     }
 
     const inDbDuplicateRows = new Set<number>();
     rows.forEach((row, idx) => {
-      const key = `${row.testTypeId}::${row.questionText.toLowerCase().trim()}`;
+      const key = buildDedupKey(row.testTypeId, row.questionText, row.conversation, [
+        row.optionA, row.optionB, row.optionC, row.optionD,
+      ]);
       if (existingNormalized.has(key)) {
         inDbDuplicateRows.add(idx);
         allWarnings.push(`Row ${idx + 2}: ข้อสอบซ้ำกับที่มีอยู่ในระบบแล้ว — ข้ามแถวนี้`);
