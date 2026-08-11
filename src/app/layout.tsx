@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Prompt, Pridi } from 'next/font/google';
+import { Prompt, Pridi, IBM_Plex_Sans_Thai } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -22,6 +22,14 @@ const pridi = Pridi({
   weight: ['400'],
   subsets: ['latin', 'thai'],
   variable: '--font-pridi',
+  display: 'swap',
+  preload: false,
+});
+
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+  weight: ['700'],
+  subsets: ['latin', 'thai'],
+  variable: '--font-ibm',
   display: 'swap',
   preload: false,
 });
@@ -123,7 +131,7 @@ export default async function RootLayout({
         <meta name="application-name" content={SITE_NAME} />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={`${prompt.variable} ${pridi.variable} font-sans`}>
+      <body className={`${prompt.variable} ${pridi.variable} ${ibmPlexSansThai.variable} font-sans`}>
         <Suspense fallback={null}>
           <TopLoadingBar />
         </Suspense>

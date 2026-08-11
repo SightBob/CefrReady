@@ -162,3 +162,41 @@
     transform: scaleX(0.7);
   }
 }
+
+/* Swiper — home reviews */
+.reviews-swiper .swiper {
+  padding: 0.5rem 0.5rem 0.5rem;
+  overflow: hidden;
+}
+
+.reviews-swiper .swiper-slide {
+  height: auto;
+}
+
+.reviews-swiper .swiper-pagination {
+  position: relative;
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.reviews-swiper .swiper-pagination-bullet {
+  width: 8px;
+  height: 8px;
+  background: #cbd5e1;
+  opacity: 1;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.reviews-swiper .swiper-button-next,
+.reviews-swiper .swiper-button-prev {
+  display: none;
+}
+
+.reviews-swiper-next.swiper-button-disabled,
+.reviews-swiper-prev.swiper-button-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+

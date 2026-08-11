@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import DemoTestsSection from '@/components/DemoTestsSection';
-import HomeProgressClient from '@/components/HomeProgressClient';
+import HomeReviews from '@/components/HomeReviews';
 import HomeClientOverlays from '@/components/HomeClientOverlays';
 import FaqAccordion from '@/components/FaqAccordion';
+import Image from "next/image";
+
+
 import JsonLd, { websiteSchema, courseSchema, faqSchema } from '@/components/JsonLd';
 import {
   Sparkles,
@@ -16,6 +19,8 @@ import {
   PenTool,
   Layers,
   Headphones,
+  Clock,
+  LayoutGrid,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -78,6 +83,15 @@ export default function Home() {
         <div className='absolute size-[3.125rem] top-[10.625rem] right-[4.688rem] rounded-full bg-[#FFFFFF] bg-opacity-35'></div>
         <div className='absolute size-[8.375rem] top-[12.5rem] left-[-4.688rem] rounded-full bg-[#FFFFFF] bg-opacity-35'></div>
         <div className='absolute size-[4.125rem] top-[20.625rem] left-[4.688rem] rounded-full bg-[#FFFFFF] bg-opacity-35'></div>
+     <div className="absolute bottom-[-1px] left-0 w-full">
+  <Image
+    src="/icon_svg/headsection2.svg"
+    alt=""
+    width={1000}
+    height={500}
+    className="w-full h-auto"
+  />
+</div>
 
         <div className=" items-center w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Left: Copy */}
@@ -126,11 +140,11 @@ export default function Home() {
 
                   <div className='flex items-center space-x-4 mt-6 md:mt-8'>
                     <div className='flex items-center space-x-2 md:space-x-3'>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" className="lucide lucide-clock w-4 h-4" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                      <Clock className="w-4 h-4" />
                       <p className="text-xs md:text-sm text-slate-500">{type.count} นาที</p>
                     </div>
                     <div className='flex items-center space-x-2 md:space-x-3'>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" className="lucide lucide-layout-grid w-4 h-4" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>
+                       <LayoutGrid className="w-4 h-4" />
                       <p className="text-xs md:text-sm text-slate-500">9 เซ็ต</p>
                     </div>
                   </div>
@@ -143,20 +157,123 @@ export default function Home() {
 
       {/* PROGRESS — logged in only, streamed separately to not block LCP */}
       <Suspense fallback={null}>
-        <HomeProgressClient />
+        <HomeReviews />
       </Suspense>
 
       {/* DEMO */}
-      <section className="mb-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-800">ลองทำข้อสอบตัวอย่าง</h2>
-              <p className="text-sm text-slate-500 mt-1">ไม่ต้องสมัครสมาชิก</p>
-            </div>
-          </div>
-          <DemoTestsSection showInfoBanner={false} />
+      <section className="!bg-white min-h-[400px] relative sm:px-6 lg:px-8 mx-auto max-w-7xl mb-10">
+        <div className="w-[162px] h-[15px] mx-auto bg-[#E5E7F6] rounded-full "></div>
+
+        <div className="flex flex-col items-center justify-center mt-12">
+          <h2 className='text-[#48507C] text-[2.25rem] font-semibold'>คะแนนระดับ  A1 - C2</h2>
+          <p className='mt-1 text-[#5F6999] text-[1.25rem]'>ยินดีต้อนรับเข้าสู่การฝึกซ้อมทำข้อสอบ โดยเลือกประเภท...</p>
         </div>
+
+        <div className="grid grid-cols-2 mt-12 gap-x-20">
+
+  {/* A1 */}
+  <div className="grid col-span-1 border-t-[3px]">
+    <div className="flex justify-around items-center text-[#787878] py-[2rem]">
+      <div className="w-[50%] flex items-center justify-center">
+        <p className="font-semibold text-[1.25rem]">
+          A1 พื้นฐาน
+        </p>
+      </div>
+
+      <div className="w-[50%] flex items-center justify-center">
+        <div className="bg-[#EADEFF] px-12 rounded-full py-1 text-[1.125rem]">
+          1-20 คะแนน
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* A2 */}
+  <div className="grid col-span-1 border-t-[3px]">
+    <div className="flex justify-around items-center text-[#787878] py-[2rem]">
+      <div className="w-[50%] flex items-center justify-center">
+        <p className="font-semibold text-[1.25rem]">
+          A2 ขั้นต้น (ผ่านเกณฑ์ มทส.)
+        </p>
+      </div>
+
+      <div className="w-[50%] flex items-center justify-center">
+        <div className="bg-[#EADEFF] px-12 rounded-full py-1 text-[1.125rem]">
+          21-40 คะแนน
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* B1 */}
+  <div className="grid col-span-1 border-t-[3px]">
+    <div className="flex justify-around items-center text-[#787878] py-[2rem]">
+      <div className="w-[50%] flex items-center justify-center">
+        <p className="font-semibold text-[1.25rem]">
+          B1 ขั้นกลาง
+        </p>
+      </div>
+
+      <div className="w-[50%] flex items-center justify-center">
+        <div className="bg-[#EADEFF] px-12 rounded-full py-1 text-[1.125rem]">
+          41-60 คะแนน
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* B2 */}
+  <div className="grid col-span-1 border-t-[3px]">
+    <div className="flex justify-around items-center text-[#787878] py-[2rem]">
+      <div className="w-[50%] flex items-center justify-center">
+        <p className="font-semibold text-[1.25rem]">
+          B2 กลาง - สูง
+        </p>
+      </div>
+
+      <div className="w-[50%] flex items-center justify-center">
+        <div className="bg-[#EADEFF] px-12 rounded-full py-1 text-[1.125rem]">
+          61-80 คะแนน
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* C1 */}
+  <div className="grid col-span-1 border-t-[3px] border-b-[3px]">
+    <div className="flex justify-around items-center text-[#787878] py-[2rem]">
+      <div className="w-[50%] flex items-center justify-center">
+        <p className="font-semibold text-[1.25rem]">
+          C1 ขั้นสูง
+        </p>
+      </div>
+
+      <div className="w-[50%] flex items-center justify-center ">
+        <div className="bg-[#EADEFF] px-12 rounded-full py-1 text-[1.125rem]">
+          81-100 คะแนน
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* C2 */}
+  <div className="grid col-span-1 border-t-[3px] border-b-[3px]">
+    <div className="flex justify-around items-center text-[#787878] py-[2rem]">
+      <div className="w-[50%] flex items-center justify-center">
+        <p className="font-semibold text-[1.25rem]">
+          C2 เชี่ยวชาญ
+        </p>
+      </div>
+
+      <div className="w-[50%] flex items-center justify-center">
+        <div className="bg-[#EADEFF] px-12 rounded-full py-1 text-[1.125rem]">
+          101-120 คะแนน
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
       </section>
 
       {/* CTA Section — SEO target section */}

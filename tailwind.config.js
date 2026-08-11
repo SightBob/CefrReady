@@ -10,6 +10,7 @@ module.exports = {
       fontFamily: {
         sans: ['var(--font-prompt)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         serif: ['var(--font-pridi)', 'ui-serif', 'Georgia', 'serif'],
+        ibm: ['var(--font-ibm)', 'var(--font-prompt)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         primary: {
