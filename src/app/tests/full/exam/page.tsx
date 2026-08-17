@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
-import { ArrowLeft, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmModal from '@/components/ConfirmModal';
-import ReportModal from '@/components/ReportModal';
+import TestLayout from '@/components/TestLayout';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
 import { FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL_SECONDS } from '@/lib/full-test/constants';
 
@@ -53,11 +53,10 @@ export default function FullTestExamPage() {
   const [finished, setFinished] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
   const [skipConfirmMessage, setSkipConfirmMessage] = useState('');
-  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportedQuestions, setReportedQuestions] = useState<Set<number>>(new Set());
+  const [revealed, setRevealed] = useState<{ mcq: string | null; blanks: Record<number, string> | null } | null>(null);
 
   const attemptIdRef = useRef<number | null>(null);
+  const questionIdRef = useRef<number | null>(null);
   const endTimeRef = useRef<number>(0);
   const timeUpHandledRef = useRef(false);
   const submittingRef = useRef(false);
@@ -82,6 +81,35 @@ export default function FullTestExamPage() {
     endTimeRef.current = Date.now() + remaining * 1000;
     selectedAnswerRef.current = null;
     setSelectedAnswer(null);
+    questionIdRef.current = data.question.id;
+    setRevealed(null);
+  }, []);
+
+  // Reveal the answer key for the current question after the user committed a
+  // choice (options lock client-side once revealed).
+  const checkAnswer = useCallback(async (questionId: number) => {
+    const attempt = attemptIdRef.current;
+    if (!attempt || questionIdRef.current !== questionId) return;
+    try {
+      const res = await apiFetch('/api/tests/full/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attemptId: attempt, questionId }),
+      });
+      const data = await res.json();
+      if (!data.success || questionIdRef.current !== questionId) return;
+      if (data.data.type === 'cloze') {
+        const blanks: Record<number, string> = {};
+        Object.entries(data.data.blanks as Record<string, string>).forEach(([k, v]) => {
+          blanks[Number(k)] = v;
+        });
+        setRevealed({ mcq: null, blanks });
+      } else {
+        setRevealed({ mcq: data.data.correctAnswer as string | null, blanks: null });
+      }
+    } catch {
+      // Non-fatal: exam continues without reveal
+    }
   }, []);
 
   const startOrResume = useCallback(async () => {
@@ -276,6 +304,8 @@ export default function FullTestExamPage() {
       setQuestionIndex(data.data.questionIndex);
       selectedAnswerRef.current = null;
       setSelectedAnswer(null);
+      questionIdRef.current = data.data.question.id;
+      setRevealed(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         toast.error('กรุณาเข้าสู่ระบบใหม่');
@@ -296,14 +326,9 @@ export default function FullTestExamPage() {
     }
   };
 
-  const handleCancelClick = () => {
+  // TestLayout's exit confirm calls this — cancels the attempt server-side.
+  const handleExit = async () => {
     if (!attemptIdRef.current) return;
-    setCancelConfirmOpen(true);
-  };
-
-  const confirmCancel = async () => {
-    if (!attemptIdRef.current) return;
-    setCancelConfirmOpen(false);
     await apiFetch('/api/tests/full/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -312,10 +337,23 @@ export default function FullTestExamPage() {
     router.push('/tests');
   };
 
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+  const progressAnswers = useMemo(
+    () => Array.from({ length: FULL_TEST_TOTAL_QUESTIONS }, (_, i) => (i < questionIndex ? 'x' : null)),
+    [questionIndex]
+  );
+
+  const handleMcqSelect = useCallback((key: string) => {
+    setSelectedAnswerSynced(key);
+    const qid = questionIdRef.current;
+    if (qid) void checkAnswer(qid);
+  }, [checkAnswer, setSelectedAnswerSynced]);
+
+  const handleClozeChange = (answersMap: Record<number, string>) => {
+    setSelectedAnswerSynced(JSON.stringify(answersMap));
+    if (question?.article && !revealed) {
+      const allFilled = question.article.blanks.every((b) => answersMap[b.id]?.trim());
+      if (allFilled) void checkAnswer(question.id);
+    }
   };
 
   if (loading) {
@@ -327,56 +365,26 @@ export default function FullTestExamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
-        <div
-          className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all"
-          style={{ width: `${((questionIndex + 1) / FULL_TEST_TOTAL_QUESTIONS) * 100}%` }}
-        />
-      </div>
-
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <button type="button" onClick={handleCancelClick} className="p-2 hover:bg-slate-100 rounded-lg">
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
-          </button>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600">ข้อ {questionIndex + 1}/{FULL_TEST_TOTAL_QUESTIONS}</span>
-            <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-mono font-bold ${timeRemaining <= 120 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
-              <Clock className="w-4 h-4" />
-              {formatTime(timeRemaining)}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 py-8 pb-24">
-        <div className="flex items-center justify-end mb-3">
-          <button
-            type="button"
-            onClick={() => setShowReportModal(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-orange-600 transition-colors"
-            aria-label="แจ้งปัญหาข้อสอบ"
-          >
-            {question && reportedQuestions.has(question.id) ? (
-              <>
-                <CheckCircle className="w-3.5 h-3.5" />
-                <span>แจ้งแล้ว</span>
-              </>
-            ) : (
-              <>
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>แจ้งปัญหา</span>
-              </>
-            )}
-          </button>
-        </div>
-        <div>
-            {question.testTypeId === 'focus-form' ? (
-              <div key={question.id} className="mb-6">
-            <div className="text-xs font-medium text-slate-500 uppercase mb-2">
-              {question.testTypeId.replace(/-/g, ' ')}
-            </div>
+    <>
+      <TestLayout
+        title="สอบจำลองเต็มรูปแบบ"
+        durationMinutes={FULL_TEST_TOTAL_SECONDS / 60}
+        totalQuestions={FULL_TEST_TOTAL_QUESTIONS}
+        currentQuestion={questionIndex}
+        answers={progressAnswers}
+        onTimeUp={handleTimeUp}
+        onNext={handleNextClick}
+        onSubmit={handleNextClick}
+        onExit={() => { void handleExit(); }}
+        sequentialNav
+        currentQuestionId={question.id}
+        sectionIcon={Trophy}
+        sectionColor="from-indigo-500 to-purple-500"
+        sectionLabel="Full Mock Exam"
+        timerSeconds={timeRemaining > 0 ? timeRemaining : 1}
+      >
+        {question.testTypeId === 'focus-form' ? (
+          <div key={question.id}>
             <FocusFormQuestionCard
               questionText={question.questionText}
               options={[
@@ -386,19 +394,15 @@ export default function FullTestExamPage() {
                 { key: 'D', value: question.optionD ?? '' },
               ]}
               selectedAnswer={selectedAnswer}
-              correctAnswer={null}
+              correctAnswer={revealed?.mcq ?? null}
               explanation={null}
               conversation={question.conversation ?? null}
-              onAnswerSelect={setSelectedAnswerSynced}
+              onAnswerSelect={handleMcqSelect}
               disabled={submitting}
             />
           </div>
         ) : (
-          <div key={question.id} className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 mb-6">
-            <div className="text-xs font-medium text-slate-500 uppercase mb-2">
-              {question.testTypeId.replace(/-/g, ' ')}
-            </div>
-
+          <div key={question.id}>
             {question.testTypeId === 'listening' && (
               <ListeningAudioPlayer
                 audioUrl={question.audioUrl ?? undefined}
@@ -411,10 +415,9 @@ export default function FullTestExamPage() {
                   { key: 'D', value: question.optionD ?? '' },
                 ]}
                 selectedAnswer={selectedAnswer}
-                correctAnswer={null}
+                correctAnswer={revealed?.mcq ?? null}
                 explanation={null}
-                onAnswerSelect={setSelectedAnswerSynced}
-                hideFeedback
+                onAnswerSelect={handleMcqSelect}
               />
             )}
 
@@ -429,46 +432,22 @@ export default function FullTestExamPage() {
                   question.optionD ?? '',
                 ]}
                 selectedAnswer={selectedAnswer ? ['A','B','C','D'].indexOf(selectedAnswer) : null}
-                correctAnswer={null}
+                correctAnswer={selectedAnswer && revealed?.mcq ? ['A','B','C','D'].indexOf(revealed.mcq) : null}
                 explanation={''}
-                onAnswerSelect={(idx) => setSelectedAnswerSynced(['A','B','C','D'][idx])}
-                hideFeedback
+                onAnswerSelect={(idx) => handleMcqSelect(['A','B','C','D'][idx])}
               />
             )}
 
             {question.testTypeId === 'form-meaning' && question.article && (
               <FormMeaningQuiz
                 article={question.article}
-                onChange={(answers) => setSelectedAnswerSynced(JSON.stringify(answers))}
+                onChange={handleClozeChange}
+                revealedAnswers={revealed?.blanks ?? null}
               />
             )}
           </div>
         )}
-
-          <div className="hidden md:flex justify-end">
-            <button
-              type="button"
-              onClick={handleNextClick}
-              disabled={submitting}
-              className="btn-primary py-3 px-8 disabled:opacity-50"
-            >
-              {submitting ? 'กำลังบันทึก...' : 'ข้อต่อไป'}
-            </button>
-          </div>
-        </div>
-      </main>
-
-      {/* Mobile Bottom Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3 flex items-center justify-end">
-        <button
-          type="button"
-          onClick={handleNextClick}
-          disabled={submitting}
-          className="btn-primary text-sm py-2.5 px-5 disabled:opacity-50"
-        >
-          {submitting ? 'กำลังบันทึก...' : 'ข้อต่อไป'}
-        </button>
-      </div>
+      </TestLayout>
 
       <ConfirmModal
         isOpen={skipConfirmOpen}
@@ -481,29 +460,6 @@ export default function FullTestExamPage() {
         onCancel={() => setSkipConfirmOpen(false)}
         isLoading={submitting}
       />
-
-      <ConfirmModal
-        isOpen={cancelConfirmOpen}
-        title="ยกเลิกการสอบ?"
-        description="คำตอบทั้งหมดจะไม่ถูกบันทึก ต้องการยกเลิกการสอบหรือไม่?"
-        confirmLabel="ยกเลิก"
-        cancelLabel="ทำต่อ"
-        type="danger"
-        onConfirm={confirmCancel}
-        onCancel={() => setCancelConfirmOpen(false)}
-        isLoading={submitting}
-      />
-
-      {showReportModal && question && (
-        <ReportModal
-          questionId={question.id}
-          questionNumber={questionIndex + 1}
-          onClose={() => setShowReportModal(false)}
-          onSuccess={() =>
-            setReportedQuestions((prev) => new Set(prev).add(question.id))
-          }
-        />
-      )}
-    </div>
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import SectionCard, { type SectionData } from '@/components/SectionCard';
+import type { SectionData } from '@/components/SectionCard';
 import { unstable_cache } from 'next/cache';
 import { fetchSectionsFromDb } from '@/lib/sections';
 import { auth } from '@/lib/auth';

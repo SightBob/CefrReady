@@ -8,6 +8,7 @@ import {
   Clock,
   LayoutGrid,
 } from 'lucide-react';
+import type { TestSetData } from '@/components/TestSetCard';
 
 export interface SectionData {
   id: string;
@@ -16,7 +17,7 @@ export interface SectionData {
   icon: string | null;
   color: string | null;
   duration: number | null;
-  testSets: { id: number; name: string; isActive?: boolean }[];
+  testSets: TestSetData[];
 }
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -40,6 +41,13 @@ const BG_MAP: Record<string, string> = {
   'listening': 'bg-orange-50',
 };
 
+const ICON_COLOR_MAP: Record<string, string> = {
+  'focus-form': 'text-blue-500',
+  'focus-meaning': 'text-emerald-500',
+  'form-meaning': 'text-purple-500',
+  'listening': 'text-orange-500',
+};
+
 const BORDER_MAP: Record<string, string> = {
   'focus-form': 'hover:border-blue-200',
   'focus-meaning': 'hover:border-emerald-200',
@@ -54,34 +62,22 @@ const TEXT_MAP: Record<string, string> = {
   'listening': 'group-hover:text-orange-600',
 };
 
-export default function SectionCard({ section, disabled = false }: { section: SectionData; disabled?: boolean }) {
+export default function SectionCard({ section, disabled = false, onOpen }: { section: SectionData; disabled?: boolean; onOpen?: (section: SectionData) => void }) {
   const Icon = ICON_MAP[section.id] ?? LayoutGrid;
   const gradient = GRADIENT_MAP[section.id] ?? 'from-slate-400 to-slate-500';
   const bg = BG_MAP[section.id] ?? 'bg-slate-50';
+  const iconColor = ICON_COLOR_MAP[section.id] ?? 'text-slate-500';
   const border = BORDER_MAP[section.id] ?? 'hover:border-slate-300';
   const textHover = TEXT_MAP[section.id] ?? 'group-hover:text-slate-600';
 
   const setCount = section.testSets.length;
 
   const inner = (
-    <div className={`card p-6 group block border border-slate-100 transition-all duration-200 ${border} ${disabled ? 'opacity-60 pointer-events-none' : 'card-hover'}`}>
-      <div className="flex items-start gap-4">
+    <div className={`card p-4 group block border border-slate-100 transition-all duration-200 !shadow-md ${border} ${disabled ? 'opacity-60 pointer-events-none' : 'card-hover'}`}>
+      <div className="flex flex-col items-start gap-4">
         {/* Icon */}
-        <div className={`${bg} p-4 rounded-2xl group-hover:scale-110 transition-transform flex-shrink-0`}>
-          <Icon
-            className={`w-8 h-8`}
-            style={{
-              stroke: `url(#sec-grad-${section.id})`,
-            }}
-          />
-          <svg width="0" height="0" className="absolute">
-            <defs>
-              <linearGradient id={`sec-grad-${section.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={gradientStart(section.id)} />
-                <stop offset="100%" stopColor={gradientEnd(section.id)} />
-              </linearGradient>
-            </defs>
-          </svg>
+        <div className={`${bg} p-3 rounded-2xl group-hover:scale-110 transition-transform flex-shrink-0`}>
+          <Icon className={`w-5 h-5 ${iconColor}`} />
         </div>
 
         {/* Text */}
@@ -98,7 +94,7 @@ export default function SectionCard({ section, disabled = false }: { section: Se
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-4 mt-5 pt-4 border-t border-slate-100">
+      <div className="flex items-center gap-4 mt-[20px] pt-4">
         {section.duration && (
           <div className="flex items-center gap-1.5 text-slate-500 text-sm">
             <Clock className="w-4 h-4" />
@@ -110,34 +106,21 @@ export default function SectionCard({ section, disabled = false }: { section: Se
           <span>{setCount} {setCount === 1 ? 'set' : 'sets'}</span>
         </div>
         <div className="ml-auto">
-          <div className={`bg-gradient-to-br ${gradient} p-2 rounded-full`}>
-            <ArrowRight className="w-5 h-5 text-white group-hover:translate-x-0.5 transition-transform" />
-          </div>
+             <div className="bg-[#E2E8FF] rounded-full size-[36px] flex items-center justify-center">
+              <ArrowRight className='w-5 h-5 text-[#7372DF]'/> 
+            </div>
         </div>
       </div>
     </div>
   );
 
+  if (onOpen) {
+    return (
+      <button type="button" onClick={() => onOpen(section)} className="block w-full text-left">
+        {inner}
+      </button>
+    );
+  }
   if (disabled) return inner;
   return <Link href={`/tests/${section.id}`}>{inner}</Link>;
-}
-
-function gradientStart(id: string): string {
-  const map: Record<string, string> = {
-    'focus-form': '#3b82f6',
-    'focus-meaning': '#10b981',
-    'form-meaning': '#a855f7',
-    'listening': '#f97316',
-  };
-  return map[id] ?? '#64748b';
-}
-
-function gradientEnd(id: string): string {
-  const map: Record<string, string> = {
-    'focus-form': '#06b6d4',
-    'focus-meaning': '#14b8a6',
-    'form-meaning': '#ec4899',
-    'listening': '#f59e0b',
-  };
-  return map[id] ?? '#94a3b8';
 }

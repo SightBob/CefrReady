@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -15,7 +16,11 @@ import {
   ChevronDown,
   List,
   Grid3X3,
-  AlertTriangle
+  AlertTriangle,
+  PenTool,
+  LogOut,
+  RotateCcw,
+  ArrowRight
 } from 'lucide-react';
 import ReportModal from '@/components/ReportModal';
 import TestTimer from '@/components/TestTimer';
@@ -25,6 +30,12 @@ interface Section {
   name: string;
   startQuestion: number;
   endQuestion: number;
+}
+
+interface AvailableSet {
+  id: number;
+  name: string;
+  description?: string | null;
 }
 
 interface TestLayoutProps {
@@ -42,9 +53,20 @@ interface TestLayoutProps {
   children: React.ReactNode;
   isSubmitted?: boolean;
   currentQuestionId?: number;
+  availableSets?: AvailableSet[];
+  currentSetId?: number;
+  onSetSelect?: (setId: number) => void;
+  sectionIcon?: React.ElementType;
+  sectionColor?: string;
+  sectionLabel?: string;
+  onResetAnswer?: (index: number) => void;
+  onExit?: () => void;
+  showQuestionNav?: boolean;
+  timerSeconds?: number;
+  sequentialNav?: boolean;
 }
 
-const QUESTIONS_PER_PAGE = 24;
+const QUESTIONS_PER_PAGE = 20;
 const DEFAULT_DURATION_MINUTES = 20;
 
 export default function TestLayout({
@@ -62,6 +84,16 @@ export default function TestLayout({
   children,
   isSubmitted = false,
   currentQuestionId,
+  availableSets,
+  currentSetId,
+  onSetSelect,
+  sectionIcon: SectionIcon = PenTool,
+  sectionColor = 'from-blue-500 to-cyan-500',
+  sectionLabel = 'Conversation',
+  onExit,
+  showQuestionNav = true,
+  timerSeconds,
+  sequentialNav = false,
 }: TestLayoutProps) {
   const router = useRouter();
   const [showNavPanel, setShowNavPanel] = useState(true);
@@ -72,12 +104,34 @@ export default function TestLayout({
   const [currentPage, setCurrentPage] = useState(0);
   const [jumpToQuestion, setJumpToQuestion] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isSetMenuOpen, setIsSetMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'unanswered'>('all');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Close sets modal on Escape + lock body scroll while open
+  useEffect(() => {
+    if (!isSetMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsSetMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [isSetMenuOpen]);
 
   const effectiveMinutes = durationMinutes && durationMinutes > 0 ? durationMinutes : DEFAULT_DURATION_MINUTES;
   const EXAM_DURATION = effectiveMinutes * 60;
-  const durationLabel = `${effectiveMinutes} min`;
+  const durationLabel = `${effectiveMinutes} นาที`;
+  const currentSetIndex = availableSets?.findIndex(s => s.id === currentSetId) ?? -1;
+  const currentSetLabel = `set - ${currentSetIndex >= 0 ? currentSetIndex + 1 : 1}`;
 
   const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
 
@@ -111,6 +165,11 @@ export default function TestLayout({
   // Get current page based on current question
   const questionPage = Math.floor(currentQuestion / QUESTIONS_PER_PAGE);
 
+  // Keep nav panel pagination in sync with the current question
+  useEffect(() => {
+    setCurrentPage(questionPage);
+  }, [questionPage]);
+
   const getQuestionStatus = (index: number) => {
     if (isSubmitted) return 'answered';
     if (answers[index] !== null) return 'answered';
@@ -129,9 +188,9 @@ export default function TestLayout({
 
     switch (status) {
       case 'answered':
-        return baseClass + 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200';
+        return baseClass + 'bg-[#6D89EF] text-white hover:bg-[#5A75E0]';
       default:
-        return baseClass + 'bg-slate-100 text-slate-600 hover:bg-slate-200';
+        return baseClass + 'bg-[#EDEDED] text-slate-600 hover:bg-slate-200';
     }
   };
 
@@ -146,15 +205,15 @@ export default function TestLayout({
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Select first question of new page
+    // Select first question of new page (sequential exams are view-only)
     const firstQuestion = page * QUESTIONS_PER_PAGE;
-    if (firstQuestion < totalQuestions) {
+    if (!sequentialNav && firstQuestion < totalQuestions) {
       onQuestionSelect(firstQuestion);
     }
   };
 
   return (
-    <div className="flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="flex flex-col bg-white min-h-svh relative">
       {/* Top Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
         <div
@@ -163,74 +222,44 @@ export default function TestLayout({
         />
       </div>
 
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 shrink-0 z-40 pt-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowExitConfirm(true)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                aria-label="ออกจากข้อสอบ"
-              >
-                <ArrowLeft className="w-5 h-5 text-slate-600" />
-              </button>
+            {/* Header */}
+      <div className="bg-white border-b border-slate-200 shadow-[0_1px_6.4px_0_rgba(221,221,221,0.25)] shrink-0 z-40 pt-1 sticky top-0">
+        <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-3 md:py-0 md:h-[6.6875rem] h-[90px]">
+            <div className="flex items-center gap-2 md:gap-4">
+
+              <div className={`bg-gradient-to-br ${sectionColor} w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0`}>
+                <SectionIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+              </div>
+
               <div>
-                <h1 className="font-bold text-slate-900">{title}</h1>
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <Clock className="w-4 h-4" />
+                <h1 className="font-bold text-base sm:text-[1.375rem] text-[#5A6387] line-clamp-1">{title}</h1>
+                <div className="flex items-center gap-2 text-xs sm:text-[1rem] text-[#5A6387] font-medium">
+                  <span>set 1 - {totalQuestions} ข้อ</span>
+                  <span>|</span>
                   <span>{durationLabel}</span>
-                  <span className="mx-1">•</span>
-                  <span>{totalQuestions} questions</span>
                 </div>
               </div>
             </div>
 
-            {/* Desktop Stats */}
-            <div className="hidden md:flex items-center gap-4">
-              {/* Timer */}
-              <TestTimer initialSeconds={EXAM_DURATION} isSubmitted={isSubmitted} onTimeUp={onTimeUp} />
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
-                <span className="text-sm text-slate-600">{answeredCount}/{totalQuestions}</span>
-              </div>
-              {currentQuestion < totalQuestions - 1 ? (
-                <button
-                  onClick={onNext}
-                  className="btn-primary text-sm py-2 px-4 flex items-center gap-1"
-                >
-                  ข้อต่อไป <ChevronRight className="w-4 h-4" />
-                </button>
-              ) : (
-                <button
-                  onClick={onSubmit}
-                  disabled={unansweredCount > 0}
-                  className="btn-primary text-sm py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {unansweredCount > 0
-                    ? `ส่งข้อสอบ (เหลือ ${unansweredCount})`
-                    : 'ส่งข้อสอบ'}
-                </button>
-              )}
-            </div>
+            <button
+              onClick={() => setShowExitConfirm(true)}
+              className="text-[#616161] text-sm sm:text-[1.125rem] rounded-lg font-semibold flex items-center shrink-0"
+              aria-label="จบการสอบ"
+            >
+              <span className="hidden sm:inline">จบการสอบ</span>
+              <LogOut className="w-5 h-5 text-slate-600 sm:ms-2" />
+            </button>
 
-            {/* Mobile: timer + toggle */}
-            <div className="flex items-center gap-2 md:hidden">
-              <div className="scale-90 origin-left">
-                <TestTimer initialSeconds={EXAM_DURATION} isSubmitted={isSubmitted} onTimeUp={onTimeUp} />
-              </div>
-              <button onClick={() => setShowMobileNav(!showMobileNav)} aria-label="����">
-                {showMobileNav ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Mobile Dot Map - sticky below header */}
-      <div className="md:hidden sticky top-[57px] z-30 bg-white border-b border-slate-200 shadow-sm">
+      {showQuestionNav && (
+      <div className="md:hidden sticky top-[95px] z-30 bg-white border-b border-slate-200 shadow-sm">
         <div className="overflow-x-auto dot-map-scroll" style={{ scrollbarWidth: 'none' }}>
-          <div className="flex items-center gap-1.5 px-3 py-2 min-w-max">
+          <div className="flex items-center gap-2 px-3 py-4 min-w-max">
             {Array.from({ length: totalQuestions }, (_, i) => {
               const status = getQuestionStatus(i);
               const isActive = i === currentQuestion;
@@ -250,7 +279,8 @@ export default function TestLayout({
                 <button
                   key={i}
                   onClick={() => onQuestionSelect(i)}
-                  className={dotClass}
+                  disabled={sequentialNav}
+                  className={`${dotClass}${sequentialNav ? ' cursor-default' : ''}`}
                   aria-label={`ข้อ ${i + 1}: ${status === 'answered' ? 'ตอบแล้ว' : 'ยังไม่ได้ตอบ'}`}
                 >
                   {i + 1}
@@ -260,6 +290,7 @@ export default function TestLayout({
           </div>
         </div>
       </div>
+      )}
 
       {/* Mobile Navigation Panel */}
       {showMobileNav && (
@@ -349,159 +380,137 @@ export default function TestLayout({
         </div>
       )}
 
-      <div className="max-w-[80%] w-[1250px] max-[1080px]:max-w-[100%] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 pb-24 md:pb-6">
-        <div className="flex gap-6">
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 w-full mt-[30px] pb-44">
+
+        <div className="w-full flex items-center justify-between">
+          
+            <div className="w-72 bg-[#F9F9F9] py-1 flex items-center space-x-3 rounded-full ps-4">
+              <SectionIcon className='size-[1rem]' />
+              <p className='text-[0.9375rem] font-medium'>{sectionLabel}</p>
+            </div>
+
+            {/* Desktop Stats */}
+            <div className="hidden md:flex items-center gap-4">
+              {/* Timer */}
+              <TestTimer initialSeconds={timerSeconds ?? EXAM_DURATION} isSubmitted={isSubmitted} onTimeUp={onTimeUp} />
+
+               {!isSubmitted && (
+                    <>
+                      {currentQuestionId && (
+                        <button className='flex items-center space-x-1 text-[#917B21] text-[0.8125rem] bg-[#FFF2BE] py-1.5 px-3 rounded-full font-medium' onClick={() => setShowReportModal(true)} aria-label="��§ҹ��ͼԴ��Ҵ">
+                          {reportedQuestions.has(currentQuestionId)
+                            ? <><CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งข้อสอบผิดแล้ว</span></>
+                            : <><AlertTriangle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งข้อสอบผิด</span></>}
+                        </button>
+                      )}
+                    </>
+                  )}
+            </div>
+        </div>
+
+        <div className="flex gap-6 mt-[1.1875rem] ">
           {/* Desktop Navigation Panel */}
-          {showNavPanel && (
-            <div className="hidden md:block w-72 shrink-0">
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden" data-tour="test-nav-panel">
-                {/* Header */}
-                <div className="p-4 border-b border-slate-100 bg-slate-50">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="font-semibold text-slate-900">Questions</h2>
-                    <button onClick={() => setShowNavPanel(false)} aria-label="�Դἧ��ùӷҧ">
-                      <X className="w-4 h-4 text-slate-500" />
-                    </button>
-                  </div>
+          {showNavPanel && showQuestionNav && (
+            <div className="hidden md:block w-72 shrink-0 ">
+              <div className=" rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden p-[1.1875rem] bg-slate-50">
 
-                  {/* Progress Ring */}
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-12 h-12">
-                      <svg className="w-12 h-12 transform -rotate-90">
-                        <circle
-                          cx="24"
-                          cy="24"
-                          r="20"
-                          stroke="#e2e8f0"
-                          strokeWidth="4"
-                          fill="none"
-                        />
-                        <circle
-                          cx="24"
-                          cy="24"
-                          r="20"
-                          stroke="#10b981"
-                          strokeWidth="4"
-                          fill="none"
-                          strokeDasharray={`${(answeredCount / totalQuestions) * 125.6} 125.6`}
-                          className="transition-all duration-500"
-                        />
-                      </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700">
-                        {Math.round((answeredCount / totalQuestions) * 100)}%
-                      </span>
-                    </div>
-                    <div className="text-sm">
-                      <p className="text-slate-900 font-medium">{answeredCount} answered</p>
-                      <p className="text-slate-500">{unansweredCount} remaining</p>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Quick Jump */}
-                <div className="p-3 border-b border-slate-100">
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                      <input
-                        type="number"
-                        min={1}
-                        max={totalQuestions}
-                        value={jumpToQuestion}
-                        onChange={(e) => setJumpToQuestion(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleJumpToQuestion()}
-                        placeholder="Jump to question..."
-                        className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-primary-500 focus:outline-none"
-                      />
-                    </div>
-                    <button
-                      onClick={handleJumpToQuestion}
-                      className="px-3 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => availableSets?.length ? setIsSetMenuOpen(v => !v) : undefined}
+                    className="w-full bg-[linear-gradient(78deg,#3B82F6_0%,#06B6D4_100%)] min-h-[2.75rem] rounded-xl px-4 flex items-center justify-between text-white font-semibold disabled:opacity-70"
+                    aria-expanded={isSetMenuOpen}
+                    disabled={!availableSets?.length}
+                  >
+                    <span className="truncate">{currentSetLabel}</span>
+                    {availableSets?.length ? (
+                      <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${isSetMenuOpen ? 'rotate-180' : ''}`} />
+                    ) : null}
+                  </button>
+
+                  {/* Sets modal */}
+                  {isSetMenuOpen && mounted && createPortal(
+                    <div
+                      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in"
+                      onClick={() => setIsSetMenuOpen(false)}
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label="เลือกชุดข้อสอบ"
                     >
-                      Go
-                    </button>
-                  </div>
-                </div>
-
-                {/* Section Tabs */}
-                {sections && (
-                  <div className="p-3 border-b border-slate-100">
-                    <div className="flex flex-wrap gap-1">
-                      <button
-                        onClick={() => { setActiveSection(null); setCurrentPage(0); }}
-                        className={`px-2 py-1 rounded text-xs font-medium ${!activeSection ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      <div
+                        className="bg-white rounded-2xl shadow-xl w-full max-w-[1330px] max-h-[85vh] flex flex-col animate-slide-up"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        All
-                      </button>
-                      {sections.map(section => {
-                        const sectionAnswered = answers.filter((a, i) =>
-                          a !== null && i >= section.startQuestion - 1 && i <= section.endQuestion - 1
-                        ).length;
-                        const sectionTotal = section.endQuestion - section.startQuestion + 1;
-
-                        return (
+                        <div className="flex items-center gap-4 p-6 border-b border-slate-100">
+                          <div className={`bg-gradient-to-br ${sectionColor} p-3 rounded-2xl shrink-0`}>
+                            <SectionIcon className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h2 className="text-[1.125rem] font-semibold text-[#525252]">ชุดข้อสอบ</h2>
+                            <p className="text-sm font-medium mt-0.5 text-[#525252]">{title}</p>
+                          </div>
                           <button
-                            key={section.id}
-                            onClick={() => { setActiveSection(section.id); setCurrentPage(0); }}
-                            className={`px-2 py-1 rounded text-xs font-medium ${activeSection === section.id ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            onClick={() => setIsSetMenuOpen(false)}
+                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                            aria-label="ปิด"
                           >
-                            {section.name} ({sectionAnswered}/{sectionTotal})
+                            <X className="w-5 h-5" />
                           </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Filter Tabs */}
-                <div className="p-3 border-b border-slate-100">
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => { setFilterMode('all'); setCurrentPage(0); }}
-                      className={`flex-1 px-2 py-1.5 rounded text-xs font-medium ${filterMode === 'all' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => { setFilterMode('unanswered'); setCurrentPage(0); }}
-                      className={`flex-1 px-2 py-1.5 rounded text-xs font-medium ${filterMode === 'unanswered' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                    >
-                      <Circle className="w-3 h-3 inline mr-1" />
-                      {unansweredCount}
-                    </button>
-                  </div>
-                </div>
-
-                {/* View Toggle */}
-                <div className="p-3 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setViewMode('grid')}
-                      className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-slate-200' : 'hover:bg-slate-100'}`}
-                    >
-                      <Grid3X3 className="w-4 h-4 text-slate-600" />
-                    </button>
-                    <button
-                      onClick={() => setViewMode('list')}
-                      className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-slate-200' : 'hover:bg-slate-100'}`}
-                    >
-                      <List className="w-4 h-4 text-slate-600" />
-                    </button>
-                  </div>
-                  <span className="text-xs text-slate-500">
-                    Page {currentPage + 1}/{totalPages}
-                  </span>
+                        </div>
+                        <div className="overflow-y-auto p-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {availableSets!.map((s, i) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                data-current={s.id === currentSetId || undefined}
+                                onClick={() => {
+                                  setIsSetMenuOpen(false);
+                                  if (s.id !== currentSetId) onSetSelect?.(s.id);
+                                }}
+                                className={`group block w-full bg-white rounded-2xl border p-5 text-left ${
+                                  s.id === currentSetId
+                                    ? 'border-[#3B82F6]'
+                                    : 'border-[#BFDFEB]'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-4">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h3 className="font-bold text-slate-800 text-[1rem] leading-snug">ข้อสอบ - {i + 1}</h3>
+                                      {s.id === currentSetId && (
+                                        <span className="text-xs font-semibold text-[#3B82F6] shrink-0">ชุดปัจจุบัน</span>
+                                      )}
+                                    </div>
+                                    {s.description && (
+                                      <p className="text-sm text-slate-500 line-clamp-1 mt-3">{s.description}</p>
+                                    )}
+                                  </div>
+                                  <div className="p-2 rounded-full flex items-center justify-center bg-[#E2E8FF]">
+                                    <ArrowRight className="w-5 h-5 text-[#7372DF] shrink-0" />
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>,
+                    document.body
+                  )}
                 </div>
 
                 {/* Question Grid/List */}
-                <div className="p-3 max-h-64 overflow-y-auto">
+                <div className="px-3 max-h-76 overflow-y-auto py-[1.1875rem]">
                   {viewMode === 'grid' ? (
-                    <div className="grid grid-cols-6 gap-1">
+                    <div className="grid grid-cols-4 gap-5">
                       {pageQuestions.map(i => (
                         <button
                           key={i}
                           onClick={() => onQuestionSelect(i)}
-                          className={getQuestionButtonClass(i)}
+                          disabled={sequentialNav}
+                          className={`${getQuestionButtonClass(i)}${sequentialNav ? ' cursor-default' : ''}`}
                         >
                           {i + 1}
                         </button>
@@ -515,8 +524,9 @@ export default function TestLayout({
                           <button
                             key={i}
                             onClick={() => onQuestionSelect(i)}
+                            disabled={sequentialNav}
                             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm ${i === currentQuestion ? 'bg-primary-50 ring-1 ring-primary-500' : 'hover:bg-slate-50'
-                              }`}
+                              }${sequentialNav ? ' cursor-default' : ''}`}
                           >
                             <span className="w-6 text-slate-500 font-medium">{i + 1}</span>
                             {status === 'answered' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
@@ -532,7 +542,7 @@ export default function TestLayout({
                 </div>
 
                 {/* Pagination */}
-                <div className="p-3 border-t border-slate-100 flex items-center justify-center gap-1">
+                <div className="p-3 border-t border-slate-100 flex items-center justify-between gap-1">
                   <button
                     onClick={() => handlePageChange(Math.max(0, currentPage - 1))}
                     disabled={currentPage === 0}
@@ -541,7 +551,8 @@ export default function TestLayout({
                     <ChevronLeft className="w-4 h-4" />
                   </button>
 
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
                     if (totalPages <= 5) {
                       pageNum = i;
@@ -557,8 +568,8 @@ export default function TestLayout({
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}
-                        className={`w-7 h-7 rounded text-xs font-medium ${currentPage === pageNum
-                          ? 'bg-primary-600 text-white'
+                        className={`size-[1.75rem] rounded-full text-[0.75rem] font-medium ${currentPage === pageNum
+                          ? 'bg-[#4A4A4A] text-white'
                           : 'hover:bg-slate-100 text-slate-600'
                           }`}
                       >
@@ -566,6 +577,7 @@ export default function TestLayout({
                       </button>
                     );
                   })}
+                  </div>
 
                   <button
                     onClick={() => handlePageChange(Math.min(totalPages - 1, currentPage + 1))}
@@ -577,16 +589,8 @@ export default function TestLayout({
                 </div>
 
                 {/* Submit / Next Button */}
-                {!isSubmitted && (
+                {/* {!isSubmitted && (
                   <div className="p-3 border-t border-slate-100">
-                    {unansweredCount > 0 && (
-                      <div className="flex items-center gap-2 p-2 bg-amber-50 rounded-lg mb-3">
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        <span className="text-xs text-amber-700">
-                          {unansweredCount} questions unanswered
-                        </span>
-                      </div>
-                    )}
                     {currentQuestion < totalQuestions - 1 ? (
                       <button
                         onClick={onNext}
@@ -598,7 +602,6 @@ export default function TestLayout({
                       <button
                         onClick={onSubmit}
                         disabled={unansweredCount > 0}
-                        data-tour="test-submit-btn"
                         className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed py-3"
                       >
                         {unansweredCount > 0
@@ -607,13 +610,13 @@ export default function TestLayout({
                       </button>
                     )}
                   </div>
-                )}
+                )} */}
               </div>
             </div>
           )}
 
           {/* Toggle Nav Button */}
-          {!showNavPanel && (
+          {!showNavPanel && showQuestionNav && (
             <button onClick={() => setShowNavPanel(true)} aria-label="�Դἧ��ùӷҧ">
               <ChevronRight className="w-5 h-5 text-slate-600" />
             </button>
@@ -621,99 +624,17 @@ export default function TestLayout({
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
-            {/* Question Info Bar */}
-            <div className="bg-white rounded-xl px-3 py-3 md:p-4 mb-4 md:mb-6 shadow-sm border border-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 md:gap-4">
-                  <span className="text-lg md:text-2xl font-bold text-primary-600">
-                    Q{currentQuestion + 1}
-                  </span>
-                  <div className="text-xs md:text-sm text-slate-500">
-                    / {totalQuestions}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 md:gap-3">
-                  {!isSubmitted && (
-                    <>
-                      {currentQuestionId && (
-                        <button onClick={() => setShowReportModal(true)} aria-label="��§ҹ��ͼԴ��Ҵ">
-                          {reportedQuestions.has(currentQuestionId)
-                            ? <><CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งแล้ว</span></>
-                            : <><AlertTriangle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งปัญหา</span></>}
-                        </button>
-                      )}
-                    </>
-                  )}
-
-                  <div className="flex items-center gap-0.5 md:gap-1">
-                    <button
-                      onClick={onPrevious}
-                      disabled={currentQuestion === 0}
-                      className="p-1.5 md:p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30"
-                    >
-                      <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
-                    </button>
-                    <button
-                      onClick={onNext}
-                      disabled={currentQuestion === totalQuestions - 1}
-                      className="p-1.5 md:p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30"
-                    >
-                      <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            
 
             {/* Question Content */}
-            <div className="mb-6" data-tour="test-question-text">
+            <div className="mb-6">
               {children}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Bottom Bar */}
-      {!isSubmitted && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3 flex items-center gap-3">
-          {/* Prev */}
-          <button
-            onClick={onPrevious}
-            disabled={currentQuestion === 0}
-            className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 shrink-0"
-          >
-            <ChevronLeft className="w-5 h-5 text-slate-600" />
-          </button>
-
-          {/* Progress summary */}
-          <div className="flex items-center gap-1.5 text-sm text-slate-600">
-            <CheckCircle className="w-4 h-4 text-emerald-500" />
-            <span className="font-medium">{answeredCount}/{totalQuestions}</span>
-            {unansweredCount > 0 && (
-              <span className="text-xs text-amber-600 ml-1">เหลือ {unansweredCount} ข้อ</span>
-            )}
-          </div>
-
-          {/* Next or Submit */}
-          {unansweredCount > 0 ? (
-            <button
-              onClick={onNext}
-              disabled={currentQuestion === totalQuestions - 1}
-              className="ml-auto btn-primary text-sm py-2.5 px-5 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              ข้อต่อไป <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={onSubmit}
-              className="ml-auto btn-primary text-sm py-2.5 px-5 shrink-0"
-            >
-              ส่งข้อสอบ
-            </button>
-          )}
-        </div>
-      )}
+      {/* Old Mobile Bottom Bar — replaced by universal bottom bar below */}
 
       {/* Report Modal */}
       {showReportModal && currentQuestionId && (
@@ -753,7 +674,7 @@ export default function TestLayout({
                 ทำต่อ
               </button>
               <button
-                onClick={() => { router.push('/tests'); }}
+                onClick={() => { if (onExit) onExit(); else router.push('/tests'); }}
                 className="flex-1 py-2.5 px-4 rounded-xl bg-red-500 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
               >
                 ออกจากข้อสอบ
@@ -762,6 +683,81 @@ export default function TestLayout({
           </div>
         </div>
       )}
+
+     {/* Universal Bottom Bar */}
+<div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)]">
+  <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-3 md:py-0 md:min-h-[8rem] flex flex-col md:flex-row items-center justify-between gap-3 w-full">
+    {/* Progress Ring */}
+    <div className="w-full md:w-auto p-2 md:p-0 rounded-xl">
+      <div className="flex items-center gap-3">
+        <div className="relative w-12 h-12 scale-90 md:scale-100 origin-center shrink-0">
+          <svg className="w-12 h-12 transform -rotate-90">
+            <circle cx="24" cy="24" r="20" stroke="#e2e8f0" strokeWidth="4" fill="none" />
+            <circle
+              cx="24"
+              cy="24"
+              r="20"
+              stroke="#10b981"
+              strokeWidth="4"
+              fill="none"
+              strokeDasharray={`${totalQuestions > 0 ? (answeredCount / totalQuestions) * 125.6 : 0} 125.6`}
+              className="transition-all duration-500"
+            />
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700">
+            {totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0}%
+          </span>
+        </div>
+        <div className="text-sm hidden sm:block">
+          <p className="text-slate-900 font-medium">{answeredCount} answered</p>
+          <p className="text-slate-500">{unansweredCount} remaining</p>
+        </div>
+        <p className="text-sm font-medium text-slate-900 sm:hidden">
+          {answeredCount}/{totalQuestions}
+        </p>
+      </div>
+    </div>
+
+    {/* Next / Submit / Retry */}
+    {!isSubmitted && (
+      (() => { const isLastQuestion = currentQuestion >= totalQuestions - 1;
+               const isAnswered = answers[currentQuestion] != null && answers[currentQuestion] !== ''; return (
+      <div className="w-full flex items-center gap-2 md:gap-3 md:w-auto justify-center">
+        {currentQuestion < totalQuestions - 1 ? (
+          <button
+            onClick={onNext}
+            className={`flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] rounded-full flex items-center space-x-1 justify-center text-white transition-colors ${
+              isAnswered ? 'bg-[#6D89EF] hover:bg-[#5A75E0]' : 'bg-[#BABABA] hover:bg-[#a5a5a5]'
+            }`}
+          >
+            <span className='text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap'>ข้อถัดไป</span>
+            <ArrowRight className='size-[1.125rem] shrink-0' />
+          </button>
+        ) : (
+          <button
+            onClick={onSubmit}
+            className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors"
+          >
+            <span className='text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap'>ส่งข้อสอบ</span>
+            <CheckCircle className='size-[1.125rem] shrink-0' />
+          </button>
+        )}
+      </div>
+      ); })()
+    )}
+
+    {/* After submit: next set */}
+    {isSubmitted && currentSetIndex >= 0 && availableSets && currentSetIndex < availableSets.length - 1 && onSetSelect && (
+      <button
+        onClick={() => onSetSelect(availableSets[currentSetIndex + 1].id)}
+        className="w-full md:max-w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors"
+      >
+        <span className='text-base md:text-[1.125rem] text-center font-bold'>ทำชุด {currentSetIndex + 2}</span>
+        <ArrowRight className='size-[1.125rem]' />
+      </button>
+    )}
+  </div>
+</div>
     </div>
   );
 }

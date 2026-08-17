@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Prompt, Pridi, IBM_Plex_Sans_Thai } from 'next/font/google';
 import './globals.css';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import ChromeShell from '@/components/ChromeShell';
 import { SessionProvider } from 'next-auth/react';
 import Script from 'next/script';
 import { Suspense } from 'react';
@@ -27,7 +26,7 @@ const pridi = Pridi({
 });
 
 const ibmPlexSansThai = IBM_Plex_Sans_Thai({
-  weight: ['700'],
+  weight: ['300', '400', '500', '600', '700'],
   subsets: ['latin', 'thai'],
   variable: '--font-ibm',
   display: 'swap',
@@ -140,29 +139,24 @@ export default async function RootLayout({
             <Suspense fallback={null}>
               <PHCapture />
             </Suspense>
-            <div className="min-h-screen flex flex-col font-sans">
-              <Suspense fallback={<div className="h-16 bg-white border-b border-slate-100" aria-hidden="true" />}>
-                <Header />
-              </Suspense>
-              <main className="flex-1 pt-16">
-                <Suspense fallback={
-                  <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="space-y-4">
-                      <div className="h-5 w-32 bg-slate-100 rounded animate-pulse" />
-                      <div className="h-8 w-64 bg-slate-200 rounded-lg animate-pulse" />
-                      <div className="space-y-3 mt-6">
-                        {[0, 1, 2, 3].map((i) => (
-                          <div key={i} className="h-20 bg-white border border-slate-100 rounded-2xl animate-pulse" />
-                        ))}
-                      </div>
+            <ChromeShell
+              headerFallback={<div className="h-16 bg-white border-b border-slate-100" aria-hidden="true" />}
+              mainFallback={
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                  <div className="space-y-4">
+                    <div className="h-5 w-32 bg-slate-100 rounded animate-pulse" />
+                    <div className="h-8 w-64 bg-slate-200 rounded-lg animate-pulse" />
+                    <div className="space-y-3 mt-6">
+                      {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="h-20 bg-white border border-slate-100 rounded-2xl animate-pulse" />
+                      ))}
                     </div>
                   </div>
-                }>
-                  {children}
-                </Suspense>
-              </main>
-              <Footer />
-            </div>
+                </div>
+              }
+            >
+              {children}
+            </ChromeShell>
           </PostHogProvider>
         </SessionProvider>
         <Analytics />

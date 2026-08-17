@@ -7,7 +7,7 @@ export default function Loading() {
         <div className="top-loading-bar top-loading-bar--indeterminate" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <div className="h-10 bg-slate-200 rounded-xl w-64 mb-3 animate-pulse" />
           <div className="h-4 bg-slate-100 rounded w-48 animate-pulse" />

@@ -35,9 +35,9 @@ export default function TestTimer({ initialSeconds, isSubmitted, onTimeUp }: Tes
   const seconds = (timeLeft % 60).toString().padStart(2, '0');
 
   return (
-    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-mono font-bold transition-colors ${isWarning ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-slate-100 text-slate-700'}`}>
+    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[0.9375rem] font-medium bg-[#E9FFE9] text-[#288264] ${isWarning ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-slate-100 text-slate-700'}`}>
       <Clock className="w-4 h-4" />
-      {minutes}:{seconds}
+      {minutes}:{seconds} นาที
     </div>
   );
 }

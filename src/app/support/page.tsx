@@ -12,7 +12,7 @@ export const metadata = {
 export default function SupportPage() {
   return (
     <main className="min-h-[calc(100dvh-4rem)] bg-[#FAFAFA]">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-[#111] transition-colors mb-8"

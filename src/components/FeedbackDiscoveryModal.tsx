@@ -3,14 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { MessageSquareText, Star, X } from 'lucide-react';
-import {
-  HOME_TOUR_COMPLETED_KEY,
-  HOME_TOUR_FINISHED_EVENT,
-  shouldShowFeedbackDiscovery,
-} from '@/lib/feedback-discovery';
+import { shouldShowFeedbackDiscovery } from '@/lib/feedback-discovery';
 
 const OPEN_DELAY_MS = 500;
-const HOME_TOUR_STARTED_EVENT = 'cefrready-start-tour';
 const SESSION_SHOWN_KEY = 'cefrready-survey-shown-this-session';
 
 function markSessionShown() {
@@ -132,26 +127,14 @@ export default function FeedbackDiscoveryModal() {
       }, OPEN_DELAY_MS);
     };
 
-    const readState = () => {
-      try {
-        return {
-          tourCompleted: localStorage.getItem(HOME_TOUR_COMPLETED_KEY) === 'true',
-        };
-      } catch {
-        shownThisMount.current = true;
-        return { tourCompleted: false };
-      }
-    };
-
     const checkAndSchedule = async () => {
-      if (!readState().tourCompleted || shownThisMount.current || cancelled || hasSessionShown()) return;
+      if (shownThisMount.current || cancelled || hasSessionShown()) return;
       try {
         const response = await fetch('/api/contacts?scope=survey');
         if (cancelled || shownThisMount.current || !response.ok) return;
         const data = (await response.json()) as { eligible?: boolean; submitted?: boolean };
         if (shouldShowFeedbackDiscovery({
           authenticated: true,
-          tourCompleted: true,
           eligible: data.eligible === true,
           submitted: data.submitted === true,
         })) {
@@ -164,24 +147,9 @@ export default function FeedbackDiscoveryModal() {
 
     void checkAndSchedule();
 
-    const handleTourStarted = () => {
-      window.clearTimeout(openTimer);
-      setOpen(false);
-    };
-
-    const handleTourFinished = () => {
-      if (shownThisMount.current) return;
-      void checkAndSchedule();
-    };
-
-    window.addEventListener(HOME_TOUR_STARTED_EVENT, handleTourStarted);
-    window.addEventListener(HOME_TOUR_FINISHED_EVENT, handleTourFinished);
-
     return () => {
       cancelled = true;
       window.clearTimeout(openTimer);
-      window.removeEventListener(HOME_TOUR_STARTED_EVENT, handleTourStarted);
-      window.removeEventListener(HOME_TOUR_FINISHED_EVENT, handleTourFinished);
     };
   }, [status, close]);
 

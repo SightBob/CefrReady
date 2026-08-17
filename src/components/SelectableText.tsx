@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2, Volume2, BookOpen, Languages } from 'lucide-react';
 
 interface DictMeaning {
@@ -204,7 +205,7 @@ export default function SelectableText({
       `}</style>
 
       <Container ref={containerRef} className={`selectable-text relative ${className}`}>
-        <TextWrapper className={inline ? '' : 'leading-relaxed'}>
+        <TextWrapper className={inline ? '' : 'leading-relaxed '}>
           {tokens.map((token, i) => {
             const isWord = /[a-zA-Z]/.test(token);
             if (!isWord) return <span key={i}>{token}</span>;
@@ -212,7 +213,7 @@ export default function SelectableText({
               <span
                 key={i}
                 onClick={(e) => handleWordClick(token, e)}
-                className="cursor-pointer rounded px-0.5 transition-colors duration-150 hover:bg-amber-100 hover:text-amber-900 active:bg-amber-200"
+                className="cursor-pointer rounded pe-1 transition-colors duration-150 hover:bg-amber-100 hover:text-amber-900 active:bg-amber-200"
                 title="คลิกเพื่อดูคำแปล | ลากเลือกวลี"
               >
                 {token}
@@ -222,7 +223,7 @@ export default function SelectableText({
         </TextWrapper>
 
         {/* Selection translate badge */}
-        {selectionState && badgePos && (
+        {selectionState && badgePos && createPortal(
           <button
             type="button"
             onClick={handleTranslateSelection}
@@ -236,11 +237,12 @@ export default function SelectableText({
           >
             <Languages className="w-3.5 h-3.5" />
             แปล
-          </button>
+          </button>,
+          document.body
         )}
 
         {/* Dictionary popup */}
-        {popup && popupPos && (
+        {popup && popupPos && createPortal(
           <div
             ref={popupRef}
             style={{
@@ -330,7 +332,8 @@ export default function SelectableText({
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </Container>
     </>

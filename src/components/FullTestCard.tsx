@@ -1,32 +1,31 @@
 'use client';
 
 import Link from 'next/link';
-import { Trophy, Clock, ListChecks, Lock } from 'lucide-react';
+import { Clock, ListChecks, Lock } from 'lucide-react';
 
 export default function FullTestCard({ disabled }: { disabled?: boolean } = {}) {
   if (disabled) {
     return (
-      <div className="group block w-full bg-gradient-to-r from-primary-600 to-accent-600 rounded-2xl p-6 text-white shadow-lg mb-8 opacity-60 cursor-not-allowed select-none relative">
-        <div className="flex items-start justify-between">
+      <div className="group block w-full bg-white rounded-2xl px-5 sm:px-6 py-5 sm:py-6 mt-6 mb-2 select-none">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Trophy className="w-5 h-5" />
-              <span className="text-sm font-medium bg-white/20 px-2 py-0.5 rounded-full">Full Mock Exam</span>
+            <h2 className="text-[17px] sm:text-[1.1875rem] text-[#454578] font-bold mb-2.5 sm:mb-2 leading-snug">
+              จำลองการสอบจริง - เต็มรูปแบบ
+            </h2>
+
+            <div className="flex gap-2 text-sm text-[#6160A8]">
+              <div className="flex items-center gap-1.5 bg-[#F1F1FA] sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-full sm:rounded-none">
+                <Clock className="w-4 h-4" /> 60 นาที
+              </div>
+              <div className="flex items-center gap-1.5 bg-[#F1F1FA] sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-full sm:rounded-none">
+                <ListChecks className="w-4 h-4" /> 45 ข้อ
+              </div>
             </div>
-            <h2 className="text-2xl font-bold mb-2">สอบจำลองเต็มรูปแบบ</h2>
-            <p className="text-white/90 text-sm max-w-xl">
-              45 ข้อรวมทุกพาร์ท พร้อมระบบ Adaptive ปรับระดับยากง่ายตามคำตอบของคุณ
-            </p>
           </div>
-          <div className="hidden sm:flex flex-col gap-2 text-sm text-white/90">
-            <div className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> 60 นาที</div>
-            <div className="flex items-center gap-1.5"><ListChecks className="w-4 h-4" /> 45 ข้อ</div>
-          </div>
-        </div>
-        <div className="absolute inset-0 bg-slate-900/30 rounded-2xl flex items-center justify-center">
-          <div className="bg-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-slate-600">
+
+          <div className="w-full sm:w-auto bg-[#E8E8EF] px-[40px] py-3 sm:py-[15px] text-center rounded-full text-[16px] sm:text-[18px] font-semibold text-[#9C9CB5] cursor-not-allowed flex items-center justify-center gap-2">
             <Lock className="w-5 h-5" />
-            <span className="font-medium">Login Required</span>
+            เข้าสอบเมื่อ Login
           </div>
         </div>
       </div>
@@ -34,26 +33,30 @@ export default function FullTestCard({ disabled }: { disabled?: boolean } = {}) 
   }
 
   return (
-    <Link
-      href="/tests/full"
-      className="group block w-full bg-gradient-to-r from-primary-600 to-accent-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 mb-8"
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Trophy className="w-5 h-5" />
-            <span className="text-sm font-medium bg-white/20 px-2 py-0.5 rounded-full">Full Mock Exam</span>
-          </div>
-          <h2 className="text-2xl font-bold mb-2">สอบจำลองเต็มรูปแบบ</h2>
-          <p className="text-white/90 text-sm max-w-xl">
-            45 ข้อรวมทุกพาร์ท พร้อมระบบ Adaptive ปรับระดับยากง่ายตามคำตอบของคุณ
-          </p>
+  <div className="group block w-full bg-white rounded-2xl px-5 sm:px-6 py-5 sm:py-6 mt-6 mb-2">
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-4">
+    <div>
+      <h2 className="text-[17px] sm:text-[1.1875rem] text-[#454578] font-bold mb-2.5 sm:mb-2 leading-snug">
+        จำลองการสอบจริง - เต็มรูปแบบ
+      </h2>
+
+      <div className="flex gap-2 text-sm text-[#6160A8]">
+        <div className="flex items-center gap-1.5 bg-[#F1F1FA] sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-full sm:rounded-none">
+          <Clock className="w-4 h-4" /> 60 นาที
         </div>
-        <div className="hidden sm:flex flex-col gap-2 text-sm text-white/90">
-          <div className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> 60 นาที</div>
-          <div className="flex items-center gap-1.5"><ListChecks className="w-4 h-4" /> 45 ข้อ</div>
+        <div className="flex items-center gap-1.5 bg-[#F1F1FA] sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-full sm:rounded-none">
+          <ListChecks className="w-4 h-4" /> 45 ข้อ
         </div>
       </div>
+    </div>
+
+    <Link 
+      href="/tests/full" 
+      className="w-full sm:w-auto bg-[#6D88EE] active:bg-[#5A75D9] px-[40px] py-3 sm:py-[15px] text-center rounded-full text-[16px] sm:text-[18px] font-semibold text-white transition-colors"
+    >
+      เข้าห้องสอบ
     </Link>
+  </div>
+</div>
   );
 }

@@ -269,7 +269,7 @@ export default function DemoFormMeaningPage() {
 
       {/* Header */}
       <div className="bg-white border-b border-slate-200 shrink-0 z-40 pt-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-4">
               <Link href="/demo" className="p-2 hover:bg-slate-100 rounded-lg transition-colors">

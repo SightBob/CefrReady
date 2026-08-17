@@ -7,7 +7,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-white border-t border-[#EAEAEA] mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
@@ -17,7 +17,7 @@ export default function Footer() {
               </div>
               <span className="font-bold text-[#111]">CEFR Ready</span>
             </Link>
-            <p className="text-sm text-[#AAAAAA] leading-relaxed">
+            <p className="text-[1rem] text-[#808080] leading-relaxed font-medium">
               ฝึกทักษะภาษาอังกฤษตามมาตรฐาน CEFR<br />
               ครอบคลุมระดับ A1 ถึง C2
             </p>
@@ -25,7 +25,7 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-xs font-bold text-[#111] uppercase tracking-widest mb-3">เมนูหลัก</h3>
+            <h3 className="text-[1.0625rem] text-[#3E3E3E] font-bold uppercase tracking-widest mb-3">เมนูหลัก</h3>
             <ul className="space-y-2">
               {[
                 { href: '/tests', label: 'ข้อสอบ' },
@@ -36,7 +36,7 @@ export default function Footer() {
                 { href: '/support', label: 'เลี้ยงค่ากาแฟ' },
               ].map(({ href, label }) => (
                 <li key={href}>
-                  <Link href={href} className="text-sm text-[#787774] hover:text-[#111] transition-colors">
+                  <Link href={href} className="text-[1rem] font-medium text-[#787774] hover:text-[#111] transition-colors">
                     {label}
                   </Link>
                 </li>
@@ -46,7 +46,7 @@ export default function Footer() {
 
           {/* Exam Types */}
           <div>
-            <h3 className="text-xs font-bold text-[#111] uppercase tracking-widest mb-3">ประเภทข้อสอบ</h3>
+            <h3 className="text-[1.0625rem] text-[#3E3E3E] font-bold uppercase tracking-widest mb-3">ประเภทข้อสอบ</h3>
             <ul className="space-y-2">
               {[
                 'Focus on Form',
@@ -54,14 +54,14 @@ export default function Footer() {
                 'Form & Meaning',
                 'Listening',
               ].map((label) => (
-                <li key={label} className="text-sm text-[#787774]">{label}</li>
+                <li key={label} className="text-[1rem] font-medium text-[#787774]">{label}</li>
               ))}
             </ul>
           </div>
 
           {/* Legal */}
           <div>
-            <h3 className="text-xs font-bold text-[#111] uppercase tracking-widest mb-3">นโยบาย</h3>
+            <h3 className="text-[1.0625rem] text-[#3E3E3E] font-bold uppercase tracking-widest mb-3">นโยบาย</h3>
             <ul className="space-y-2">
               {[
                 { href: '/terms', label: 'เงื่อนไขการให้บริการ' },
@@ -69,7 +69,7 @@ export default function Footer() {
                 { href: '/refund', label: 'การคืนเงิน' },
               ].map(({ href, label }) => (
                 <li key={href}>
-                  <Link href={href} className="text-sm text-[#787774] hover:text-[#111] transition-colors">
+                  <Link href={href} className="text-[1rem] font-medium text-[#787774] hover:text-[#111] transition-colors">
                     {label}
                   </Link>
                 </li>

@@ -10,9 +10,10 @@ interface FormMeaningQuizProps {
     blanks: Array<{ id: number; correctAnswer: string; hint?: string }>;
   };
   onChange: (answers: Record<number, string>) => void;
+  revealedAnswers?: Record<number, string> | null;
 }
 
-export default function FormMeaningQuiz({ article, onChange }: FormMeaningQuizProps) {
+export default function FormMeaningQuiz({ article, onChange, revealedAnswers }: FormMeaningQuizProps) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
 
   const handleChange = (blankId: number, value: string) => {
@@ -39,12 +40,24 @@ export default function FormMeaningQuiz({ article, onChange }: FormMeaningQuizPr
         );
       }
 
+      const revealed = revealedAnswers != null;
+      const isBlankCorrect =
+        revealed &&
+        (revealedAnswers![blank.id] ?? '').toLowerCase().trim() === (answers[blank.id] ?? '').toLowerCase().trim();
+
       parts.push(
         <input
           key={`blank-${blank.id}`}
           type="text"
-          className="w-28 px-2 py-1 mx-1 rounded border-2 border-purple-300 focus:border-purple-500 focus:outline-none text-center"
-          placeholder={blank.hint?.split(' - ')[0] || 'Answer'}
+          readOnly={revealed}
+          className={`w-28 px-2 py-1 mx-1 rounded border-2 text-center ${
+            revealed
+              ? isBlankCorrect
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                : 'border-red-400 bg-red-50 text-red-700'
+              : 'border-purple-300 focus:border-purple-500 focus:outline-none'
+          }`}
+          placeholder={revealed ? revealedAnswers![blank.id] : (blank.hint?.split(' - ')[0] || 'Answer')}
           value={answers[blank.id] || ''}
           onChange={(e) => handleChange(blank.id, e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}

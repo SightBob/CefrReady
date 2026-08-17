@@ -5,11 +5,6 @@ import { ChevronDown } from 'lucide-react';
 
 const FAQS = [
   {
-    question: 'CEFR คืออะไร?',
-    answer:
-      'CEFR (Common European Framework of Reference for Languages) คือกรอบมาตรฐานสากลในการวัดระดับความสามารถทางภาษาอังกฤษ แบ่งเป็น 6 ระดับ ตั้งแต่ A1 (Beginner) ถึง C2 (Mastery) ที่สอดคล้องกับรูปแบบข้อสอบ CEFR ที่มหาวิทยาลัยไทยหลายแห่งนำมาใช้วัดระดับ และนำมาตรฐาน CEFR ไปใช้วัดระดับภาษาอังกฤษของนักศึกษาก่อนสำเร็จการศึกษา',
-  },
-  {
     question: 'ข้อสอบ CEFR มีอะไรบ้าง?',
     answer:
       'ข้อสอบ CEFR มาตรฐานสากลมี 4 ประเภทหลัก ได้แก่ (1) Focus on Form — ทดสอบไวยากรณ์ภาษาอังกฤษ เช่น Tense, Preposition, Articles (2) Focus on Meaning — ทดสอบคำศัพท์ เช่น Synonym, Antonym, Context Clues (3) Form & Meaning — เติมคำในบทความ รวมทั้งไวยากรณ์และคำศัพท์ (4) Listening — ฟังบทสนทนาภาษาอังกฤษแล้วตอบคำถาม CEFR Ready ครอบคลุมทุกประเภทครบถ้วน',
@@ -25,11 +20,6 @@ const FAQS = [
       'ได้ครับ ข้อสอบใน CEFR Ready ออกแบบตามโครงสร้างข้อสอบ CEFR มาตรฐานสากล ทั้งรูปแบบคำถาม ระดับความยาก และเนื้อหาที่ออกสอบ ครอบคลุมทุกประเภทที่มหาวิทยาลัยไทยใช้จริง มีคำอธิบายเฉลยทุกข้อเป็นภาษาไทย ทำให้เข้าใจได้ง่าย',
   },
   {
-    question: 'ใช้ CEFR Ready ฟรีหรือเปล่า?',
-    answer:
-      'ฟรี 100% ไม่มีค่าใช้จ่ายใดๆ สามารถทำข้อสอบตัวอย่าง (Demo) ทุกประเภทได้ทันทีโดยไม่ต้องสมัครสมาชิก สำหรับข้อสอบเต็ม 30 ข้อและการติดตามพัฒนาการต้องล็อกอินด้วย Google account ซึ่งใช้เวลาไม่กี่วินาที',
-  },
-  {
     question: 'CEFR มี 6 ระดับอะไรบ้าง?',
     answer:
       'CEFR มี 6 ระดับ ได้แก่: A1 (Beginner — สื่อสารขั้นพื้นฐาน), A2 (Elementary — สื่อสารในชีวิตประจำวัน), B1 (Intermediate — สื่อสารในสถานการณ์ทั่วไปได้), B2 (Upper-Intermediate — สื่อสารกับเจ้าของภาษาได้คล่อง), C1 (Advanced — ใช้ภาษาได้อย่างยืดหยุ่น), C2 (Mastery — ใช้ภาษาได้ระดับเจ้าของภาษา)',
@@ -42,10 +32,11 @@ const FAQS = [
 ];
 
 export default function FaqAccordion() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [openIndex, setOpenIndex] = useState<number | null>();
 
   return (
-    <div className="space-y-3">
+    <div className="w-[65%] max-[899px]:mt-6 max-[899px]:w-[100%]">
+      <div className="space-y-3">
       {FAQS.map((faq, index) => {
         const isOpen = openIndex === index;
         return (
@@ -62,7 +53,7 @@ export default function FaqAccordion() {
             >
               <span
                 className={`font-semibold text-sm md:text-base leading-snug transition-colors ${
-                  isOpen ? 'text-primary-700' : 'text-slate-800'
+                  isOpen ? 'text-primary-700' : 'text-[#4E4E4E]'
                 }`}
               >
                 {faq.question}
@@ -85,6 +76,7 @@ export default function FaqAccordion() {
           </div>
         );
       })}
+    </div>
     </div>
   );
 }

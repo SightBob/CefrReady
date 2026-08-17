@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 export default function DemoTestsPage() {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <Link href="/" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
           <ArrowLeft className="w-5 h-5" />

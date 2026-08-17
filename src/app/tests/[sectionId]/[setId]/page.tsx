@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { ArrowLeft, FileText, ChevronRight, Clock } from 'lucide-react';
+import { FileText, ChevronRight, Clock, BookOpen, Headphones, Layers, LogOut, PenTool } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
 
@@ -25,14 +26,9 @@ const TestLayout = dynamic(() => import('@/components/TestLayout'), {
   ),
 });
 
-const TestTour = dynamic(() => import('@/components/TestTour'), { ssr: false });
 const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'), {
   ssr: false,
   loading: () => <div className="animate-pulse bg-white rounded-2xl border border-slate-100 p-6 md:p-8" style={{ minHeight: '400px' }} />,
-});
-const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'), {
-  ssr: false,
-  loading: () => <div className="animate-pulse bg-white rounded-2xl border border-slate-100 p-6 md:p-8" style={{ minHeight: '500px' }} />,
 });
 const TestResults = dynamic(() => import('@/components/TestResults'), {
   ssr: false,
@@ -40,6 +36,13 @@ const TestResults = dynamic(() => import('@/components/TestResults'), {
 });
 const SelectableText = dynamic(() => import('@/components/SelectableText'));
 const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
+
+const SECTION_HEADER: Record<string, { icon: React.ElementType; color: string }> = {
+  'focus-form': { icon: PenTool, color: 'from-blue-500 to-cyan-500' },
+  'focus-meaning': { icon: BookOpen, color: 'from-emerald-500 to-teal-500' },
+  'form-meaning': { icon: Layers, color: 'from-purple-500 to-pink-500' },
+  'listening': { icon: Headphones, color: 'from-orange-500 to-amber-500' },
+};
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -76,11 +79,7 @@ interface SetData {
 function Spinner() {
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="text-center">
-        <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Loading Test Set</h2>
-        <p className="text-slate-600">Preparing your questions...</p>
-      </div>
+      <LoadingSpinner text="กำลังโหลดข้อสอบ..." />
     </div>
   );
 }
@@ -107,7 +106,9 @@ function FormMeaningQuiz({
   const [submitting, setSubmitting] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [testStartedAt] = useState(() => new Date().toISOString());
+  const router = useRouter();
 
   // Combine all articles into one, re-numbering blanks globally
   const combinedArticle = useMemo(() => {
@@ -295,44 +296,31 @@ function FormMeaningQuiz({
       </div>
 
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 shrink-0 z-40 pt-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-4">
-              <Link href={`/tests/${sectionId}`} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                <ArrowLeft className="w-5 h-5 text-slate-600" />
-              </Link>
+      <div className="bg-white border-b border-slate-200 shadow-[0_1px_6.4px_0_rgba(221,221,221,0.25)] shrink-0 z-40 pt-1 sticky top-0">
+        <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-3 md:py-0 md:h-[6.6875rem] h-[90px]">
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5 md:w-6 md:h-6 text-white" />
+              </div>
               <div>
-                <h1 className="font-bold text-slate-900">{setName}</h1>
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <Clock className="w-4 h-4" />
+                <h1 className="font-bold text-base sm:text-[1.375rem] text-[#5A6387] line-clamp-1">{setName}</h1>
+                <div className="flex items-center gap-2 text-xs sm:text-[1rem] text-[#5A6387] font-medium">
+                  <span>set 1 - {totalBlanks} ข้อ</span>
+                  <span>|</span>
                   <span>15 min</span>
-                  <span className="mx-1">•</span>
-                  <span>{totalBlanks} blanks</span>
                 </div>
               </div>
             </div>
 
-            {/* Desktop: Submit Button */}
-            <div className="hidden md:flex items-center gap-4">
-              {!isSubmitted && (
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="btn-primary text-sm py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Submit Answers
-                </button>
-              )}
-              {isSubmitted && (
-                <button
-                  onClick={() => onFinish(correctCount, totalBlanks)}
-                  className="btn-primary text-sm py-2 px-4"
-                >
-                  View Results
-                </button>
-              )}
-            </div>
+            <button
+              onClick={() => setShowExitConfirm(true)}
+              className="text-[#616161] text-sm sm:text-[1.125rem] rounded-lg font-semibold flex items-center shrink-0"
+              aria-label="จบการสอบ"
+            >
+              <span className="hidden sm:inline">จบการสอบ</span>
+              <LogOut className="w-5 h-5 text-slate-600 sm:ms-2" />
+            </button>
           </div>
         </div>
       </div>
@@ -439,6 +427,17 @@ function FormMeaningQuiz({
         description="คุณยังมีคำถามที่ยังไม่ได้ตอบ คุณแน่ใจหรือไม่ว่าต้องการส่งคำตอบ?"
         confirmLabel="ส่งคำตอบ"
       />
+
+      <ConfirmModal
+        isOpen={showExitConfirm}
+        title="ยกเลิกการสอบ"
+        description="คำตอบทั้งหมดจะไม่ถูกบันทึก ต้องการยกเลิกการสอบหรือไม่?"
+        confirmLabel="ยกเลิกการสอบ"
+        cancelLabel="ทำต่อ"
+        type="warning"
+        onConfirm={() => router.push(`/tests/${sectionId}`)}
+        onCancel={() => setShowExitConfirm(false)}
+      />
     </div>
   );
 }
@@ -473,6 +472,23 @@ export default function SetQuizPage() {
 
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
+
+  // Set selector dropdown
+  const [availableSets, setAvailableSets] = useState<{ id: number; name: string; description?: string | null }[]>([]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    fetch(`/api/test-sets?sectionId=${sectionId}`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setAvailableSets(d.data); })
+      .catch(() => {});
+  }, [status, sectionId]);
+
+  const setSelectorProps = {
+    availableSets,
+    currentSetId: setId,
+    onSetSelect: (id: number) => router.push(`/tests/${sectionId}/${id}`),
+  };
 
   // PostHog tracking
   const posthog = usePostHog();
@@ -539,6 +555,13 @@ export default function SetQuizPage() {
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = answer;
     setAnswers(newAnswers);
+  };
+
+  const handleResetAnswer = (index: number) => {
+    const newAnswers = [...answers];
+    newAnswers[index] = null;
+    setAnswers(newAnswers);
+    setSelectedAnswer(null);
   };
 
   const handleQuestionSelect = (index: number) => {
@@ -658,6 +681,14 @@ export default function SetQuizPage() {
 
   if (loading || status === 'loading') return <Spinner />;
 
+  if (submitting && !isFinished) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   if (notFound || !setData) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
@@ -669,6 +700,28 @@ export default function SetQuizPage() {
     );
   }
 
+  const currentSetIndex = availableSets.findIndex((s) => s.id === setId);
+  const nextSet = currentSetIndex >= 0 && currentSetIndex < availableSets.length - 1
+    ? availableSets[currentSetIndex + 1]
+    : null;
+  const nextSetProps = nextSet
+    ? {
+        nextSetLabel: `ทำชุด ${currentSetIndex + 2}`,
+        onNextSet: () => router.push(`/tests/${sectionId}/${nextSet.id}`),
+      }
+    : {};
+
+  const handleRestartTest = () => {
+    setScore(0);
+    setAnswers(Array(setData.questions.length).fill(null));
+    setSelectedAnswer(null);
+    setCurrentQuestion(0);
+    setAttemptId(null);
+    setFormMeaningTotalBlanks(0);
+    setAudioPlayedMap({});
+    setIsFinished(false);
+  };
+
   // form-meaning uses its own special renderer
   if (sectionId === 'form-meaning') {
     if (isFinished) {
@@ -677,7 +730,13 @@ export default function SetQuizPage() {
           score={score}
           totalQuestions={formMeaningTotalBlanks}
           attemptId={attemptId}
-          onRestart={() => router.push(`/tests/${sectionId}`)}
+          onRestart={handleRestartTest}
+          sectionIcon={(SECTION_HEADER[sectionId] ?? SECTION_HEADER['focus-form']).icon}
+          sectionColor={(SECTION_HEADER[sectionId] ?? SECTION_HEADER['focus-form']).color}
+          headerTitle={setData.name}
+          durationMinutes={setData.duration ?? undefined}
+          setNumber={currentSetIndex >= 0 ? currentSetIndex + 1 : 1}
+          {...nextSetProps}
         />
       );
     }
@@ -699,7 +758,13 @@ export default function SetQuizPage() {
         score={score}
         totalQuestions={setData.questions.length}
         attemptId={attemptId}
-        onRestart={() => router.push(`/tests/${sectionId}`)}
+        onRestart={handleRestartTest}
+        sectionIcon={(SECTION_HEADER[sectionId] ?? SECTION_HEADER['focus-form']).icon}
+        sectionColor={(SECTION_HEADER[sectionId] ?? SECTION_HEADER['focus-form']).color}
+        headerTitle={setData.name}
+        durationMinutes={setData.duration ?? undefined}
+        setNumber={currentSetIndex >= 0 ? currentSetIndex + 1 : 1}
+        {...nextSetProps}
       />
     );
   }
@@ -712,6 +777,7 @@ export default function SetQuizPage() {
     return (
       <TestLayout
         title={setData.name}
+        {...setSelectorProps}
         durationMinutes={setData.duration ?? undefined}
         totalQuestions={setData.questions.length}
         currentQuestion={currentQuestion}
@@ -722,6 +788,10 @@ export default function SetQuizPage() {
         onSubmit={() => handleSubmit()}
         onTimeUp={handleTimeUp}
         currentQuestionId={question.id}
+        sectionIcon={Headphones}
+        sectionColor="from-orange-500 to-amber-500"
+        sectionLabel="Listening"
+        onResetAnswer={handleResetAnswer}
       >
         <ListeningAudioPlayer
           key={question.id}
@@ -747,12 +817,10 @@ export default function SetQuizPage() {
 
   // ─── Focus Meaning ────────────────────────────────────────────────
   if (sectionId === 'focus-meaning') {
-    const optionKeys = ['A', 'B', 'C', 'D'];
-    const selectedIndex = selectedAnswer ? optionKeys.indexOf(selectedAnswer) : null;
-    const correctIndex = question.correctAnswer ? optionKeys.indexOf(question.correctAnswer) : -1;
     return (
       <TestLayout
         title={setData.name}
+        {...setSelectorProps}
         durationMinutes={setData.duration ?? undefined}
         totalQuestions={setData.questions.length}
         currentQuestion={currentQuestion}
@@ -763,22 +831,28 @@ export default function SetQuizPage() {
         onSubmit={() => handleSubmit()}
         onTimeUp={handleTimeUp}
         currentQuestionId={question.id}
+        sectionIcon={BookOpen}
+        sectionColor="from-emerald-500 to-teal-500"
+        onResetAnswer={handleResetAnswer}
       >
-        <FocusMeaningConversationCard
+        <FocusFormQuestionCard
           key={question.id}
-          conversation={question.conversation ?? []}
-          question={question.questionText}
+          questionText={question.questionText}
           options={[
-            question.optionA ?? '',
-            question.optionB ?? '',
-            question.optionC ?? '',
-            question.optionD ?? '',
+            { key: 'A', value: question.optionA ?? '' },
+            { key: 'B', value: question.optionB ?? '' },
+            { key: 'C', value: question.optionC ?? '' },
+            { key: 'D', value: question.optionD ?? '' },
           ]}
-          selectedAnswer={selectedIndex}
-          correctAnswer={correctIndex}
-          explanation={question.explanation ?? ''}
-          onAnswerSelect={(idx) => handleAnswer(optionKeys[idx])}
+          selectedAnswer={selectedAnswer}
+          correctAnswer={question.correctAnswer ?? null}
+          explanation={question.explanation ?? null}
+          conversation={question.conversation ?? null}
+          onAnswerSelect={handleAnswer}
           disabled={submitting}
+          accent="emerald"
+          headerIcon={BookOpen}
+          headerLabel="Conversation"
         />
       </TestLayout>
     );
@@ -798,6 +872,7 @@ export default function SetQuizPage() {
     <>
     <TestLayout
       title={setData.name}
+      {...setSelectorProps}
       durationMinutes={setData.duration ?? undefined}
       totalQuestions={setData.questions.length}
       currentQuestion={currentQuestion}
@@ -808,6 +883,7 @@ export default function SetQuizPage() {
       onSubmit={() => handleSubmit()}
       onTimeUp={handleTimeUp}
       currentQuestionId={question.id}
+      onResetAnswer={handleResetAnswer}
     >
       <FocusFormQuestionCard
         key={question.id}
@@ -834,8 +910,6 @@ export default function SetQuizPage() {
       isLoading={submitting}
     />
 
-    {/* Test Page Tour for first-time users */}
-    {results.length === 0 && <TestTour />}
     </>
   );
 }
