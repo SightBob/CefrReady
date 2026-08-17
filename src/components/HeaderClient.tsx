@@ -59,15 +59,53 @@ export default function HeaderClient() {
   }, [pathname]);
 
   // Smooth-scroll for in-page hash links when already on home
+  const scrollToTarget = (target: HTMLElement, id: string) => {
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const headerOffset = 85;
+    const startY = window.scrollY;
+    const endY = target.getBoundingClientRect().top + startY - headerOffset;
+    const distance = endY - startY;
+
+    const root = document.documentElement;
+    const prevScrollBehavior = root.style.scrollBehavior;
+
+    if (prefersReduced || Math.abs(distance) < 2) {
+      window.scrollTo(0, endY);
+      history.pushState(null, '', `#${id}`);
+      return;
+    }
+
+    // CSS `scroll-behavior: smooth` on html fights per-frame scrollTo — disable it during the animation
+    root.style.scrollBehavior = 'auto';
+
+    // Longer scroll = longer animation, capped so far sections don't crawl
+    const duration = Math.min(900, Math.max(400, Math.abs(distance) * 0.5));
+    const start = performance.now();
+    const easeInOutCubic = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      window.scrollTo(0, startY + distance * easeInOutCubic(progress));
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        root.style.scrollBehavior = prevScrollBehavior;
+        // pushState during animation lets Next's router hash-scroll fire instantly and warp — defer until done
+        history.pushState(null, '', `#${id}`);
+      }
+    };
+    requestAnimationFrame(step);
+  };
+
   const handleHashNav = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (!isHome) return;
     const id = href.split('#')[1];
     const target = id ? document.getElementById(id) : null;
     if (!target) return;
     e.preventDefault();
-    history.pushState(null, '', `#${id}`);
-    target.scrollIntoView({ behavior: 'smooth' });
     setIsMenuOpen(false);
+    scrollToTarget(target, id);
   };
 
   // Helper: active nav link class
@@ -122,6 +160,7 @@ export default function HeaderClient() {
                     key={label}
                     href={href}
                     className={navLink(href)}
+                    onClick={(e) => handleHashNav(e, href)}
                   >
                     {label}
                   </Link>
@@ -211,7 +250,7 @@ export default function HeaderClient() {
                   <Link
                     key={label}
                     href={href}
-                    onClick={() => setIsMenuOpen(false)}
+                    onClick={(e) => handleHashNav(e, href)}
                     className={`px-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${pathname === href ? mobileActive : mobileInactive}`}
                   >
                     {label}
