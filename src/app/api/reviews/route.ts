@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testFeedback, users } from '@/db/schema';
-import { desc, isNotNull, sql, eq, and } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,8 +20,8 @@ export async function GET() {
       })
       .from(testFeedback)
       .innerJoin(users, eq(users.id, testFeedback.userId))
-      .where(and(isNotNull(testFeedback.comment), sql`length(btrim(${testFeedback.comment})) > 0`))
-      .orderBy(desc(testFeedback.createdAt))
+      .where(eq(testFeedback.isFeatured, true))
+      .orderBy(desc(testFeedback.featuredAt))
       .limit(MAX_REVIEWS);
 
     const data = rows.map((r) => ({

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/db';
 import { testFeedback, testAttempts, testTypes, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -17,6 +18,8 @@ export async function GET(req: NextRequest) {
         attemptId: testFeedback.attemptId,
         rating: testFeedback.rating,
         comment: testFeedback.comment,
+        isFeatured: testFeedback.isFeatured,
+        featuredAt: testFeedback.featuredAt,
         createdAt: testFeedback.createdAt,
         testTypeId: testAttempts.testTypeId,
         testTypeName: testTypes.name,
@@ -36,6 +39,38 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error('[GET /api/admin/test-feedback] error:', err);
     return NextResponse.json({ error: 'Failed to fetch feedback' }, { status: 500 });
+  }
+}
+
+const patchSchema = z.object({
+  id: z.number().int().positive(),
+  isFeatured: z.boolean(),
+});
+
+export async function PATCH(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
+  try {
+    const body = patchSchema.safeParse(await req.json());
+    if (!body.success) {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+    const { id, isFeatured } = body.data;
+
+    const updated = await db
+      .update(testFeedback)
+      .set({ isFeatured, featuredAt: isFeatured ? new Date() : null })
+      .where(eq(testFeedback.id, id))
+      .returning({ id: testFeedback.id, isFeatured: testFeedback.isFeatured });
+
+    if (updated.length === 0) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('[PATCH /api/admin/test-feedback] error:', err);
+    return NextResponse.json({ error: 'Failed to update feedback' }, { status: 500 });
   }
 }
 

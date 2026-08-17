@@ -187,10 +187,13 @@ export const testFeedback = pgTable('test_feedback', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   rating: integer('rating').notNull(),
   comment: text('comment'),
+  isFeatured: boolean('is_featured').default(false).notNull(),
+  featuredAt: timestamp('featured_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   uniqueAttempt: unique('test_feedback_attempt_unique').on(table.attemptId),
+  featuredIdx: index('test_feedback_featured_idx').on(table.isFeatured, table.featuredAt),
   userIdx: index('test_feedback_user_idx').on(table.userId),
 }));
 

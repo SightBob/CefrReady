@@ -11,6 +11,7 @@ import {
   RefreshCw,
   MessageSquare,
   Trash2,
+  Pin,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,6 +20,8 @@ interface TestFeedbackItem {
   attemptId: number;
   rating: number;
   comment: string | null;
+  isFeatured: boolean;
+  featuredAt: string | null;
   createdAt: string;
   testTypeId: string | null;
   testTypeName: string | null;
@@ -32,6 +35,7 @@ export default function AdminTestFeedbackPage() {
   const [feedback, setFeedback] = useState<TestFeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const fetchFeedback = async () => {
     setLoading(true);
@@ -79,6 +83,29 @@ export default function AdminTestFeedbackPage() {
     });
   };
 
+  const handleToggleFeatured = async (id: number, isFeatured: boolean) => {
+    setTogglingId(id);
+    try {
+      const res = await fetch('/api/admin/test-feedback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isFeatured }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setFeedback(prev => prev.map(f => (f.id === id ? { ...f, isFeatured: json.data.isFeatured } : f)));
+        toast.success(isFeatured ? 'ปักหมุดรีวิวไว้หน้าแรกแล้ว' : 'เอารีวิวออกจากหน้าแรกแล้ว');
+      } else {
+        toast.error('อัปเดตไม่สำเร็จ');
+      }
+    } catch (err) {
+      console.error('Failed to toggle featured:', err);
+      toast.error('อัปเดตไม่สำเร็จ');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const avgRating = feedback.length > 0
     ? (feedback.reduce((sum, f) => sum + f.rating, 0) / feedback.length).toFixed(1)
     : '—';
@@ -88,9 +115,11 @@ export default function AdminTestFeedbackPage() {
     count: feedback.filter(f => f.rating === star).length,
   }));
 
+  const featuredCount = feedback.filter(f => f.isFeatured).length;
+
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
@@ -110,7 +139,23 @@ export default function AdminTestFeedbackPage() {
                 {feedback.length}
               </span>
             </h1>
-            <p className="text-slate-500 text-sm mt-1">รีวิวและความคิดเห็นจากผู้ใช้หลังทำข้อสอบ</p>
+            <p className="text-slate-500 text-sm mt-1">
+              รีวิวและความคิดเห็นจากผู้ใช้หลังทำข้อสอบ
+              {!loading && feedback.length > 0 && (
+                <span
+                  className={`inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                    featuredCount > 12
+                      ? 'bg-red-50 text-red-700 border-red-200'
+                      : featuredCount > 0
+                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : 'bg-slate-50 text-slate-400 border-slate-200'
+                  }`}
+                >
+                  <Pin className="w-3 h-3" />
+                  หน้าแรก {featuredCount}/12 {featuredCount > 12 && '(เกิน 12 จะแสดงแค่ 12 ล่าสุด)'}
+                </span>
+              )}
+            </p>
           </div>
           <button
             onClick={fetchFeedback}
@@ -201,6 +246,12 @@ export default function AdminTestFeedbackPage() {
                           {item.score}%
                         </span>
                       )}
+                      {item.isFeatured && (
+                        <span className="bg-blue-50 text-blue-700 text-xs px-2.5 py-0.5 rounded-full font-medium border border-blue-200 flex items-center gap-1">
+                          <Pin className="w-3 h-3" />
+                          หน้าแรก
+                        </span>
+                      )}
                     </div>
 
                     {/* Stars */}
@@ -237,6 +288,21 @@ export default function AdminTestFeedbackPage() {
 
                   {/* Right: Action */}
                   <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleToggleFeatured(item.id, !item.isFeatured)}
+                      disabled={togglingId === item.id}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                        item.isFeatured
+                          ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                          : 'border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50'
+                      }`}
+                    >
+                      {togglingId === item.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Pin className="w-3.5 h-3.5" />
+                      }
+                      {item.isFeatured ? 'เลิกแสดงหน้าแรก' : 'แสดงหน้าแรก'}
+                    </button>
                     <Link
                       href={`/review/${item.attemptId}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all"

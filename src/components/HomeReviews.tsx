@@ -12,7 +12,7 @@ import 'swiper/css/pagination';
 interface Review {
   id: number;
   rating: number;
-  comment: string;
+  comment: string | null;
   createdAt: string;
   name: string;
   image: string | null;
@@ -51,59 +51,58 @@ function initials(name: string): string {
 function maskName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return 'นักเรียน CefrReady';
-  if (parts.length === 1) {
-    const p = parts[0];
-    return p.length <= 2 ? `${p[0]}.` : `${p.slice(0, 2)}${'•'.repeat(Math.min(3, p.length - 2))}`;
-  }
   const first = parts[0];
+  const maskedFirst =
+    first.length <= 2
+      ? `${first[0]}.`
+      : `${first.slice(0, 2)}${'•'.repeat(Math.min(3, first.length - 2))}`;
+  if (parts.length === 1) return maskedFirst;
   const lastInitial = parts[parts.length - 1][0].toUpperCase();
-  return `${first} ${lastInitial}.`;
+  return `${maskedFirst} ${lastInitial}.`;
 }
 
 function ReviewCard({ r }: { r: Review }) {
   return (
-    <figure className="flex h-full flex-col rounded-2xl bg-white/80 p-6 shadow-sm ring-1 ring-slate-200 backdrop-blur">
-      <div className="">
-        <span className='text-[4rem] font-ibm text-[#A3AAC6] leading-none'>“</span>
-        <blockquote className="line-clamp-6 text-sm text-[#48507C]">
-          
+  <figure className="flex h-full flex-col rounded-2xl bg-white/80 p-5 sm:p-6 shadow-sm ring-1 ring-slate-200 backdrop-blur min-h-[16.375rem] w-full min-w-0 sm:min-w-[25.625rem]">
+  <div className="">
+    {r.comment ? (
+      <>
+        <span className='text-5xl sm:text-[4rem] font-ibm text-[#A3AAC6]/40 leading-none'>“</span>
+        <blockquote className="line-clamp-6 text-[1.125rem] text-[#48507C]">
           “{r.comment}”
         </blockquote>
+      </>
+    ) : (
+      <div className="flex items-center gap-2 min-h-[4rem]">
+        <Stars rating={r.rating} />
+        <span className="text-sm text-slate-400">{r.rating}/5</span>
       </div>
+    )}
+  </div>
 
-     
-      <div className="mt-auto">
-         <div className="h-[2px] bg-[#F2F2F2] w-full"></div>
-        <figcaption className=" flex items-center gap-3 mt-6">
-        {r.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={r.image}
-            alt={r.name}
-            className="h-9 w-9 rounded-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">
-            {initials(r.name)}
-          </span>
-        )}
-        <div className="flex items-center justify-between w-full">
-          <div className='flex flex-col'>
-            <span className="text-sm font-semibold text-slate-800">{maskName(r.name)}</span>
-          <span className="text-xs text-slate-400">
-            {new Date(r.createdAt).toLocaleDateString('th-TH', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
-          </span>
-          </div>
-          <Stars rating={r.rating} />
-        </div>
-      </figcaption>
+  <div className="mt-auto">
+    <div className="h-[2px] bg-[#F2F2F2] w-full"></div>
+    <figcaption className="flex items-center gap-3 mt-6">
+      {r.image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={r.image}
+          alt={maskName(r.name)}
+          className="h-9 w-9 rounded-full object-cover shrink-0"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">
+          {initials(r.name)}
+        </span>
+      )}
+      <div className="flex items-center justify-between w-full min-w-0">
+        <span className="text-sm font-semibold text-slate-800 truncate">{maskName(r.name)}</span>
+        <Stars rating={r.rating} />
       </div>
-    </figure>
+    </figcaption>
+  </div>
+</figure>
   );
 }
 
@@ -120,8 +119,8 @@ const swiperConfig: SwiperOptions = {
   pagination: { clickable: true },
   autoplay: { delay: 4500, disableOnInteraction: false, pauseOnMouseEnter: true },
   breakpoints: {
-    640: { slidesPerView: 2, spaceBetween: 20 },
-    1024: { slidesPerView: 3, spaceBetween: 24 },
+    881: { slidesPerView: 2, spaceBetween: 20 },
+    1310: { slidesPerView: 3, spaceBetween: 24 },
   },
 };
 
@@ -154,57 +153,58 @@ export default function HomeReviews() {
 
   return (
     <section
-      className="
-        relative
-        mb-5
-        w-full
-        isolate
-        before:absolute
-        before:inset-0
-        before:-z-10
-        before:bg-[linear-gradient(180deg,#D2D2D2_78%,#FFFFFF_100%)]
-        before:opacity-[16%]
-      "
-    >
-      <div className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
-        <div className="mb-10">
-          <h2 className="font-ibm text-4xl font-bold text-[#48507C] ">
-            รีวิวจากผู้ใช้จริง
-          </h2>
-        </div>
+  className="
+    relative
+    mb-5
+    w-full
+    isolate
+    before:absolute
+    before:inset-0
+    before:-z-10
+    before:bg-[linear-gradient(180deg,#D2D2D2_78%,#FFFFFF_100%)]
+    before:opacity-[16%]
+    pt-20
+  "
+>
+  <div className="mx-auto max-w-[1360px] px-4 sm:px-6 lg:px-8">
+    <div className="">
+      <h2 className="font-ibm text-2xl sm:text-3xl md:text-[2.375rem] font-bold text-[#48507C] ">
+        รีวิวจากผู้ใช้จริง
+      </h2>
+    </div>
 
-        <div className="relative flex items-center gap-3">
-          <button
-            type="button"
-            aria-label="รีวิวก่อนหน้า"
-            className="reviews-swiper-prev relative z-20 hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 sm:flex"
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+    <div className="relative flex items-center gap-3 mt-[5px]">
+      <button
+        type="button"
+        aria-label="รีวิวก่อนหน้า"
+        className="reviews-swiper-prev !size-[2.625rem] absolute left-[-18px] top-[45%] translate-y-[-45%] z-20 hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 sm:flex"
+      >
+        <svg viewBox="0 0 24 24" className="w-[24px]" fill="none" stroke="#7372DF" strokeWidth="2" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
 
-          <div className="reviews-swiper min-w-0 flex-1">
-            <Swiper {...swiperConfig} className="!px-1 !pb-2">
-              {reviews.map((r) => (
-                <SwiperSlide key={r.id} className="!h-auto py-3">
-                  <ReviewCard r={r} />
-                </SwiperSlide>
-              ))}
-            </Swiper>
-          </div>
-
-          <button
-            type="button"
-            aria-label="รีวิวถัดไป"
-            className="reviews-swiper-next relative z-20 hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 sm:flex"
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
+      <div className="reviews-swiper min-w-0 flex-1">
+        <Swiper {...swiperConfig} className="!px-1 !pb-2">
+          {reviews.map((r) => (
+            <SwiperSlide key={r.id} className="!h-auto py-3">
+              <ReviewCard r={r} />
+            </SwiperSlide>
+          ))}
+        </Swiper>
       </div>
-    </section>
+
+      <button
+        type="button"
+        aria-label="รีวิวถัดไป"
+        className="reviews-swiper-next !size-[2.625rem] absolute right-[-18px] top-[45%] translate-y-[-45%] z-20 hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 sm:flex"
+      >
+        <svg viewBox="0 0 24 24" className="w-[24px]" fill="none" stroke="#7372DF" strokeWidth="2" aria-hidden="true">
+          <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</section>
   );
 }
