@@ -1,4 +1,3 @@
-import { type DbQuestion } from '@/db/schema';
 import {
   type CefrLevel,
   type PerTypeLevels,
@@ -54,8 +53,17 @@ export function getInitialLevels(startLevel: CefrLevel): PerTypeLevels {
   };
 }
 
+// Minimal metadata needed for selection — lets callers fetch the pool with a
+// light column set (id/testTypeId/cefrLevel) instead of full rows (article
+// jsonb, transcript, explanation), then hydrate only the selected question.
+export interface QuestionRef {
+  id: number;
+  testTypeId: string;
+  cefrLevel: string;
+}
+
 interface QuestionPool {
-  questions: DbQuestion[];
+  questions: QuestionRef[];
   seenQuestionIds: Set<number>;
   targetLevel: CefrLevel;
   requiredTestTypeId: string;
@@ -68,7 +76,7 @@ export function selectQuestion({
   targetLevel,
   requiredTestTypeId,
   direction = 'neutral',
-}: QuestionPool): { question: DbQuestion; reused: boolean } | null {
+}: QuestionPool): { question: QuestionRef; reused: boolean } | null {
   const levelIndex = cefrIndex(targetLevel);
 
   const findUnused = (level: CefrLevel) =>

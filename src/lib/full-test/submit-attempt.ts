@@ -41,10 +41,17 @@ function expandPathForScoring(
 }
 
 export async function submitAttempt(attemptId: number, userId: string) {
-  const [attempt] = await db
-    .select()
-    .from(testAttempts)
-    .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId)));
+  // Attempt + progress reads are independent — fetch in parallel.
+  const [[attempt], progressRows] = await Promise.all([
+    db
+      .select()
+      .from(testAttempts)
+      .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId))),
+    db
+      .select()
+      .from(userProgress)
+      .where(and(eq(userProgress.userId, userId), eq(userProgress.testTypeId, 'full-test'))),
+  ]);
 
   if (!attempt) throw new Error('Attempt not found');
   if (attempt.status === 'completed') {
@@ -135,21 +142,25 @@ export async function submitAttempt(attemptId: number, userId: string) {
     throw new Error('Attempt already submitted or cancelled by another request');
   }
 
-  if (path.length > 0) {
-    await db
-      .insert(userAnswers)
-      .values(
-        path.map((p) => ({
-          attemptId,
-          questionId: p.questionId,
-          selectedAnswer: p.selectedAnswer,
-          isCorrect: p.wasCorrect,
-          createdAt: now,
-        }))
-      );
-  }
-
-  await updateUserProgress(userId, 'full-test', percentageScore);
+  // Answer insert and progress write are independent — run in parallel.
+  // (Attempt update above must stay first: its status guard prevents a losing
+  // double-submit from writing duplicate userAnswers rows.)
+  await Promise.all([
+    path.length > 0
+      ? db
+          .insert(userAnswers)
+          .values(
+            path.map((p) => ({
+              attemptId,
+              questionId: p.questionId,
+              selectedAnswer: p.selectedAnswer,
+              isCorrect: p.wasCorrect,
+              createdAt: now,
+            }))
+          )
+      : Promise.resolve(),
+    updateUserProgress(userId, 'full-test', percentageScore, progressRows),
+  ]);
 
   return buildResult(updated, percentageScore, cefrLevel, normalizedScore, expandedCorrect, expandedTotal, confidence, reusedCount);
 }
@@ -177,12 +188,12 @@ function buildResult(
   };
 }
 
-async function updateUserProgress(userId: string, testTypeId: string, score: number) {
-  const existing = await db
-    .select()
-    .from(userProgress)
-    .where(and(eq(userProgress.userId, userId), eq(userProgress.testTypeId, testTypeId)));
-
+async function updateUserProgress(
+  userId: string,
+  testTypeId: string,
+  score: number,
+  existing: (typeof userProgress.$inferSelect)[]
+) {
   if (existing.length > 0) {
     const p = existing[0];
     await db

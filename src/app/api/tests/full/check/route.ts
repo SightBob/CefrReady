@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { testAttempts, questions } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { auth } from '@/lib/auth';
 import { validateOrigin, checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 
 const bodySchema = z.object({
@@ -20,15 +20,18 @@ export async function POST(request: NextRequest) {
   const originError = validateOrigin(request);
   if (originError) return originError;
 
-  const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'full-check' });
-  if (ipThrottleError) return ipThrottleError;
-
-  const user = await getCurrentUser();
-  if (!user) {
+  // JWT session carries user.id — skips a users-table round trip per request.
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const rateLimitError = await checkUserRateLimit(user.id, { windowMs: 60_000, maxRequests: 60, keySuffix: 'check' });
+  const [ipThrottleError, rateLimitError] = await Promise.all([
+    checkIpThrottle(request, { keySuffix: 'full-check' }),
+    checkUserRateLimit(userId, { windowMs: 60_000, maxRequests: 60, keySuffix: 'check' }),
+  ]);
+  if (ipThrottleError) return ipThrottleError;
   if (rateLimitError) return rateLimitError;
 
   const parsed = bodySchema.safeParse(await request.json());
@@ -38,24 +41,32 @@ export async function POST(request: NextRequest) {
 
   const { attemptId, questionId } = parsed.data;
 
-  const [attempt] = await db
-    .select({ id: testAttempts.id, status: testAttempts.status })
-    .from(testAttempts)
-    .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, user.id)));
+  // Attempt ownership check and question fetch are independent — run both in
+  // one round trip window.
+  const [attemptRows, questionRows] = await Promise.all([
+    db
+      .select({ id: testAttempts.id, status: testAttempts.status })
+      .from(testAttempts)
+      .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId)))
+      .limit(1),
+    db
+      .select({
+        id: questions.id,
+        testTypeId: questions.testTypeId,
+        correctAnswer: questions.correctAnswer,
+        article: questions.article,
+      })
+      .from(questions)
+      .where(eq(questions.id, questionId))
+      .limit(1),
+  ]);
+
+  const attempt = attemptRows[0];
+  const question = questionRows[0];
 
   if (!attempt || attempt.status !== 'in_progress') {
     return NextResponse.json({ success: false, error: 'Attempt not found' }, { status: 404 });
   }
-
-  const [question] = await db
-    .select({
-      id: questions.id,
-      testTypeId: questions.testTypeId,
-      correctAnswer: questions.correctAnswer,
-      article: questions.article,
-    })
-    .from(questions)
-    .where(eq(questions.id, questionId));
 
   if (!question) {
     return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });

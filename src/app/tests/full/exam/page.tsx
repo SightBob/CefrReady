@@ -253,6 +253,11 @@ export default function FullTestExamPage() {
         setSkipConfirmOpen(true);
         return;
       }
+      // First "ถัดไป" press reveals the answer key; the second one advances.
+      if (!revealed) {
+        void checkAnswer(question.id);
+        return;
+      }
     }
 
     if (!selectedAnswerRef.current) {
@@ -289,6 +294,13 @@ export default function FullTestExamPage() {
       if (!data.success) throw new Error(data.error || 'Unknown error');
 
       if (data.data.finished) {
+        // Finalize ONLY when the user pressed the submit button on the real
+        // last question. A premature "finished" from the server (e.g. an
+        // exhausted question pool) must never auto-submit the attempt.
+        if (questionIndex < FULL_TEST_TOTAL_QUESTIONS - 1) {
+          toast.error('ระบบดึงข้อถัดไปไม่ได้ กรุณารอสักครู่แล้วกดถัดไปอีกครั้ง');
+          return;
+        }
         const submitRes = await apiFetch('/api/tests/full/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -337,9 +349,24 @@ export default function FullTestExamPage() {
     router.push('/tests');
   };
 
+  // Some questions only have 3 options — drop empty slots so exactly that
+  // many choice boxes render.
+  const mcqOptions = useMemo(() => {
+    if (!question) return [] as Array<{ key: string; value: string }>;
+    return [
+      { key: 'A', value: question.optionA ?? '' },
+      { key: 'B', value: question.optionB ?? '' },
+      { key: 'C', value: question.optionC ?? '' },
+      { key: 'D', value: question.optionD ?? '' },
+    ].filter((o) => o.value.trim() !== '');
+  }, [question]);
+
   const progressAnswers = useMemo(
-    () => Array.from({ length: FULL_TEST_TOTAL_QUESTIONS }, (_, i) => (i < questionIndex ? 'x' : null)),
-    [questionIndex]
+    () =>
+      Array.from({ length: FULL_TEST_TOTAL_QUESTIONS }, (_, i) =>
+        i < questionIndex || (i === questionIndex && selectedAnswer != null) ? 'x' : null
+      ),
+    [questionIndex, selectedAnswer]
   );
 
   const handleMcqSelect = useCallback((key: string) => {
@@ -350,10 +377,6 @@ export default function FullTestExamPage() {
 
   const handleClozeChange = (answersMap: Record<number, string>) => {
     setSelectedAnswerSynced(JSON.stringify(answersMap));
-    if (question?.article && !revealed) {
-      const allFilled = question.article.blanks.every((b) => answersMap[b.id]?.trim());
-      if (allFilled) void checkAnswer(question.id);
-    }
   };
 
   if (loading) {
@@ -387,12 +410,7 @@ export default function FullTestExamPage() {
           <div key={question.id}>
             <FocusFormQuestionCard
               questionText={question.questionText}
-              options={[
-                { key: 'A', value: question.optionA ?? '' },
-                { key: 'B', value: question.optionB ?? '' },
-                { key: 'C', value: question.optionC ?? '' },
-                { key: 'D', value: question.optionD ?? '' },
-              ]}
+              options={mcqOptions}
               selectedAnswer={selectedAnswer}
               correctAnswer={revealed?.mcq ?? null}
               explanation={null}
@@ -408,12 +426,8 @@ export default function FullTestExamPage() {
                 audioUrl={question.audioUrl ?? undefined}
                 transcript={question.transcript ?? question.questionText}
                 questionText={question.questionText}
-                options={[
-                  { key: 'A', value: question.optionA ?? '' },
-                  { key: 'B', value: question.optionB ?? '' },
-                  { key: 'C', value: question.optionC ?? '' },
-                  { key: 'D', value: question.optionD ?? '' },
-                ]}
+                showTranscriptOnAnswer={false}
+                options={mcqOptions}
                 selectedAnswer={selectedAnswer}
                 correctAnswer={revealed?.mcq ?? null}
                 explanation={null}
@@ -425,16 +439,14 @@ export default function FullTestExamPage() {
               <FocusMeaningConversationCard
                 conversation={question.conversation ?? []}
                 question={question.questionText}
-                options={[
-                  question.optionA ?? '',
-                  question.optionB ?? '',
-                  question.optionC ?? '',
-                  question.optionD ?? '',
-                ]}
-                selectedAnswer={selectedAnswer ? ['A','B','C','D'].indexOf(selectedAnswer) : null}
-                correctAnswer={selectedAnswer && revealed?.mcq ? ['A','B','C','D'].indexOf(revealed.mcq) : null}
+                options={mcqOptions.map((o) => o.value)}
+                selectedAnswer={selectedAnswer ? mcqOptions.findIndex((o) => o.key === selectedAnswer) : null}
+                correctAnswer={revealed?.mcq ? mcqOptions.findIndex((o) => o.key === revealed.mcq) : null}
                 explanation={''}
-                onAnswerSelect={(idx) => handleMcqSelect(['A','B','C','D'][idx])}
+                onAnswerSelect={(idx) => {
+                  const opt = mcqOptions[idx];
+                  if (opt) handleMcqSelect(opt.key);
+                }}
               />
             )}
 

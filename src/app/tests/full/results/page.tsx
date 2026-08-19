@@ -5,10 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, AlertTriangle, CheckCircle2, XCircle, ArrowRight, LogOut, Trophy, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { CEFR_COLORS, CEFR_DESCRIPTIONS } from '@/lib/cefr-estimator';
 import type { CefrLevel } from '@/lib/cefr-estimator';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
-import { FULL_TEST_TOTAL_SECONDS } from '@/lib/full-test/constants';
+import { FULL_TEST_TOTAL_SECONDS, cefrIndex } from '@/lib/full-test/constants';
 
 const PART_LABELS: Record<string, string> = {
   'focus-form': 'Grammar',
@@ -93,7 +92,7 @@ export default function FullTestResultsPage() {
 
   const perPart = result.perPart || {};
   const percentage = Math.round(result.score);
-  const passed = percentage >= 70;
+  const passed = cefrIndex(result.cefrLevel) >= cefrIndex('A2');
   const wrongCount = result.totalQuestions - result.correctAnswers;
   const durationLabel = `${FULL_TEST_TOTAL_SECONDS / 60} นาที`;
 
@@ -142,16 +141,16 @@ export default function FullTestResultsPage() {
           </div>
 
           {/* Result box */}
-          <div className={`rounded-2xl p-5 text-center mb-5 ${passed ? 'bg-emerald-50' : 'bg-rose-50'}`}>
-            <p className={`text-4xl font-extrabold ${passed ? 'text-emerald-500' : 'text-rose-500'}`}>
-              {percentage}%
+          <div className="rounded-2xl p-5 text-center mb-5 bg-[#FFFBEB]">
+            <p className={`text-4xl font-extrabold ${passed ? 'text-[#3A9E7D]' : 'text-[#A46036]'}`}>
+              {result.cefrLevel}
             </p>
-            <p className={`flex items-center justify-center gap-1 font-bold mt-1 ${passed ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <p className={`flex items-center justify-center gap-1 font-bold mt-1 ${passed ? 'text-[#3A9E7D]' : 'text-[#A46036]'}`}>
               {passed ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}
               {passed ? 'ผ่านเกณฑ์' : 'ยังไม่ผ่านเกณฑ์'}
             </p>
-            <p className="text-xs text-slate-400 mt-1">
-              (เกณฑ์ผ่าน = 70% ขึ้นไป)
+            <p className="text-xs text-[#585858] mt-1">
+              (เกณฑ์ผ่าน = ระดับ A2 ขึ้นไป)
             </p>
           </div>
 
@@ -160,38 +159,24 @@ export default function FullTestResultsPage() {
           <p className="text-center text-[1rem] font-semibold text-[#585858] mb-3">รายละเอียดคะแนน</p>
 
           {/* Score breakdown */}
-          <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="mb-5">
             <div className="bg-slate-50 rounded-xl py-3 text-center">
               <p className="text-[0.8125rem] font-medium text-[#797979] mb-1">ถูกต้อง</p>
               <p className="text-lg font-bold text-[#646464]">
                 {result.correctAnswers} / {result.totalQuestions} ข้อ
               </p>
             </div>
-            <div className="bg-slate-50 rounded-xl py-3 text-center">
-              <p className="text-[0.8125rem] font-medium text-[#797979] mb-1">ยังไม่ถูกต้อง</p>
-              <p className="text-lg font-bold text-[#646464]">
-                {wrongCount} / {result.totalQuestions} ข้อ
-              </p>
-            </div>
-          </div>
-
-          {/* CEFR level */}
-          <div className="flex justify-center mb-5">
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border ${CEFR_COLORS[result.cefrLevel]}`}>
-              <span className="text-2xl font-bold">{result.cefrLevel}</span>
-              <span className="text-sm">{CEFR_DESCRIPTIONS[result.cefrLevel]}</span>
-            </div>
           </div>
 
           {/* Disclaimer */}
-          <div className="bg-red-50 border-2 border-red-300 rounded-xl px-5 py-4 text-sm text-red-800 leading-relaxed">
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-xl px-5 py-4 text-sm text-amber-800 leading-relaxed">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-base">ข้อควรทราบ:</strong>
                 <p className="mt-1">
                   ระดับ CEFR ที่แสดงเป็นผลการประเมินจากข้อสอบในระบบ CEFR Ready เพื่อการฝึกฝนเท่านั้น
-                  <span className="font-semibold underline decoration-red-400 underline-offset-2"> ไม่ใช่ผลสอบ CEFR อย่างเป็นทางการ</span>
+                  <span className="font-semibold underline decoration-amber-400 underline-offset-2"> ไม่ใช่ผลสอบ CEFR อย่างเป็นทางการ</span>
                   และอาจแตกต่างจากผลที่ได้รับในการสอบจริง
                 </p>
               </div>
