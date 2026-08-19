@@ -13,7 +13,7 @@ import { FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL_SECONDS } from '@/lib/full-t
 
 const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'));
 const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'));
-const FormMeaningQuiz = dynamic(() => import('@/components/FormMeaningQuiz'));
+const FormMeaningBlankInput = dynamic(() => import('@/components/FormMeaningBlankInput'));
 const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
 
 
@@ -451,7 +451,7 @@ export default function FullTestExamPage() {
             )}
 
             {question.testTypeId === 'form-meaning' && question.article && (
-              <FormMeaningQuiz
+              <FormMeaningBlankInput
                 article={question.article}
                 onChange={handleClozeChange}
                 revealedAnswers={revealed?.blanks ?? null}

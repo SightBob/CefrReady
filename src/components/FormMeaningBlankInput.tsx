@@ -1,0 +1,86 @@
+'use client';
+
+import { useState } from 'react';
+import SelectableText from './SelectableText';
+
+interface FormMeaningBlankInputProps {
+  article: {
+    title: string;
+    text: string;
+    blanks: Array<{ id: number; correctAnswer: string; hint?: string }>;
+  };
+  onChange: (answers: Record<number, string>) => void;
+  revealedAnswers?: Record<number, string> | null;
+}
+
+export default function FormMeaningBlankInput({ article, onChange, revealedAnswers }: FormMeaningBlankInputProps) {
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+
+  const handleChange = (blankId: number, value: string) => {
+    const next = { ...answers, [blankId]: value.toLowerCase().trim() };
+    setAnswers(next);
+    onChange(next);
+  };
+
+  const renderArticle = () => {
+    let remaining = article.text;
+    const parts: React.ReactNode[] = [];
+
+    article.blanks.forEach((blank) => {
+      const placeholder = `{{${blank.id}}}`;
+      const idx = remaining.indexOf(placeholder);
+      if (idx === -1) return;
+
+      if (idx > 0) {
+        const text = remaining.slice(0, idx);
+        parts.push(
+          <span key={`text-${blank.id}`}>
+            <SelectableText text={text} contextSentence={text} inline />
+          </span>
+        );
+      }
+
+      const revealed = revealedAnswers != null;
+      const isBlankCorrect =
+        revealed &&
+        (revealedAnswers![blank.id] ?? '').toLowerCase().trim() === (answers[blank.id] ?? '').toLowerCase().trim();
+
+      parts.push(
+        <input
+          key={`blank-${blank.id}`}
+          type="text"
+          readOnly={revealed}
+          className={`w-28 px-2 py-1 mx-1 rounded border-2 text-center ${
+            revealed
+              ? isBlankCorrect
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                : 'border-red-400 bg-red-50 text-red-700'
+              : 'border-purple-300 focus:border-purple-500 focus:outline-none'
+          }`}
+          placeholder={revealed ? revealedAnswers![blank.id] : (blank.hint?.split(' - ')[0] || 'Answer')}
+          value={answers[blank.id] || ''}
+          onChange={(e) => handleChange(blank.id, e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+        />
+      );
+
+      remaining = remaining.slice(idx + placeholder.length);
+    });
+
+    parts.push(
+      <span key="text-end">
+        <SelectableText text={remaining} contextSentence={remaining} inline />
+      </span>
+    );
+    return parts;
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
+      <h2 className="text-xl font-bold text-slate-800 mb-4">
+        <SelectableText text={article.title} contextSentence={article.title} inline />
+      </h2>
+      <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
+    </div>
+  );
+}

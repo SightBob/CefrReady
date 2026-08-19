@@ -1,19 +1,31 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
-import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
-import type { ListeningQuestion } from '@/types/test';
+import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { Headphones } from 'lucide-react';
+import QuizLoadingSkeleton from '@/components/QuizLoadingSkeleton';
+import type { ListeningQuestion, Option } from '@/types/test';
+
+const TestLayout = dynamic(() => import('@/components/TestLayout'));
+const TestResults = dynamic(() => import('@/components/TestResults'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-white rounded-2xl border border-slate-100 shadow-lg" style={{ minHeight: '400px' }} />,
+});
+const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-white rounded-2xl border border-slate-100 p-6 md:p-8" style={{ minHeight: '400px' }} />,
+});
 
 export default function DemoListeningPage() {
+  const router = useRouter();
   const [questions, setQuestions] = useState<ListeningQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [answers, setAnswers] = useState<(string | null)[]>([]);
   const [hasPlayedMap, setHasPlayedMap] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
@@ -26,6 +38,7 @@ export default function DemoListeningPage() {
       const data = await res.json();
       if (data.success) {
         setQuestions(data.data);
+        setAnswers(Array(data.data.length).fill(null));
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
@@ -38,7 +51,10 @@ export default function DemoListeningPage() {
     if (selectedAnswer !== null) return;
 
     setSelectedAnswer(answer);
-    setShowExplanation(true);
+
+    const newAnswers = [...answers];
+    newAnswers[currentQuestion] = answer;
+    setAnswers(newAnswers);
 
     const question = questions[currentQuestion];
     if (answer === question.correctAnswer) {
@@ -46,104 +62,64 @@ export default function DemoListeningPage() {
     }
   };
 
+  const handleQuestionSelect = (index: number) => {
+    setCurrentQuestion(index);
+    setSelectedAnswer(answers[index]);
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestion > 0) {
+      handleQuestionSelect(currentQuestion - 1);
+    }
+  };
+
   const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-      setSelectedAnswer(null);
-      setShowExplanation(false);
-    } else {
-      setIsFinished(true);
+      handleQuestionSelect(currentQuestion + 1);
     }
+  };
+
+  const handleSubmit = () => {
+    const unanswered = answers.filter(a => a === null).length;
+    if (unanswered > 0) {
+      const confirm = window.confirm(`You have ${unanswered} unanswered questions. Are you sure you want to submit?`);
+      if (!confirm) return;
+    }
+    setIsFinished(true);
   };
 
   const handleRestart = () => {
     setCurrentQuestion(0);
     setSelectedAnswer(null);
-    setShowExplanation(false);
     setScore(0);
     setIsFinished(false);
+    setAnswers(Array(questions.length).fill(null));
     setHasPlayedMap({});
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[100dvh] bg-white">
-        <div className="bg-white border-b border-slate-200 h-14" />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 md:p-8 animate-pulse" style={{ minHeight: '500px' }}>
-            <div className="h-6 w-1/2 bg-slate-200 rounded mb-4" />
-            <div className="bg-slate-50 rounded-xl p-6 mb-4">
-              <div className="h-20 bg-slate-100 rounded-lg" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-12 bg-slate-100 rounded-xl" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <QuizLoadingSkeleton />;
   }
 
   if (isFinished) {
-    const percentage = Math.round((score / questions.length) * 100);
-    const passed = percentage >= 70;
-
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/demo" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-6">
-          <ArrowLeft className="w-5 h-5" />
-          Back to Demo Tests
-        </Link>
-
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-8 text-center">
-          <div className={`inline-flex p-4 rounded-full ${passed ? 'bg-emerald-50' : 'bg-red-50'} mb-6`}>
-            {passed ? '✓' : '✗'}
-          </div>
-
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            {passed ? 'Great Job!' : 'Keep Practicing!'}
-          </h1>
-          <p className="text-slate-600 mb-6">
-            {passed ? 'You passed the demo test!' : 'You need 70% to pass. Try again!'}
-          </p>
-
-          <div className="bg-slate-50 rounded-xl p-6 mb-6">
-            <p className="text-4xl sm:text-5xl font-bold text-slate-900 mb-2">{percentage}%</p>
-            <p className="text-slate-500">{score} out of {questions.length} correct</p>
-          </div>
-
-          <div className="bg-primary-50 rounded-xl p-4 mb-6">
-            <p className="text-primary-700 font-medium">Want more questions and progress tracking?</p>
-            <Link href="/tests" className="text-primary-600 hover:text-primary-700 underline font-medium">
-              Login for Full Tests →
-            </Link>
-          </div>
-
-          <div className="flex gap-4 justify-center">
-            <button onClick={handleRestart} className="btn-primary">
-              Try Again
-            </button>
-            <Link href="/demo" className="btn-secondary">
-              Other Demo Tests
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (questions.length === 0) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <p className="text-center text-slate-600">No questions available.</p>
-      </div>
+      <TestResults
+        score={score}
+        totalQuestions={questions.length}
+        isDemo
+        onRestart={handleRestart}
+        sectionIcon={Headphones}
+        sectionColor="from-orange-500 to-amber-500"
+        headerTitle="Listening (Demo)"
+        durationMinutes={5}
+      />
     );
   }
 
   const question = questions[currentQuestion];
-  const options = [
+  if (!question) return <QuizLoadingSkeleton />;
+
+  const options: Option[] = [
     { key: 'A', value: question.optionA },
     { key: 'B', value: question.optionB },
     { key: 'C', value: question.optionC },
@@ -151,59 +127,35 @@ export default function DemoListeningPage() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link href="/demo" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
-          <ArrowLeft className="w-5 h-5" />
-          Back to Demo Tests
-        </Link>
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Listening (Demo)</h1>
-          <div className="flex items-center gap-2 text-slate-500">
-            <Clock className="w-5 h-5" />
-            <span>5 min</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between text-sm text-slate-600 mb-2">
-          <span>Question {currentQuestion + 1} of {questions.length}</span>
-          <span>{Math.round(((currentQuestion + 1) / questions.length) * 100)}%</span>
-        </div>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-300"
-            style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Use the shared component */}
+    <TestLayout
+      title="Listening (Demo)"
+      durationMinutes={5}
+      totalQuestions={questions.length}
+      currentQuestion={currentQuestion}
+      answers={answers}
+      onQuestionSelect={handleQuestionSelect}
+      onPrevious={handlePrevious}
+      onNext={handleNext}
+      onSubmit={handleSubmit}
+      currentQuestionId={question.id}
+      sectionIcon={Headphones}
+      sectionColor="from-orange-500 to-amber-500"
+      sectionLabel="Listening"
+      onExit={() => router.push('/demo')}
+    >
       <ListeningAudioPlayer
+        key={question.id}
         audioUrl={question.audioUrl || undefined}
         transcript={question.transcript || question.questionText}
         questionText={question.questionText}
         options={options}
         selectedAnswer={selectedAnswer}
-        correctAnswer={question.correctAnswer}
-        explanation={question.explanation || null}
+        correctAnswer={selectedAnswer !== null ? question.correctAnswer : null}
+        explanation={selectedAnswer !== null ? (question.explanation || 'See transcript above.') : null}
         onAudioPlayed={() => setHasPlayedMap(prev => ({ ...prev, [currentQuestion]: true }))}
         onAnswerSelect={handleAnswer}
         disabled={false}
       />
-
-      <div className="flex justify-end">
-        <button
-          onClick={handleNext}
-          disabled={selectedAnswer === null}
-          className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {currentQuestion < questions.length - 1 ? 'Next Question' : 'Finish Test'}
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
+    </TestLayout>
   );
 }
