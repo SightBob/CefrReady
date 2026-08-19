@@ -249,19 +249,14 @@ export default function ImportQuestionsPage() {
                   <XCircle className="w-4 h-4" />
                   ข้อผิดพลาด ({result.errors.length})
                 </h3>
-                <div className="bg-red-50 border border-red-100 rounded-lg p-3 max-h-48 overflow-y-auto">
+                <div className="bg-red-50 border border-red-100 rounded-lg p-3 max-h-64 overflow-y-auto">
                   <ul className="space-y-1">
-                    {result.errors.slice(0, 10).map((error, idx) => (
+                    {result.errors.map((error, idx) => (
                       <li key={idx} className="text-sm text-red-700">
                         {error}
                       </li>
                     ))}
                   </ul>
-                  {result.errors.length > 10 && (
-                    <p className="text-sm text-red-600 mt-2">
-                      และอีก {result.errors.length - 10} ข้อผิดพลาด...
-                    </p>
-                  )}
                 </div>
               </div>
             )}
@@ -272,9 +267,9 @@ export default function ImportQuestionsPage() {
                   <AlertTriangle className="w-4 h-4" />
                   คำเตือน ({result.warnings.length})
                 </h3>
-                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 max-h-32 overflow-y-auto">
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 max-h-48 overflow-y-auto">
                   <ul className="space-y-1">
-                    {result.warnings.slice(0, 5).map((warning, idx) => (
+                    {result.warnings.map((warning, idx) => (
                       <li key={idx} className="text-sm text-amber-700">
                         {warning}
                       </li>

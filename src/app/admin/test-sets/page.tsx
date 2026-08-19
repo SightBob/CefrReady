@@ -46,6 +46,7 @@ export default function AdminTestSetsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TestSet | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -116,10 +117,20 @@ export default function AdminTestSetsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await fetch(`/api/admin/test-sets/${deleteTarget.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/test-sets/${deleteTarget.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setDeleteError(
+          body?.error ?? `ลบไม่สำเร็จ (HTTP ${res.status}) — ดู error ใน terminal ของ dev server`
+        );
+        return;
+      }
       setDeleteTarget(null);
       await fetchData();
+    } catch {
+      setDeleteError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
     } finally {
       setDeleting(false);
     }
@@ -321,6 +332,11 @@ export default function AdminTestSetsPage() {
             <h2 className="text-xl font-bold text-slate-900 mb-3">ลบ Test Set?</h2>
             <p className="text-slate-600 mb-1">จะลบ <span className="font-semibold">{deleteTarget.name}</span> และการ assign ข้อสอบทุกข้อออกจาก set นี้</p>
             <p className="text-sm text-slate-400 mb-6">คำถามใน database จะ <strong>ไม่ถูกลบ</strong></p>
+            {deleteError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                {deleteError}
+              </div>
+            )}
             <div className="flex gap-3">
               <button onClick={() => setDeleteTarget(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium transition-colors">ยกเลิก</button>
               <button onClick={handleDelete} disabled={deleting} className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium flex items-center justify-center gap-2 transition-colors">

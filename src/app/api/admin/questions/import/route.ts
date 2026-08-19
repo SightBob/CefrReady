@@ -29,10 +29,38 @@ interface ValidationResult {
   warnings: string[];
 }
 
-function validateQuestion(row: Record<string, string>, index: number): ValidationResult {
+const CSV_COLUMNS = [
+  'testTypeId','questionText','optionA','optionB','optionC','optionD',
+  'correctAnswer','explanation','cefrLevel','difficulty','testSetId',
+  'conversation','article','audioUrl','transcript',
+] as const;
+
+const MAX_ERROR_MESSAGES = 100;
+
+function snippet(value: string | null | undefined, max = 60): string {
+  const s = (value ?? '').replace(/\s+/g, ' ').trim();
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+function jsonErrorDetail(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function capMessages(list: string[], cap = MAX_ERROR_MESSAGES): string[] {
+  if (list.length <= cap) return list;
+  return [...list.slice(0, cap), `…และอีก ${list.length - cap} ข้อความลักษณะเดียวกัน`];
+}
+
+// rowNo maps a 0-based data-row index to the line number an admin sees when
+// opening the CSV in a spreadsheet (header occupies line 1 when present).
+function makeRowNumberer(hadHeader: boolean): (idx: number) => number {
+  const offset = hadHeader ? 2 : 1;
+  return (idx: number) => idx + offset;
+}
+
+function validateQuestion(row: Record<string, string>, rowNum: number): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const rowNum = index + 1;
 
   // Validate testTypeId first
   const validTestTypes = ['focus-form', 'focus-meaning', 'form-meaning', 'listening'];
@@ -80,13 +108,13 @@ function validateQuestion(row: Record<string, string>, index: number): Validatio
       let parsed: unknown;
       try {
         parsed = JSON.parse(row.article);
-      } catch {
-        errors.push(`Row ${rowNum}: "article" is not valid JSON`);
-        return { valid: errors.length === 0, errors, warnings };
+      } catch (err) {
+        errors.push(`Row ${rowNum}: "article" is not valid JSON — ${jsonErrorDetail(err)} (ข้อมูลที่ได้รับ: "${snippet(row.article)}")`);
+        return { valid: false, errors, warnings };
       }
 
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        errors.push(`Row ${rowNum}: "article" must be a JSON object with {title, text, blanks}`);
+        errors.push(`Row ${rowNum}: "article" must be a JSON object with {title, text, blanks} — ได้รับ: ${Array.isArray(parsed) ? 'array' : typeof parsed}`);
       } else {
         const obj = parsed as Record<string, unknown>;
         if (!obj.title || typeof obj.title !== 'string') {
@@ -101,7 +129,7 @@ function validateQuestion(row: Record<string, string>, index: number): Validatio
           for (let b = 0; b < obj.blanks.length; b++) {
             const blank = obj.blanks[b] as Record<string, unknown>;
             if (typeof blank.id !== 'number') {
-              errors.push(`Row ${rowNum}: article.blanks[${b}].id must be a number`);
+              errors.push(`Row ${rowNum}: article.blanks[${b}].id must be a number — ได้รับ: ${JSON.stringify(blank.id)}`);
             }
             if (!blank.correctAnswer || typeof blank.correctAnswer !== 'string') {
               errors.push(`Row ${rowNum}: article.blanks[${b}].correctAnswer is required and must be a string`);
@@ -126,12 +154,12 @@ function validateQuestion(row: Record<string, string>, index: number): Validatio
       let parsed: unknown;
       try {
         parsed = JSON.parse(row.conversation);
-      } catch {
-        errors.push(`Row ${rowNum}: "conversation" is not valid JSON`);
-        return { valid: errors.length === 0, errors, warnings };
+      } catch (err) {
+        errors.push(`Row ${rowNum}: "conversation" is not valid JSON — ${jsonErrorDetail(err)} (ข้อมูลที่ได้รับ: "${snippet(row.conversation)}")`);
+        return { valid: false, errors, warnings };
       }
       if (!Array.isArray(parsed)) {
-        errors.push(`Row ${rowNum}: "conversation" must be a JSON array`);
+        errors.push(`Row ${rowNum}: "conversation" must be a JSON array — ได้รับ: ${typeof parsed}`);
       }
     }
   } else if (testType === 'listening') {
@@ -234,35 +262,42 @@ function normalizeCSV(text: string): string {
   return result.join('\n');
 }
 
-const CSV_COLUMNS = [
-  'testTypeId','questionText','optionA','optionB','optionC','optionD',
-  'correctAnswer','explanation','cefrLevel','difficulty','testSetId',
-  'conversation','article',
-] as const;
+interface CSVParseOutput {
+  rows: Record<string, string>[];
+  hadHeader: boolean;
+  parseErrors: string[];
+  headerIssues: string[];
+}
 
-function parseCSV(text: string): Record<string, string>[] {
+function parseCSV(text: string): CSVParseOutput {
   const normalized = normalizeCSV(text);
   const nonEmptyLines = normalized.split('\n').filter(l => l.trim());
-  const header = nonEmptyLines.length > 0 && hasHeaderLine(nonEmptyLines[0]);
+  const hadHeader = nonEmptyLines.length > 0 && hasHeaderLine(nonEmptyLines[0]);
 
-  if (!header) {
-    // No header — parse with default column names
+  if (!hadHeader) {
+    // No header — parse with default column order
     const result = Papa.parse<string[]>(normalized, {
       header: false,
       skipEmptyLines: true,
     });
-    if (result.errors.length > 0) {
-      console.warn('CSV parse warnings:', result.errors);
-    }
+    const parseErrors: string[] = result.errors.map(e =>
+      `CSV parse ผิดพลาดที่บรรทัด ~${(e.row ?? 0) + 1}: ${e.message} (${e.type})`
+    );
     const rows: Record<string, string>[] = [];
-    for (const values of result.data) {
+    result.data.forEach((values, idx) => {
+      if (values.length < CSV_COLUMNS.length) {
+        parseErrors.push(
+          `Row ${idx + 1}: มี ${values.length} คอลัมน์ แต่ระบบคาดหวัง ${CSV_COLUMNS.length} คอลัมน์ ` +
+          `(ไฟล์ไม่มี header — คอลัมน์ต้องเรียงตามลำดับ: ${CSV_COLUMNS.join(', ')})`
+        );
+      }
       const row: Record<string, string> = {};
-      CSV_COLUMNS.forEach((col, idx) => {
-        row[col] = String(values[idx] ?? '').trim();
+      CSV_COLUMNS.forEach((col, i) => {
+        row[col] = String(values[i] ?? '').trim();
       });
       rows.push(row);
-    }
-    return rows;
+    });
+    return { rows, hadHeader, parseErrors, headerIssues: [] };
   }
 
   // Has header — let PapaParse auto-map columns
@@ -271,12 +306,32 @@ function parseCSV(text: string): Record<string, string>[] {
     skipEmptyLines: true,
   });
 
-  if (result.errors.length > 0) {
-    console.warn('CSV parse warnings:', result.errors);
+  const parseErrors: string[] = result.errors.map(e =>
+    `CSV parse ผิดพลาดที่แถว ~${(e.row ?? 0) + 2}: ${e.message} (${e.type})`
+  );
+
+  // Diagnose header vs expected columns so "missing field" floods have a cause
+  const headerIssues: string[] = [];
+  const fields = (result.meta.fields ?? []).map(f => f.trim()).filter(Boolean);
+  const requiredCols = ['testTypeId', 'questionText', 'cefrLevel'];
+  const missing = requiredCols.filter(c => !fields.includes(c));
+  if (missing.length > 0) {
+    headerIssues.push(
+      `หัวตารางขาดคอลัมน์ที่จำเป็น: ${missing.join(', ')} — ` +
+      `แถวทุกแถวจะถูกรายงานว่าขาด field นี้ กรุณาตรวจชื่อคอลัมน์ (ต้องตรงทั้งตัวพิมพ์ใหญ่-เล็ก)`
+    );
+  }
+  const known = new Set<string>(CSV_COLUMNS);
+  const unknown = fields.filter(f => !known.has(f));
+  if (unknown.length > 0) {
+    headerIssues.push(
+      `หัวตารางมีคอลัมน์ที่ระบบไม่รู้จัก (จะถูกละเว้น): ${unknown.join(', ')} — ` +
+      `คอลัมน์ที่รองรับ: ${CSV_COLUMNS.join(', ')}`
+    );
   }
 
   // Trim header names and values
-  const trimmed = result.data.map(row => {
+  const rows = result.data.map(row => {
     const trimmedRow: Record<string, string> = {};
     for (const [key, value] of Object.entries(row)) {
       trimmedRow[key.trim()] = String(value ?? '').trim();
@@ -284,7 +339,7 @@ function parseCSV(text: string): Record<string, string>[] {
     return trimmedRow;
   });
 
-  return trimmed;
+  return { rows, hadHeader, parseErrors, headerIssues };
 }
 
 function normalizeText(s: string | null | undefined): string {
@@ -329,16 +384,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid CSV data' }, { status: 400 });
     }
 
-    const rows = parseCSV(csvData);
+    const { rows, hadHeader, parseErrors, headerIssues } = parseCSV(csvData);
+    const rowNo = makeRowNumberer(hadHeader);
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'No data rows found in CSV' }, { status: 400 });
+      return NextResponse.json({
+        success: false,
+        error: parseErrors.length > 0
+          ? 'ไม่พบข้อมูลที่นำเข้าได้ใน CSV — ดูสาเหตุด้านล่าง'
+          : 'No data rows found in CSV',
+        errors: parseErrors.length > 0 ? capMessages(parseErrors) : undefined,
+        warnings: headerIssues,
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+      }, { status: 400 });
     }
 
     // Validate all rows
-    const validationResults = rows.map((row, idx) => validateQuestion(row, idx));
-    const allErrors = validationResults.flatMap(r => r.errors);
-    const allWarnings = validationResults.flatMap(r => r.warnings);
+    const validationResults = rows.map((row, idx) => validateQuestion(row, rowNo(idx)));
+    const allErrors = capMessages([...parseErrors, ...validationResults.flatMap(r => r.errors)]);
+    const allWarnings = [...headerIssues, ...validationResults.flatMap(r => r.warnings)];
 
     // If there are errors, return preview with errors
     if (allErrors.length > 0) {
@@ -362,7 +428,7 @@ export async function POST(request: NextRequest) {
       ]);
       if (seenInFile.has(key)) {
         inFileDuplicateRows.add(idx);
-        allWarnings.push(`Row ${idx + 2}: ข้อสอบซ้ำกับ Row ${seenInFile.get(key)! + 2} ในไฟล์ CSV เดียวกัน — ข้ามแถวนี้`);
+        allWarnings.push(`Row ${rowNo(idx)}: ข้อสอบซ้ำกับ Row ${rowNo(seenInFile.get(key)!)} ในไฟล์ CSV เดียวกัน — ข้ามแถวนี้`);
       } else {
         seenInFile.set(key, idx);
       }
@@ -398,7 +464,7 @@ export async function POST(request: NextRequest) {
       ]);
       if (existingNormalized.has(key)) {
         inDbDuplicateRows.add(idx);
-        allWarnings.push(`Row ${idx + 2}: ข้อสอบซ้ำกับที่มีอยู่ในระบบแล้ว — ข้ามแถวนี้`);
+        allWarnings.push(`Row ${rowNo(idx)}: ข้อสอบซ้ำกับที่มีอยู่ในระบบแล้ว — ข้ามแถวนี้`);
       }
     });
 
@@ -407,39 +473,43 @@ export async function POST(request: NextRequest) {
     // Build questions to insert (excluding duplicates)
     const questionsToInsert = rows
       .map((row, idx) => {
-      if (skipRows.has(idx)) return null;
+        if (skipRows.has(idx)) return null;
 
-      let conversationData = null;
-      if (row.conversation) {
-        try { conversationData = JSON.parse(row.conversation); }
-        catch { allWarnings.push(`Row ${idx + 2}: "conversation" JSON parse failed, skipping`); }
-      }
+        let conversationData = null;
+        if (row.conversation) {
+          try { conversationData = JSON.parse(row.conversation); }
+          catch (err) {
+            allWarnings.push(`Row ${rowNo(idx)}: "conversation" JSON parse failed (${jsonErrorDetail(err)}) — จะนำเข้าโดยไม่มี conversation`);
+          }
+        }
 
-      let articleData = null;
-      if (row.article) {
-        try { articleData = JSON.parse(row.article); }
-        catch { allWarnings.push(`Row ${idx + 2}: "article" JSON parse failed, skipping`); }
-      }
+        let articleData = null;
+        if (row.article) {
+          try { articleData = JSON.parse(row.article); }
+          catch (err) {
+            allWarnings.push(`Row ${rowNo(idx)}: "article" JSON parse failed (${jsonErrorDetail(err)}) — จะนำเข้าโดยไม่มี article`);
+          }
+        }
 
-      return {
-        _originalIndex: idx,
-        testTypeId: row.testTypeId,
-        questionText: row.questionText,
-        optionA: row.optionA || null,
-        optionB: row.optionB || null,
-        optionC: row.optionC || null,
-        optionD: row.optionD || null,
-        correctAnswer: row.correctAnswer ? row.correctAnswer.toUpperCase() : null,
-        explanation: row.explanation || '',
-        cefrLevel: row.cefrLevel,
-        difficulty: row.difficulty?.toLowerCase() || 'medium',
-        conversation: conversationData,
-        article: articleData,
-        audioUrl: row.audioUrl || null,
-        transcript: row.transcript || null,
-      };
-    })
-    .filter((q): q is NonNullable<typeof q> => q !== null);
+        return {
+          _originalIndex: idx,
+          testTypeId: row.testTypeId,
+          questionText: row.questionText,
+          optionA: row.optionA || null,
+          optionB: row.optionB || null,
+          optionC: row.optionC || null,
+          optionD: row.optionD || null,
+          correctAnswer: row.correctAnswer ? row.correctAnswer.toUpperCase() : null,
+          explanation: row.explanation || '',
+          cefrLevel: row.cefrLevel,
+          difficulty: row.difficulty?.toLowerCase() || 'medium',
+          conversation: conversationData,
+          article: articleData,
+          audioUrl: row.audioUrl || null,
+          transcript: row.transcript || null,
+        };
+      })
+      .filter((q): q is NonNullable<typeof q> => q !== null);
 
     const skippedCount = skipRows.size;
 
@@ -464,13 +534,41 @@ export async function POST(request: NextRequest) {
         totalRows: rows.length,
         validRows: questionsToInsert.length,
         invalidRows: 0,
-        warnings: allWarnings,
+        warnings: capMessages(allWarnings),
       });
     }
 
     // ── Actual import ──────────────────────────────────────────────────
     const insertPayload = questionsToInsert.map(({ _originalIndex: _idx, ...rest }) => rest);
-    const inserted = await db.insert(questions).values(insertPayload).returning();
+    let inserted;
+    try {
+      inserted = await db.insert(questions).values(insertPayload).returning();
+    } catch (err) {
+      // Surface the actual DB rejection — admin-only endpoint, so exposing
+      // pg error code/detail is safe and saves a trip to the server logs.
+      const e = err as { code?: string; detail?: string; message?: string; constraint?: string };
+      const pgHints: Record<string, string> = {
+        '23505': 'ข้อมูลซ้ำกับที่มีใน DB (unique constraint)',
+        '23502': 'มีคอลัมน์ที่ DB บังคับ NOT NULL ได้รับค่าว่าง',
+        '23503': 'อ้างอิง foreign key ที่ไม่มีอยู่จริง (เช่น testSetId)',
+        '22001': 'ค่าบางคอลัมน์ยาวเกินขนาดที่คอลัมน์รองรับ (varchar overflow)',
+        '22P02': 'รูปแบบค่าไม่ถูกต้องสำหรับคอลัมน์ (เช่น ตัวเลข/enum)',
+      };
+      const details = [
+        e.message ? `message: ${e.message}` : '',
+        e.code ? `code: ${e.code}` : '',
+        e.constraint ? `constraint: ${e.constraint}` : '',
+        e.detail ? `detail: ${e.detail}` : '',
+        e.code && pgHints[e.code] ? `คำอธิบาย: ${pgHints[e.code]}` : '',
+      ].filter(Boolean);
+      console.error('DB insert failed during import:', err);
+      return NextResponse.json({
+        success: false,
+        error: 'บันทึกลงฐานข้อมูลไม่สำเร็จ',
+        errors: ['บันทึกลงฐานข้อมูลไม่สำเร็จ — ฐานข้อมูลปฏิเสธคำสั่ง INSERT (ข้อมูลยังไม่ถูกบันทึกแถวใดเลย)', ...details],
+        warnings: [],
+      }, { status: 500 });
+    }
 
     // Map inserted rows back to original row indices for test-set assignment
     const insertedByOriginalIndex = new Map<number, typeof inserted[0]>();
@@ -506,7 +604,7 @@ export async function POST(request: NextRequest) {
               assignments.push({ questionId: insertedQ.id, testSetId: setId, ...{ orderIndex: nextOrder } } as never);
             }
           } else {
-            allWarnings.push(`Row ${i + 2}: testSetId ${setId} not found, skipping assignment`);
+            allWarnings.push(`Row ${rowNo(i)}: testSetId ${setId} ไม่มีอยู่ในระบบ — ข้อสอบถูกนำเข้าแล้วแต่ไม่ได้จัดเข้าชุด`);
           }
         }
       }
@@ -523,11 +621,19 @@ export async function POST(request: NextRequest) {
       importedCount: inserted.length,
       skippedDuplicates: skippedCount,
       assignedCount,
-      warnings: allWarnings,
+      warnings: capMessages(allWarnings),
     });
   } catch (error) {
     console.error('Error importing questions:', error);
-    return NextResponse.json({ error: 'Failed to import questions' }, { status: 500 });
+    const e = error as { message?: string };
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to import questions',
+      errors: [
+        'เกิดข้อผิดพลาดที่ไม่คาดคิดระหว่างการนำเข้า',
+        e.message ? `message: ${e.message}` : '',
+      ].filter(Boolean),
+    }, { status: 500 });
   }
 }
 
@@ -548,6 +654,8 @@ export async function GET() {
       testSetId: '',
       conversation: '',
       article: '',
+      audioUrl: '',
+      transcript: '',
     },
     {
       testTypeId: 'focus-meaning',
@@ -563,6 +671,8 @@ export async function GET() {
       testSetId: '',
       conversation: JSON.stringify([{ speaker: 'A', name: 'Tom', text: 'What time is it?' }, { speaker: 'B', name: 'Jane', text: "It's 3 o'clock." }]),
       article: '',
+      audioUrl: '',
+      transcript: '',
     },
     {
       testTypeId: 'form-meaning',
@@ -578,6 +688,8 @@ export async function GET() {
       testSetId: '',
       conversation: '',
       article: JSON.stringify({ title: 'Cooking with Kids', text: 'Cooking is {{1}} fun activity. Kids love {{2}} in the kitchen.', blanks: [{ id: 1, correctAnswer: 'a' }, { id: 2, correctAnswer: 'working' }] }),
+      audioUrl: '',
+      transcript: '',
     },
     {
       testTypeId: 'listening',
@@ -593,6 +705,8 @@ export async function GET() {
       testSetId: '',
       conversation: '',
       article: '',
+      audioUrl: 'https://example.com/audio/meeting-starts-at-9.mp3',
+      transcript: 'The meeting starts at 9.',
     },
   ];
 
