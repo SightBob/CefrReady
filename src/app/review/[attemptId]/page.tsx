@@ -105,7 +105,7 @@ export default function ReviewPage() {
   // ─── Loading Skeleton ──────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-8">
+      <div className="min-h-[100dvh] bg-white p-4 sm:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-slate-200 rounded-lg animate-pulse" />
@@ -137,7 +137,7 @@ export default function ReviewPage() {
 
   if (error || !attempt) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-white flex items-center justify-center p-4">
         <div className="text-center">
           <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <p className="text-slate-600">{error || 'Review not found'}</p>

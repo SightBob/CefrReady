@@ -67,7 +67,7 @@ export default function DemoListeningPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-[100dvh] bg-white">
         <div className="bg-white border-b border-slate-200 h-14" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="bg-white rounded-2xl border border-slate-100 p-6 md:p-8 animate-pulse" style={{ minHeight: '500px' }}>

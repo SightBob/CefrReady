@@ -21,6 +21,7 @@ interface ListeningAudioPlayerProps {
   onAnswerSelect: (answer: string) => void;
   disabled?: boolean;
   hideFeedback?: boolean;
+  showTranscriptOnAnswer?: boolean;
 }
 
 export default function ListeningAudioPlayer({
@@ -35,6 +36,7 @@ export default function ListeningAudioPlayer({
   onAnswerSelect,
   disabled = false,
   hideFeedback = false,
+  showTranscriptOnAnswer = true,
 }: ListeningAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
@@ -44,6 +46,20 @@ export default function ListeningAudioPlayer({
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playedCallbackRef = useRef(false);
+  const explanationRef = useRef<HTMLDivElement | null>(null);
+  const prevSelectedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const wasUnanswered = prevSelectedRef.current === null;
+    prevSelectedRef.current = selectedAnswer;
+    // Only scroll on the unanswered -> answered transition, not on mount
+    // (review pages render with selectedAnswer pre-filled)
+    if (!wasUnanswered || selectedAnswer === null || hideFeedback) return;
+    const id = window.setTimeout(() => {
+      explanationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, [selectedAnswer, hideFeedback]);
 
   useEffect(() => {
     // Reset state for new audio
@@ -129,7 +145,7 @@ export default function ListeningAudioPlayer({
   };
 
   const isCorrect = selectedAnswer === correctAnswer;
-  const showExplanation = selectedAnswer !== null && explanation !== null && !hideFeedback;
+  const showExplanation = selectedAnswer !== null && !hideFeedback;
 
   const renderTranscript = (text: string) => {
     if (!text) return null;
@@ -226,7 +242,7 @@ export default function ListeningAudioPlayer({
       </div>
 
       {/* Show transcript after answering */}
-      {showExplanation && (
+      {showExplanation && showTranscriptOnAnswer && (
         <div className="bg-slate-50 rounded-xl p-5 mb-6 border border-slate-200">
           <p className="text-sm font-semibold text-slate-500 mb-4 uppercase tracking-wider">Audio Transcript</p>
           <div className="text-base">
@@ -281,15 +297,15 @@ export default function ListeningAudioPlayer({
       </div>
 
       {showExplanation && explanation && (
-        <div className={`mt-6 p-4 rounded-xl ${
+        <div ref={explanationRef} className={`mt-6 p-5 rounded-xl border-2 border-l-4 shadow-md ${
           isCorrect
-            ? 'bg-emerald-50 border border-emerald-200'
-            : 'bg-amber-50 border border-amber-200'
+            ? 'bg-emerald-50 border-emerald-200 border-l-emerald-500'
+            : 'bg-amber-50 border-amber-200 border-l-amber-500'
         }`}>
-          <p className="font-medium text-slate-800 mb-1">
-            {isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+          <p className={`font-bold mb-1 ${isCorrect ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {isCorrect ? '✓ ถูกต้อง!' : '✗ ยังไม่ถูกต้อง — เฉลย:'} คำอธิบาย
           </p>
-          <p className="text-slate-600">{explanation}</p>
+          <p className="text-slate-700 font-medium">{explanation}</p>
         </div>
       )}
     </div>

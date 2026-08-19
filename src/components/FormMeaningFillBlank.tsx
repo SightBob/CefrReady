@@ -70,15 +70,15 @@ export default function FormMeaningFillBlank({
       </div>
 
       {isSubmitted && explanation && (
-        <div className={`mt-4 p-4 rounded-xl ${
+        <div className={`mt-4 p-5 rounded-xl border-2 border-l-4 shadow-md ${
           isCorrect
-            ? 'bg-emerald-50 border border-emerald-200'
-            : 'bg-amber-50 border border-amber-200'
+            ? 'bg-emerald-50 border-emerald-200 border-l-emerald-500'
+            : 'bg-amber-50 border-amber-200 border-l-amber-500'
         }`}>
-          <p className="font-medium text-slate-800 mb-1">
-            {isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+          <p className={`font-bold mb-1 ${isCorrect ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {isCorrect ? '✓ ถูกต้อง!' : '✗ ยังไม่ถูกต้อง — เฉลย:'} คำอธิบาย
           </p>
-          <p className="text-slate-600">{explanation}</p>
+          <p className="text-slate-700 font-medium">{explanation}</p>
         </div>
       )}
     </div>

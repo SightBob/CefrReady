@@ -112,19 +112,11 @@ export default function TestResults({
         <p className="text-center text-[1rem] font-semibold text-[#585858] mb-3">รายละเอียดคะแนน</p>
 
         {/* Score breakdown */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-slate-50 rounded-xl py-3 text-center">
-            <p className="text-[0.8125rem] font-medium text-[#797979] mb-1">ถูกต้อง</p>
-            <p className="text-lg font-bold text-[#646464]">
-              {score} / {totalQuestions} ข้อ
-            </p>
-          </div>
-          <div className="bg-slate-50 rounded-xl py-3 text-center">
-            <p className="text-[0.8125rem] font-medium text-[#797979] mb-1">ยังไม่ถูกต้อง</p>
-            <p className="text-lg font-bold text-[#646464]">
-              {wrongCount} / {totalQuestions} ข้อ
-            </p>
-          </div>
+        <div className="bg-slate-50 rounded-xl py-3 text-center">
+          <p className="text-[0.8125rem] font-medium text-[#797979] mb-1">ถูกต้อง</p>
+          <p className="text-lg font-bold text-[#646464]">
+            {score} / {totalQuestions} ข้อ
+          </p>
         </div>
       </div>
 

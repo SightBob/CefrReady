@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { FileText, ChevronRight, Clock, BookOpen, Headphones, Layers, LogOut, PenTool } from 'lucide-react';
+import { FileText, ChevronRight, Clock, BookOpen, Headphones, Layers, LogOut, PenTool, CheckCircle, ArrowRight } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
@@ -17,7 +17,7 @@ import dynamic from 'next/dynamic';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
   loading: () => (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-[100dvh] bg-white">
       <div className="bg-white border-b border-slate-200 h-14" />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-2xl border border-slate-100 p-6 md:p-8 animate-pulse" style={{ minHeight: '500px' }} />
@@ -91,6 +91,8 @@ function FormMeaningQuiz({
   sectionId,
   setId,
   setName,
+  availableSets,
+  onSetSelect,
   onFinish,
   onAttemptId,
 }: {
@@ -98,6 +100,8 @@ function FormMeaningQuiz({
   sectionId: string;
   setId: number;
   setName: string;
+  availableSets: { id: number; name: string; description?: string | null }[];
+  onSetSelect: (id: number) => void;
   onFinish: (score: number, totalBlanks: number) => void;
   onAttemptId?: (id: number) => void;
 }) {
@@ -109,6 +113,18 @@ function FormMeaningQuiz({
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [testStartedAt] = useState(() => new Date().toISOString());
   const router = useRouter();
+  const setListRef = useRef<HTMLDivElement | null>(null);
+  const currentSetRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const list = setListRef.current;
+    const current = currentSetRef.current;
+    if (list && current) {
+      const listRect = list.getBoundingClientRect();
+      const elRect = current.getBoundingClientRect();
+      list.scrollTop += elRect.top - listRect.top - list.clientHeight / 2 + elRect.height / 2;
+    }
+  }, [setId]);
 
   // Combine all articles into one, re-numbering blanks globally
   const combinedArticle = useMemo(() => {
@@ -129,7 +145,9 @@ function FormMeaningQuiz({
         combinedText += text;
       }
     });
-    return { title: setName, text: combinedText, blanks: allBlanks };
+    const titles = questions.map((q) => q.article?.title).filter((t): t is string => !!t);
+    const uniqueTitles = [...new Set(titles)];
+    return { title: uniqueTitles.length > 0 ? uniqueTitles.join(' • ') : setName, text: combinedText, blanks: allBlanks };
   }, [questions, setName]);
 
   const globalToOriginal = useMemo(() => {
@@ -286,7 +304,7 @@ function FormMeaningQuiz({
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-[100dvh] bg-white">
       {/* Top Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
         <div
@@ -326,26 +344,47 @@ function FormMeaningQuiz({
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
-        {/* Progress */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm text-slate-600 mb-2">
-            <span>Blank {answeredCount} of {totalBlanks}</span>
-            <span>{totalBlanks > 0 ? Math.round((answeredCount / totalBlanks) * 100) : 0}%</span>
-          </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
-              style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
-            />
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-40 md:pb-6">
+        <div className="w-full flex items-center justify-between mb-[1.1875rem]">
+          <div className="w-72 max-w-full bg-[#F9F9F9] py-1 flex items-center space-x-3 rounded-full ps-4">
+            <FileText className="size-[1rem]" />
+            <p className="text-[0.9375rem] font-medium">Fill in the blanks</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <FileText className="w-5 h-5 text-purple-600" />
-            <span className="text-sm font-medium text-purple-600">Fill in the blanks</span>
+        <div className="flex gap-6 items-start">
+        {/* Desktop Navigation Panel */}
+
+        <div className="hidden md:block max-w-72 w-full shrink-0">
+          <div className="rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden p-[1.1875rem] bg-[#F9F9F9]">
+            <p className="text-xs font-medium text-slate-500 px-1 pb-2">ชุดข้อสอบ</p>
+            <div ref={setListRef} className="max-h-[28rem] overflow-y-auto dot-map-scroll flex flex-col gap-2" style={{ scrollbarWidth: 'none' }}>
+              {availableSets.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  ref={s.id === setId ? currentSetRef : null}
+                  onClick={() => { if (s.id !== setId && !isSubmitted) onSetSelect(s.id); }}
+                  className={`text-left px-4 py-3 min-h-[5rem] rounded-xl border transition-colors ${
+                    s.id === setId
+                      ? 'bg-[#6D89EF] border-[#6D89EF] text-white'
+                      : 'bg-white border-[#BFDFEB] hover:border-[#3B82F6] text-slate-700'
+                  }`}
+                >
+                  <span className="block text-sm font-bold truncate">ข้อสอบ - {i + 1}</span>
+                  {s.id === setId && (
+                    <span className="text-xs font-medium opacity-80">ชุดปัจจุบัน</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
+        </div>
+
+        <div className="flex-1 min-w-0 max-w-4xl">
+
+
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
           <h2 className="text-xl font-bold text-slate-800 mb-6">
             <SelectableText text={combinedArticle.title} contextSentence={combinedArticle.title} />
           </h2>
@@ -370,54 +409,65 @@ function FormMeaningQuiz({
           </div>
         )}
 
-        {/* Desktop: Submit Button (above mobile bar) */}
-        {!isSubmitted && (
-          <div className="hidden md:flex justify-end mt-8">
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Submit Answers
-            </button>
-          </div>
-        )}
-
-        {isSubmitted && (
-          <div className="hidden md:flex justify-end mt-4">
-            <button
-              onClick={() => onFinish(correctCount, totalBlanks)}
-              className="btn-primary inline-flex items-center gap-2"
-            >
-              View Results
-            </button>
-          </div>
-        )}
+        </div>
+        </div>
       </div>
 
-      {/* Mobile Bottom Submit Bar - Only ONE button */}
-      {!isSubmitted && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3">
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="w-full btn-primary py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Submit Answers
-          </button>
-        </div>
-      )}
+      {/* Universal Bottom Bar */}
+      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)]">
+        <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-3 md:py-0 md:min-h-[8rem] flex flex-col md:flex-row items-center justify-between gap-3 w-full">
+          {/* Progress Ring */}
+          <div className="w-full md:w-auto p-2 md:p-0 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="relative w-12 h-12 scale-90 md:scale-100 origin-center shrink-0">
+                <svg className="w-12 h-12 transform -rotate-90">
+                  <circle cx="24" cy="24" r="20" stroke="#e2e8f0" strokeWidth="4" fill="none" />
+                  <circle
+                    cx="24" cy="24" r="20"
+                    stroke="#10b981"
+                    strokeWidth="4"
+                    fill="none"
+                    strokeDasharray={`${totalBlanks > 0 ? (answeredCount / totalBlanks) * 125.6 : 0} 125.6`}
+                    className="transition-all duration-500"
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700">
+                  {totalBlanks > 0 ? Math.round((answeredCount / totalBlanks) * 100) : 0}%
+                </span>
+              </div>
+              <div className="text-sm hidden sm:block">
+                <p className="text-slate-900 font-medium">{answeredCount} answered</p>
+                <p className="text-slate-500">{totalBlanks - answeredCount} remaining</p>
+              </div>
+              <p className="text-sm font-medium text-slate-900 sm:hidden">
+                {answeredCount}/{totalBlanks}
+              </p>
+            </div>
+          </div>
 
-      {isSubmitted && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3">
-          <button
-            onClick={() => onFinish(correctCount, totalBlanks)}
-            className="w-full btn-primary py-3"
-          >
-            View Results
-          </button>
+          {/* Submit / View Results */}
+          <div className="w-full flex items-center gap-2 md:gap-3 md:w-auto justify-center">
+            {!isSubmitted ? (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full md:w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap">ส่งข้อสอบ</span>
+                <CheckCircle className="size-[1.125rem] shrink-0" />
+              </button>
+            ) : (
+              <button
+                onClick={() => onFinish(correctCount, totalBlanks)}
+                className="w-full md:w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors"
+              >
+                <span className="text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap">ดูผลการสอบ</span>
+                <ArrowRight className="size-[1.125rem] shrink-0" />
+              </button>
+            )}
+          </div>
         </div>
-      )}
+      </div>
 
       <ConfirmModal
         isOpen={showSubmitConfirm}
@@ -746,6 +796,8 @@ export default function SetQuizPage() {
         sectionId={sectionId}
         setId={setId}
         setName={setData.name}
+        availableSets={availableSets}
+        onSetSelect={(id) => router.push(`/tests/${sectionId}/${id}`)}
         onFinish={(s, total) => { setScore(s); setFormMeaningTotalBlanks(total); setIsFinished(true); }}
         onAttemptId={(id) => setAttemptId(id)}
       />

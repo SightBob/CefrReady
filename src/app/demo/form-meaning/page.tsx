@@ -156,7 +156,7 @@ export default function DemoFormMeaningPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-[100dvh] bg-white">
         <div className="bg-white border-b border-slate-200 h-14" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="bg-white rounded-2xl border border-slate-100 p-6 md:p-8 animate-pulse" style={{ minHeight: '500px' }}>
@@ -179,7 +179,7 @@ export default function DemoFormMeaningPage() {
     const passed = percentage >= 70;
 
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-white flex items-center justify-center p-4">
         <div className="w-full max-w-lg">
           <Link href="/demo" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors mb-8 text-sm">
             <ArrowLeft className="w-4 h-4" />
@@ -258,7 +258,7 @@ export default function DemoFormMeaningPage() {
   const answeredCount = Object.keys(answers).filter((k) => answers[parseInt(k)]).length;
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-[100dvh] bg-white">
       {/* Top Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
         <div

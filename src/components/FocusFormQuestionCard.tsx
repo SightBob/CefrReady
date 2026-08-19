@@ -100,7 +100,14 @@ export default function FocusFormQuestionCard({
 
   const renderQuestion = () => {
     if (conversation && conversation.length > 0) {
-      return renderConversation(conversation);
+      return (
+        <>
+          {renderConversation(conversation)}
+          <div className="text-[1.25rem] md:text-xl font-medium text-slate-800 leading-relaxed mt-6">
+            <SelectableText text={questionText} contextSentence={questionText} />
+          </div>
+        </>
+      );
     }
     if (!hasDialogue) {
       return (
@@ -184,19 +191,19 @@ export default function FocusFormQuestionCard({
       </div>
 
       {showExplanation && (
-        <div className={`mt-6 p-4 rounded-xl flex items-start gap-3 ${isCorrect
-          ? 'bg-emerald-50 border border-emerald-200'
-          : 'bg-amber-50 border border-amber-200'
+        <div className={`mt-6 p-5 rounded-xl border-2 border-l-4 shadow-md flex items-start gap-3 ${isCorrect
+          ? 'bg-emerald-50 border-emerald-200 border-l-emerald-500'
+          : 'bg-amber-50 border-amber-200 border-l-amber-500'
           }`}>
           {isCorrect
             ? <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
             : <XCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           }
           <div>
-            <p className="font-medium text-slate-800 mb-1">
-              {isCorrect ? 'ถูกต้อง!' : 'ผิดแล้ว — เฉลย:'}
+            <p className={`font-bold mb-1 ${isCorrect ? 'text-emerald-700' : 'text-amber-700'}`}>
+              {isCorrect ? 'ถูกต้อง!' : 'ผิดแล้ว — เฉลย:'} คำอธิบาย
             </p>
-            {explanation && <p className="text-slate-600 text-sm">{explanation}</p>}
+            {explanation && <p className="text-slate-700 text-sm font-medium">{explanation}</p>}
           </div>
         </div>
       )}
