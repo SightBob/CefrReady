@@ -1,28 +1,24 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { unstable_cache } from 'next/cache';
 import DemoTestsSection from '@/components/DemoTestsSection';
 import HomeReviews from '@/components/HomeReviews';
 import FaqAccordion from '@/components/FaqAccordion';
+import HomeTestTypes from '@/components/HomeTestTypes';
 import Image from "next/image";
 
 
 import JsonLd, { websiteSchema, courseSchema, faqSchema } from '@/components/JsonLd';
 import {
-  Sparkles,
-  BookOpen,
   CheckCircle,
   Trophy,
   Target,
   Zap,
   ArrowRight,
-  PenTool,
-  Layers,
-  Headphones,
-  Clock,
-  LayoutGrid,
-  ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
+import { fetchSectionsFromDb } from '@/lib/sections';
+import { auth } from '@/lib/auth';
 
 export const metadata: Metadata = {
   title: 'CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR',
@@ -41,14 +37,21 @@ const FEATURES = [
   { icon: Zap, label: 'ฟรี 100%', desc: 'ไม่มีค่าใช้จ่าย' },
 ];
 
-const TEST_TYPES = [
-  { name: 'Focus on Form', count: '30', color: 'from-blue-500 to-cyan-500', bg: 'bg-blue-50', icon: PenTool },
-  { name: 'Focus on Meaning', count: '30', color: 'from-emerald-500 to-teal-500', bg: 'bg-emerald-50', icon: BookOpen },
-  { name: 'Form & Meaning', count: '30', color: 'from-purple-500 to-pink-500', bg: 'bg-purple-50', icon: Layers },
-  { name: 'Listening', count: '30', color: 'from-orange-500 to-amber-500', bg: 'bg-orange-50', icon: Headphones },
-];
+const getCachedSections = unstable_cache(
+  async () => fetchSectionsFromDb(),
+  ['home-page-sections'],
+  { revalidate: 300, tags: ['sections'] }
+);
 
-export default function Home() {
+export default async function Home() {
+  const [sections, session] = await Promise.all([
+    getCachedSections().catch((err) => {
+      console.error('[home/page] Failed to fetch sections:', err);
+      return [] as Awaited<ReturnType<typeof fetchSectionsFromDb>>;
+    }),
+    auth(),
+  ]);
+  const isAuthenticated = Boolean(session?.user);
   return (
     <div className="min-h-screen bg-white">
       {/* SEO: Structured Data */}
@@ -134,42 +137,7 @@ export default function Home() {
       className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 stagger-animate mt-[2.313rem] bg-white bg-opacity-35 rounded-[2.75rem] p-4 sm:p-6 md:p-[2rem] max-sm:rounded-[1.75rem]"
       style={{ animationDelay: '500ms' }}
     >
-      {TEST_TYPES.map((type) => {
-        const Icon = type.icon;
-        return (
-          <div
-            key={type.name}
-            className="bg-[#F8F8F8] flex flex-col w-full h-auto min-h-[240px] p-4 rounded-2xl border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 sm:mx-auto sm:max-w-[295px] sm:h-[288px] sm:p-[17px]"
-          >
-            <div className={`bg-gradient-to-br ${type.color} w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center mb-3 md:mb-4`}>
-              <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-            </div>
-            <h3 className="font-bold text-slate-800 text-lg sm:text-[1.375rem] mb-1">
-              {type.name}
-            </h3>
-            <p className="text-xs sm:text-sm md:text-[1rem] font-medium">
-              ทดสอบความรู้ของคุณเกี่ยวกับ โครงสร้างไวยากรณ์ รูปแบบคำกริยา และแพทเทิร์นประโยค
-            </p>
-
-            <div className="mt-auto flex justify-between items-center">
-              <div className="flex items-center space-x-4 ">
-              <div className="flex space-x-1">
-                <Clock className="w-4 h-4" />
-                <p className="md:text-[0.813rem] font-medium text-[#343434]">{type.count} นาที</p>
-              </div>
-              <div className="flex space-x-1">
-                <LayoutGrid className="w-4 h-4" />
-                <p className="md:text-[0.813rem] font-medium text-[#343434]">9 เซ็ต</p>
-              </div>
-            </div>
-
-            <div className="bg-[#E2E8FF] rounded-full size-[36px] flex items-center justify-center">
-              <ArrowRight className='w-5 h-5 text-[#7372DF]'/> 
-            </div>
-            </div>
-          </div>
-        );
-      })}
+      <HomeTestTypes sections={sections} isAuthenticated={isAuthenticated} />
     </div>
   </div>
 </section>

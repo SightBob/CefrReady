@@ -1,11 +1,10 @@
 'use client';
 
-import { ArrowLeft, Lock, X, PenTool, BookOpen, Layers, Headphones, LayoutGrid, Clock } from 'lucide-react';
-import Link from 'next/link';
+import { X, PenTool, BookOpen, Layers, Headphones, LayoutGrid } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { signIn } from 'next-auth/react';
 import SectionCard, { type SectionData } from '@/components/SectionCard';
 import TestSetCard from '@/components/TestSetCard';
-import TestsLoginPrompt from './TestsLoginPrompt';
 import FullTestCard from '@/components/FullTestCard';
 
 // FeedbackDiscoveryModal intentionally not rendered — feature disabled until
@@ -45,6 +44,14 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
 
   const activeSets = selectedSection?.testSets.filter((ts) => ts.isActive) ?? [];
 
+  const handleOpenSection = (section: SectionData) => {
+    if (!isAuthenticated) {
+      void signIn(undefined, { callbackUrl: '/tests' });
+      return;
+    }
+    setSelectedSection(section);
+  };
+
   return (
     <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-[65px] max-lg:pt-[45px] min-h-svh">
       <div className="mb-8 w-full bg-[#EEF1FF] p-5 sm:p-[1.75rem] border border-[#DFDEFF] rounded-[1.5rem] sm:rounded-[2rem]">
@@ -55,7 +62,7 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
       {' '}พร้อมทดสอบความรู้หรือยัง?
     </p>
   ) : (
-    <p className="text-slate-600 mt-2 text-sm sm:text-base">Complete tests with progress tracking and detailed results</p>
+    <p className="text-slate-600 mt-2 text-sm sm:text-base">ล็อกอินเพื่อทำข้อสอบเต็มและบันทึกคะแนนของคุณ</p>
   )}
 
   <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto sm:flex-wrap sm:overflow-visible mt-3 -mx-5 px-5 sm:mx-0 sm:px-0 pb-1 sm:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -75,7 +82,6 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
 
   <FullTestCard disabled={!isAuthenticated} />
 </div>
-      {!isAuthenticated && <TestsLoginPrompt />}
 
 
 
@@ -85,33 +91,14 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
           <p className="text-sm mt-1">Please check back later.</p>
         </div>
       ) : (
-        <div className={`grid max-[625px]:grid-cols-1 max-[1190px]:grid-cols-2 min-[1190px]:grid-cols-4 gap-6 ${!isAuthenticated ? 'opacity-60' : ''}`}>
+        <div className="grid max-[625px]:grid-cols-1 max-[1190px]:grid-cols-2 min-[1190px]:grid-cols-4 gap-6">
           {sections.map((section) => (
-            <div key={section.id} className="relative">
-              <SectionCard
-                section={section}
-                disabled={!isAuthenticated}
-                onOpen={isAuthenticated ? setSelectedSection : undefined}
-              />
-              {!isAuthenticated && (
-                <div className="absolute inset-0 bg-slate-100/50 rounded-2xl flex items-center justify-center">
-                  <div className="bg-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-slate-600">
-                    <Lock className="w-5 h-5" />
-                    <span className="font-medium">Login Required</span>
-                  </div>
-                </div>
-              )}
-            </div>
+            <SectionCard
+              key={section.id}
+              section={section}
+              onOpen={handleOpenSection}
+            />
           ))}
-        </div>
-      )}
-
-      {!isAuthenticated && (
-        <div className="mt-12 text-center">
-          <p className="text-slate-600 mb-4">Want to try without logging in?</p>
-          <Link href="/demo" className="btn-secondary inline-flex items-center gap-2">
-            Try Demo Tests
-          </Link>
         </div>
       )}
 
