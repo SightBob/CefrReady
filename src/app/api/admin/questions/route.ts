@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const difficulty = searchParams.get('difficulty');
     const cefrLevel = searchParams.get('cefrLevel');
     const testSetId = searchParams.get('testSetId');
+    const demoOnly = searchParams.get('demoOnly') === 'true';
     const sort = searchParams.get('sort');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10)));
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
     if (difficulty) conditions.push(eq(questions.difficulty, difficulty));
     if (cefrLevel) conditions.push(eq(questions.cefrLevel, cefrLevel));
     if (search) conditions.push(ilike(questions.questionText, `%${search}%`));
+    if (demoOnly) conditions.push(eq(questions.isDemo, true));
     if (testSetId === 'none') {
       conditions.push(
         notInArray(questions.id, db.select({ id: testSetQuestions.questionId }).from(testSetQuestions))
@@ -69,6 +71,8 @@ export async function GET(request: NextRequest) {
         cefrLevel: questions.cefrLevel,
         active: questions.active,
         orderIndex: questions.orderIndex,
+        isDemo: questions.isDemo,
+        demoOrder: questions.demoOrder,
         createdAt: questions.createdAt,
         conversation: questions.conversation,
         article: questions.article,
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
   if (error) return error;
   try {
     const body = await request.json();
-    const { testTypeId, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, difficulty, cefrLevel, orderIndex, conversation, article, audioUrl, transcript } = body;
+    const { testTypeId, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, difficulty, cefrLevel, orderIndex, isDemo, demoOrder, conversation, article, audioUrl, transcript } = body;
 
     if (!testTypeId || !questionText || !difficulty || !cefrLevel) {
       return NextResponse.json({ error: 'Missing required fields: testTypeId, questionText, difficulty, cefrLevel are required' }, { status: 400 });
@@ -191,6 +195,8 @@ export async function POST(request: NextRequest) {
       difficulty,
       cefrLevel,
       orderIndex: orderIndex || 0,
+      isDemo: isDemo === true,
+      demoOrder: demoOrder != null && demoOrder !== '' ? parseInt(String(demoOrder), 10) : null,
       active: 'true',
       ...(conversation ? { conversation } : {}),
       ...(article ? { article } : {}),

@@ -64,6 +64,12 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
         ? parseInt(body.orderIndex, 10)
         : (body.orderIndex || 0);
     }
+    if (body.isDemo !== undefined) updateData.isDemo = body.isDemo === true;
+    if (body.demoOrder !== undefined) {
+      updateData.demoOrder = body.demoOrder === null || body.demoOrder === ''
+        ? null
+        : parseInt(String(body.demoOrder), 10);
+    }
     if (body.conversation !== undefined) {
       updateData.conversation = body.conversation;
     }

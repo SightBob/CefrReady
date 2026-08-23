@@ -10,6 +10,7 @@ import {
   Layers,
   LayoutGrid,
   PenTool,
+  Sparkles,
   X,
 } from 'lucide-react';
 import type { SectionData } from '@/components/SectionCard';
@@ -66,8 +67,14 @@ export default function HomeTestTypes({
               }
               if (section) setSelectedSection(section);
             }}
-            className="text-left bg-[#F8F8F8] flex flex-col w-full h-auto min-h-[240px] p-4 rounded-2xl border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 sm:mx-auto sm:max-w-[295px] sm:h-[288px] sm:p-[17px]"
+            className="text-left bg-[#F8F8F8] relative flex flex-col w-full h-auto min-h-[240px] p-4 rounded-2xl border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 sm:mx-auto sm:max-w-[295px] sm:h-[288px] sm:p-[17px]"
           >
+            {!isAuthenticated && (
+              <span className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-violet-100 text-violet-700 text-[0.688rem] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Demo
+              </span>
+            )}
             <div className={`bg-gradient-to-br ${type.color} w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center mb-3 md:mb-4`}>
               <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
             </div>

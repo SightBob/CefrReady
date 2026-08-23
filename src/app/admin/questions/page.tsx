@@ -24,6 +24,7 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
 import { toast } from 'sonner';
@@ -59,6 +60,8 @@ interface Question {
   cefrLevel: string;
   active: string;
   orderIndex: number;
+  isDemo: boolean;
+  demoOrder: number | null;
   createdAt: string;
   conversation?: ConversationLine[] | null;
   article?: Article | null;
@@ -130,6 +133,7 @@ export default function QuestionsManagement() {
   const [selectedCefr, setSelectedCefr] = useState<string>('');
   const [testSetsList, setTestSetsList] = useState<TestSetAssignment[]>([]);
   const [selectedTestSet, setSelectedTestSet] = useState<string>('');
+  const [demoOnly, setDemoOnly] = useState(false);
   const [sortId, setSortId] = useState<'' | 'asc' | 'desc'>('');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -183,6 +187,7 @@ export default function QuestionsManagement() {
       if (selectedDifficulty) params.set('difficulty', selectedDifficulty);
       if (selectedCefr) params.set('cefrLevel', selectedCefr);
       if (selectedTestSet) params.set('testSetId', selectedTestSet);
+      if (demoOnly) params.set('demoOnly', 'true');
       if (sortId) params.set('sort', `id-${sortId}`);
       params.set('page', String(currentPage));
       params.set('limit', String(pageSize));
@@ -199,7 +204,7 @@ export default function QuestionsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTestType, debouncedSearch, selectedDifficulty, selectedCefr, selectedTestSet, sortId, currentPage, pageSize]);
+  }, [selectedTestType, debouncedSearch, selectedDifficulty, selectedCefr, selectedTestSet, demoOnly, sortId, currentPage, pageSize]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
@@ -214,7 +219,7 @@ export default function QuestionsManagement() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedTestType, selectedDifficulty, selectedCefr, selectedTestSet, debouncedSearch, sortId, pageSize]);
+  }, [selectedTestType, selectedDifficulty, selectedCefr, selectedTestSet, debouncedSearch, demoOnly, sortId, pageSize]);
 
   const handleExportCSV = async () => {
     try {
@@ -322,10 +327,50 @@ export default function QuestionsManagement() {
 
       if (response.ok) {
         const updated = await response.json();
-        setQuestions(questions.map((q) => (q.id === updated.id ? updated : q)));
+        setQuestions(questions.map((q) => (q.id === updated.id ? { ...updated, testSets: q.testSets } : q)));
       }
     } catch (error) {
       console.error('Error toggling question status:', error);
+    }
+  };
+
+  const toggleDemo = async (question: Question) => {
+    try {
+      const response = await fetch(`/api/admin/questions/${question.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...question,
+          isDemo: !question.isDemo,
+        }),
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        setQuestions(questions.map((q) => (q.id === updated.id ? { ...updated, testSets: q.testSets } : q)));
+      }
+    } catch (error) {
+      console.error('Error toggling demo status:', error);
+    }
+  };
+
+  const updateDemoOrder = async (question: Question, value: string) => {
+    try {
+      const response = await fetch(`/api/admin/questions/${question.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...question,
+          demoOrder: value === '' ? null : Number(value),
+        }),
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        setQuestions(questions.map((q) => (q.id === updated.id ? { ...updated, testSets: q.testSets } : q)));
+      }
+    } catch (error) {
+      console.error('Error updating demo order:', error);
     }
   };
 
@@ -650,6 +695,16 @@ export default function QuestionsManagement() {
                 </option>
               ))}
             </select>
+
+            <label className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={demoOnly}
+                onChange={(e) => setDemoOnly(e.target.checked)}
+                className="w-4 h-4 accent-violet-600"
+              />
+              <span className="text-slate-700">Demo เท่านั้น</span>
+            </label>
           </div>
         </div>
 
@@ -751,6 +806,9 @@ export default function QuestionsManagement() {
                       <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         สถานะ
                       </th>
+                      <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Demo
+                      </th>
                       <th className="px-5 py-3.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         จัดการ
                       </th>
@@ -760,7 +818,7 @@ export default function QuestionsManagement() {
                     {filteredQuestions.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           className="px-6 py-16 text-center"
                         >
                           <BookOpen className="w-10 h-10 text-slate-200 mx-auto mb-2" />
@@ -954,6 +1012,42 @@ export default function QuestionsManagement() {
                                 </>
                               )}
                             </button>
+                          </td>
+
+                          {/* Demo toggle */}
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => toggleDemo(question)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                                  question.isDemo
+                                    ? 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                }`}
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                Demo
+                              </button>
+                              {question.isDemo && (
+                                <input
+                                  type="number"
+                                  defaultValue={question.demoOrder ?? ''}
+                                  key={`${question.id}-${question.demoOrder}`}
+                                  onBlur={(e) => {
+                                    const value = e.target.value;
+                                    if (value !== String(question.demoOrder ?? '')) {
+                                      updateDemoOrder(question, value);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') e.currentTarget.blur();
+                                  }}
+                                  placeholder="#"
+                                  className="w-14 px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                  title="ลำดับการแสดงในหน้า Demo"
+                                />
+                              )}
+                            </div>
                           </td>
 
                           {/* Actions */}

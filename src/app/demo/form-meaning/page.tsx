@@ -27,7 +27,7 @@ export default function DemoFormMeaningPage() {
 
   const fetchQuestions = async () => {
     try {
-      const res = await fetch('/api/tests/form-meaning?count=1&demo=true');
+      const res = await fetch('/api/tests/form-meaning?count=10&demo=true');
       const data = await res.json();
       if (data.success) {
         setQuestions(data.data);
@@ -66,7 +66,20 @@ export default function DemoFormMeaningPage() {
   }
 
   if (questions.length === 0) {
-    return <QuizLoadingSkeleton />;
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center p-8">
+          <p className="text-lg font-semibold text-slate-700">Demo coming soon</p>
+          <p className="text-sm text-slate-500 mt-2">No demo questions are available yet. Please check back later.</p>
+          <button
+            onClick={() => router.push('/demo')}
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            Back to demos
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

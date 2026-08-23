@@ -94,10 +94,13 @@ export const questions = pgTable('questions', {
   difficulty: varchar('difficulty', { length: 20 }),
   active: varchar('active', { length: 5 }).default('true').notNull(),
   orderIndex: integer('order_index').default(0),
+  isDemo: boolean('is_demo').default(false).notNull(),
+  demoOrder: integer('demo_order'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   testTypeIdx: index('questions_test_type_idx').on(table.testTypeId),
+  demoIdx: index('questions_demo_idx').on(table.testTypeId, table.isDemo),
   cefrIdx: index('questions_cefr_idx').on(table.cefrLevel),
   activeIdx: index('questions_active_idx').on(table.active),
 }));

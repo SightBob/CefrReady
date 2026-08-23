@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes } from '@/db/schema';
-import { eq, sql, and } from 'drizzle-orm';
+import { eq, sql, and, asc } from 'drizzle-orm';
 import { checkIpThrottle } from '@/lib/api-security';
 import { sanitizeArticleForClient } from '@/lib/sanitize-question';
 
@@ -87,13 +87,21 @@ export async function GET(request: NextRequest, props: { params: Promise<{ type:
       explanation: questions.explanation,
     };
 
-    // Fetch random questions
-    const fetchedQuestions = await db
-      .select(isDemo ? selectWithAnswers : baseSelect)
-      .from(questions)
-      .where(whereCondition)
-      .orderBy(sql`RANDOM()`)
-      .limit(count);
+    // Demo mode: admin-curated questions only, ordered by demoOrder.
+    // Regular mode: random questions.
+    const fetchedQuestions = isDemo
+      ? await db
+          .select(selectWithAnswers)
+          .from(questions)
+          .where(and(whereCondition, eq(questions.isDemo, true)))
+          .orderBy(sql`${questions.demoOrder} ASC NULLS LAST`, asc(questions.id))
+          .limit(count)
+      : await db
+          .select(baseSelect)
+          .from(questions)
+          .where(whereCondition)
+          .orderBy(sql`RANDOM()`)
+          .limit(count);
 
     // SECURITY: in non-demo mode the article JSON of cloze (form-meaning)
     // questions still contains blanks[].correctAnswer — strip it so answers
