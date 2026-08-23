@@ -15,6 +15,7 @@ import {
   Languages,
   Database,
 } from 'lucide-react';
+import MaintenanceToggle from '@/components/admin/MaintenanceToggle';
 
 interface Stats {
   totalQuestions: number;
@@ -155,6 +156,8 @@ export default function AdminDashboard() {
             กลับหน้าหลัก
           </Link>
         </div>
+
+        <MaintenanceToggle />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {[
