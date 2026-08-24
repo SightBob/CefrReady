@@ -11,7 +11,10 @@ const globalForDb = global as unknown as { db: ReturnType<typeof drizzle> | unde
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 3,
-  idleTimeoutMillis: 30_000,
+  // Keep pooled connections alive across invocations — Fluid compute holds
+  // warm instances, so a longer idle window avoids repeated TCP+TLS+auth
+  // handshakes to Neon on every burst of requests.
+  idleTimeoutMillis: 300_000,
   connectionTimeoutMillis: 10_000,
 });
 
