@@ -8,9 +8,11 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-ibm)', 'var(--font-prompt)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        serif: ['var(--font-pridi)', 'ui-serif', 'Georgia', 'serif'],
-        ibm: ['var(--font-ibm)', 'var(--font-prompt)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Single site-wide font: IBM Plex Sans Thai (serif aliases to it too —
+        // legacy font-serif headings now render the same face).
+        sans: ['var(--font-ibm)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-ibm)', 'ui-serif', 'Georgia', 'serif'],
+        ibm: ['var(--font-ibm)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         primary: {

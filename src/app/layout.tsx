@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Prompt, Pridi, IBM_Plex_Sans_Thai } from 'next/font/google';
+import { IBM_Plex_Sans_Thai } from 'next/font/google';
 import './globals.css';
 import ChromeShell from '@/components/ChromeShell';
 import { SessionProvider } from 'next-auth/react';
@@ -10,27 +10,11 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import GoogleAnalyticsLazy from '@/components/GoogleAnalyticsLazy';
 import TopLoadingBar from '@/components/TopLoadingBar';
 
-const prompt = Prompt({
-  weight: ['400', '500', '600', '700'],
-  subsets: ['latin', 'thai'],
-  variable: '--font-prompt',
-  display: 'swap',
-});
-
-const pridi = Pridi({
-  weight: ['400'],
-  subsets: ['latin', 'thai'],
-  variable: '--font-pridi',
-  display: 'swap',
-  preload: false,
-});
-
 const ibmPlexSansThai = IBM_Plex_Sans_Thai({
   weight: ['300', '400', '500', '600', '700'],
   subsets: ['latin', 'thai'],
   variable: '--font-ibm',
   display: 'swap',
-  preload: false,
 });
 
 const BASE_URL = 'https://cefr-ready.site';
@@ -130,7 +114,7 @@ export default async function RootLayout({
         <meta name="application-name" content={SITE_NAME} />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={`${prompt.variable} ${pridi.variable} ${ibmPlexSansThai.variable} font-sans`}>
+      <body className={`${ibmPlexSansThai.variable} font-sans`}>
         <Suspense fallback={null}>
           <TopLoadingBar />
         </Suspense>
