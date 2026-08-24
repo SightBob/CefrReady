@@ -43,10 +43,12 @@ async function redisSet(key: string, value: string): Promise<void> {
   if (!res.ok) throw new Error(`Upstash REST ${res.status}`);
 }
 
-// Per-instance in-memory cache so we don't hit Upstash on every request.
-// A flip propagates within this window — acceptable for a maintenance window.
-const CACHE_TTL_MS = 15_000;
+// Per-instance stale-while-revalidate cache: the REQUEST PATH never waits
+// on Upstash (except once, on the instance's very first call). A flip
+// propagates within REVALIDATE_MS via a background refresh.
+const REVALIDATE_MS = 30_000;
 let cache: { value: boolean; fetchedAt: number } | null = null;
+let inflightRefresh: Promise<void> | null = null;
 
 /**
  * Parse the stored flag value. REGRESSION GUARD: the Upstash client
@@ -58,18 +60,34 @@ export function parseMaintenanceValue(value: unknown): boolean {
   return `${value}` === '1';
 }
 
-export async function isMaintenanceMode(): Promise<boolean> {
-  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.value;
-
+async function refreshCache(): Promise<void> {
   try {
     const value = await redisGet(MAINTENANCE_KEY);
     cache = { value: parseMaintenanceValue(value), fetchedAt: Date.now() };
-    return cache.value;
   } catch (error) {
-    // Fail-open: Redis down → never lock users out of the site.
-    console.error('[maintenance] Redis error, failing open:', error);
-    return false;
+    // Keep the last known value; only default to fail-open when we have
+    // nothing cached at all.
+    console.error('[maintenance] Redis error:', error);
+    if (!cache) cache = { value: false, fetchedAt: Date.now() };
   }
+}
+
+export async function isMaintenanceMode(): Promise<boolean> {
+  if (cache && Date.now() - cache.fetchedAt < REVALIDATE_MS) return cache.value;
+
+  // Kick off a background refresh at most once at a time.
+  if (!inflightRefresh) {
+    inflightRefresh = refreshCache().finally(() => {
+      inflightRefresh = null;
+    });
+  }
+
+  // First call on this instance has no cached value yet — wait for it.
+  // Every later call returns the cached value immediately while the
+  // background refresh updates it for the next request.
+  if (!cache) await inflightRefresh;
+
+  return cache?.value ?? false;
 }
 
 export async function setMaintenanceMode(enabled: boolean): Promise<void> {
