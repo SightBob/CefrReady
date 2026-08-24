@@ -16,7 +16,6 @@ export function buildCsp(nonce: string, isDev: boolean): string {
     `'nonce-${nonce}'`,
     "'unsafe-inline'",
     'https://va.vercel-scripts.com',
-    'https://www.googletagmanager.com',
     'https://*.posthog.com',
     ...(isDev ? ["'unsafe-eval'"] : []),
   ].join(' ');
@@ -27,7 +26,7 @@ export function buildCsp(nonce: string, isDev: boolean): string {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://pub-e915c92ac05f48ccabfe327469bf4599.r2.dev",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://va.vercel-scripts.com https://www.google-analytics.com https://*.posthog.com",
+    "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://va.vercel-scripts.com https://*.posthog.com",
     'worker-src blob: https://*.posthog.com',
     "frame-ancestors 'none'",
     "base-uri 'self'",

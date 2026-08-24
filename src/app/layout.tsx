@@ -5,9 +5,7 @@ import ChromeShell from '@/components/ChromeShell';
 import { SessionProvider } from 'next-auth/react';
 import Script from 'next/script';
 import { Suspense } from 'react';
-import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import GoogleAnalyticsLazy from '@/components/GoogleAnalyticsLazy';
 import TopLoadingBar from '@/components/TopLoadingBar';
 
 const ibmPlexSansThai = IBM_Plex_Sans_Thai({
@@ -113,6 +111,8 @@ export default async function RootLayout({
       <head>
         <meta name="application-name" content={SITE_NAME} />
         <meta name="mobile-web-app-capable" content="yes" />
+        {/* PostHog is the remaining third-party — warm the connection early. */}
+        <link rel="preconnect" href="https://us.i.posthog.com" crossOrigin="" />
       </head>
       <body className={`${ibmPlexSansThai.variable} font-sans`}>
         <Suspense fallback={null}>
@@ -143,8 +143,8 @@ export default async function RootLayout({
             </ChromeShell>
           </PostHogProvider>
         </SessionProvider>
-        <Analytics />
-        <GoogleAnalyticsLazy nonce={nonce} />
+        {/* PostHog (idle-initialized) is the single analytics provider now;
+            GA and Vercel Analytics were removed to cut duplicate tracking JS. */}
         <SpeedInsights />
         <ToasterWrapper />
       </body>

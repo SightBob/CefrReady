@@ -7,7 +7,10 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
 
   tracesSampleRate: process.env.NODE_ENV === 'development' ? 1.0 : 0.1,
 
-  replaysSessionSampleRate: 0.1,
+  // Session replay lives in PostHog (tests/demo paths only). Keeping Sentry
+  // replay on too doubled the recording overhead site-wide, so we only
+  // record sessions that hit an error — that's the replay worth having.
+  replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1.0,
 
   release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
