@@ -64,6 +64,10 @@ interface TestLayoutProps {
   showQuestionNav?: boolean;
   timerSeconds?: number;
   sequentialNav?: boolean;
+  /** Review Round: badge shown in the header when in the review phase. */
+  phaseLabel?: string;
+  /** Review Round: question indices >= this render with review styling. */
+  reviewSegmentStart?: number;
 }
 
 const QUESTIONS_PER_PAGE = 20;
@@ -94,6 +98,8 @@ export default function TestLayout({
   showQuestionNav = true,
   timerSeconds,
   sequentialNav = false,
+  phaseLabel,
+  reviewSegmentStart,
 }: TestLayoutProps) {
   const router = useRouter();
   const [showNavPanel, setShowNavPanel] = useState(true);
@@ -186,11 +192,17 @@ export default function TestLayout({
       baseClass += 'ring-2 ring-primary-500 ring-offset-1 ';
     }
 
+    const isReviewItem = reviewSegmentStart !== undefined && index >= reviewSegmentStart;
+
     switch (status) {
       case 'answered':
-        return baseClass + 'bg-[#6D89EF] text-white hover:bg-[#5A75E0]';
+        return isReviewItem
+          ? baseClass + 'bg-amber-500 text-white hover:bg-amber-600'
+          : baseClass + 'bg-[#6D89EF] text-white hover:bg-[#5A75E0]';
       default:
-        return baseClass + 'bg-[#EDEDED] text-slate-600 hover:bg-slate-200';
+        return isReviewItem
+          ? baseClass + 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+          : baseClass + 'bg-[#EDEDED] text-slate-600 hover:bg-slate-200';
     }
   };
 
@@ -233,7 +245,15 @@ export default function TestLayout({
               </div>
 
               <div>
-                <h1 className="font-bold text-base sm:text-[1.375rem] text-[#5A6387] line-clamp-1">{title}</h1>
+                <h1 className="font-bold text-base sm:text-[1.375rem] line-clamp-1 flex items-center gap-2">
+                  {title}
+                  {phaseLabel && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] sm:text-xs font-semibold text-amber-700 shrink-0">
+                      <RotateCcw className="w-3 h-3" />
+                      {phaseLabel}
+                    </span>
+                  )}
+                </h1>
                 <div className="flex items-center gap-2 text-xs sm:text-[1rem] text-[#5A6387] font-medium">
                   <span>set 1 - {totalQuestions} ข้อ</span>
                   <span>|</span>
@@ -267,12 +287,13 @@ export default function TestLayout({
               if (isActive) {
                 dotClass += 'ring-2 ring-primary-500 ring-offset-1 scale-110 ';
               }
+              const isReviewDot = reviewSegmentStart !== undefined && i >= reviewSegmentStart;
               switch (status) {
                 case 'answered':
-                  dotClass += 'bg-emerald-500 text-white';
+                  dotClass += isReviewDot ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white';
                   break;
                 default:
-                  dotClass += 'bg-slate-200 text-slate-500';
+                  dotClass += isReviewDot ? 'bg-amber-200 text-amber-700' : 'bg-slate-200 text-slate-500';
                   break;
               }
               return (

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, varchar, integer, boolean, numeric, primaryKey, index, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, varchar, integer, boolean, numeric, primaryKey, index, jsonb, unique, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -162,6 +162,14 @@ export const testAttempts = pgTable('test_attempts', {
     orderIndex: number;
     reused?: boolean;
   }>>().default([]),
+  // Review Round: per-question retry outcomes (first attempt is what counts
+  // toward score; this records the single allowed retry per wrong question).
+  retrySummary: jsonb('retry_summary').$type<Array<{
+    questionId: number;
+    firstAnswer: string;
+    retryAnswer: string;
+    recovered: boolean;
+  }>>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -200,12 +208,13 @@ export const testFeedback = pgTable('test_feedback', {
   userIdx: index('test_feedback_user_idx').on(table.userId),
 }));
 
-// User progress: averageScore stored as string (percentage with 2 decimal places)
+// User progress: averageScore is numeric(5,2) in Postgres — the pg driver
+// returns it to JS as a string, which is why legacy code parseFloat()s it.
 export const userProgress = pgTable('user_progress', {
   id: serial('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   testTypeId: varchar('test_type_id', { length: 50 }).notNull().references(() => testTypes.id),
-  averageScore: varchar('average_score', { length: 10 }),
+  averageScore: numeric('average_score', { precision: 5, scale: 2 }),
   testsTaken: integer('tests_taken').default(0),
   lastAttemptAt: timestamp('last_attempt_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -213,7 +222,9 @@ export const userProgress = pgTable('user_progress', {
 }, (table) => ({
   userIdIdx: index('user_progress_user_id_idx').on(table.userId),
   testTypeIdx: index('user_progress_test_type_idx').on(table.testTypeId),
-  uniqueUserTestType: index('user_progress_unique').on(table.userId, table.testTypeId),
+  // UNIQUE so the submit route can use ON CONFLICT for an atomic
+  // read-modify-write of averageScore/testsTaken.
+  uniqueUserTestType: uniqueIndex('user_progress_unique').on(table.userId, table.testTypeId),
 }));
 
 // ============================================================

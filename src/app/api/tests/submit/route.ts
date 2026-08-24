@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testAttempts, userAnswers, userProgress, testTypes, testSets } from '@/db/schema';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, inArray, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { calculateScore } from '@/lib/score-utils';
 import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
@@ -15,6 +15,12 @@ const submitBodySchema = z.object({
     questionId: z.number().int().positive(),
     selectedAnswer: z.string(),
   })).min(1),
+  // Review Round: one optional retry per wrong question. Score is computed
+  // from `answers` ONLY — retries never affect the official score.
+  retries: z.array(z.object({
+    questionId: z.number().int().positive(),
+    selectedAnswer: z.string(),
+  })).optional().default([]),
   isDemo: z.boolean().optional().default(false),
   startedAt: z.string().datetime().optional(),
 });
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { testTypeId, testSetId, answers, isDemo, startedAt: clientStartedAt } = parsedBody.data;
+  const { testTypeId, testSetId, answers, retries, isDemo, startedAt: clientStartedAt } = parsedBody.data;
 
   // Fetch questions to validate answers
   const questionIds = answers.map((a: { questionId: number }) => a.questionId);
@@ -70,6 +76,22 @@ export async function POST(request: NextRequest) {
     .where(and(eq(questions.testTypeId, testTypeId), inArray(questions.id, questionIds)));
 
   const { results, correctCount, totalQuestions, score } = calculateScore(answers, dbQuestions);
+
+  // Review Round: compute retry outcomes against the DB answer key. The
+  // official score comes from `answers` alone (calculateScore untouched);
+  // this summary is display/analytics data only.
+  const retryResults = retries.flatMap((retry) => {
+    const q = dbQuestions.find((dq) => dq.id === retry.questionId);
+    if (!q) return []; // drop unknown questionIds defensively
+    const firstAnswer = answers.find((a) => a.questionId === retry.questionId)?.selectedAnswer ?? '';
+    return [{
+      questionId: retry.questionId,
+      firstAnswer,
+      retryAnswer: retry.selectedAnswer,
+      recovered:
+        retry.selectedAnswer.trim().toUpperCase() === (q.correctAnswer ?? '').trim().toUpperCase(),
+    }];
+  });
 
   // For demo mode, skip authentication and database storage
   if (isDemo) {
@@ -163,6 +185,8 @@ export async function POST(request: NextRequest) {
         completedAt: now,
         // status column defaults to 'in_progress' — must set explicitly or the
         // attempt is invisible to /progress, which filters status='completed'
+        // Review Round summary — first-attempt score above stays untouched.
+        retrySummary: retryResults,
         status: 'completed',
       })
       .returning();
@@ -186,47 +210,23 @@ export async function POST(request: NextRequest) {
     // Non-fatal — continue to return results
   }
 
-  // Update or create user progress
+  // Update or create user progress — atomic upsert (ON CONFLICT) computes
+  // the weighted average inside Postgres, so concurrent submits can no
+  // longer race on a read-then-write and skew the average.
   try {
-    const existingProgress = await db
-      .select()
-      .from(userProgress)
-      .where(
-        and(eq(userProgress.userId, user.id), eq(userProgress.testTypeId, testTypeId))
-      );
-
-    if (existingProgress.length > 0) {
-      const progress = existingProgress[0];
-      const currentTestsTaken = progress.testsTaken || 0;
-      const newTestsTaken = currentTestsTaken + 1;
-      const currentAvgScore =
-        typeof progress.averageScore === 'string'
-          ? parseFloat(progress.averageScore)
-          : progress.averageScore || 0;
-      const safeAvg = Number.isFinite(currentAvgScore) ? currentAvgScore : 0;
-      const newAvgScore = (safeAvg * currentTestsTaken + score) / newTestsTaken;
-
-      await db
-        .update(userProgress)
-        .set({
-          averageScore: newAvgScore.toString(),
-          testsTaken: newTestsTaken,
-          lastAttemptAt: now,
-          updatedAt: now,
-        })
-        .where(eq(userProgress.id, progress.id));
-    } else {
-      await db.insert(userProgress).values({
-        userId: user.id,
-        testTypeId,
-        averageScore: score.toString(),
-        testsTaken: 1,
-        lastAttemptAt: now,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-  } catch (error: unknown) {
+    await db.execute(sql`
+      INSERT INTO user_progress (user_id, test_type_id, average_score, tests_taken, last_attempt_at)
+      VALUES (${user.id}, ${testTypeId}, ${score}, 1, now())
+      ON CONFLICT (user_id, test_type_id) DO UPDATE SET
+        tests_taken = COALESCE(user_progress.tests_taken, 0) + 1,
+        average_score = (
+          (COALESCE(user_progress.average_score, 0)
+            * COALESCE(user_progress.tests_taken, 0)) + ${score}
+        ) / (COALESCE(user_progress.tests_taken, 0) + 1),
+        last_attempt_at = now(),
+        updated_at = now()
+    `);
+  } catch (error) {
     console.error('[submit] Failed to update userProgress:', error);
     // Non-fatal — results still returned
   }
@@ -238,6 +238,7 @@ export async function POST(request: NextRequest) {
       totalQuestions,
       correctAnswers: correctCount,
       results,
+      retryResults,
       attemptId: newAttempt.id,
     },
   });

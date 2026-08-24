@@ -1,0 +1,1 @@
+ALTER TABLE "user_progress" ALTER COLUMN "average_score" SET DATA TYPE numeric(5, 2);

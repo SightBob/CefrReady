@@ -5,6 +5,11 @@ import { CheckCircle2, XCircle, ArrowRight, LogOut, PenTool, RotateCcw, RotateCw
 import Link from 'next/link';
 import { usePostHog } from '@/lib/posthog';
 
+interface RetryResultSummary {
+  questionId: number;
+  recovered: boolean;
+}
+
 interface TestResultsProps {
   score: number;
   totalQuestions: number;
@@ -18,6 +23,8 @@ interface TestResultsProps {
   headerTitle?: string;
   durationMinutes?: number;
   setNumber?: number;
+  /** Review Round outcomes — section hidden when absent (backward compatible). */
+  retryResults?: RetryResultSummary[];
 }
 
 export default function TestResults({
@@ -33,6 +40,7 @@ export default function TestResults({
   headerTitle = 'ผลการสอบ',
   durationMinutes,
   setNumber = 1,
+  retryResults,
 }: TestResultsProps) {
   const posthog = usePostHog();
   const percentage = Math.round((score / totalQuestions) * 100);
@@ -40,6 +48,9 @@ export default function TestResults({
   const effectiveMinutes = durationMinutes && durationMinutes > 0 ? durationMinutes : 20;
   const durationLabel = `${effectiveMinutes} นาที`;
   const wrongCount = totalQuestions - score;
+  // Review Round stats (undefined → section hidden)
+  const recoveredCount = retryResults?.filter((r) => r.recovered).length ?? 0;
+  const stillWrongCount = (retryResults?.length ?? 0) - recoveredCount;
 
   useEffect(() => {
     posthog?.capture('test_result_viewed', {
@@ -129,6 +140,27 @@ export default function TestResults({
           </div>
         )}
       </div>
+
+      {/* Review Round summary — rendered only when retry data exists */}
+      {retryResults && retryResults.length > 0 && (
+        <div className="w-full max-w-[1080px] mx-auto bg-white rounded-3xl shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)] p-6 sm:p-7 mt-5">
+          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
+            <RotateCcw className="w-5 h-5 text-amber-500" />
+            รอบทบทวน
+          </h3>
+          <p className="text-sm text-slate-500">
+            คะแนนของคุณนับจากรอบแรกเท่านั้น — นี่คือผลจากการทบทวนข้อที่ผิด
+          </p>
+          <div className="flex items-center gap-4 mt-4">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
+              ✅ แก้ได้ {recoveredCount}
+            </span>
+            <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600">
+              ⚠️ ยังไม่เข้าใจ {stillWrongCount}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Universal Bottom Bar */}
       <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)]">
