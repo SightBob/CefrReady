@@ -315,6 +315,85 @@ export type DbVocabulary = typeof vocabularies.$inferSelect;
 export type NewVocabulary = typeof vocabularies.$inferInsert;
 
 // ============================================================
+// UnitsPath — Learning path (units → nodes → lesson pages)
+// Admin-managed content for the snake-style path UI at /units
+// ============================================================
+
+// A unit banner on the learning path (e.g. "Subject-Verb Agreement")
+export const learningUnits = pgTable('learning_units', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  subtitle: varchar('subtitle', { length: 200 }),
+  // Unit color theme key: 'green' | 'blue' | 'purple' | 'orange'
+  colorKey: varchar('color_key', { length: 20 }).default('green').notNull(),
+  orderIndex: integer('order_index').default(0).notNull(),
+  isPublished: boolean('is_published').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  orderIdx: index('learning_units_order_idx').on(table.orderIndex),
+  publishedIdx: index('learning_units_published_idx').on(table.isPublished),
+}));
+
+// A clickable node on the unit path (a lesson or checkpoint)
+// kind: 'star' (lesson) | 'chest' (bonus) | 'trophy' (unit review)
+export const learningNodes = pgTable('learning_nodes', {
+  id: serial('id').primaryKey(),
+  unitId: integer('unit_id').notNull().references(() => learningUnits.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 200 }).notNull(),
+  kind: varchar('kind', { length: 20 }).default('star').notNull(),
+  orderIndex: integer('order_index').default(0).notNull(),
+  isPublished: boolean('is_published').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  unitIdx: index('learning_nodes_unit_idx').on(table.unitId),
+  orderIdx: index('learning_nodes_order_idx').on(table.unitId, table.orderIndex),
+}));
+
+// One page of a lesson: either an explanation page (sections) or a quiz page.
+// pages render in orderIndex; the LAST quiz page is followed by a result view.
+// sections: [{heading, body, examples:[{en, th, ok}]}]
+// quiz: {sentence, options[], answerIndex, explanation}
+export const lessonPages = pgTable('lesson_pages', {
+  id: serial('id').primaryKey(),
+  nodeId: integer('node_id').notNull().references(() => learningNodes.id, { onDelete: 'cascade' }),
+  // 'explain' | 'quiz'
+  pageType: varchar('page_type', { length: 20 }).default('explain').notNull(),
+  sections: jsonb('sections').$type<Array<{
+    heading: string;
+    body: string;
+    examples?: Array<{ en: string; th: string; ok: boolean }>;
+  }>>().default([]),
+  quiz: jsonb('quiz').$type<{
+    sentence: string;
+    options: string[];
+    answerIndex: number;
+    explanation: string;
+  } | null>(),
+  // "คลังศัพท์ช่วยชีวิต" table shown on this page.
+  // Legacy rows: fixed subject/verbForm/example fields.
+  // Current: { columns, rows } — flexible column count.
+  vocabBank: jsonb('vocab_bank').$type<
+    | Array<{
+        subject: string;
+        verbForm: string;
+        example: string;
+      }>
+    | { columns: string[]; rows: string[][] }
+  >(),
+  tip: text('tip'),
+  // Short "จำไว้เลย" summary shown at the top of an explain page (optional)
+  intro: text('intro'),
+  orderIndex: integer('order_index').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  nodeIdx: index('lesson_pages_node_idx').on(table.nodeId),
+  orderIdx: index('lesson_pages_order_idx').on(table.nodeId, table.orderIndex),
+}));
+
+// ============================================================
 // Drizzle-inferred types (for DB layer use)
 // ============================================================
 
@@ -411,3 +490,11 @@ export const questionSelectionLogs = pgTable('question_selection_logs', {
 
 export type DbQuestionSelectionLog = typeof questionSelectionLogs.$inferSelect;
 export type NewQuestionSelectionLog = typeof questionSelectionLogs.$inferInsert;
+
+// Learning path (UnitsPath)
+export type DbLearningUnit = typeof learningUnits.$inferSelect;
+export type NewLearningUnit = typeof learningUnits.$inferInsert;
+export type DbLearningNode = typeof learningNodes.$inferSelect;
+export type NewLearningNode = typeof learningNodes.$inferInsert;
+export type DbLessonPage = typeof lessonPages.$inferSelect;
+export type NewLessonPage = typeof lessonPages.$inferInsert;

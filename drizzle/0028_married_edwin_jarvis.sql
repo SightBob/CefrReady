@@ -1,0 +1,1 @@
+ALTER TABLE "lesson_pages" ADD COLUMN "intro" text;
