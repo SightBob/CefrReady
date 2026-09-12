@@ -11,6 +11,11 @@ import { NextResponse } from 'next/server';
  */
 const ALLOWED_ORIGINS = [
   process.env.NEXTAUTH_URL,
+  // Extra origins (e.g. a local preview server on another port) injected
+  // via env — comma-separated, full base URLs. Never hardcode tunnel domains.
+  ...(process.env.ADMIN_EXTRA_ORIGINS
+    ? process.env.ADMIN_EXTRA_ORIGINS.split(',').map((s) => s.trim())
+    : []),
   'https://cefr-ready.site',
   'https://cefr-ready.vercel.app',
   'http://localhost:3000',
