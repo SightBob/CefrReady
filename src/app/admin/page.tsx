@@ -14,6 +14,7 @@ import {
   Star,
   Languages,
   Database,
+  Map,
 } from 'lucide-react';
 import MaintenanceToggle from '@/components/admin/MaintenanceToggle';
 
@@ -131,6 +132,15 @@ export default function AdminDashboard() {
       href: '/admin/test-feedback',
       color: 'from-amber-500 to-yellow-500',
       bgColor: 'bg-amber-50',
+      count: 0,
+    },
+    {
+      title: 'เส้นทางการเรียน',
+      description: 'จัดการยูนิต บทเรียน และแบบทดสอบใน UnitsPath',
+      icon: Map,
+      href: '/admin/units',
+      color: 'from-emerald-500 to-green-500',
+      bgColor: 'bg-green-50',
       count: 0,
     },
     {
