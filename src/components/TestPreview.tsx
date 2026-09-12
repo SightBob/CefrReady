@@ -10,6 +10,7 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
+import ExplanationText from './ExplanationText';
 
 export type TestType = 'focus-form' | 'focus-meaning' | 'form-meaning' | 'listening';
 
@@ -217,7 +218,7 @@ export default function TestPreview({ type, title, description }: TestPreviewPro
                 <p className="font-medium text-slate-800 text-sm mb-1">
                   {selectedAnswer === question.correctAnswer ? 'Correct!' : 'Not quite right'}
                 </p>
-                <p className="text-slate-600 text-sm">{question.explanation}</p>
+                <ExplanationText text={question.explanation} className="text-slate-600 text-sm" />
               </div>
             </div>
           </div>

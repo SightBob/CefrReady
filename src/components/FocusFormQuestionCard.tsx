@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { CheckCircle, XCircle, MessageCircle } from 'lucide-react';
 import SelectableText from './SelectableText';
+import ExplanationText from './ExplanationText';
 
 interface ConversationLine {
   speaker: string;
@@ -203,7 +204,7 @@ export default function FocusFormQuestionCard({
             <p className={`font-bold mb-1 ${isCorrect ? 'text-emerald-700' : 'text-amber-700'}`}>
               {isCorrect ? 'ถูกต้อง!' : 'ผิดแล้ว — เฉลย:'} คำอธิบาย
             </p>
-            {explanation && <p className="text-slate-700 text-sm font-medium">{explanation}</p>}
+            {explanation && <ExplanationText text={explanation} className="text-slate-700 text-sm font-medium" />}
           </div>
         </div>
       )}
