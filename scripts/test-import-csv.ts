@@ -66,7 +66,7 @@ function normalizeCSV(text: string): string {
 
 const CSV_COLUMNS = [
   'testTypeId','questionText','optionA','optionB','optionC','optionD',
-  'correctAnswer','explanation','cefrLevel','difficulty','testSetId',
+  'correctAnswer','explanation','cefrLevel','difficulty','grammarTopic','testSetId',
   'conversation','article','audioUrl','transcript',
 ] as const;
 

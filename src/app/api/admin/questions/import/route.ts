@@ -31,7 +31,7 @@ interface ValidationResult {
 
 const CSV_COLUMNS = [
   'testTypeId','questionText','optionA','optionB','optionC','optionD',
-  'correctAnswer','explanation','cefrLevel','difficulty','testSetId',
+  'correctAnswer','explanation','cefrLevel','difficulty','grammarTopic','testSetId',
   'conversation','article','audioUrl','transcript',
 ] as const;
 
@@ -87,6 +87,11 @@ function validateQuestion(row: Record<string, string>, rowNum: number): Validati
   const validDifficulties = ['easy', 'medium', 'hard'];
   if (row.difficulty && !validDifficulties.includes(row.difficulty.toLowerCase())) {
     warnings.push(`Row ${rowNum}: Unknown difficulty "${row.difficulty}". Using default`);
+  }
+
+  // Validate grammarTopic (optional free text, max 200 chars per DB schema)
+  if (row.grammarTopic && row.grammarTopic.length > 200) {
+    errors.push(`Row ${rowNum}: "grammarTopic" is too long (${row.grammarTopic.length} characters). Must be 200 characters or fewer.`);
   }
 
   // Validate testSetId (optional)
@@ -503,6 +508,7 @@ export async function POST(request: NextRequest) {
           explanation: row.explanation || '',
           cefrLevel: row.cefrLevel,
           difficulty: row.difficulty?.toLowerCase() || 'medium',
+          grammarTopic: row.grammarTopic?.trim() || null,
           conversation: conversationData,
           article: articleData,
           audioUrl: row.audioUrl || null,
@@ -651,6 +657,7 @@ export async function GET() {
       explanation: 'Present simple with third person singular',
       cefrLevel: 'B1',
       difficulty: 'medium',
+      grammarTopic: 'Present Simple',
       testSetId: '',
       conversation: '',
       article: '',
@@ -668,6 +675,7 @@ export async function GET() {
       explanation: 'Asking about time',
       cefrLevel: 'A1',
       difficulty: 'easy',
+      grammarTopic: 'Telling the Time',
       testSetId: '',
       conversation: JSON.stringify([{ speaker: 'A', name: 'Tom', text: 'What time is it?' }, { speaker: 'B', name: 'Jane', text: "It's 3 o'clock." }]),
       article: '',
@@ -685,6 +693,7 @@ export async function GET() {
       explanation: 'Fill in the blanks',
       cefrLevel: 'B1',
       difficulty: 'medium',
+      grammarTopic: '',
       testSetId: '',
       conversation: '',
       article: JSON.stringify({ title: 'Cooking with Kids', text: 'Cooking is {{1}} fun activity. Kids love {{2}} in the kitchen.', blanks: [{ id: 1, correctAnswer: 'a' }, { id: 2, correctAnswer: 'working' }] }),
@@ -702,6 +711,7 @@ export async function GET() {
       explanation: 'Listening comprehension',
       cefrLevel: 'B1',
       difficulty: 'medium',
+      grammarTopic: 'Listening Comprehension',
       testSetId: '',
       conversation: '',
       article: '',

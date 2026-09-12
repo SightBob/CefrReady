@@ -341,8 +341,8 @@ export default function ImportQuestionsPage() {
                 <tr>
                   <td className="px-3 py-2 font-mono text-primary-600">explanation</td>
                   <td className="px-3 py-2 text-slate-400">-</td>
-                  <td className="px-3 py-2 text-slate-600">คำอธิบาย</td>
-                  <td className="px-3 py-2 text-xs">Present simple...</td>
+                  <td className="px-3 py-2 text-slate-600">คำอธิบาย (เว้นบรรทัดด้วย \n, เว้น 2 บรรทัดด้วย \n\n)</td>
+                  <td className="px-3 py-2 text-xs">Present simple...{'\n'}เว้นบรรทัด: ประโยค 1\nประโยค 2</td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 font-mono text-primary-600">cefrLevel</td>
@@ -355,6 +355,12 @@ export default function ImportQuestionsPage() {
                   <td className="px-3 py-2 text-amber-500">~</td>
                   <td className="px-3 py-2 text-slate-600">ความยาก</td>
                   <td className="px-3 py-2 font-mono text-xs">easy, medium, hard</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono text-primary-600">grammarTopic</td>
+                  <td className="px-3 py-2 text-slate-400">-</td>
+                  <td className="px-3 py-2 text-slate-600">หัวข้อไวยากรณ์ (แสดงให้ผู้ใช้ศึกษาต่อ, สูงสุด 200 ตัวอักษร)</td>
+                  <td className="px-3 py-2 font-mono text-xs">Present Perfect</td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 font-mono text-primary-600">testSetId</td>
