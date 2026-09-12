@@ -59,6 +59,20 @@
   50% { transform: translateY(-3px); }
 }
 
+/* UnitsPath — pulse ring on the active level node */
+@keyframes unitsPathPulse {
+  0% { transform: scale(0.9); opacity: 0.45; }
+  70% { transform: scale(1.15); opacity: 0; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .units-path-ring,
+  [style*='unitsPathPulse'] {
+    animation: none !important;
+  }
+}
+
 @keyframes topLoaderIndeterminate {
   0% {
     transform: translateX(-100%) scaleX(0.45);
