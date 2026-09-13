@@ -7,6 +7,7 @@ import type { LessonContent } from '@/content/units-path-lessons';
 import VocabBankModal from './VocabBankModal';
 import LessonQuiz from './LessonQuiz';
 import RichText from './RichText';
+import TapSelectExercise from './TapSelectExercise';
 
 export default function LessonContent({
   lesson,
@@ -23,7 +24,7 @@ export default function LessonContent({
   const totalPages = hasQuiz ? 2 : 1;
   const [page, setPage] = useState(0);
   const [score, setScore] = useState<{ correct: number; total: number } | null>(null);
-  const quizPassed = score !== null && score.correct === score.total;
+  const quizPassed = score !== null && score.total > 0 && score.correct === score.total;
 
   const goNext = () => {
     setPage((p) => Math.min(p + 1, totalPages - 1));
@@ -56,8 +57,9 @@ export default function LessonContent({
         </div>
       )}
 
-      {/* Step indicator */}
-      {totalPages > 1 && (
+      {/* Step indicator — hidden while the quiz is showing, because LessonQuiz
+          has its own per-question stepper (avoids two dot rows stacked). */}
+      {totalPages > 1 && page === 0 && (
         <div className="mb-6 flex items-center justify-center gap-2" aria-label={`หน้า ${page + 1} จาก ${totalPages}`}>
           {Array.from({ length: totalPages }).map((_, i) => (
             <span
@@ -199,6 +201,12 @@ export default function LessonContent({
                     </ul>
                   </>
                 )}
+
+                {section.tap && section.tap.items.length > 0 && (
+                  <div className="mt-4">
+                    <TapSelectExercise exercise={section.tap} accent={accent} />
+                  </div>
+                )}
               </section>
             ))}
           </div>
@@ -263,9 +271,7 @@ export default function LessonContent({
               {quizPassed
                 ? `คุณตอบถูกทั้งหมด ${score.correct}/${score.total} ข้อ — เก่งมาก!`
                 : `คุณตอบถูก ${score.correct}/${score.total} ข้อ — ลองกลับไปอ่านคำอธิบายแล้วทำใหม่อีกครั้งนะ`}
-            </p>
-
-            <p
+            </p>              <p
               className="mt-4 inline-block rounded-full px-4 py-1.5 text-sm font-extrabold"
               style={{ background: accent.light, color: accent.dark }}
             >
@@ -285,11 +291,22 @@ export default function LessonContent({
                 <ArrowLeft size={16} weight="bold" aria-hidden="true" />
                 ทำข้อสอบใหม่
               </button>
+              {quizPassed && lesson.nextNodeId && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/units/${lesson.nextNodeId}`)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-extrabold px-6 py-3 rounded-xl transition-all hover:brightness-105 active:translate-y-[2px]"
+                  style={{ background: accent.base, color: '#ffffff', boxShadow: `0 4px 0 ${accent.dark}` }}
+                >
+                  บทถัดไป
+                  <ArrowRight size={16} weight="bold" aria-hidden="true" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => router.push('/units')}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-extrabold px-6 py-3 rounded-xl transition-all hover:brightness-105 active:translate-y-[2px]"
-                style={{ background: accent.base, color: '#ffffff', boxShadow: `0 4px 0 ${accent.dark}` }}
+                style={{ background: quizPassed ? '#ffffff' : accent.base, color: quizPassed ? accent.dark : '#ffffff', border: quizPassed ? `2px solid ${accent.light}` : undefined, boxShadow: quizPassed ? undefined : `0 4px 0 ${accent.dark}` }}
               >
                 <House size={16} weight="fill" aria-hidden="true" />
                 กลับไปหน้าหลัก
@@ -308,6 +325,10 @@ export default function LessonContent({
             accent={accent}
             onFinish={(s) => {
               setScore(s);
+              if (lesson.nodeId && s.total > 0 && s.correct === s.total) {
+                window.localStorage.setItem(`units-completed-${lesson.nodeId}`, '1');
+                window.dispatchEvent(new Event('units-progress-changed'));
+              }
               setPage(2);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}

@@ -34,6 +34,7 @@ export default function NewLessonPage() {
         vocabBank: null,
         tip: null,
         intro: null,
+        isPublished: true,
         orderIndex: 0,
       }}
     />

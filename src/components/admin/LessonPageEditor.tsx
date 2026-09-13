@@ -24,11 +24,24 @@ interface TableData {
   rows: string[][];
 }
 
+/** Tap & Select — ฝึกแยกถูก/ผิด: each item has its own prompt + 2 editable choices */
+interface TapItem {
+  prompt: string;          // ประโยค/คำถามที่แสดง เช่น "She work at a bank."
+  choiceA: string;         // ตัวเลือกที่ 1 — เช่น "ถูก"
+  choiceB: string;         // ตัวเลือกที่ 2 — เช่น "ผิด"
+  correct: 0 | 1;          // 0 = choiceA ถูก, 1 = choiceB ถูก
+}
+interface TapExercise {
+  title: string;           // เช่น "แตะเลือกว่าประโยคนี้ถูกหรือผิด"
+  items: TapItem[];        // โจทย์แต่ละข้อ
+}
+
 interface SectionRow {
   heading: string;
   body: string;
   examples: ExampleRow[];
   table: TableData | null;
+  tap: TapExercise | null;
 }
 
 interface QuizRow {
@@ -91,10 +104,12 @@ interface PageData {
     | null;
   tip: string | null;
   intro: string | null;
+  isPublished: boolean;
   orderIndex: number;
 }
 
-const emptySection = (): SectionRow => ({ heading: '', body: '', examples: [], table: null });
+const emptySection = (): SectionRow => ({ heading: '', body: '', examples: [], table: null, tap: null });
+const emptyTapItem = (): TapItem => ({ prompt: '', choiceA: 'ถูก', choiceB: 'ผิด', correct: 0 });
 const emptyExample = (): ExampleRow => ({ en: '', th: '', ok: true });
 
 /** Wrap the current textarea selection in the given markup, return the new value + caret pos */
@@ -130,6 +145,7 @@ export default function LessonPageEditor({
           body: s.body,
           examples: s.examples ?? [],
           table: (s as { table?: TableData | null }).table ?? null,
+          tap: (s as { tap?: TapExercise | null }).tap ?? null,
         }))
       : [emptySection()]
   );
@@ -139,6 +155,7 @@ export default function LessonPageEditor({
   const [vocab, setVocab] = useState<VocabBankDraft>(() => toVocabDraft(initial?.vocabBank ?? null));
   const [tip, setTip] = useState(initial?.tip ?? '');
   const [intro, setIntro] = useState(initial?.intro ?? '');
+  const [isPublished, setIsPublished] = useState(initial?.isPublished ?? true);
   const [saving, setSaving] = useState(false);
 
   // ---------- Sections ----------
@@ -258,6 +275,56 @@ export default function LessonPageEditor({
       })
     );
 
+  // ---------- Tap & Select exercise within a section ----------
+  const addTap = (si: number) =>
+    setSections((s) =>
+      s.map((sec, idx) =>
+        idx === si
+          ? {
+              ...sec,
+              tap: {
+                title: 'แตะเลือกว่าประโยคนี้ถูกหรือผิด',
+                items: [
+                  { prompt: '', choiceA: 'ถูก', choiceB: 'ผิด', correct: 0 },
+                  { prompt: '', choiceA: 'ถูก', choiceB: 'ผิด', correct: 0 },
+                ],
+              },
+            }
+          : sec
+      )
+    );
+
+  const removeTap = (si: number) =>
+    setSections((s) => s.map((sec, idx) => (idx === si ? { ...sec, tap: null } : sec)));
+
+  const updateTap = (si: number, patch: Partial<Omit<TapExercise, 'items'>>) =>
+    setSections((s) =>
+      s.map((sec, idx) => (idx === si && sec.tap ? { ...sec, tap: { ...sec.tap, ...patch } } : sec))
+    );
+
+  const updateTapItem = (si: number, ii: number, patch: Partial<TapItem>) =>
+    setSections((s) =>
+      s.map((sec, idx) =>
+        idx === si && sec.tap
+          ? { ...sec, tap: { ...sec.tap, items: sec.tap.items.map((it, i2) => (i2 === ii ? { ...it, ...patch } : it)) } }
+          : sec
+      )
+    );
+
+  const addTapItem = (si: number) =>
+    setSections((s) =>
+      s.map((sec, idx) => (idx === si && sec.tap ? { ...sec, tap: { ...sec.tap, items: [...sec.tap.items, emptyTapItem()] } } : sec))
+    );
+
+  const removeTapItem = (si: number, ii: number) =>
+    setSections((s) =>
+      s.map((sec, idx) =>
+        idx === si && sec.tap
+          ? { ...sec, tap: { ...sec.tap, items: sec.tap.items.filter((_, i2) => i2 !== ii) } }
+          : sec
+      )
+    );
+
   // ---------- Quiz ----------
   const updateOption = (i: number, value: string) =>
     setQuiz((q) => ({ ...q, options: q.options.map((o, idx) => (idx === i ? value : o)) }));
@@ -356,6 +423,21 @@ export default function LessonPageEditor({
                           rows: s.table.rows.map((row) => row.map((c) => c.trim())),
                         }
                       : undefined,
+                  tap:
+                    s.tap &&
+                    s.tap.items.some((it) => it.prompt.trim() && it.choiceA.trim() && it.choiceB.trim())
+                      ? {
+                          title: s.tap.title.trim() || 'แตะเลือกคำตอบที่ถูกต้อง',
+                          items: s.tap.items
+                            .filter((it) => it.prompt.trim() && it.choiceA.trim() && it.choiceB.trim())
+                            .map((it) => ({
+                              prompt: it.prompt.trim(),
+                              choiceA: it.choiceA.trim(),
+                              choiceB: it.choiceB.trim(),
+                              correct: it.correct,
+                            })),
+                        }
+                      : undefined,
                 })),
               vocabBank:
                 vocab.rows.filter((r) => r.cells.some((c) => c.trim())).length > 0
@@ -368,6 +450,7 @@ export default function LessonPageEditor({
                   : null,
               tip: tip.trim() || null,
               intro: intro.trim() || null,
+              isPublished,
             }
           : {
               pageType,
@@ -378,6 +461,7 @@ export default function LessonPageEditor({
                 answerIndex: quiz.answerIndex,
                 explanation: quiz.explanation.trim(),
               },
+              isPublished,
             };
 
       const res = pageId
@@ -426,7 +510,19 @@ export default function LessonPageEditor({
         </div>
 
         {/* Page type switch */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-5 flex items-center gap-3">
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsPublished((v) => !v)}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 ${isPublished ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}
+          >
+            {isPublished ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'}
+          </button>
+          {initial && initial.nodeId > 0 && (
+            <Link href={`/units/${initial.nodeId}`} target="_blank" className="text-sm font-semibold text-sky-600 hover:underline">
+              ดูตัวอย่างหน้าผู้เรียน ↗
+            </Link>
+          )}
           <span className="text-sm font-semibold text-slate-600">ประเภทหน้า:</span>
           <div className="flex gap-2">
             <button
@@ -628,6 +724,89 @@ export default function LessonPageEditor({
                     <Plus className="w-3.5 h-3.5" /> เพิ่มตัวอย่าง
                   </button>
                 </div>
+
+                {/* Tap & Select — ฝึกแยกถูก/ผิด */}
+                {section.tap ? (
+                  <div className="bg-teal-50/60 rounded-xl p-3.5 mt-3">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-teal-600">Tap & Select — ฝึกแยกถูก/ผิด</p>
+                      <button
+                        onClick={() => removeTap(si)}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 px-2 py-1 rounded-lg"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> ลบแบบฝึก
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="ชื่อคำสั่ง เช่น แตะเลือกว่าประโยคนี้ถูกหรือผิด"
+                      value={section.tap.title}
+                      onChange={(e) => updateTap(si, { title: e.target.value })}
+                      className="w-full mb-2 px-2.5 py-1.5 border border-teal-200 bg-white rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    />
+
+                    {/* Items — each with its own prompt + 2 editable choices */}
+                    <div className="space-y-2">
+                      {section.tap.items.map((it, ii) => (
+                        <div key={ii} className="bg-white rounded-lg border border-teal-100 p-2.5">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[10px] font-black text-teal-500 shrink-0 w-5 text-center">{ii + 1}</span>
+                            <input
+                              type="text"
+                              placeholder="โจทย์ เช่น She work at a bank."
+                              value={it.prompt}
+                              onChange={(e) => updateTapItem(si, ii, { prompt: e.target.value })}
+                              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400"
+                            />
+                            <button onClick={() => removeTapItem(si, ii)} className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0" title="ลบโจทย์นี้"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                          <div className="flex items-center gap-1.5 pl-7">
+                            {[0, 1].map((choice) => {
+                              const isA = choice === 0;
+                              return (
+                                <div key={choice} className="flex-1 min-w-0 flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    placeholder={`ตัวเลือก ${isA ? 'A' : 'B'} (เช่น ${isA ? 'ถูก' : 'ผิด'})`}
+                                    value={isA ? it.choiceA : it.choiceB}
+                                    onChange={(e) => updateTapItem(si, ii, isA ? { choiceA: e.target.value } : { choiceB: e.target.value })}
+                                    className="flex-1 min-w-0 px-2 py-1.5 border border-teal-200 bg-teal-50/40 rounded-lg text-xs font-bold text-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTapItem(si, ii, { correct: (isA ? 0 : 1) as 0 | 1 })}
+                                    className={`shrink-0 w-7 h-7 rounded-lg text-[10px] font-black transition-colors ${
+                                      it.correct === choice
+                                        ? isA
+                                          ? 'bg-emerald-500 text-white'
+                                          : 'bg-rose-500 text-white'
+                                        : 'bg-slate-100 text-slate-400 hover:text-slate-600'
+                                    }`}
+                                    title={`กำหนดให้ตัวเลือก ${isA ? 'A' : 'B'} เป็นคำตอบที่ถูก`}
+                                  >
+                                    {isA ? 'A' : 'B'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => addTapItem(si)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:bg-teal-50 px-2.5 py-1.5 rounded-lg">
+                      <Plus className="w-3.5 h-3.5" /> เพิ่มโจทย์
+                    </button>
+                    <p className="text-[10px] text-slate-400 mt-1.5">แต่ละโจทย์มี 2 ตัวเลือกของตัวเอง — แก้ไขข้อความได้ และกด A/B เพื่อกำหนดคำตอบที่ถูก</p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => addTap(si)}
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:bg-teal-50 px-2.5 py-1.5 rounded-lg border border-dashed border-teal-300"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> เพิ่ม Tap & Select (ฝึกแยกถูก/ผิด)
+                  </button>
+                )}
               </div>
             ))}
 

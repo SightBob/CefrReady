@@ -14,6 +14,7 @@ export interface LessonSection {
   body: string;
   examples?: Array<{ en: string; th: string; ok: boolean }>;
   table?: LessonTable;
+  tap?: TapExercise;
 }
 
 /** หนึ่งแถวในตาราง "คลังศัพท์ช่วยชีวิต" (legacy 3-column shape) */
@@ -27,6 +28,20 @@ export interface VocabRow {
 export interface VocabBankData {
   columns: string[];
   rows: string[][];
+}
+
+/** Tap & Select — ฝึกแยกถูก/ผิด: each item has its own prompt + 2 editable choices */
+export interface TapItem {
+  prompt: string;
+  choiceA: string;
+  choiceB: string;
+  /** index of the correct choice: 0 = choiceA, 1 = choiceB */
+  correct: 0 | 1;
+}
+
+export interface TapExercise {
+  title: string;
+  items: TapItem[];
 }
 
 /** คำถามเติมคำในบทเรียน */
@@ -51,6 +66,8 @@ export interface LessonContent {
   tip?: string;
   vocabBank?: VocabBankData;
   quiz?: QuizSet;
+  nextNodeId?: number;
+  nextNodeTitle?: string;
 }
 
 export const LESSONS: Record<string, LessonContent> = {

@@ -57,6 +57,7 @@ export default async function LessonPage({
       body: s.body,
       examples: s.examples,
       table: (s as { table?: { headers: string[]; rows: string[][] } }).table,
+      tap: (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap ?? undefined,
     }))
   );
   const vocabBank = explainPages.find((p) => p.vocabBank)?.vocabBank ?? null;
@@ -68,9 +69,14 @@ export default async function LessonPage({
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .map((p) => p.quiz!);
 
+  // Position within the unit for the breadcrumb and next-lesson action
+  const siblings = await fetchLearningPathForUnit(unit.id);
+  const nextNode = siblings.find((s) => s.orderIndex > node.orderIndex) ?? null;
   const lesson = {
     nodeId: String(node.id),
     title: node.title,
+    nextNodeId: nextNode?.id,
+    nextNodeTitle: nextNode?.title,
     // "จำไว้เลย" box comes from the explain page's own intro field —
     // shown only when the admin filled it in.
     intro: explainPages.find((p) => p.intro?.trim())?.intro?.trim(),
@@ -80,8 +86,6 @@ export default async function LessonPage({
     quiz: questions.length > 0 ? { questions } : undefined,
   };
 
-  // Position within the unit for the breadcrumb
-  const siblings = await fetchLearningPathForUnit(unit.id);
   const nodeIndex = siblings.findIndex((n) => n.id === node.id) + 1;
   const totalNodes = siblings.length;
   // Unit NUMBER = position in the ordered published path (1-based), NOT the

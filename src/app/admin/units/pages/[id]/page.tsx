@@ -14,6 +14,7 @@ interface PageData {
   vocabBank: Array<{ subject: string; verbForm: string; example: string }> | { columns: string[]; rows: string[][] } | null;
   tip: string | null;
   intro: string | null;
+  isPublished: boolean;
   orderIndex: number;
 }
 
@@ -52,6 +53,8 @@ export default function EditLessonPage() {
                     body: s.body,
                     examples: s.examples ?? [],
                     table: (s as { table?: { headers: string[]; rows: string[][] } | null }).table ?? null,
+                    tap:
+                      (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap ?? null,
                   })),
                 });
                 return;
@@ -96,11 +99,13 @@ export default function EditLessonPage() {
           body: s.body,
           examples: s.examples ?? [],
           table: (s as { table?: { headers: string[]; rows: string[][] } | null }).table ?? null,
+          tap: (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap ?? null,
         })),
         quiz: page.quiz,
         vocabBank: page.vocabBank,
         tip: page.tip,
         intro: page.intro,
+        isPublished: page.isPublished,
         orderIndex: page.orderIndex,
       }}
     />

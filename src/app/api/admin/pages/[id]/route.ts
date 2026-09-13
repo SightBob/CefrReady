@@ -33,6 +33,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
         | null;
       tip: string | null;
       intro: string | null;
+      isPublished: boolean;
       orderIndex: number;
     }> = {};
 
@@ -122,6 +123,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     }
     if (body.tip !== undefined) updates.tip = body.tip?.trim() || null;
     if (body.intro !== undefined) updates.intro = body.intro?.trim() || null;
+    if (body.isPublished !== undefined) updates.isPublished = Boolean(body.isPublished);
     if (body.orderIndex !== undefined) updates.orderIndex = Number(body.orderIndex);
 
     const [updated] = await db
