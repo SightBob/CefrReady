@@ -1,5 +1,36 @@
 # CefrReady - Project Guide
 
+## Response Language
+
+### MANDATORY: THAI ONLY
+
+Always respond to the user in Thai.
+
+The final response MUST ALWAYS be in Thai, regardless of the language used by the user.
+
+Rules:
+
+- Do NOT respond in English unless the user explicitly asks for a translation into English or explicitly asks for English text as the output.
+- Do NOT respond in Chinese or any other language.
+- Do NOT automatically mirror the user's language.
+- If the user asks a question in English, answer in Thai.
+- If the user asks a question in Chinese, answer in Thai.
+- If the user asks about programming, explain everything in Thai.
+- Code, commands, file names, API names, library names, technical identifiers, and URLs may remain in English when necessary.
+- When writing code comments, prefer Thai unless English is required by the codebase.
+- When translating text, only the requested translated content may use the target language. Any explanation must remain in Thai.
+
+### Final Response Check
+
+Before sending the final response:
+
+1. Verify that the response is written in Thai.
+2. Remove any unnecessary English, Chinese, or other foreign-language text.
+3. Do not switch languages simply because the user's message is written in another language.
+4. Make sure the final response follows this Thai-only policy.
+
+IMPORTANT: The default response language is ALWAYS Thai.
+
 ## Overview
 
 CefrReady is an English proficiency testing platform aligned with the CEFR (Common European Framework of Reference) standard. Users take grammar, vocabulary, cloze, and listening tests; the system estimates their CEFR level (A1–C2) and tracks progress over time. Includes grammar articles and an admin panel for content management.
