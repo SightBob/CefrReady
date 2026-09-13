@@ -59,6 +59,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
             kind: n.kind,
             orderIndex: n.orderIndex,
             isPublished: n.isPublished,
+            passScore: n.passScore,
             pages: pages
               .filter((p) => p.nodeId === n.id)
               .map((p) => ({
@@ -68,6 +69,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
                 vocabBank: p.vocabBank,
                 tip: p.tip,
                 intro: p.intro,
+                isPublished: p.isPublished,
                 orderIndex: p.orderIndex,
               })),
           })),

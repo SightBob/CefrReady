@@ -72,7 +72,11 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
   }
 }
 
-/** POST /api/admin/units/[id] — reorder helper: {direction: 'up' | 'down'} */
+/**
+ * POST /api/admin/units/[id] — reorder helper.
+ * Body: {direction: 'up' | 'down'} (one step) or {toIndex: number} (absolute
+ * position in the ordered list, 0-based) for drag-and-drop / jump-to-position.
+ */
 export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { error } = await requireAdmin();
@@ -82,10 +86,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
   if (isNaN(unitId)) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 });
 
   try {
-    const { direction } = await request.json();
-    if (direction !== 'up' && direction !== 'down') {
-      return NextResponse.json({ success: false, error: 'direction must be up or down' }, { status: 400 });
-    }
+    const body = await request.json();
 
     const all = await db
       .select()
@@ -94,6 +95,25 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
 
     const idx = all.findIndex((u) => u.id === unitId);
     if (idx === -1) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+
+    // Absolute move: {toIndex} — reorder the whole list then rewrite orderIndexes.
+    if (typeof body.toIndex === 'number') {
+      const target = Math.max(0, Math.min(body.toIndex, all.length - 1));
+      if (target === idx) return NextResponse.json({ success: true });
+      const reordered = [...all];
+      const [moved] = reordered.splice(idx, 1);
+      reordered.splice(target, 0, moved);
+      for (let i = 0; i < reordered.length; i++) {
+        await db.update(learningUnits).set({ orderIndex: i }).where(eq(learningUnits.id, reordered[i].id));
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Relative move: {direction}
+    const { direction } = body;
+    if (direction !== 'up' && direction !== 'down') {
+      return NextResponse.json({ success: false, error: "body must contain direction ('up'|'down') or toIndex (number)" }, { status: 400 });
+    }
 
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= all.length) {

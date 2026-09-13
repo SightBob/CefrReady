@@ -19,7 +19,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
 
   try {
     const body = await request.json();
-    const updates: Partial<{ title: string; kind: string; isPublished: boolean; orderIndex: number }> = {};
+    const updates: Partial<{ title: string; kind: string; isPublished: boolean; passScore: number; orderIndex: number }> = {};
     if (body.title !== undefined) {
       if (!body.title?.trim()) return NextResponse.json({ success: false, error: 'title cannot be empty' }, { status: 400 });
       updates.title = body.title.trim();
@@ -31,6 +31,13 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       updates.kind = body.kind;
     }
     if (body.isPublished !== undefined) updates.isPublished = Boolean(body.isPublished);
+    if (body.passScore !== undefined) {
+      const passScore = Number(body.passScore);
+      if (!Number.isInteger(passScore) || passScore < 0 || passScore > 100) {
+        return NextResponse.json({ success: false, error: 'passScore must be an integer from 0 to 100' }, { status: 400 });
+      }
+      updates.passScore = passScore;
+    }
     if (body.orderIndex !== undefined) updates.orderIndex = Number(body.orderIndex);
 
     const [updated] = await db

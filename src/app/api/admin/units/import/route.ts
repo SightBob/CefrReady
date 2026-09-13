@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { learningUnits, learningNodes, lessonPages } from '@/db/schema';
+import { learningUnits, learningNodes, lessonPages, learningPathBackups } from '@/db/schema';
 import { asc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
@@ -16,6 +16,7 @@ interface ImportPage {
   vocabBank?: unknown;
   tip?: unknown;
   intro?: unknown;
+  isPublished?: unknown;
   orderIndex?: unknown;
 }
 
@@ -24,6 +25,7 @@ interface ImportNode {
   kind?: unknown;
   orderIndex?: unknown;
   isPublished?: unknown;
+  passScore?: unknown;
   pages?: unknown;
 }
 
@@ -86,7 +88,7 @@ function validate(payload: unknown): string | null {
  * - mode "replace": DELETES all existing units/nodes/pages first, then inserts.
  */
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error, session } = await requireAdmin();
   if (error) return error;
 
   try {
@@ -111,6 +113,7 @@ export async function POST(request: NextRequest) {
         kind: NODE_KINDS.includes(n.kind as string) ? (n.kind as string) : 'star',
         orderIndex: typeof n.orderIndex === 'number' ? n.orderIndex : ni,
         isPublished: n.isPublished !== false,
+        passScore: typeof n.passScore === 'number' && n.passScore >= 0 && n.passScore <= 100 ? Math.round(n.passScore) : 100,
         pages: ((n.pages ?? []) as ImportPage[]).map((p, pi) => ({
           pageType: p.pageType === 'quiz' ? 'quiz' : 'explain',
           sections: Array.isArray(p.sections) ? p.sections : [],
@@ -118,6 +121,7 @@ export async function POST(request: NextRequest) {
           vocabBank: (p.vocabBank ?? null) as ImportPage['vocabBank'],
           tip: typeof p.tip === 'string' && p.tip.trim() ? p.tip.trim() : null,
           intro: typeof p.intro === 'string' && p.intro.trim() ? p.intro.trim() : null,
+          isPublished: p.isPublished !== false,
           orderIndex: typeof p.orderIndex === 'number' ? p.orderIndex : pi,
         })),
       })),
@@ -137,6 +141,25 @@ export async function POST(request: NextRequest) {
     let pageCount = 0;
 
     if (mode === 'replace') {
+      // Keep an immutable snapshot before destructive replacement so an admin
+      // can download or restore the previous path if the import is wrong.
+      const currentUnits = await db.select().from(learningUnits).orderBy(asc(learningUnits.orderIndex), asc(learningUnits.id));
+      const currentNodes = await db.select().from(learningNodes).orderBy(asc(learningNodes.unitId), asc(learningNodes.orderIndex), asc(learningNodes.id));
+      const currentPages = await db.select().from(lessonPages).orderBy(asc(lessonPages.nodeId), asc(lessonPages.orderIndex), asc(lessonPages.id));
+      const backupPayload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        units: currentUnits.map((u) => ({
+          title: u.title, subtitle: u.subtitle, colorKey: u.colorKey, orderIndex: u.orderIndex, isPublished: u.isPublished,
+          nodes: currentNodes.filter((n) => n.unitId === u.id).map((n) => ({
+            title: n.title, kind: n.kind, orderIndex: n.orderIndex, isPublished: n.isPublished, passScore: n.passScore,
+            pages: currentPages.filter((p) => p.nodeId === n.id).map((p) => ({ pageType: p.pageType, sections: p.sections, quiz: p.quiz, vocabBank: p.vocabBank, tip: p.tip, intro: p.intro, isPublished: p.isPublished, orderIndex: p.orderIndex })),
+          })),
+        })),
+      };
+      if (currentUnits.length > 0) {
+        await db.insert(learningPathBackups).values({ payload: backupPayload, createdBy: session?.user?.id ?? null });
+      }
       await db.delete(lessonPages);
       await db.delete(learningNodes);
       await db.delete(learningUnits);
@@ -164,6 +187,7 @@ export async function POST(request: NextRequest) {
             kind: n.kind,
             orderIndex: n.orderIndex,
             isPublished: n.isPublished,
+            passScore: n.passScore,
           })
           .returning();
         nodeCount++;
@@ -177,6 +201,7 @@ export async function POST(request: NextRequest) {
             vocabBank: p.vocabBank as Array<{ subject: string; verbForm: string; example: string }> | { columns: string[]; rows: string[][] } | null,
             tip: p.tip,
             intro: p.intro,
+            isPublished: p.isPublished,
             orderIndex: p.orderIndex as number,
           });
           pageCount++;

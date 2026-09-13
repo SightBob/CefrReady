@@ -66,6 +66,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
         kind,
         orderIndex: nextOrder,
         isPublished: body.isPublished ?? true,
+        passScore: Number.isInteger(Number(body.passScore)) && Number(body.passScore) >= 0 && Number(body.passScore) <= 100 ? Number(body.passScore) : 100,
       })
       .returning();
 
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
   }
 }
 
-/** PATCH /api/admin/units/[id]/nodes — reorder node within unit: {nodeId, direction} */
+/** PATCH /api/admin/units/[id]/nodes — reorder node within unit: {nodeId, direction} or {nodeId, toIndex} */
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { error } = await requireAdmin();
@@ -96,10 +97,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   if (isNaN(unitId)) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 });
 
   try {
-    const { nodeId, direction } = await request.json();
-    if (direction !== 'up' && direction !== 'down') {
-      return NextResponse.json({ success: false, error: 'direction must be up or down' }, { status: 400 });
-    }
+    const body = await request.json();
 
     const nodes = await db
       .select()
@@ -107,8 +105,26 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       .where(eq(learningNodes.unitId, unitId))
       .orderBy(asc(learningNodes.orderIndex), asc(learningNodes.id));
 
-    const idx = nodes.findIndex((n) => n.id === nodeId);
+    const idx = nodes.findIndex((n) => n.id === body.nodeId);
     if (idx === -1) return NextResponse.json({ success: false, error: 'Node not found' }, { status: 404 });
+
+    // Absolute move within this unit's node list.
+    if (typeof body.toIndex === 'number') {
+      const target = Math.max(0, Math.min(body.toIndex, nodes.length - 1));
+      if (target === idx) return NextResponse.json({ success: true });
+      const reordered = [...nodes];
+      const [moved] = reordered.splice(idx, 1);
+      reordered.splice(target, 0, moved);
+      for (let i = 0; i < reordered.length; i++) {
+        await db.update(learningNodes).set({ orderIndex: i }).where(eq(learningNodes.id, reordered[i].id));
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    const { direction } = body;
+    if (direction !== 'up' && direction !== 'down') {
+      return NextResponse.json({ success: false, error: "body must contain direction ('up'|'down') or toIndex (number)" }, { status: 400 });
+    }
 
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= nodes.length) {
