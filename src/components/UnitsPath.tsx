@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -283,6 +283,24 @@ interface UnitsPathProps {
 
 export default function UnitsPath({ units }: UnitsPathProps) {
   const [openGuides, setOpenGuides] = useState<Record<number, boolean>>({});
+  const [completedNodes, setCompletedNodes] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    const readProgress = () => {
+      const next: Record<number, boolean> = {};
+      for (const node of units.flatMap((u) => u.nodes)) {
+        next[node.id] = window.localStorage.getItem(`units-completed-${node.id}`) === '1';
+      }
+      setCompletedNodes(next);
+    };
+    readProgress();
+    window.addEventListener('units-progress-changed', readProgress);
+    window.addEventListener('storage', readProgress);
+    return () => {
+      window.removeEventListener('units-progress-changed', readProgress);
+      window.removeEventListener('storage', readProgress);
+    };
+  }, [units]);
 
   // Progress model (open access): every node is clickable — no locking.
   // The FIRST node keeps the "เริ่มเลย" pulse as a suggested starting point,
@@ -291,7 +309,7 @@ export default function UnitsPath({ units }: UnitsPathProps) {
   const currentNodeId = allNodes[0]?.id ?? null;
 
   const statusOf = (node: PathNodeData): 'completed' | 'active' | 'locked' =>
-    node.id === currentNodeId ? 'active' : 'locked';
+    completedNodes[node.id] ? 'completed' : node.id === currentNodeId ? 'active' : 'locked';
 
   const toggleGuide = (id: number) =>
     setOpenGuides((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -313,6 +331,19 @@ export default function UnitsPath({ units }: UnitsPathProps) {
               expanded={Boolean(openGuides[unit.id])}
               onToggle={() => toggleGuide(unit.id)}
             />
+
+            <div className="mx-1 mt-3 mb-[-1.5rem]">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1.5">
+                <span>ความคืบหน้า</span>
+                <span>{unit.nodes.filter((n) => completedNodes[n.id]).length}/{unit.nodes.length} บท</span>
+              </div>
+              <div className="h-2 rounded-full bg-slate-200 overflow-hidden" aria-label={`ความคืบหน้าของยูนิต ${unitIdx + 1}`}>
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: unit.nodes.length ? `${(unit.nodes.filter((n) => completedNodes[n.id]).length / unit.nodes.length) * 100}%` : '0%', background: colors.base }}
+                />
+              </div>
+            </div>
 
             {/* Guide popover (UI-only) */}
             {openGuides[unit.id] && (

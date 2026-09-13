@@ -35,7 +35,7 @@ export default function VocabBankModal({
       aria-label="คลังศัพท์ช่วยชีวิต"
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col animate-slide-up"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[85vh] flex flex-col animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

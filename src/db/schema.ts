@@ -344,6 +344,8 @@ export const learningNodes = pgTable('learning_nodes', {
   kind: varchar('kind', { length: 20 }).default('star').notNull(),
   orderIndex: integer('order_index').default(0).notNull(),
   isPublished: boolean('is_published').default(true).notNull(),
+  // Minimum percentage required to pass this node's quiz.
+  passScore: integer('pass_score').default(100).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -385,6 +387,8 @@ export const lessonPages = pgTable('lesson_pages', {
   tip: text('tip'),
   // Short "จำไว้เลย" summary shown at the top of an explain page (optional)
   intro: text('intro'),
+  // Draft pages are editable by admins but hidden from learners.
+  isPublished: boolean('is_published').default(true).notNull(),
   orderIndex: integer('order_index').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
@@ -498,3 +502,16 @@ export type DbLearningNode = typeof learningNodes.$inferSelect;
 export type NewLearningNode = typeof learningNodes.$inferInsert;
 export type DbLessonPage = typeof lessonPages.$inferSelect;
 export type NewLessonPage = typeof lessonPages.$inferInsert;
+
+// Immutable snapshots created automatically before a destructive replace import.
+export const learningPathBackups = pgTable('learning_path_backups', {
+  id: serial('id').primaryKey(),
+  payload: jsonb('payload').notNull(),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  createdAtIdx: index('learning_path_backups_created_at_idx').on(table.createdAt),
+}));
+
+export type DbLearningPathBackup = typeof learningPathBackups.$inferSelect;
+export type NewLearningPathBackup = typeof learningPathBackups.$inferInsert;

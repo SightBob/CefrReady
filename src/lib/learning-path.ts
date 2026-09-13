@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { learningUnits, learningNodes, lessonPages } from '@/db/schema';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 // ============================================================
 // Shared types — used by both public pages and the admin panel
@@ -92,6 +92,7 @@ export function normalizeVocabBank(value: unknown): VocabBankData | null {
 export interface LessonPageData {
   id: number;
   pageType: 'explain' | 'quiz';
+  isPublished: boolean;
   /** Short "จำไว้เลย" summary — optional; hidden when empty */
   intro: string | null;
   sections: LessonSection[];
@@ -106,6 +107,7 @@ export interface PathNodeData {
   title: string;
   kind: 'star' | 'chest' | 'trophy';
   orderIndex: number;
+  passScore: number;
   pages: LessonPageData[];
 }
 
@@ -135,6 +137,7 @@ export async function fetchLearningPath(): Promise<UnitData[]> {
   const pages = await db
     .select()
     .from(lessonPages)
+    .where(eq(lessonPages.isPublished, true))
     .orderBy(asc(lessonPages.nodeId), asc(lessonPages.orderIndex), asc(lessonPages.id));
 
   return units.map((unit) => ({
@@ -150,11 +153,13 @@ export async function fetchLearningPath(): Promise<UnitData[]> {
         title: n.title,
         kind: (n.kind as PathNodeData['kind']) ?? 'star',
         orderIndex: n.orderIndex,
+        passScore: n.passScore,
         pages: pages
           .filter((p) => p.nodeId === n.id)
           .map((p) => ({
             id: p.id,
             pageType: p.pageType as LessonPageData['pageType'],
+            isPublished: p.isPublished,
             intro: p.intro ?? null,
             sections: p.sections ?? [],
             quiz: p.quiz ?? null,
@@ -187,7 +192,7 @@ export async function fetchNodeLesson(
   const pages = await db
     .select()
     .from(lessonPages)
-    .where(eq(lessonPages.nodeId, nodeId))
+    .where(and(eq(lessonPages.nodeId, nodeId), eq(lessonPages.isPublished, true)))
     .orderBy(asc(lessonPages.orderIndex), asc(lessonPages.id));
 
   return {
@@ -196,9 +201,11 @@ export async function fetchNodeLesson(
       title: node.title,
       kind: (node.kind as PathNodeData['kind']) ?? 'star',
       orderIndex: node.orderIndex,
+      passScore: node.passScore,
       pages: pages.map((p) => ({
         id: p.id,
         pageType: p.pageType as LessonPageData['pageType'],
+        isPublished: p.isPublished,
         intro: p.intro ?? null,
         sections: p.sections ?? [],
         quiz: p.quiz ?? null,
