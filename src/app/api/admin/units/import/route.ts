@@ -62,16 +62,28 @@ function validate(payload: unknown): string | null {
           return `units[${ui}].nodes[${ni}].pages[${pi}]: pageType must be explain or quiz`;
         }
         if (pt === 'quiz' && p.quiz) {
-          const q = p.quiz as { sentence?: unknown; options?: unknown; answerIndex?: unknown };
-          if (typeof q.sentence !== 'string' || !q.sentence.trim()) {
-            return `units[${ui}].nodes[${ni}].pages[${pi}]: quiz.sentence is required`;
+          const rawQuiz = p.quiz as {
+            sentence?: unknown;
+            options?: unknown;
+            answerIndex?: unknown;
+            questions?: unknown;
+          };
+          const questions = Array.isArray(rawQuiz.questions) ? rawQuiz.questions : [rawQuiz];
+          if (questions.length === 0) {
+            return `units[${ui}].nodes[${ni}].pages[${pi}]: quiz needs at least 1 question`;
           }
-          if (!Array.isArray(q.options) || q.options.length < 2) {
-            return `units[${ui}].nodes[${ni}].pages[${pi}]: quiz needs at least 2 options`;
-          }
-          const ai = q.answerIndex ?? 0;
-          if (typeof ai !== 'number' || ai < 0 || ai >= q.options.length) {
-            return `units[${ui}].nodes[${ni}].pages[${pi}]: quiz.answerIndex out of range`;
+          for (const [qi, item] of questions.entries()) {
+            const q = item as { sentence?: unknown; options?: unknown; answerIndex?: unknown };
+            if (typeof q.sentence !== 'string' || !q.sentence.trim()) {
+              return `units[${ui}].nodes[${ni}].pages[${pi}].quiz.questions[${qi}]: sentence is required`;
+            }
+            if (!Array.isArray(q.options) || q.options.length < 2) {
+              return `units[${ui}].nodes[${ni}].pages[${pi}].quiz.questions[${qi}]: needs at least 2 options`;
+            }
+            const ai = q.answerIndex ?? 0;
+            if (typeof ai !== 'number' || ai < 0 || ai >= q.options.length) {
+              return `units[${ui}].nodes[${ni}].pages[${pi}].quiz.questions[${qi}]: answerIndex out of range`;
+            }
           }
         }
       }
@@ -196,8 +208,8 @@ export async function POST(request: NextRequest) {
           await db.insert(lessonPages).values({
             nodeId: nodeRow.id,
             pageType: p.pageType as string,
-            sections: p.sections as Array<{ heading: string; body: string; examples?: Array<{ en: string; th: string; ok: boolean }>; table?: { headers: string[]; rows: string[][] } }>,
-            quiz: p.quiz as { sentence: string; options: string[]; answerIndex: number; explanation: string } | null,
+            sections: p.sections as Array<{ heading: string; body: string; examples?: Array<{ en: string; th: string; ok: boolean }>; table?: { headers: string[]; rows: string[][] }; tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } }>,
+            quiz: p.quiz as { sentence: string; options: string[]; answerIndex: number; explanation: string } | { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation: string }> } | null,
             vocabBank: p.vocabBank as Array<{ subject: string; verbForm: string; example: string }> | { columns: string[]; rows: string[][] } | null,
             tip: p.tip,
             intro: p.intro,

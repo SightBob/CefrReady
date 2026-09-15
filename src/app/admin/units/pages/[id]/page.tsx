@@ -10,7 +10,10 @@ interface PageData {
   nodeId: number;
   pageType: string;
   sections: Array<{ heading: string; body: string; examples?: Array<{ en: string; th: string; ok: boolean }> }> | null;
-  quiz: { sentence: string; options: string[]; answerIndex: number; explanation: string } | null;
+  quiz:
+    | { sentence: string; options: string[]; answerIndex: number; explanation: string }
+    | { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation: string }> }
+    | null;
   vocabBank: Array<{ subject: string; verbForm: string; example: string }> | { columns: string[]; rows: string[][] } | null;
   tip: string | null;
   intro: string | null;

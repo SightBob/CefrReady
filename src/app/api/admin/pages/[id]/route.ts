@@ -25,8 +25,15 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
         body: string;
         examples?: Array<{ en: string; th: string; ok: boolean }>;
         table?: { headers: string[]; rows: string[][] };
+        tap?: {
+          title: string;
+          items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }>;
+        };
       }>;
-      quiz: { sentence: string; options: string[]; answerIndex: number; explanation: string } | null;
+      quiz:
+        | { sentence: string; options: string[]; answerIndex: number; explanation: string }
+        | { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation: string }> }
+        | null;
       vocabBank:
         | Array<{ subject: string; verbForm: string; example: string }>
         | { columns: string[]; rows: string[][] }
@@ -62,23 +69,27 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
         updates.quiz = null;
       } else {
         const q = body.quiz;
-        if (!q.sentence?.trim() || !Array.isArray(q.options) || q.options.length < 2) {
-          return NextResponse.json(
-            { success: false, error: 'quiz needs sentence and at least 2 options' },
-            { status: 400 }
-          );
-        }
-        if (typeof q.answerIndex !== 'number' || q.answerIndex < 0 || q.answerIndex >= q.options.length) {
-          return NextResponse.json({ success: false, error: 'quiz answerIndex out of range' }, { status: 400 });
+        const questions = Array.isArray(q.questions) ? q.questions : [q];
+        for (const item of questions) {
+          if (!item.sentence?.trim() || !Array.isArray(item.options) || item.options.length < 2) {
+            return NextResponse.json(
+              { success: false, error: 'ทุกข้อสอบต้องมีโจทย์และอย่างน้อย 2 ตัวเลือก' },
+              { status: 400 }
+            );
+          }
+          if (typeof item.answerIndex !== 'number' || item.answerIndex < 0 || item.answerIndex >= item.options.length) {
+            return NextResponse.json({ success: false, error: 'quiz answerIndex out of range' }, { status: 400 });
+          }
         }
         updates.quiz = {
-          sentence: q.sentence.trim(),
-          options: q.options.map((o: unknown) => String(o).trim()).filter(Boolean),
-          answerIndex: q.answerIndex,
-          explanation: q.explanation?.trim() ?? '',
+          questions: questions.map((item: { sentence: string; options: unknown[]; answerIndex: number; explanation?: string }) => ({
+            sentence: item.sentence.trim(),
+            options: item.options.map((o) => String(o).trim()).filter(Boolean),
+            answerIndex: item.answerIndex,
+            explanation: item.explanation?.trim() ?? '',
+          })),
         };
         // keep pageType consistent
-        updates.pageType = 'quiz';
       }
     }
     if (body.vocabBank !== undefined) {

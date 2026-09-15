@@ -20,6 +20,19 @@ export interface LessonSection {
   body: string;
   examples?: Array<{ en: string; th: string; ok: boolean }>;
   table?: LessonTable;
+  tap?: TapExercise;
+}
+
+export interface TapItem {
+  prompt: string;
+  choiceA: string;
+  choiceB: string;
+  correct: 0 | 1;
+}
+
+export interface TapExercise {
+  title: string;
+  items: TapItem[];
 }
 
 export interface QuizQuestion {
@@ -27,6 +40,10 @@ export interface QuizQuestion {
   options: string[];
   answerIndex: number;
   explanation: string;
+}
+
+export interface QuizSet {
+  questions: QuizQuestion[];
 }
 
 export interface VocabRow {
@@ -96,12 +113,28 @@ export interface LessonPageData {
   /** Short "จำไว้เลย" summary — optional; hidden when empty */
   intro: string | null;
   sections: LessonSection[];
-  quiz: QuizQuestion | null;
+  quiz: QuizSet | null;
   vocabBank: VocabBankData | null;
   tip: string | null;
   orderIndex: number;
 }
 
+export function normalizeQuiz(value: unknown): QuizSet | null {
+  if (!value || typeof value !== 'object') return null;
+  const quiz = value as Record<string, unknown>;
+  if (Array.isArray(quiz.questions)) {
+    const questions = quiz.questions.filter((q): q is QuizQuestion => {
+      if (!q || typeof q !== 'object') return false;
+      const item = q as Record<string, unknown>;
+      return typeof item.sentence === 'string' && Array.isArray(item.options) && typeof item.answerIndex === 'number';
+    });
+    return questions.length > 0 ? { questions } : null;
+  }
+  if (typeof quiz.sentence === 'string' && Array.isArray(quiz.options) && typeof quiz.answerIndex === 'number') {
+    return { questions: [quiz as unknown as QuizQuestion] };
+  }
+  return null;
+}
 export interface PathNodeData {
   id: number;
   title: string;
@@ -162,7 +195,7 @@ export async function fetchLearningPath(): Promise<UnitData[]> {
             isPublished: p.isPublished,
             intro: p.intro ?? null,
             sections: p.sections ?? [],
-            quiz: p.quiz ?? null,
+            quiz: normalizeQuiz(p.quiz),
             vocabBank: normalizeVocabBank(p.vocabBank),
             tip: p.tip ?? null,
             orderIndex: p.orderIndex,
@@ -208,7 +241,7 @@ export async function fetchNodeLesson(
         isPublished: p.isPublished,
         intro: p.intro ?? null,
         sections: p.sections ?? [],
-        quiz: p.quiz ?? null,
+        quiz: normalizeQuiz(p.quiz),
         vocabBank: normalizeVocabBank(p.vocabBank),
         tip: p.tip ?? null,
         orderIndex: p.orderIndex,

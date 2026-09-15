@@ -66,6 +66,10 @@ export interface LessonContent {
   tip?: string;
   vocabBank?: VocabBankData;
   quiz?: QuizSet;
+  /** Tap & Select pages rendered between the concept card and the real exam. */
+  tapExercises?: TapExercise[];
+  /** When true, Tap & Select is shown directly below the concept content. */
+  tapInline?: boolean;
   nextNodeId?: number;
   nextNodeTitle?: string;
 }

@@ -292,6 +292,25 @@ export default function UnitsPath({ units }: UnitsPathProps) {
         next[node.id] = window.localStorage.getItem(`units-completed-${node.id}`) === '1';
       }
       setCompletedNodes(next);
+
+      // Signed-in learners get durable progress; localStorage remains a
+      // fallback for guests and for the instant first paint.
+      void fetch('/api/units/progress')
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload: { success?: boolean; data?: { completedNodeIds?: number[] } } | null) => {
+          if (!payload?.success || !Array.isArray(payload.data?.completedNodeIds)) return;
+          const completedIds = new Set(payload.data.completedNodeIds);
+          setCompletedNodes((current) => {
+            const merged = { ...current };
+            for (const node of units.flatMap((u) => u.nodes)) {
+              merged[node.id] = current[node.id] === true || completedIds.has(node.id);
+            }
+            return merged;
+          });
+        })
+        .catch(() => {
+          // Guests are expected to receive 401; localStorage is sufficient.
+        });
     };
     readProgress();
     window.addEventListener('units-progress-changed', readProgress);

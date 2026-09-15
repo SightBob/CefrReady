@@ -47,15 +47,17 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     if (!node) return NextResponse.json({ success: false, error: 'Node not found' }, { status: 404 });
 
     if (pageType === 'quiz' && body.quiz) {
-      const q = body.quiz;
-      if (!q.sentence?.trim() || !Array.isArray(q.options) || q.options.length < 2) {
-        return NextResponse.json(
-          { success: false, error: 'quiz needs sentence and at least 2 options' },
-          { status: 400 }
-        );
-      }
-      if (typeof q.answerIndex !== 'number' || q.answerIndex < 0 || q.answerIndex >= q.options.length) {
-        return NextResponse.json({ success: false, error: 'quiz answerIndex out of range' }, { status: 400 });
+      const questions = Array.isArray(body.quiz.questions) ? body.quiz.questions : [body.quiz];
+      for (const q of questions) {
+        if (!q.sentence?.trim() || !Array.isArray(q.options) || q.options.length < 2) {
+          return NextResponse.json(
+            { success: false, error: 'ทุกข้อสอบต้องมีโจทย์และอย่างน้อย 2 ตัวเลือก' },
+            { status: 400 }
+          );
+        }
+        if (typeof q.answerIndex !== 'number' || q.answerIndex < 0 || q.answerIndex >= q.options.length) {
+          return NextResponse.json({ success: false, error: 'quiz answerIndex out of range' }, { status: 400 });
+        }
       }
     }
 

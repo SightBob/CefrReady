@@ -1,10 +1,43 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, CaretDown, ArrowRight, Check } from '@phosphor-icons/react';
+import { CheckCircle, XCircle, CaretDown, ArrowRight, ArrowCounterClockwise, Check } from '@phosphor-icons/react';
+// (ArrowCounterClockwise still used by the ลองข้อนี้อีกครั้ง button in retry)
 import type { QuizSet, QuizQuestion } from '@/content/units-path-lessons';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
+
+function shuffleQuizQuestion(question: QuizQuestion, previousAnswerIndex: number | null): QuizQuestion {
+  const options = question.options.map((label, index) => ({ label, index }));
+  for (let i = options.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [options[i], options[j]] = [options[j], options[i]];
+  }
+
+  // Re-shuffle a few times when possible so adjacent questions do not expose
+  // the correct answer in the same position. The answer index always follows
+  // the original option index.
+  if (options.length > 1 && options.findIndex((option) => option.index === question.answerIndex) === previousAnswerIndex) {
+    const correctPosition = options.findIndex((option) => option.index === question.answerIndex);
+    const swapPosition = correctPosition === 0 ? 1 : 0;
+    [options[correctPosition], options[swapPosition]] = [options[swapPosition], options[correctPosition]];
+  }
+
+  return {
+    ...question,
+    options: options.map((option) => option.label),
+    answerIndex: options.findIndex((option) => option.index === question.answerIndex),
+  };
+}
+
+function shuffleQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
+  let previousAnswerIndex: number | null = null;
+  return questions.map((question) => {
+    const shuffled = shuffleQuizQuestion(question, previousAnswerIndex);
+    previousAnswerIndex = shuffled.answerIndex;
+    return shuffled;
+  });
+}
 
 function QuestionCard({
   question,
@@ -13,6 +46,7 @@ function QuestionCard({
   accent,
   selected,
   onSelect,
+  isRetry,
 }: {
   question: QuizQuestion;
   index: number;
@@ -20,6 +54,7 @@ function QuestionCard({
   accent: { base: string; dark: string; light: string };
   selected: number | null;
   onSelect: (optionIndex: number) => void;
+  isRetry?: boolean;
 }) {
   const [showExplanation, setShowExplanation] = useState(false);
   const answered = selected !== null;
@@ -27,10 +62,14 @@ function QuestionCard({
 
   return (
     <section className="bg-white rounded-2xl border-2 border-slate-100 p-5 sm:p-6 shadow-sm">
-      {/* Progress chip */}
+      {/* Progress chip — no question numbering shown */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-extrabold" style={{ color: accent.dark }}>
-          ข้อ {index + 1}/{total}
+          {isRetry && (
+            <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 align-middle">
+              ทำซ้ำข้อที่ผิด
+            </span>
+          )}
         </h2>
         {answered && (
           <span
@@ -187,6 +226,11 @@ function QuestionCard({
   );
 }
 
+/**
+ * Quiz flow: answer every question once, then any wrong answers are re-served
+ * in a retry round (original order). Rounds repeat until everything is
+ * correct; the reported score = first-attempt correct count.
+ */
 export default function LessonQuiz({
   quiz,
   accent,
@@ -196,89 +240,156 @@ export default function LessonQuiz({
   accent: { base: string; dark: string; light: string };
   onFinish?: (score: { correct: number; total: number }) => void;
 }) {
-  const questions = quiz.questions;
-  const [current, setCurrent] = useState(0);
-  // Per-question chosen option; presence = answered (locked)
+  const sourceQuestions = quiz.questions;
+  // Keep the first render deterministic for SSR/hydration, then shuffle in
+  // the browser so every exam mount gets a fresh option order.
+  const [questions, setQuestions] = useState<QuizQuestion[]>(sourceQuestions);
+  React.useEffect(() => {
+    setQuestions(shuffleQuizQuestions(sourceQuestions));
+  }, [sourceQuestions]);
+  // Chosen option per question from the FIRST attempt (null = not yet answered)
   const [answers, setAnswers] = useState<(number | null)[]>(() => questions.map(() => null));
+  // First-pass cursor
+  const [current, setCurrent] = useState(0);
+  // Retry round: subset of question indices answered wrong, in original order.
+  // null = no retry round active (still in the first pass).
+  const [retryQueue, setRetryQueue] = useState<number[] | null>(null);
+  const [retryPos, setRetryPos] = useState(0);
+  // Chosen option in the CURRENT retry attempt (reset per retry question)
+  const [retryAnswer, setRetryAnswer] = useState<number | null>(null);
+  // Guards the auto-retry effect from firing more than once per pass
+  const retryScheduled = React.useRef(false);
 
-  const isLast = current === questions.length - 1;
-  const answeredCurrent = answers[current] !== null;
+  const inRetry = retryQueue !== null;
+
   const correctCount = answers.filter((a, i) => a === questions[i].answerIndex).length;
-  const answeredCount = answers.filter((a) => a !== null).length;
+  const wrongIndices = answers
+    .map((a, i) => (a !== null && a !== questions[i].answerIndex ? i : -1))
+    .filter((i) => i !== -1);
+
+  const firstPassFinished = answers.every((a) => a !== null);
+  const activeIndex = inRetry ? retryQueue![retryPos] : Math.min(current, questions.length - 1);
+  const answeredCurrent = inRetry ? retryAnswer !== null : answers[activeIndex] !== null;
+  const isLastFirstPass = current === questions.length - 1;
 
   const select = (optionIndex: number) => {
-    if (answers[current] !== null) return; // already locked
-    setAnswers((prev) => prev.map((a, i) => (i === current ? optionIndex : a)));
+    if (answeredCurrent) return;
+    if (inRetry) {
+      setRetryAnswer(optionIndex);
+    } else {
+      setAnswers((prev) => prev.map((a, i) => (i === activeIndex ? optionIndex : a)));
+    }
   };
 
   const goNext = () => {
-    if (!answeredCurrent || isLast) return;
+    if (!answeredCurrent || inRetry || isLastFirstPass) return;
     setCurrent((c) => c + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Auto-retry: when the first pass completes with wrong answers, enter the
+  // retry round immediately (no button press needed). Wrong questions are
+  // appended right after the current position — the learner just keeps
+  // pressing ข้อถัดไป and the retry questions flow in seamlessly.
+  React.useEffect(() => {
+    if (!inRetry && firstPassFinished && wrongIndices.length > 0 && retryQueue === null && !retryScheduled.current) {
+      retryScheduled.current = true;
+      setRetryQueue(wrongIndices);
+      setRetryPos(0);
+    }
+  }, [inRetry, firstPassFinished, wrongIndices, retryQueue]);
 
   const finish = () => {
     onFinish?.({ correct: correctCount, total: questions.length });
   };
 
+  const retryDone = inRetry && retryAnswer !== null && retryPos === retryQueue!.length - 1;
+  const retryCurrentWrong = inRetry && retryAnswer !== null && retryAnswer !== questions[retryQueue![retryPos]].answerIndex;
+
   return (
     <div className="space-y-4">
-      {/* Question stepper dots */}
-      <div className="flex items-center justify-center gap-1.5" aria-label={`ข้อ ${current + 1} จาก ${questions.length}`}>
-        {questions.map((_, i) => {
-          const answered = answers[i] !== null;
-          const isCurrent = i === current;
-          return (
-            <span
-              key={i}
-              className="rounded-full transition-all duration-300"
-              style={{
-                width: isCurrent ? 24 : 8,
-                height: 8,
-                background: answered
-                  ? answers[i] === questions[i].answerIndex
-                    ? '#22c55e'
-                    : '#f87171'
-                  : isCurrent
-                    ? accent.base
-                    : '#e2e8f0',
-              }}
-              aria-hidden="true"
-            />
-          );
-        })}
-      </div>
+      {/* Retry round banner */}
+      {inRetry && (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-bold text-amber-800">
+            รอบทบทวน — ลองทำข้อที่ผิดอีกครั้ง ({retryPos + 1}/{retryQueue!.length})
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setRetryQueue(null);
+              setRetryPos(0);
+              setRetryAnswer(null);
+            }}
+            className="text-xs font-bold text-amber-700 hover:underline shrink-0"
+          >
+            ออกจากรอบทบทวน
+          </button>
+        </div>
+      )}
 
       <QuestionCard
-        key={current}
-        question={questions[current]}
-        index={current}
+        key={inRetry ? `retry-${activeIndex}` : `first-${activeIndex}`}
+        question={questions[activeIndex]}
+        index={activeIndex}
         total={questions.length}
         accent={accent}
-        selected={answers[current]}
+        selected={inRetry ? retryAnswer : answers[activeIndex]}
         onSelect={select}
+        isRetry={inRetry}
       />
 
       {/* Bottom action bar — explicit navigation, no auto-advance */}
       <div className="flex items-center justify-between gap-3">
         {/* Left: hint / summary of progress */}
         <p className="text-xs font-semibold text-slate-400">
-          ตอบแล้ว {answeredCount}/{questions.length} · ถูก {correctCount}
+          ถูก {correctCount} ข้อ
         </p>
 
-        {/* Right: next question or finish */}
-        {!isLast ? (
-          <button
-            type="button"
-            onClick={goNext}
-            disabled={!answeredCurrent}
-            className="btn-primary !py-2.5 !px-6 text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: accent.base }}
-          >
-            ข้อถัดไป
-            <ArrowRight size={16} weight="bold" aria-hidden="true" />
-          </button>
-        ) : (
+        {/* Right: context-sensitive action */}
+        {inRetry ? (
+          retryDone ? (
+            retryCurrentWrong ? (
+              <button
+                type="button"
+                onClick={() => setRetryAnswer(null)}
+                className="inline-flex items-center gap-2 text-sm font-extrabold px-6 py-3 rounded-xl transition-all hover:brightness-105"
+                style={{ background: accent.base, color: '#ffffff', boxShadow: `0 4px 0 ${accent.dark}` }}
+              >
+                <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
+                ลองข้อนี้อีกครั้ง
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={finish}
+                className="inline-flex items-center gap-2 text-sm font-extrabold px-6 py-3 rounded-xl transition-all hover:brightness-105 active:translate-y-[2px]"
+                style={{ background: '#22c55e', color: '#ffffff', boxShadow: '0 4px 0 #16a34a' }}
+              >
+                <Check size={16} weight="bold" aria-hidden="true" />
+                เสร็จสิ้น
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (retryAnswer === null) return;
+                setRetryAnswer(null);
+                setRetryPos((p) => p + 1);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              disabled={retryAnswer === null}
+              className="btn-primary !py-2.5 !px-6 text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: accent.base }}
+            >
+              ข้อถัดไป
+              <ArrowRight size={16} weight="bold" aria-hidden="true" />
+            </button>
+          )
+        ) : isLastFirstPass ? (
+          // Last first-pass question answered — the auto-retry effect enters
+          // the retry round instantly; show เสร็จสิ้น only when all correct.
           <button
             type="button"
             onClick={finish}
@@ -288,6 +399,17 @@ export default function LessonQuiz({
           >
             <Check size={16} weight="bold" aria-hidden="true" />
             เสร็จสิ้น
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={!answeredCurrent}
+            className="btn-primary !py-2.5 !px-6 text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: accent.base }}
+          >
+            ข้อถัดไป
+            <ArrowRight size={16} weight="bold" aria-hidden="true" />
           </button>
         )}
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -36,7 +36,10 @@ interface PageRow {
   nodeId: number;
   pageType: string;
   sections: Array<{ heading: string; body: string }> | null;
-  quiz: { sentence: string; options: string[]; answerIndex: number; explanation: string } | null;
+  quiz:
+    | { sentence: string; options: string[]; answerIndex: number; explanation: string }
+    | { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation: string }> }
+    | null;
   vocabBank: Array<{ subject: string; verbForm: string; example: string }> | null;
   tip: string | null;
   isPublished: boolean;
@@ -165,7 +168,7 @@ export default function AdminUnitsPage() {
     }
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin/units');
@@ -179,9 +182,12 @@ export default function AdminUnitsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    void fetchData();
+    // This loader is intentionally called once when the admin page mounts.
+  }, []);
 
   const fetchPages = async (nodeId: number) => {
     const res = await fetch(`/api/admin/nodes/${nodeId}/pages`);
@@ -602,6 +608,9 @@ export default function AdminUnitsPage() {
                           <div className="flex items-center gap-0.5">
                             <button onClick={() => moveNode(unit.id, node.id, 'up')} disabled={nIdx === 0} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30" title="ขึ้น"><ChevronUp className="w-3.5 h-3.5" /></button>
                             <button onClick={() => moveNode(unit.id, node.id, 'down')} disabled={nIdx === unit.nodes.length - 1} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30" title="ลง"><ChevronDown className="w-3.5 h-3.5" /></button>
+                            <Link href={`/admin/units/nodes/${node.id}`} className="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title="เปิด Content Builder">
+                              <BookOpen className="w-3.5 h-3.5" />
+                            </Link>
                             <button onClick={() => duplicateNode(node)} className="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title="คัดลอกโหนด"><Layers className="w-3.5 h-3.5" /></button>
                             <button onClick={() => setEditNode(node)} className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50" title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
                             <button onClick={() => deleteNode(node)} className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50" title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -617,7 +626,9 @@ export default function AdminUnitsPage() {
                                   {page.pageType === 'quiz' ? 'คำถาม' : 'เนื้อหา'}
                                 </span>
                                 <span className="flex-1 truncate text-slate-600">
-                                  {page.pageType === 'quiz' ? page.quiz?.sentence : page.sections?.[0]?.heading ?? '(ว่าง)'}
+                                  {page.pageType === 'quiz'
+                                    ? (page.quiz && 'questions' in page.quiz ? `${page.quiz.questions.length} ข้อสอบ` : page.quiz?.sentence)
+                                    : page.sections?.[0]?.heading ?? '(ว่าง)'}
                                 </span>
                                 {!page.isPublished && <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Draft</span>}
                                 <button onClick={() => movePage(node.id, page.id, 'up')} disabled={pIdx === 0} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30"><ChevronUp className="w-3.5 h-3.5" /></button>
@@ -880,7 +891,7 @@ export default function AdminUnitsPage() {
               <p className="font-bold text-sky-800">ตอนกด Import จะมี 2 โหมด:</p>
               <p><b>ตกลง = แทนที่ทั้งหมด (replace)</b> — ลบข้อมูลปัจจุบันก่อนนำเข้า (ระบบสร้าง Backup อัตโนมัติให้ก่อนลบ)</p>
               <p><b>ยกเลิก = เพิ่มต่อท้าย (merge)</b> — เพิ่มยูนิตใหม่ต่อจากยูนิตที่มีอยู่</p>
-              <p className="pt-1 text-xs text-slate-400">ช่องที่เขียนว่า "ไม่บังคับ" ลบทิ้งได้ — ระบบใช้ค่าเริ่มต้นให้เอง</p>
+              <p className="pt-1 text-xs text-slate-400">ช่องที่เขียนว่า &quot;ไม่บังคับ&quot; ลบทิ้งได้ — ระบบใช้ค่าเริ่มต้นให้เอง</p>
             </div>
 
             <button

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Trash2, Loader2, Check, X, FileText, HelpCircle,
-  ChevronUp, ChevronDown, Lightbulb, Sparkles, BookOpen,
+  ChevronUp, ChevronDown, Lightbulb, Sparkles, BookOpen, AlertTriangle,
 } from 'lucide-react';
 
 // ============================================================
@@ -49,6 +49,25 @@ interface QuizRow {
   options: string[];
   answerIndex: number;
   explanation: string;
+}
+
+function toQuizRows(value: PageData['quiz']): QuizRow[] {
+  if (!value) return [{ sentence: '', options: ['', '', '', ''], answerIndex: 0, explanation: '' }];
+  if (Array.isArray((value as { questions?: unknown }).questions)) {
+    return (value as { questions: QuizRow[] }).questions.map((q) => ({
+      sentence: q.sentence ?? '',
+      options: q.options ?? ['', '', '', ''],
+      answerIndex: q.answerIndex ?? 0,
+      explanation: q.explanation ?? '',
+    }));
+  }
+  const legacy = value as QuizRow;
+  return [{
+    sentence: legacy.sentence ?? '',
+    options: legacy.options ?? ['', '', '', ''],
+    answerIndex: legacy.answerIndex ?? 0,
+    explanation: legacy.explanation ?? '',
+  }];
 }
 
 /** คลังศัพท์ช่วยชีวิต — flexible columns + rows */
@@ -97,7 +116,10 @@ interface PageData {
   nodeId: number;
   pageType: string;
   sections: SectionRow[];
-  quiz: QuizRow | null;
+  quiz:
+    | { sentence: string; options: string[]; answerIndex: number; explanation: string }
+    | { questions: QuizRow[] }
+    | null;
   vocabBank:
     | Array<{ subject?: string; verbForm?: string; example?: string }>
     | { columns: string[]; rows: string[][] }
@@ -149,9 +171,7 @@ export default function LessonPageEditor({
         }))
       : [emptySection()]
   );
-  const [quiz, setQuiz] = useState<QuizRow>(
-    initial?.quiz ?? { sentence: '', options: ['', '', '', ''], answerIndex: 0, explanation: '' }
-  );
+  const [quiz, setQuiz] = useState<QuizRow[]>(() => toQuizRows(initial?.quiz ?? null));
   const [vocab, setVocab] = useState<VocabBankDraft>(() => toVocabDraft(initial?.vocabBank ?? null));
   const [tip, setTip] = useState(initial?.tip ?? '');
   const [intro, setIntro] = useState(initial?.intro ?? '');
@@ -326,15 +346,32 @@ export default function LessonPageEditor({
     );
 
   // ---------- Quiz ----------
-  const updateOption = (i: number, value: string) =>
-    setQuiz((q) => ({ ...q, options: q.options.map((o, idx) => (idx === i ? value : o)) }));
+  const updateQuiz = (qi: number, patch: Partial<QuizRow>) =>
+    setQuiz((items) => items.map((item, i) => (i === qi ? { ...item, ...patch } : item)));
 
-  const addOption = () => setQuiz((q) => ({ ...q, options: [...q.options, ''] }));
-  const removeOption = (i: number) =>
-    setQuiz((q) => ({
-      ...q,
-      options: q.options.filter((_, idx) => idx !== i),
-      answerIndex: q.answerIndex >= i && q.answerIndex > 0 ? q.answerIndex - 1 : q.answerIndex,
+  const updateQuizOption = (qi: number, oi: number, value: string) =>
+    setQuiz((items) => items.map((item, i) => i === qi
+      ? { ...item, options: item.options.map((option, index) => index === oi ? value : option) }
+      : item
+    ));
+
+  const addQuizQuestion = () =>
+    setQuiz((items) => [...items, { sentence: '', options: ['', '', '', ''], answerIndex: 0, explanation: '' }]);
+
+  const removeQuizQuestion = (qi: number) =>
+    setQuiz((items) => items.length <= 1 ? items : items.filter((_, i) => i !== qi));
+
+  const addOption = (qi: number) =>
+    setQuiz((items) => items.map((item, i) => i === qi ? { ...item, options: [...item.options, ''] } : item));
+
+  const removeOption = (qi: number, oi: number) =>
+    setQuiz((items) => items.map((item, i) => {
+      if (i !== qi || item.options.length <= 2) return item;
+      return {
+        ...item,
+        options: item.options.filter((_, index) => index !== oi),
+        answerIndex: item.answerIndex >= oi && item.answerIndex > 0 ? item.answerIndex - 1 : item.answerIndex,
+      };
     }));
 
   // ---------- Vocab bank (flexible columns) ----------
@@ -372,7 +409,40 @@ export default function LessonPageEditor({
     });
 
   // ---------- Save ----------
+  const validationWarnings = pageType === 'explain'
+    ? sections.flatMap((section, sectionIndex) => {
+        const warnings: string[] = [];
+        const hasSectionText = section.heading.trim() || section.body.trim();
+        if (hasSectionText && (!section.heading.trim() || !section.body.trim())) {
+          warnings.push(`หัวข้อที่ ${sectionIndex + 1} ต้องมีทั้งชื่อและคำอธิบาย`);
+        }
+        if (section.tap) {
+          if (section.tap.items.length === 0) {
+            warnings.push(`หัวข้อที่ ${sectionIndex + 1} ยังไม่มีโจทย์ Tap & Select`);
+          } else {
+            section.tap.items.forEach((item, itemIndex) => {
+              if (!item.prompt.trim() || !item.choiceA.trim() || !item.choiceB.trim()) {
+                warnings.push(`Tap & Select ข้อที่ ${itemIndex + 1} ต้องมีโจทย์และตัวเลือก A/B ครบ`);
+              }
+            });
+          }
+        }
+        return warnings;
+      })
+    : quiz.flatMap((question, questionIndex) => {
+        const warnings: string[] = [];
+        if (!question.sentence.trim()) warnings.push(`Real Exam ข้อที่ ${questionIndex + 1} ยังไม่มีโจทย์`);
+        if (question.options.filter((option) => option.trim()).length < 2) warnings.push(`Real Exam ข้อที่ ${questionIndex + 1} ต้องมีตัวเลือกอย่างน้อย 2 ข้อ`);
+        if (!question.options[question.answerIndex]?.trim()) warnings.push(`Real Exam ข้อที่ ${questionIndex + 1} ยังไม่ได้กำหนดคำตอบ`);
+        return warnings;
+      });
+
   const handleSave = async () => {
+    if (isPublished && validationWarnings.length > 0) {
+      toast.error(`ยังเผยแพร่ไม่ได้: ${validationWarnings[0]}`);
+      return;
+    }
+
     // Validation
     if (pageType === 'explain') {
       const valid = sections.filter((s) => s.heading.trim() || s.body.trim());
@@ -387,18 +457,23 @@ export default function LessonPageEditor({
         }
       }
     } else {
-      if (!quiz.sentence.trim()) {
-        toast.error('กรุณาใส่โจทย์ประโยค');
+      if (quiz.length === 0) {
+        toast.error('ต้องมีอย่างน้อย 1 ข้อสอบ');
         return;
       }
-      const filled = quiz.options.filter((o) => o.trim());
-      if (filled.length < 2) {
-        toast.error('ต้องมีอย่างน้อย 2 ตัวเลือก');
-        return;
-      }
-      if (!quiz.options[quiz.answerIndex]?.trim()) {
-        toast.error('คำตอบที่ถูกต้องต้องไม่ว่าง');
-        return;
+      for (const q of quiz) {
+        if (!q.sentence.trim()) {
+          toast.error('ทุกข้อสอบต้องมีโจทย์ประโยค');
+          return;
+        }
+        if (q.options.filter((o) => o.trim()).length < 2) {
+          toast.error('ทุกข้อสอบต้องมีอย่างน้อย 2 ตัวเลือก');
+          return;
+        }
+        if (!q.options[q.answerIndex]?.trim()) {
+          toast.error('คำตอบที่ถูกต้องต้องไม่ว่าง');
+          return;
+        }
       }
     }
 
@@ -456,10 +531,12 @@ export default function LessonPageEditor({
               pageType,
               sections: [],
               quiz: {
-                sentence: quiz.sentence.trim(),
-                options: quiz.options.map((o) => o.trim()).filter(Boolean),
-                answerIndex: quiz.answerIndex,
-                explanation: quiz.explanation.trim(),
+                questions: quiz.map((q) => ({
+                  sentence: q.sentence.trim(),
+                  options: q.options.map((o) => o.trim()).filter(Boolean),
+                  answerIndex: q.answerIndex,
+                  explanation: q.explanation.trim(),
+                })),
               },
               isPublished,
             };
@@ -508,6 +585,23 @@ export default function LessonPageEditor({
             {pageId ? 'บันทึก' : 'สร้างหน้า'}
           </button>
         </div>
+
+        {/* Validation checklist */}
+        {validationWarnings.length > 0 && (
+          <div className="mb-5 rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-amber-800">ตรวจพบจุดที่ควรแก้ก่อนเผยแพร่</p>
+                <ul className="mt-1.5 space-y-1 text-xs font-semibold text-amber-700">
+                  {validationWarnings.slice(0, 5).map((warning) => <li key={warning}>• {warning}</li>)}
+                </ul>
+                {validationWarnings.length > 5 && <p className="mt-1 text-xs text-amber-600">และอีก {validationWarnings.length - 5} รายการ</p>}
+                <p className="mt-2 text-[11px] text-amber-600">บันทึกเป็นฉบับร่างได้ แต่ต้องแก้รายการเหล่านี้ก่อนกดเผยแพร่</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Page type switch */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-5 flex flex-wrap items-center gap-3">
@@ -922,66 +1016,92 @@ export default function LessonPageEditor({
 
         {/* ============ QUIZ PAGE ============ */}
         {pageType === 'quiz' && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-5">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">โจทย์ประโยค (ใช้ ____ เป็นช่องว่าง)</label>
-              <input
-                type="text"
-                placeholder="I ____ two brothers."
-                value={quiz.sentence}
-                onChange={(e) => setQuiz((q) => ({ ...q, sentence: e.target.value }))}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-extrabold text-slate-700">Real Exam</h2>
+                <p className="text-xs text-slate-400 mt-1">รวมข้อสอบหลายข้อไว้ในหน้าเดียวได้เลย</p>
+              </div>
+              <button
+                type="button"
+                onClick={addQuizQuestion}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100"
+              >
+                <Plus className="w-3.5 h-3.5" /> เพิ่มข้อสอบ
+              </button>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-slate-700">ตัวเลือก (คลิกวงกลมเพื่อเลือกคำตอบที่ถูก)</label>
-                {quiz.options.length < 6 && (
-                  <button onClick={addOption} className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:bg-purple-50 px-2 py-1 rounded-lg">
-                    <Plus className="w-3.5 h-3.5" /> เพิ่มตัวเลือก
+            {quiz.map((question, qi) => (
+              <div key={qi} className="bg-white rounded-2xl border border-slate-100 p-5 space-y-5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-extrabold text-purple-700">ข้อสอบที่ {qi + 1}</p>
+                  <button
+                    type="button"
+                    onClick={() => removeQuizQuestion(qi)}
+                    disabled={quiz.length <= 1}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 px-2 py-1 rounded-lg disabled:opacity-30"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> ลบข้อสอบ
                   </button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {quiz.options.map((opt, i) => (
-                  <div key={i} className="flex items-center gap-2.5 bg-slate-50 rounded-xl p-2.5">
-                    <button
-                      onClick={() => setQuiz((q) => ({ ...q, answerIndex: i }))}
-                      className={`w-7 h-7 rounded-full shrink-0 text-xs font-black border-2 flex items-center justify-center transition-colors ${quiz.answerIndex === i ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 text-slate-400 hover:border-slate-400'}`}
-                      title={quiz.answerIndex === i ? 'คำตอบที่ถูกต้อง' : 'ตั้งเป็นคำตอบที่ถูกต้อง'}
-                    >
-                      {String.fromCharCode(65 + i)}
-                    </button>
-                    <input
-                      type="text"
-                      placeholder={`ตัวเลือก ${String.fromCharCode(65 + i)}`}
-                      value={opt}
-                      onChange={(e) => updateOption(i, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    />
-                    <button
-                      onClick={() => removeOption(i)}
-                      disabled={quiz.options.length <= 2}
-                      className="p-1.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-30"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">โจทย์ประโยค (ใช้ ____ เป็นช่องว่าง)</label>
+                  <input
+                    type="text"
+                    placeholder="I ____ two brothers."
+                    value={question.sentence}
+                    onChange={(e) => updateQuiz(qi, { sentence: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">คำอธิบายเหตุผล (แสดงเมื่อกด &quot;อธิบายเหตุผลสั้นๆ&quot;)</label>
-              <textarea
-                placeholder="อธิบายว่าทำไมคำตอบนี้ถึงถูก เช่น ประธาน I ใช้ have เสมอ…"
-                value={quiz.explanation}
-                onChange={(e) => setQuiz((q) => ({ ...q, explanation: e.target.value }))}
-                rows={3}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
-              />
-            </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-semibold text-slate-700">ตัวเลือก (คลิกวงกลมเพื่อเลือกคำตอบที่ถูก)</label>
+                    {question.options.length < 6 && (
+                      <button type="button" onClick={() => addOption(qi)} className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:bg-purple-50 px-2 py-1 rounded-lg">
+                        <Plus className="w-3.5 h-3.5" /> เพิ่มตัวเลือก
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {question.options.map((opt, oi) => (
+                      <div key={oi} className="flex items-center gap-2.5 bg-slate-50 rounded-xl p-2.5">
+                        <button
+                          type="button"
+                          onClick={() => updateQuiz(qi, { answerIndex: oi })}
+                          className={`w-7 h-7 rounded-full shrink-0 text-xs font-black border-2 flex items-center justify-center transition-colors ${question.answerIndex === oi ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 text-slate-400 hover:border-slate-400'}`}
+                          title={question.answerIndex === oi ? 'คำตอบที่ถูกต้อง' : 'ตั้งเป็นคำตอบที่ถูกต้อง'}
+                        >
+                          {String.fromCharCode(65 + oi)}
+                        </button>
+                        <input
+                          type="text"
+                          placeholder={`ตัวเลือก ${String.fromCharCode(65 + oi)}`}
+                          value={opt}
+                          onChange={(e) => updateQuizOption(qi, oi, e.target.value)}
+                          className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        />
+                        <button type="button" onClick={() => removeOption(qi, oi)} disabled={question.options.length <= 2} className="p-1.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-30">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">คำอธิบายเหตุผล (แสดงเมื่อกด &quot;อธิบายเหตุผลสั้นๆ&quot;)</label>
+                  <textarea
+                    placeholder="อธิบายว่าทำไมคำตอบนี้ถึงถูก เช่น Do ใช้กับ I / you / we / they…"
+                    value={question.explanation}
+                    onChange={(e) => updateQuiz(qi, { explanation: e.target.value })}
+                    rows={3}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

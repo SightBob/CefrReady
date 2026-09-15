@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, ArrowCounterClockwise } from '@phosphor-icons/react';
 import type { TapExercise } from '@/content/units-path-lessons';
 
@@ -15,12 +15,45 @@ interface Props {
  * The learner taps one; feedback is immediate (green/red). Footer tracks
  * progress and allows retry.
  */
+function shuffleTapItems(items: TapExercise['items']): TapExercise['items'] {
+  let previousCorrect: 0 | 1 | null = null;
+
+  return items.map((item) => {
+    let shuffled: TapExercise['items'][number] = Math.random() < 0.5 ? { ...item } : {
+      ...item,
+      choiceA: item.choiceB,
+      choiceB: item.choiceA,
+      correct: (item.correct === 0 ? 1 : 0) as 0 | 1,
+    };
+
+    // Avoid placing the correct sentence in the same column twice in a row.
+    if (previousCorrect !== null && shuffled.correct === previousCorrect) {
+      shuffled = {
+        ...shuffled,
+        choiceA: shuffled.choiceB,
+        choiceB: shuffled.choiceA,
+        correct: (shuffled.correct === 0 ? 1 : 0) as 0 | 1,
+      };
+    }
+    previousCorrect = shuffled.correct as 0 | 1;
+    return shuffled;
+  });
+}
+
 export default function TapSelectExercise({ exercise, accent }: Props) {
+  const [displayItems, setDisplayItems] = useState(() => exercise.items);
   const [answers, setAnswers] = useState<Record<number, 0 | 1>>({});
 
-  const total = exercise.items.length;
+  // Shuffle after mount so the server/client first render stays identical,
+  // then change the A/B position on every visit or retry.
+  useEffect(() => {
+    setDisplayItems(shuffleTapItems(exercise.items));
+    setAnswers({});
+  }, [exercise]);
+
+  const total = displayItems.length;
   const answeredCount = Object.keys(answers).length;
-  const correctCount = exercise.items.reduce(
+  const correctCount = displayItems.reduce(
     (acc, it, i) => acc + (answers[i] !== undefined && answers[i] === it.correct ? 1 : 0),
     0
   );
@@ -31,7 +64,10 @@ export default function TapSelectExercise({ exercise, accent }: Props) {
     setAnswers((a) => ({ ...a, [itemIndex]: choice }));
   };
 
-  const reset = () => setAnswers({});
+  const reset = () => {
+    setAnswers({});
+    setDisplayItems(shuffleTapItems(exercise.items));
+  };
 
   if (total === 0) return null;
 
@@ -42,7 +78,7 @@ export default function TapSelectExercise({ exercise, accent }: Props) {
       </p>
 
       <ul className="space-y-3">
-        {exercise.items.map((item, i) => {
+        {displayItems.map((item, i) => {
           const chosen = answers[i];
           const answered = chosen !== undefined;
           const isCorrect = answered && chosen === item.correct;
@@ -59,7 +95,7 @@ export default function TapSelectExercise({ exercise, accent }: Props) {
                 </span>
                 {item.prompt}
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {choices.map(({ label, idx }) => {
                   const isChosen = answered && chosen === idx;
                   const isRightOne = item.correct === idx;
@@ -75,11 +111,12 @@ export default function TapSelectExercise({ exercise, accent }: Props) {
                       type="button"
                       disabled={answered}
                       onClick={() => pick(i, idx)}
-                      className={`flex items-center justify-center gap-1.5 rounded-xl border-2 px-3 py-2.5 text-sm font-bold transition-colors disabled:cursor-default ${cls}`}
+                      className={`flex items-start gap-2 rounded-xl border-2 px-3 py-3 text-left transition-colors disabled:cursor-default ${cls}`}
                     >
-                      {answered && isRightOne && <CheckCircle size={16} weight="fill" className="text-emerald-500" aria-hidden="true" />}
-                      {answered && isChosen && !isRightOne && <XCircle size={16} weight="fill" className="text-rose-400" aria-hidden="true" />}
-                      {label}
+                      <span className="shrink-0 font-black text-xs opacity-70">{idx === 0 ? 'A' : 'B'}:</span>
+                      <span className="min-w-0 flex-1 font-bold leading-snug">{label}</span>
+                      {answered && isRightOne && <CheckCircle size={16} weight="fill" className="text-emerald-500 shrink-0 mt-0.5" aria-hidden="true" />}
+                      {answered && isChosen && !isRightOne && <XCircle size={16} weight="fill" className="text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />}
                     </button>
                   );
                 })}

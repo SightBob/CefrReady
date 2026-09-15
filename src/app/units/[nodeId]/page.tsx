@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, BookOpen } from '@phosphor-icons/react/dist/ssr';
-import { fetchNodeLesson, type UnitData } from '@/lib/learning-path';
+import { fetchNodeLesson, fetchLearningPath, type UnitData } from '@/lib/learning-path';
 import LessonContent from '@/components/LessonContent';
 
 export const dynamic = 'force-dynamic';
@@ -51,14 +51,27 @@ export default async function LessonPage({
   // Convert DB pages into the shape LessonContent expects:
   // intro = first section body of the first explain page; sections carry on.
   const explainPages = node.pages.filter((p) => p.pageType === 'explain');
-  const sections = explainPages.flatMap((p) =>
-    p.sections.map((s) => ({
-      heading: s.heading,
-      body: s.body,
-      examples: s.examples,
-      table: (s as { table?: { headers: string[]; rows: string[][] } }).table,
-      tap: (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap ?? undefined,
-    }))
+  // Keep concept content and Tap & Select data from the same or separate
+  // explain pages. Unit 2 stores both blocks on one page; older nodes may
+  // still have a dedicated Tap page, which remains supported.
+  const conceptPages = explainPages;
+  const tapOnConcept = explainPages.some(
+    (p) => p.orderIndex === 0 && p.sections.some((s) => Boolean(s.tap))
+  );
+  const sections = conceptPages.flatMap((p) =>
+    p.sections
+      .filter((s) => !s.tap)
+      .map((s) => ({
+        heading: s.heading,
+        body: s.body,
+        examples: s.examples,
+        table: (s as { table?: { headers: string[]; rows: string[][] } }).table,
+      }))
+  );
+  const tapExercises = explainPages.flatMap((p) =>
+    p.sections
+      .map((s) => (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap)
+      .filter((tap): tap is { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } => Boolean(tap?.items?.length))
   );
   const vocabBank = explainPages.find((p) => p.vocabBank)?.vocabBank ?? null;
   const tip = explainPages.find((p) => p.tip)?.tip ?? null;
@@ -67,11 +80,19 @@ export default async function LessonPage({
   const questions = node.pages
     .filter((p) => p.pageType === 'quiz' && p.quiz)
     .sort((a, b) => a.orderIndex - b.orderIndex)
-    .map((p) => p.quiz!);
+    .flatMap((p) => p.quiz?.questions ?? []);
 
-  // Position within the unit for the breadcrumb and next-lesson action
-  const siblings = await fetchLearningPathForUnit(unit.id);
-  const nextNode = siblings.find((s) => s.orderIndex > node.orderIndex) ?? null;
+  // Position within the full learning path for breadcrumb and next-node navigation.
+  // Prefer the next node in this unit; when the unit ends, continue with the
+  // first node of the next published unit.
+  const learningPath = await fetchLearningPath();
+  const currentUnitIndex = learningPath.findIndex((u) => u.id === unit.id);
+  const siblings = currentUnitIndex >= 0 ? learningPath[currentUnitIndex].nodes : [];
+  const currentNodeIndex = siblings.findIndex((n) => n.id === node.id);
+  const nextNode =
+    siblings[currentNodeIndex + 1] ??
+    learningPath.slice(currentUnitIndex + 1).find((u) => u.nodes.length > 0)?.nodes[0] ??
+    null;
   const lesson = {
     nodeId: String(node.id),
     title: node.title,
@@ -81,6 +102,8 @@ export default async function LessonPage({
     // shown only when the admin filled it in.
     intro: explainPages.find((p) => p.intro?.trim())?.intro?.trim(),
     sections,
+    tapExercises,
+    tapInline: tapOnConcept,
     tip: tip ?? undefined,
     vocabBank: vocabBank ?? undefined,
     quiz: questions.length > 0 ? { questions } : undefined,

@@ -366,12 +366,29 @@ export const lessonPages = pgTable('lesson_pages', {
     heading: string;
     body: string;
     examples?: Array<{ en: string; th: string; ok: boolean }>;
+    table?: { headers: string[]; rows: string[][] };
+    tap?: {
+      title: string;
+      items: Array<{
+        prompt: string;
+        choiceA: string;
+        choiceB: string;
+        correct: 0 | 1;
+      }>;
+    };
   }>>().default([]),
   quiz: jsonb('quiz').$type<{
     sentence: string;
     options: string[];
     answerIndex: number;
     explanation: string;
+  } | {
+    questions: Array<{
+      sentence: string;
+      options: string[];
+      answerIndex: number;
+      explanation: string;
+    }>;
   } | null>(),
   // "คลังศัพท์ช่วยชีวิต" table shown on this page.
   // Legacy rows: fixed subject/verbForm/example fields.
@@ -502,6 +519,25 @@ export type DbLearningNode = typeof learningNodes.$inferSelect;
 export type NewLearningNode = typeof learningNodes.$inferInsert;
 export type DbLessonPage = typeof lessonPages.$inferSelect;
 export type NewLessonPage = typeof lessonPages.$inferInsert;
+
+// Persistent completion state for UnitsPath nodes. Unlike localStorage, this
+// follows the learner across browsers and devices.
+export const learningNodeProgress = pgTable('learning_node_progress', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  nodeId: integer('node_id').notNull().references(() => learningNodes.id, { onDelete: 'cascade' }),
+  completedAt: timestamp('completed_at'),
+  lastVisitedAt: timestamp('last_visited_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  userIdx: index('learning_node_progress_user_idx').on(table.userId),
+  nodeIdx: index('learning_node_progress_node_idx').on(table.nodeId),
+  uniqueUserNode: uniqueIndex('learning_node_progress_user_node_unique').on(table.userId, table.nodeId),
+}));
+
+export type DbLearningNodeProgress = typeof learningNodeProgress.$inferSelect;
+export type NewLearningNodeProgress = typeof learningNodeProgress.$inferInsert;
 
 // Immutable snapshots created automatically before a destructive replace import.
 export const learningPathBackups = pgTable('learning_path_backups', {
