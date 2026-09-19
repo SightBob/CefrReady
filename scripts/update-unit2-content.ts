@@ -32,27 +32,19 @@ const sentencePair = (correctSentence: string, wrongSentence: string): TapItem =
 });
 
 function tapItemsFor(nodeIndex: number): TapItem[] {
+  // ฝึกเบาๆ แค่ 2 ข้อต่อ Node เพราะเป็นการอบอุ่นความเข้าใจก่อนลงสนามจริง
   const items: TapItem[][] = [
     [
       sentencePair('The shop closes at 8 pm.', 'The shop close at 8 pm.'),
-      sentencePair('Luca sends funny messages.', 'Luca send funny messages.'),
-      sentencePair('My friend loves this song.', 'My friend love this song.'),
       sentencePair('Anna stays at home on Tuesdays.', 'Anna stay at home on Tuesdays.'),
-      sentencePair('Sarah studies English every evening.', 'Sarah study English every evening.'),
     ],
     [
+      sentencePair('John and Mary go to school.', 'John and Mary goes to school.'),
       sentencePair('They have two children.', 'They has two children.'),
-      sentencePair('We study English every day.', 'We studies English every day.'),
-      sentencePair('Tom and Jane are friends.', 'Tom and Jane is friends.'),
-      sentencePair('Do they live near here?', 'Do they lives near here?'),
-      sentencePair('They do not want flies around their houses.', 'They does not want flies around their houses.'),
     ],
     [
-      sentencePair('Everyone likes pizza.', 'Everyone like pizza.'),
-      sentencePair('Each student has a book.', 'Each student have a book.'),
-      sentencePair('Neither answer is correct.', 'Neither answer are correct.'),
-      sentencePair('Some of the students are absent.', 'Some of the students is absent.'),
-      sentencePair('Nobody knows the answer.', 'Nobody know the answer.'),
+      sentencePair('Everyone loves music.', 'Everyone love music.'),
+      sentencePair('Something is in the box.', 'Something are in the box.'),
     ],
   ];
   return items[nodeIndex] ?? items[0];
@@ -60,12 +52,12 @@ function tapItemsFor(nodeIndex: number): TapItem[] {
 
 const CONTENT: NodeContent[] = [
   {
-    title: 'ประธานเอกพจน์',
-    intro: 'เริ่มจากดูประธานก่อนเลย ถ้ามีคนหรือสิ่งเดียว เช่น he, she, it หรือชื่อคนหนึ่งคน กริยาใน Present Simple มักเติม s หรือ es นะ',
+    title: 'ฝั่งเอกพจน์ — คนเดียวต้องเติม s',
+    intro: 'ฝั่งนี้คือพวกที่มีแค่ 1 เดียว หรือถูกเหมารวมให้เป็นก้อนเดียว กริยาข้างหลังจะเหงาๆ ต้องหา s มาแปะเป็นเพื่อนเสมอนะ',
     sections: [
       {
-        heading: '🧠 Golden Rule — คนเดียว กริยาต้องเติม s/es',
-        body: '“He, She, It หรือคำนามเอกพจน์ + verb เติม s/es” จำประโยคนี้ไว้ก่อน แค่นี้ก็เริ่มทำโจทย์ได้แล้ว',
+        heading: '🧠 Golden Rule — เอกพจน์ = กริยาเติม s หรือใช้ is',
+        body: '“He, She, It, Cat, John — อะไรก็ได้ที่มีคนเดียว สิ่งเดียว → กริยาเติม s/es” จำประโยคนี้ไว้ก่อน แล้วค่อยไปต่อ',
         examples: [
           { en: 'She plays tennis.', th: 'she คนเดียว → play เติม s', ok: true },
           { en: 'The shop closes at 8 pm.', th: 'the shop หนึ่งร้าน → close เติม s', ok: true },
@@ -81,49 +73,40 @@ const CONTENT: NodeContent[] = [
         },
       },
       {
-        heading: 'เติม s หรือ es แบบไหน?',
-        body: 'ส่วนใหญ่เติม s ได้เลย เช่น play → plays, love → loves ถ้าลงท้ายด้วย s, sh, ch, x หรือ o ให้เติม es เช่น close → closes, go → goes',
+        heading: 'แก๊งตัวแสบที่ชอบออกสอบ — every-, some-, any-, no-',
+        body: 'คำที่ขึ้นต้นด้วย every-, some-, any-, no- เช่น everyone, everybody, everything, someone, somebody, something, anyone, anybody, anything, no one, nobody, nothing — พวกนี้ทั้งหมด “ถือว่าเป็นเอกพจน์” เสมอ! แม้ภาษาไทยจะแปลว่า “ทุกคน” (ดูเหมือนหลายคน) แต่ฝรั่งเขาเหมาว่ามันคือ “แต่ละคน/แต่ละสิ่ง” ที่เอามายืนเรียงเดี่ยวๆ',
         examples: [
-          { en: 'My friend loves this song.', th: 'love → loves', ok: true },
-          { en: 'Sometimes she takes a piece of bread.', th: 'take → takes', ok: true },
-          { en: 'The shop close at 8 pm.', th: 'ผิด → ต้องเป็น closes', ok: false },
-        ],
-      },
-      {
-        heading: 'ถ้ามี Does แล้ว กริยาไม่เติม s',
-        body: 'คำถามและปฏิเสธใช้ Does/doesn’t กับประธานเอกพจน์ แล้วกริยาหลักกลับเป็นรูปเดิม เช่น Does she like…? ไม่ใช่ Does she likes…?',
-        examples: [
-          { en: 'Does she like coffee?', th: 'ถูก → Does + like', ok: true },
-          { en: 'She doesn’t like tea.', th: 'ถูก → doesn’t + like', ok: true },
-          { en: 'Does she likes coffee?', th: 'ผิด → หลัง Does ไม่เติม s', ok: false },
+          { en: 'Everyone loves music.', th: 'ห้ามใช้ love โล้นๆ — everyone นับเป็นเอกพจน์ ต้องเติม s', ok: true },
+          { en: 'Something is in the box.', th: 'สิ่งของมีก้อนเดียว → is', ok: true },
+          { en: 'Everyone like music.', th: 'ผิด → ต้องเป็น Everyone loves', ok: false },
         ],
       },
     ],
     vocabBank: {
       columns: ['ประธาน', 'รูปกริยา', 'ตัวอย่าง'],
       rows: [
-        ['He / She / It', 'เติม s / es', 'She plays tennis.'],
-        ['ชื่อคนหนึ่งคน', 'เติม s / es', 'Luca sends messages.'],
-        ['Does / doesn’t + verb', 'กริยารูปเดิม', 'Does she like coffee?'],
+        ['He / She / It / ชื่อคน', 'เติม s / es', 'She plays tennis.'],
+        ['Everyone / Somebody / Nobody', 'เอกพจน์ เติม s', 'Everyone loves music.'],
+        ['Something / Anything / Nothing', 'ใช้ is', 'Something is in the box.'],
       ],
     },
-    tip: 'เห็น he, she, it หรือชื่อคนหนึ่งคน ให้เช็กกริยาทันทีว่าเติม s/es หรือยังนะ',
+    tip: 'เห็น he, she, it ชื่อคนเดียว หรือแก๊ง every-/some-/any-/no- ให้เติม s ทันที',
     questions: [
       { sentence: 'The shop ____ at 8 pm.', options: ['close', 'closes', 'closing', 'closed'], answerIndex: 1, explanation: 'The shop เป็นสิ่งเดียว จึงใช้ closes' },
       { sentence: 'Luca often ____ funny messages.', options: ['send', 'sends', 'sending', 'sent'], answerIndex: 1, explanation: 'Luca เป็นคนเดียว จึงใช้ sends' },
-      { sentence: 'My friend ____ this song.', options: ['love', 'loves', 'loving', 'loved'], answerIndex: 1, explanation: 'My friend เป็นเอกพจน์ จึงใช้ loves' },
+      { sentence: 'Everyone ____ music.', options: ['love', 'loves', 'loving', 'loved'], answerIndex: 1, explanation: 'everyone ถือเป็นเอกพจน์ จึงใช้ loves' },
       { sentence: 'Sometimes she ____ a piece of bread to give to the birds.', options: ['take', 'takes', 'taking', 'took'], answerIndex: 1, explanation: 'she เป็นเอกพจน์ จึงใช้ takes' },
-      { sentence: 'Anna ____ at home on Tuesdays.', options: ['stay', 'stays', 'staying', 'stayed'], answerIndex: 1, explanation: 'Anna เป็นคนเดียว จึงใช้ stays' },
+      { sentence: 'Something ____ in the box.', options: ['is', 'are', 'were', 'be'], answerIndex: 0, explanation: 'something เป็นเอกพจน์ จึงใช้ is' },
       { sentence: 'Sarah ____ English every evening.', options: ['study', 'studies', 'studying', 'studied'], answerIndex: 1, explanation: 'study เมื่อใช้กับ Sarah เปลี่ยน y เป็น ies → studies' },
     ],
   },
   {
-    title: 'ประธานพหูพจน์',
-    intro: 'ถ้าประธานมีหลายคนหรือใช้ I, you, we, they กริยาใน Present Simple ใช้รูปพื้นฐาน ไม่ต้องเติม s นะ',
+    title: 'ฝั่งพหูพจน์ — หลายคนห้ามเติม s',
+    intro: 'ฝั่งนี้คือพวกที่มากันตั้งแต่ 2 คนขึ้นไป หรือพวกที่ขอแหกกฎ — กริยาปล่อยโล้นๆ ไว้ ไม่ต้องเติม s นะ',
     sections: [
       {
         heading: '🧠 Golden Rule — หลายคน กริยาไม่เติม s',
-        body: '“I, You, We, They และประธานพหูพจน์ + verb รูปเดิม” เห็นประธานหลายคนก็ใช้ play, work, have แบบนี้ได้เลย',
+        body: '“We, They, Cats (หลายคน หลายตัว) + verb รูปเดิม” เห็นประธานฝั่งนี้ก็ใช้ play, work, have แบบนี้ได้เลย',
         examples: [
           { en: 'They play football.', th: 'they หลายคน → play ไม่เติม s', ok: true },
           { en: 'We study English every day.', th: 'we → study รูปเดิม', ok: true },
@@ -132,47 +115,47 @@ const CONTENT: NodeContent[] = [
         table: {
           headers: ['ประธาน', 'รูปกริยา', 'ตัวอย่าง'],
           rows: [
-            ['I / You / We / They', 'รูปพื้นฐาน', 'They play football.'],
-            ['คนหรือสิ่งของหลายอย่าง', 'รูปพื้นฐาน', 'The students work hard.'],
-            ['ประธาน + and', 'มักเป็นพหูพจน์', 'Tom and Jane are friends.'],
+            ['We / They / Cats', 'รูปพื้นฐาน', 'They play football.'],
+            ['หลายอย่างมา + and', 'กลายเป็นหมู่คณะ → ไม่เติม s', 'John and Mary go to school.'],
+            ['I / You (ข้อยกเว้นใจเด็ด)', 'ดูเหมือนคนเดียวแต่ห้ามเติม s', 'I like cats. / You know me.'],
           ],
         },
       },
       {
-        heading: 'have หรือ has?',
-        body: 'have ใช้กับ I, you, we, they และประธานพหูพจน์ ส่วน has ใช้กับ he, she, it และประธานเอกพจน์',
+        heading: 'เอาหลายอย่างมารวมกันด้วย And = หมู่คณะทันที',
+        body: 'พอมี And เชื่อมสองคนหรือสองสิ่งเข้าด้วยกัน ประธานกลายเป็นพหูพจน์ กริยาปล่อยโล้นๆ ได้เลย',
         examples: [
-          { en: 'They have two children.', th: 'they → have', ok: true },
+          { en: 'John and Mary go to school.', th: 'มีสองคนแล้ว กริยาไม่ต้องเติม s', ok: true },
           { en: 'Tom and Jane have a dog.', th: 'สองคน → have', ok: true },
-          { en: 'They has two children.', th: 'ผิด → ต้องเป็น They have', ok: false },
+          { en: 'John and Mary goes to school.', th: 'ผิด → ต้องเป็น go', ok: false },
         ],
       },
       {
-        heading: 'ใช้ Do ในคำถามและปฏิเสธ',
-        body: 'Do ใช้กับ I, you, we, they และประธานพหูพจน์ หลัง Do หรือ don’t กริยาหลักใช้รูปเดิม เช่น Do they play…? และ They don’t play…',
+        heading: 'ข้อยกเว้นใจเด็ด — I กับ You',
+        body: 'สองคนนี้กวนโอ๊ยที่สุด หน้าตาดูเหมือนมีแค่ตัวคนเดียว แต่ใจเด็ดขาดอยู่ฝั่งพหูพจน์ กริยาห้ามเติม s เด็ดขาด',
         examples: [
-          { en: 'Do you like coffee?', th: 'ถูก → Do + like', ok: true },
-          { en: 'They do not want flies around their houses.', th: 'ถูก → do not + want', ok: true },
-          { en: 'Do they likes coffee?', th: 'ผิด → หลัง Do ใช้ like', ok: false },
+          { en: 'I like cats.', th: 'I → like รูปเดิม ห้ามเติม s', ok: true },
+          { en: 'You know me.', th: 'You → know รูปเดิม', ok: true },
+          { en: 'I likes cats.', th: 'ผิด → I ต้องใช้ like', ok: false },
         ],
       },
     ],
     vocabBank: {
       columns: ['ประธาน', 'รูปกริยา', 'ตัวอย่าง'],
       rows: [
-        ['I / You / We / They', 'ไม่เติม s', 'They play tennis.'],
-        ['Tom and Jane', 'ไม่เติม s', 'They have a dog.'],
-        ['Do / don’t + verb', 'กริยารูปเดิม', 'Do they like coffee?'],
+        ['We / They / Cats', 'ไม่เติม s', 'They play tennis.'],
+        ['A and B (สองคนขึ้นไป)', 'ไม่เติม s', 'John and Mary go to school.'],
+        ['I / You', 'ไม่เติม s (ข้อยกเว้น)', 'I like cats. / You know me.'],
       ],
     },
-    tip: 'จำสั้นๆ: ประธานหลายคนไม่เติม s ส่วน has เป็นคำที่ต้องจับคู่กับคนเดียวเท่านั้น',
+    tip: 'หลายคน มี And เชื่อม หรือเจอ I กับ You — กริยาปล่อยโล้นๆ ไว้ จบปิ๊ง ไม่โดนแกงแน่นอน',
     questions: [
       { sentence: 'They ____ two children, Sally and Billy.', options: ['has', 'have', 'had', 'having'], answerIndex: 1, explanation: 'They เป็นพหูพจน์ จึงใช้ have' },
-      { sentence: 'My friends ____ a new car.', options: ['has', 'have', 'having', 'had'], answerIndex: 1, explanation: 'My friends มีหลายคน จึงใช้ have' },
-      { sentence: 'Tom and Jane ____ friends.', options: ['is', 'are', 'was', 'has'], answerIndex: 1, explanation: 'Tom and Jane มีสองคน จึงใช้ are' },
+      { sentence: 'John and Mary ____ to school together.', options: ['goes', 'go', 'going', 'gone'], answerIndex: 1, explanation: 'สองคนเชื่อมด้วย and = พหูพจน์ ใช้ go' },
+      { sentence: 'I ____ cats.', options: ['likes', 'like', 'liking', 'liked'], answerIndex: 1, explanation: 'I เป็นข้อยกเว้น ใช้กริยารูปเดิม คือ like' },
       { sentence: 'We ____ English every day.', options: ['study', 'studies', 'studying', 'studied'], answerIndex: 0, explanation: 'We ใช้กริยารูปพื้นฐาน คือ study' },
       { sentence: 'The students ____ hard.', options: ['work', 'works', 'working', 'worked'], answerIndex: 0, explanation: 'The students เป็นพหูพจน์ จึงใช้ work' },
-      { sentence: 'Do they ____ near here?', options: ['live', 'lives', 'lived', 'living'], answerIndex: 0, explanation: 'หลัง Do ใช้กริยารูปเดิม คือ live' },
+      { sentence: 'You ____ me very well.', options: ['knows', 'know', 'knowing', 'knew'], answerIndex: 1, explanation: 'You ใช้กริยารูปเดิม ห้ามเติม s' },
     ],
   },
   {
@@ -262,7 +245,7 @@ async function main() {
         intro: content.intro,
         sections: [
           ...content.sections,
-          { heading: 'ลองฝึกกันเลย', body: 'อ่านประโยคทั้งสองอัน แล้วเลือกประโยคที่ถูกต้องได้เลย ไม่ต้องกลัวผิดนะ', tap: { title: tapTitle, items: tapItemsFor(index) } },
+          { heading: '✨ Tap & Select — ฝึกแยกประโยคให้ถูก', body: 'อ่านประโยค A กับ B แล้วเลือกประโยคที่ถูกต้องนะ ผิดได้ ไม่เป็นไร ดูเหตุผลแล้วลองใหม่ได้เลย', tap: { title: tapTitle, items: tapItemsFor(index) } },
         ],
         quiz: null,
         vocabBank: content.vocabBank,

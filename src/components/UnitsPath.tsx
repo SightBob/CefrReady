@@ -41,6 +41,9 @@ function colorFor(unit: UnitData) {
 
 const NODE_SIZE = 68; // px, diameter of a level node
 const LANE_OFFSET = 88; // px from container center to left/right lanes
+// SVG canvas width — 2*LANE_OFFSET + stroke + margin. Narrower than the old
+// 480px canvas so it never overflows narrow (320–430px) phone viewports.
+const CONNECTOR_W = 2 * LANE_OFFSET + 36; // 212px
 
 const LANE_POSITION: Record<Lane, string> = {
   left: 'left-1/2 -translate-x-[calc(50%+88px)]',
@@ -61,7 +64,7 @@ const Connector = React.memo(function Connector({
   to: Lane;
   color: string;
 }) {
-  const cx = 240; // half of the 480px SVG canvas
+  const cx = CONNECTOR_W / 2; // half of the connector canvas
   const xOf = (lane: Lane) =>
     lane === 'left' ? cx - LANE_OFFSET : lane === 'right' ? cx + LANE_OFFSET : cx;
   const y1 = 0;
@@ -78,7 +81,7 @@ const Connector = React.memo(function Connector({
   return (
     <svg
       className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
-      width={480}
+      width={CONNECTOR_W}
       height={y2}
       style={{ top: NODE_SIZE / 2 }}
       aria-hidden="true"
@@ -228,7 +231,7 @@ function UnitBanner({
   const colors = colorFor(unit);
   return (
     <div
-      className="sticky top-24 z-20 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-[0_4px_0_rgba(0,0,0,0.12)]"
+      className="sticky top-24 z-20 rounded-2xl px-4 sm:px-5 py-4 flex items-center gap-3 sm:gap-4 shadow-[0_4px_0_rgba(0,0,0,0.12)]"
       style={{ background: colors.base }}
     >
       <div
@@ -244,10 +247,10 @@ function UnitBanner({
         >
           ยูนิต {unitNumber}
         </p>
-        <h2 className="text-lg font-extrabold text-white truncate" title={unit.title}>
+        <h2 className="text-base sm:text-lg font-extrabold text-white truncate" title={unit.title}>
           {unit.title}
         </h2>
-        <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>
+        <p className="text-xs sm:text-sm font-medium line-clamp-2" style={{ color: 'rgba(255,255,255,0.85)' }}>
           {unit.subtitle}
         </p>
       </div>
@@ -256,11 +259,12 @@ function UnitBanner({
         onClick={onToggle}
         aria-expanded={expanded}
         aria-label={`คู่มือยูนิต ${unitNumber} ${unit.title}`}
-        className="shrink-0 bg-white text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 hover:bg-white/90 active:translate-y-[2px] transition-all"
+        className="shrink-0 bg-white text-sm font-bold px-3 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-1.5 hover:bg-white/90 active:translate-y-[2px] transition-all"
         style={{ boxShadow: '0 3px 0 rgba(0,0,0,0.15)', color: colors.dark }}
       >
         <BookOpen size={16} weight="fill" aria-hidden="true" />
-        คู่มือยูนิต
+        <span className="hidden min-[480px]:inline">คู่มือยูนิต</span>
+        <span className="min-[480px]:hidden">คู่มือ</span>
         <CaretDown
           size={12}
           weight="bold"
@@ -408,8 +412,9 @@ export default function UnitsPath({ units }: UnitsPathProps) {
               </div>
             )}
 
-            {/* Node path */}
-            <div className="relative mt-14 flex flex-col items-center gap-6">
+            {/* Node path — overflow-clip guards against any stray horizontal
+                overflow on narrow phone viewports */}
+            <div className="relative mt-14 flex flex-col items-center gap-6 overflow-x-clip">
               {unit.nodes.map((node, i) => {
                 const lane = laneFor(i);
                 const hasNext = i < unit.nodes.length - 1;

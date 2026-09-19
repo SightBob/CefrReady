@@ -20,7 +20,7 @@ export default async function UnitsPage() {
     <div className="max-w-[640px] mx-auto px-4 sm:px-6 pb-16 pt-[65px] max-lg:pt-[45px] min-h-svh">
       {/* Page heading */}
       <header className="text-center mb-8">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">
+        <h1 className="text-xl sm:text-3xl font-extrabold text-slate-800">
           เส้นทางการเรียน
         </h1>
         <p className="text-slate-500 text-sm sm:text-base mt-1">
