@@ -105,6 +105,27 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       .where(eq(learningNodes.unitId, unitId))
       .orderBy(asc(learningNodes.orderIndex), asc(learningNodes.id));
 
+    // Bulk save: { orders: [{ nodeId, orderIndex }] }.
+    // Normalize to contiguous positions so duplicate/gapped values cannot remain.
+    if (Array.isArray(body.orders)) {
+      const requested = body.orders
+        .map((item: { nodeId?: unknown; orderIndex?: unknown }) => ({
+          nodeId: Number(item.nodeId),
+          orderIndex: Number(item.orderIndex),
+        }))
+        .filter((item: { nodeId: number; orderIndex: number }) =>
+          Number.isInteger(item.nodeId) && Number.isInteger(item.orderIndex)
+        );
+      if (requested.length !== nodes.length || requested.some((item: { nodeId: number }) => !nodes.some((node) => node.id === item.nodeId))) {
+        return NextResponse.json({ success: false, error: 'orders must include every node in this unit' }, { status: 400 });
+      }
+      const reordered = [...requested].sort((a: { orderIndex: number }, b: { orderIndex: number }) => a.orderIndex - b.orderIndex);
+      for (let i = 0; i < reordered.length; i++) {
+        await db.update(learningNodes).set({ orderIndex: i }).where(eq(learningNodes.id, reordered[i].nodeId));
+      }
+      return NextResponse.json({ success: true });
+    }
+
     const idx = nodes.findIndex((n) => n.id === body.nodeId);
     if (idx === -1) return NextResponse.json({ success: false, error: 'Node not found' }, { status: 404 });
 

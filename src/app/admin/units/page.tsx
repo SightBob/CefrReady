@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Trash2, Pencil, ChevronUp, ChevronDown, ChevronRight, ChevronDown as ChevronDownIcon,
   Map as MapIcon, BookOpen, Star, Package, Trophy, Loader2, Check, X, Eye, EyeOff, Layers,
-  Download, Upload, FileDown, Info,} from 'lucide-react';
+  Download, Upload, FileDown, Info, BarChart3,} from 'lucide-react';
 
 // ============================================================
 // Types (mirror DB rows via /api/admin/units)
@@ -254,6 +254,8 @@ export default function AdminUnitsPage() {
   const [dragging, setDragging] = useState<{ type: 'unit' | 'node'; id: number } | null>(null);
   const [dragOverUnit, setDragOverUnit] = useState<number | null>(null);
   const [dragOverNode, setDragOverNode] = useState<number | null>(null);
+  const [orderModeUnit, setOrderModeUnit] = useState<number | null>(null);
+  const [savingNodeOrder, setSavingNodeOrder] = useState<number | null>(null);
 
   const moveUnitToIndex = async (unit: UnitRow, toIndex: number) => {
     // Optimistic update
@@ -295,6 +297,27 @@ export default function AdminUnitsPage() {
     } catch {
       setUnits(prev);
       toast.error('ย้ายลำดับไม่สำเร็จ');
+    }
+  };
+
+  const saveNodeOrder = async (unit: UnitRow) => {
+    setSavingNodeOrder(unit.id);
+    try {
+      const res = await fetch(`/api/admin/units/${unit.id}/nodes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orders: unit.nodes.map((node, index) => ({ nodeId: node.id, orderIndex: index })),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('บันทึกลำดับบทเรียนแล้ว');
+      setOrderModeUnit(null);
+      await fetchData();
+    } catch {
+      toast.error('บันทึกลำดับไม่สำเร็จ');
+    } finally {
+      setSavingNodeOrder(null);
     }
   };
 
@@ -428,6 +451,9 @@ export default function AdminUnitsPage() {
             จัดการเส้นทางการเรียน
           </h1>
           <p className="text-slate-500 mt-1">ยูนิต → โหนด (บทเรียน) → หน้าเนื้อหา/คำถาม — เพิ่ม ลบ แก้ไข และจัดลำดับได้ทั้งหมด</p>
+          <Link href="/admin/units/dashboard" className="inline-flex items-center gap-2 mt-3 text-sm font-bold text-emerald-700 hover:underline">
+            <BarChart3 className="w-4 h-4" /> ดู Dashboard สถิติเนื้อหา
+          </Link>
 
           {/* Import / export toolbar */}
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -562,6 +588,23 @@ export default function AdminUnitsPage() {
                 {/* Nodes */}
                 {expandedUnits[unit.id] && (
                   <div className="border-t border-slate-100 pl-6 pr-4 py-3 space-y-1.5 bg-slate-50/50">
+                    {unit.nodes.length > 1 && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+                        <p className="text-xs text-slate-500">ลากไอคอนบทเรียนเพื่อย้าย หรือใช้โหมดกำหนดลำดับทีเดียว</p>
+                        {orderModeUnit === unit.id ? (
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => saveNodeOrder(unit)} disabled={savingNodeOrder === unit.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50">
+                              {savingNodeOrder === unit.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} บันทึกลำดับ
+                            </button>
+                            <button onClick={() => { setOrderModeUnit(null); void fetchData(); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-white">ยกเลิก</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setOrderModeUnit(unit.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700">
+                            <Pencil className="w-3.5 h-3.5" /> กำหนดลำดับเอง
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {unit.nodes.length === 0 && <p className="text-sm text-slate-400 py-2">ยังไม่มีโหนด</p>}
                     {unit.nodes.map((node, nIdx) => (
                       <div
@@ -588,6 +631,25 @@ export default function AdminUnitsPage() {
                         }}
                       >
                         <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+                          {orderModeUnit === unit.id ? (
+                            <input
+                              type="number"
+                              min={1}
+                              max={unit.nodes.length}
+                              value={nIdx + 1}
+                              onChange={(e) => {
+                                const target = Math.max(1, Math.min(unit.nodes.length, Number(e.target.value) || 1)) - 1;
+                                const reordered = [...unit.nodes];
+                                const [moved] = reordered.splice(nIdx, 1);
+                                reordered.splice(target, 0, moved);
+                                setUnits((us) => us.map((u) => u.id === unit.id ? { ...u, nodes: reordered.map((n, i) => ({ ...n, orderIndex: i })) } : u));
+                              }}
+                              className="w-10 h-8 text-center text-xs font-bold rounded-lg border border-emerald-200 text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                              title="ลำดับบทเรียน"
+                            />
+                          ) : (
+                            <span className="w-6 text-center text-xs font-black text-slate-300">{nIdx + 1}</span>
+                          )}
                           <span
                             draggable
                             onDragStart={(e) => { e.stopPropagation(); setDragging({ type: 'node', id: node.id }); }}
@@ -606,8 +668,10 @@ export default function AdminUnitsPage() {
                             <p className="text-xs text-slate-400 ml-5">{KIND_META[node.kind]?.label} · {(pagesOf[node.id] ?? []).length > 0 ? `${(pagesOf[node.id] ?? []).length} หน้า` : 'แตะเพื่อโหลดหน้า'}</p>
                           </button>
                           <div className="flex items-center gap-0.5">
-                            <button onClick={() => moveNode(unit.id, node.id, 'up')} disabled={nIdx === 0} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30" title="ขึ้น"><ChevronUp className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => moveNode(unit.id, node.id, 'down')} disabled={nIdx === unit.nodes.length - 1} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30" title="ลง"><ChevronDown className="w-3.5 h-3.5" /></button>
+                            {orderModeUnit !== unit.id && <>
+                              <button onClick={() => moveNode(unit.id, node.id, 'up')} disabled={nIdx === 0} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30" title="ขึ้น"><ChevronUp className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => moveNode(unit.id, node.id, 'down')} disabled={nIdx === unit.nodes.length - 1} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30" title="ลง"><ChevronDown className="w-3.5 h-3.5" /></button>
+                            </>}
                             <Link href={`/admin/units/nodes/${node.id}`} className="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title="เปิด Content Builder">
                               <BookOpen className="w-3.5 h-3.5" />
                             </Link>

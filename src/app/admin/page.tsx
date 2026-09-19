@@ -144,6 +144,15 @@ export default function AdminDashboard() {
       count: 0,
     },
     {
+      title: 'Dashboard บทเรียน',
+      description: 'ดูจำนวน Nodes ข้อสอบ และเนื้อหาที่ควรตรวจ',
+      icon: BarChart3,
+      href: '/admin/units/dashboard',
+      color: 'from-teal-500 to-cyan-500',
+      bgColor: 'bg-teal-50',
+      count: 0,
+    },
+    {
       title: 'ภาพรวม Question Pool',
       description: 'ดูการกระจายข้อสอบ ระดับ CEFR และ fallback/reuse',
       icon: Database,
