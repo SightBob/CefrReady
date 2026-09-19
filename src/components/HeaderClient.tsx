@@ -7,6 +7,7 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 
 const NAV_ITEMS = [
+  { href: '/units', label: 'บทเรียน' },
   { href: '/tests', label: 'ข้อสอบ CEFR' },
   { href: '/#reviews', label: 'รีวิว' },
   { href: '/#levels', label: 'ระดับ A1-C2' },
