@@ -30,11 +30,14 @@ const securityProxy = auth(async function cspNonceProxy(request) {
 
   // MAINTENANCE: checked first so a closed site never leaks page or API
   // responses. Admins bypass via the JWT isAdmin claim (or bootstrap email)
-  // so the team can keep working and flip the flag back off. The maintenance
-  // page itself must stay reachable to be a redirect target, and auth/health
-  // APIs stay open so admins can still sign in.
+  // so the team can keep working and flip the flag back off. Tasters bypass
+  // via the JWT isTaster claim so beta testers can try the site during a
+  // maintenance window. The maintenance page itself must stay reachable to be
+  // a redirect target, and auth/health APIs stay open so users can still sign in.
   const isBypassed =
-    request.auth?.user?.isAdmin === true || isAdminEmail(request.auth?.user?.email);
+    request.auth?.user?.isAdmin === true ||
+    isAdminEmail(request.auth?.user?.email) ||
+    request.auth?.user?.isTaster === true;
   const maintFlag = await isMaintenanceMode();
   const action = resolveMaintenanceAction(pathname, isBypassed, maintFlag);
   if (action === 'api-503') {

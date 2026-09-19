@@ -54,17 +54,18 @@ export const {
     ...authConfig.callbacks,
 
     // jwt() — runs on sign-in and every request in middleware/server components.
-    // Store userId and isAdmin in the token so Edge can read them from the cookie.
+    // Store userId, isAdmin and isTaster in the token so Edge can read them from the cookie.
     async jwt({ token, user }) {
       if (user?.id) {
         token.id = user.id;
         const dbUser = await db
-          .select({ isAdmin: users.isAdmin })
+          .select({ isAdmin: users.isAdmin, isTaster: users.isTaster })
           .from(users)
           .where(eq(users.id, user.id))
           .limit(1)
           .then((rows) => rows[0]);
         token.isAdmin = dbUser?.isAdmin === true || isAdminEmail(user.email);
+        token.isTaster = dbUser?.isTaster === true;
       }
       return token;
     },
@@ -75,6 +76,7 @@ export const {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.isAdmin = token.isAdmin as boolean;
+        session.user.isTaster = token.isTaster as boolean;
       }
       return session;
     },

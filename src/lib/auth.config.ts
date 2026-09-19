@@ -30,6 +30,7 @@ declare module 'next-auth' {
     user: {
       id: string;
       isAdmin: boolean;
+      isTaster: boolean;
     } & DefaultSession['user'];
   }
 }
@@ -38,6 +39,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id?: string;
     isAdmin?: boolean;
+    isTaster?: boolean;
   }
 }
 
@@ -61,6 +63,7 @@ export const authConfig: NextAuthConfig = {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.isAdmin = token.isAdmin as boolean;
+        session.user.isTaster = token.isTaster as boolean;
       }
       return session;
     },

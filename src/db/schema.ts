@@ -13,6 +13,9 @@ export const users = pgTable('users', {
   emailVerified: timestamp('email_verified', { mode: 'date' }),
   image: text('image'),
   isAdmin: boolean('is_admin').default(false).notNull(),
+  // Taster role: can browse the site even while maintenance mode is ON
+  // (beta tester). Does NOT grant admin access.
+  isTaster: boolean('is_taster').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -365,6 +368,8 @@ export const lessonPages = pgTable('lesson_pages', {
   sections: jsonb('sections').$type<Array<{
     heading: string;
     body: string;
+    headingSize?: 'sm' | 'md' | 'lg' | 'xl';
+    bodySize?: 'sm' | 'md' | 'lg';
     examples?: Array<{ en: string; th: string; ok: boolean }>;
     table?: { headers: string[]; rows: string[][] };
     tap?: {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Users, Search, Trash2, Mail, Calendar, BarChart2, ChevronUp, ChevronDown, Loader2, AlertTriangle, Shield, ShieldOff } from 'lucide-react';
+import { ArrowLeft, Users, Search, Trash2, Mail, Calendar, BarChart2, ChevronUp, ChevronDown, Loader2, AlertTriangle, Shield, ShieldOff, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -13,6 +13,7 @@ interface User {
   email: string;
   image: string | null;
   isAdmin: boolean;
+  isTaster: boolean;
   createdAt: string;
   totalAttempts: number;
   avgScore: number | null;
@@ -32,6 +33,42 @@ export default function AdminUsersPage() {
   const [adminTarget, setAdminTarget] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [tasterTarget, setTasterTarget] = useState<User | null>(null);
+
+  const toggleTaster = async (user: User) => {
+    const next = !user.isTaster;
+    const displayName = user.name ?? user.email;
+
+    setTogglingId(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isTaster: next }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, isTaster: next } : u)));
+        setTasterTarget(null);
+        toast.success(next ? 'มอบสิทธิ์ Taster แล้ว' : 'ยกเลิกสิทธิ์ Taster แล้ว', {
+          description: next
+            ? `${displayName} สามารถเข้าใช้เว็บได้แม้ตอนเปิด Maintenance Mode`
+            : `${displayName} จะไม่สามารถเข้าเว็บตอน Maintenance Mode ได้อีกต่อไป`,
+        });
+      } else {
+        toast.error('อัปเดตสิทธิ์ไม่สำเร็จ', {
+          description: json.error || 'กรุณาลองใหม่อีกครั้ง',
+        });
+      }
+    } catch (err) {
+      console.error('Toggle taster failed:', err);
+      toast.error('อัปเดตสิทธิ์ไม่สำเร็จ', {
+        description: 'เกิดปัญหาในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง',
+      });
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -341,6 +378,33 @@ export default function AdminUsersPage() {
                         )}
                       </td>
 
+                      {/* Taster toggle */}
+                      <td className="px-5 py-4">
+                        <button
+                          onClick={() => setTasterTarget(user)}
+                          disabled={togglingId === user.id || user.isAdmin}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.98] disabled:opacity-50 ${
+                            user.isTaster
+                              ? 'bg-violet-100 text-violet-700 hover:bg-violet-200 focus:ring-violet-500'
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200 focus:ring-slate-400'
+                          }`}
+                          title={
+                            user.isAdmin
+                              ? 'แอดมินผ่าน maintenance อยู่แล้ว'
+                              : user.isTaster
+                                ? 'ยกเลิกสิทธิ์ Taster'
+                                : 'มอบสิทธิ์ Taster — เข้าเว็บได้ตอน Maintenance Mode'
+                          }
+                        >
+                          {togglingId === user.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <FlaskConical className="w-3.5 h-3.5" />
+                          )}
+                          {user.isTaster ? 'Taster' : 'ผู้ใช้'}
+                        </button>
+                      </td>
+
                       {/* Delete */}
                       <td className="px-5 py-4">
                         <button
@@ -413,6 +477,23 @@ export default function AdminUsersPage() {
         onCancel={() => setAdminTarget(null)}
         onConfirm={() => {
           if (adminTarget) void handleToggleAdmin(adminTarget);
+        }}
+      />
+
+      <ConfirmModal
+        isOpen={tasterTarget !== null}
+        title={tasterTarget?.isTaster ? 'ยกเลิกสิทธิ์ Taster' : 'มอบสิทธิ์ Taster'}
+        description={
+          tasterTarget?.isTaster
+            ? `${tasterTarget.name ?? tasterTarget.email} จะเข้าเว็บไม่ได้ตอน Maintenance Mode หลังเข้าสู่ระบบใหม่`
+            : `${tasterTarget?.name ?? tasterTarget?.email ?? 'ผู้ใช้นี้'} จะสามารถเข้าใช้เว็บได้แม้ขณะเปิด Maintenance Mode (เหมาะกับ beta tester)`
+        }
+        confirmLabel={tasterTarget?.isTaster ? 'ยกเลิกสิทธิ์' : 'มอบสิทธิ์'}
+        type={tasterTarget?.isTaster ? 'warning' : 'success'}
+        isLoading={tasterTarget !== null && togglingId === tasterTarget.id}
+        onCancel={() => setTasterTarget(null)}
+        onConfirm={() => {
+          if (tasterTarget) void toggleTaster(tasterTarget);
         }}
       />
     </div>

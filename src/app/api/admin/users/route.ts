@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
         email: users.email,
         image: users.image,
         isAdmin: users.isAdmin,
+        isTaster: users.isTaster,
         createdAt: users.createdAt,
       })
       .from(users)
