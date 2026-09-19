@@ -46,6 +46,17 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     const [node] = await db.select().from(learningNodes).where(eq(learningNodes.id, nodeId)).limit(1);
     if (!node) return NextResponse.json({ success: false, error: 'Node not found' }, { status: 404 });
 
+    if (Array.isArray(body.sections)) {
+      for (const s of body.sections) {
+        if (s.headingSize !== undefined && !['sm', 'md', 'lg', 'xl'].includes(s.headingSize)) {
+          return NextResponse.json({ success: false, error: 'invalid headingSize' }, { status: 400 });
+        }
+        if (s.bodySize !== undefined && !['sm', 'md', 'lg'].includes(s.bodySize)) {
+          return NextResponse.json({ success: false, error: 'invalid bodySize' }, { status: 400 });
+        }
+      }
+    }
+
     if (pageType === 'quiz' && body.quiz) {
       const questions = Array.isArray(body.quiz.questions) ? body.quiz.questions : [body.quiz];
       for (const q of questions) {

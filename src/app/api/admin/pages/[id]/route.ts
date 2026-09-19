@@ -23,6 +23,8 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       sections: Array<{
         heading: string;
         body: string;
+        headingSize?: 'sm' | 'md' | 'lg' | 'xl';
+        bodySize?: 'sm' | 'md' | 'lg';
         examples?: Array<{ en: string; th: string; ok: boolean }>;
         table?: { headers: string[]; rows: string[][] };
         tap?: {
@@ -60,6 +62,12 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
             { success: false, error: 'each section needs heading and body' },
             { status: 400 }
           );
+        }
+        if (s.headingSize !== undefined && !['sm', 'md', 'lg', 'xl'].includes(s.headingSize)) {
+          return NextResponse.json({ success: false, error: 'invalid headingSize' }, { status: 400 });
+        }
+        if (s.bodySize !== undefined && !['sm', 'md', 'lg'].includes(s.bodySize)) {
+          return NextResponse.json({ success: false, error: 'invalid bodySize' }, { status: 400 });
         }
       }
       updates.sections = body.sections;

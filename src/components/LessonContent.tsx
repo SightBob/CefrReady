@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkle, ArrowLeft, ArrowRight, ArrowCounterClockwise, CheckCircle, XCircle, Lightbulb, BookOpen, Trophy, House } from '@phosphor-icons/react';
-import type { LessonContent } from '@/content/units-path-lessons';
+import type { LessonContent, HeadingSize, BodySize } from '@/content/units-path-lessons';
 import VocabBankModal from './VocabBankModal';
 import LessonQuiz from './LessonQuiz';
 import RichText from './RichText';
@@ -18,6 +18,19 @@ export default function LessonContent({
 }) {
   const router = useRouter();
   const [vocabOpen, setVocabOpen] = useState(false);
+
+  // Per-section font-size classes (chosen in the Admin editor)
+  const HEADING_CLASS: Record<HeadingSize, string> = {
+    sm: 'text-base',
+    md: 'text-lg',
+    lg: 'text-xl sm:text-2xl',
+    xl: 'text-2xl sm:text-3xl',
+  };
+  const BODY_CLASS: Record<BodySize, string> = {
+    sm: 'text-sm',
+    md: 'text-sm sm:text-base',
+    lg: 'text-base sm:text-lg',
+  };
   // Page flow: concept card (with optional inline Tap & Select) -> real exam -> result.
   const hasQuiz = Boolean(lesson.quiz?.questions?.length);
   const hasTap = Boolean(lesson.tapExercises?.some((exercise) => exercise.items.length > 0));
@@ -110,13 +123,13 @@ export default function LessonContent({
                 key={section.heading}
                 className="bg-white rounded-2xl border-2 border-slate-100 p-5 sm:p-6 shadow-sm"
               >
-                <h2 className="text-lg font-extrabold mb-2" style={{ color: accent.dark }}>
+                <h2 className={`${HEADING_CLASS[section.headingSize ?? 'md']} font-extrabold mb-2 leading-snug`} style={{ color: accent.dark }}>
                   <RichText text={section.heading} highlightColor={accent.light} as="span" />
                 </h2>
                 <RichText
                   text={section.body}
                   highlightColor={accent.light}
-                  className="text-sm sm:text-base text-slate-600 leading-relaxed mb-4"
+                  className={`${BODY_CLASS[section.bodySize ?? 'md']} text-slate-600 leading-relaxed mb-4`}
                 />
 
                 {section.table && section.table.rows.length > 0 && (

@@ -13,6 +13,8 @@ interface PageRow {
   sections: Array<{
     heading: string;
     body: string;
+    headingSize?: 'sm' | 'md' | 'lg' | 'xl';
+    bodySize?: 'sm' | 'md' | 'lg';
     examples?: Array<{ en: string; th: string; ok: boolean }>;
     table?: { headers: string[]; rows: string[][] };
     tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> };

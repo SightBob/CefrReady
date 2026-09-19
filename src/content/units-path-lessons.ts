@@ -9,9 +9,15 @@ export interface LessonTable {
   rows: string[][];
 }
 
+/** Optional per-section font sizes chosen in the Admin editor */
+export type HeadingSize = 'sm' | 'md' | 'lg' | 'xl';
+export type BodySize = 'sm' | 'md' | 'lg';
+
 export interface LessonSection {
   heading: string;
   body: string;
+  headingSize?: HeadingSize;
+  bodySize?: BodySize;
   examples?: Array<{ en: string; th: string; ok: boolean }>;
   table?: LessonTable;
   tap?: TapExercise;

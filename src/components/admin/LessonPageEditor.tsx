@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Trash2, Loader2, Check, X, FileText, HelpCircle,
-  ChevronUp, ChevronDown, Lightbulb, Sparkles, BookOpen, AlertTriangle,
+  ChevronUp, ChevronDown, Lightbulb, Sparkles, BookOpen, AlertTriangle, Upload,
 } from 'lucide-react';
 
 // ============================================================
@@ -39,6 +39,8 @@ interface TapExercise {
 interface SectionRow {
   heading: string;
   body: string;
+  headingSize?: 'sm' | 'md' | 'lg' | 'xl';
+  bodySize?: 'sm' | 'md' | 'lg';
   examples: ExampleRow[];
   table: TableData | null;
   tap: TapExercise | null;
@@ -134,6 +136,67 @@ const emptySection = (): SectionRow => ({ heading: '', body: '', examples: [], t
 const emptyTapItem = (): TapItem => ({ prompt: '', choiceA: 'ถูก', choiceB: 'ผิด', correct: 0 });
 const emptyExample = (): ExampleRow => ({ en: '', th: '', ok: true });
 
+/**
+ * Parse pasted CSV / TSV / semicolon text into a table.
+ * First non-empty line = headers. Supports simple double-quote escaping.
+ */
+export function parseTableText(raw: string): TableData | null {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length < 2) return null; // ต้องมีแถวหัวคอลัมน์ + อย่างน้อย 1 แถวข้อมูล
+
+  const detectDelim = (line: string): string => {
+    if (line.includes('\t')) return '\t';
+    if (line.includes(',')) return ',';
+    if (line.includes(';')) return ';';
+    return '\t';
+  };
+
+  const parseLine = (line: string, delim: string): string[] => {
+    const cells: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          cur += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === delim) {
+        cells.push(cur.trim());
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    cells.push(cur.trim());
+    return cells;
+  };
+
+  const delim = detectDelim(lines[0]);
+  const headers = parseLine(lines[0], delim);
+  const width = headers.length;
+  if (width < 1 || !headers.some((h) => h)) return null;
+  const rows = lines.slice(1).map((l) => {
+    const cells = parseLine(l, delim);
+    while (cells.length < width) cells.push('');
+    return cells.slice(0, width);
+  });
+  if (rows.length === 0) return null;
+  return { headers, rows };
+}
+
 /** Wrap the current textarea selection in the given markup, return the new value + caret pos */
 function wrapSelection(
   el: HTMLTextAreaElement | HTMLInputElement,
@@ -165,18 +228,36 @@ export default function LessonPageEditor({
       ? initial.sections.map((s) => ({
           heading: s.heading,
           body: s.body,
+          headingSize: (s as { headingSize?: 'sm' | 'md' | 'lg' | 'xl' }).headingSize ?? 'md',
+          bodySize: (s as { bodySize?: 'sm' | 'md' | 'lg' }).bodySize ?? 'md',
           examples: s.examples ?? [],
           table: (s as { table?: TableData | null }).table ?? null,
           tap: (s as { tap?: TapExercise | null }).tap ?? null,
         }))
       : [emptySection()]
   );
+
+  const HEADING_SIZES = [
+    { value: 'sm', label: 'หัวเรื่องย่อย', preview: 'text-sm', hint: 'เล็ก กระชับ' },
+    { value: 'md', label: 'หัวเรื่อง', preview: 'text-base', hint: 'ปกติ (ค่าเริ่มต้น)' },
+    { value: 'lg', label: 'หัวเรื่องใหญ่', preview: 'text-lg', hint: 'เด่นกว่าปกติ' },
+    { value: 'xl', label: 'หัวเรื่องใหญ่พิเศษ', preview: 'text-xl', hint: 'ใหญ่สุด เหมาะกับหัวข้อหลัก' },
+  ] as const;
+  const BODY_SIZES = [
+    { value: 'sm', label: 'เนื้อหาเล็ก', preview: 'text-xs', hint: 'เนื้อหาเสริม/หมายเหตุ' },
+    { value: 'md', label: 'เนื้อหาปกติ', preview: 'text-sm', hint: 'ปกติ (ค่าเริ่มต้น)' },
+    { value: 'lg', label: 'เนื้อหาใหญ่', preview: 'text-base', hint: 'อ่านง่าย เหมาะกับเนื้อหาสำคัญ' },
+  ] as const;
   const [quiz, setQuiz] = useState<QuizRow[]>(() => toQuizRows(initial?.quiz ?? null));
   const [vocab, setVocab] = useState<VocabBankDraft>(() => toVocabDraft(initial?.vocabBank ?? null));
   const [tip, setTip] = useState(initial?.tip ?? '');
   const [intro, setIntro] = useState(initial?.intro ?? '');
   const [isPublished, setIsPublished] = useState(initial?.isPublished ?? true);
   const [saving, setSaving] = useState(false);
+  const [tableImport, setTableImport] = useState<{ sectionIndex: number } | null>(null);
+  const [tableImportText, setTableImportText] = useState('');
+  const [vocabImportOpen, setVocabImportOpen] = useState(false);
+  const [vocabImportText, setVocabImportText] = useState('');
 
   // ---------- Sections ----------
   const updateSection = (i: number, patch: Partial<SectionRow>) =>
@@ -280,6 +361,26 @@ export default function LessonPageEditor({
       })
     );
 
+  // ---------- Table import (paste CSV/TSV) ----------
+  const openTableImport = (si: number) => {
+    setTableImportText('');
+    setTableImport({ sectionIndex: si });
+  };
+
+  const applyTableImport = () => {
+    if (!tableImport) return;
+    const parsed = parseTableText(tableImportText);
+    if (!parsed) {
+      toast.error('อ่านตารางไม่สำเร็จ — ต้องมีแถวหัวคอลัมน์ + อย่างน้อย 1 แถวข้อมูล');
+      return;
+    }
+    const si = tableImport.sectionIndex;
+    setSections((s) => s.map((sec, idx) => (idx === si ? { ...sec, table: parsed } : sec)));
+    setTableImport(null);
+    setTableImportText('');
+    toast.success(`นำเข้าตารางสำเร็จ — ${parsed.headers.length} คอลัมน์, ${parsed.rows.length} แถว`);
+  };
+
   const removeTableColumn = (si: number, ci: number) =>
     setSections((s) =>
       s.map((sec, idx) => {
@@ -375,6 +476,34 @@ export default function LessonPageEditor({
     }));
 
   // ---------- Vocab bank (flexible columns) ----------
+  const openVocabImport = () => {
+    setVocabImportText('');
+    setVocabImportOpen(true);
+  };
+
+  const applyVocabImport = () => {
+    const parsed = parseTableText(vocabImportText);
+    if (!parsed) {
+      toast.error('อ่านข้อมูลไม่สำเร็จ — ต้องมีแถวหัวคอลัมน์ + อย่างน้อย 1 แถวข้อมูล');
+      return;
+    }
+    if (parsed.headers.length < 2) {
+      toast.error('คลังศัพท์ต้องมีอย่างน้อย 2 คอลัมน์');
+      return;
+    }
+    if (parsed.headers.length > 8) {
+      toast.error('คลังศัพท์รองรับสูงสุด 8 คอลัมน์');
+      return;
+    }
+    setVocab({
+      columns: parsed.headers,
+      rows: parsed.rows.map((r) => ({ cells: r })),
+    });
+    setVocabImportOpen(false);
+    setVocabImportText('');
+    toast.success(`นำเข้าคลังศัพท์สำเร็จ — ${parsed.headers.length} คอลัมน์, ${parsed.rows.length} แถว`);
+  };
+
   const setVocabCell = (rowIdx: number, colIdx: number, value: string) =>
     setVocab((v) => ({
       ...v,
@@ -488,6 +617,8 @@ export default function LessonPageEditor({
                 .map((s) => ({
                   heading: s.heading.trim(),
                   body: s.body.trim(),
+                  headingSize: s.headingSize ?? 'md',
+                  bodySize: s.bodySize ?? 'md',
                   examples: s.examples.length > 0 ? s.examples : undefined,
                   table:
                     s.table &&
@@ -653,8 +784,48 @@ export default function LessonPageEditor({
                   placeholder="ชื่อหัวข้อ เช่น 1. ประธานเอกพจน์ → กริยาเติม s/es"
                   value={section.heading}
                   onChange={(e) => updateSection(si, { heading: e.target.value })}
-                  className="w-full mb-2.5 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  className="w-full mb-2 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-400"
                 />
+
+                {/* Font-size pickers — heading + body */}
+                <div className="flex flex-col sm:flex-row gap-2 mb-2">
+                  <div className="flex items-center gap-1 flex-1 bg-slate-50 rounded-lg p-1">
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-1.5">ขนาดหัวข้อ</span>
+                    {HEADING_SIZES.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => updateSection(si, { headingSize: opt.value })}
+                        title={opt.hint}
+                        className={`flex-1 px-1.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                          (section.headingSize ?? 'md') === opt.value
+                            ? 'bg-sky-500 text-white shadow-sm'
+                            : 'text-slate-500 hover:bg-slate-200/70'
+                        }`}
+                      >
+                        <span className={opt.preview}>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1 flex-1 bg-slate-50 rounded-lg p-1">
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-1.5">ขนาดเนื้อหา</span>
+                    {BODY_SIZES.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => updateSection(si, { bodySize: opt.value })}
+                        title={opt.hint}
+                        className={`flex-1 px-1.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                          (section.bodySize ?? 'md') === opt.value
+                            ? 'bg-indigo-500 text-white shadow-sm'
+                            : 'text-slate-500 hover:bg-slate-200/70'
+                        }`}
+                      >
+                        <span className={opt.preview}>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {/* Mini formatting toolbar for the body text */}
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 mr-1">จัดรูปแบบ:</span>
@@ -702,13 +873,52 @@ export default function LessonPageEditor({
                   <div className="bg-indigo-50/60 rounded-xl p-3.5 mb-4">
                     <div className="flex items-center justify-between mb-2.5">
                       <p className="text-xs font-extrabold uppercase tracking-wider text-indigo-500">ตาราง</p>
-                      <button
-                        onClick={() => removeTable(si)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 px-2 py-1 rounded-lg"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> ลบตาราง
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => openTableImport(si)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 px-2 py-1 rounded-lg"
+                        >
+                          <Upload className="w-3.5 h-3.5" /> Import
+                        </button>
+                        <button
+                          onClick={() => removeTable(si)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 px-2 py-1 rounded-lg"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> ลบตาราง
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Import paste area */}
+                    {tableImport?.sectionIndex === si && (
+                      <div className="bg-white border-2 border-dashed border-indigo-300 rounded-xl p-3 mb-3">
+                        <p className="text-xs font-bold text-indigo-700 mb-1.5">วางข้อมูลตาราง (CSV / TSV / Excel)</p>
+                        <p className="text-[11px] text-slate-500 mb-2">
+                          แถวแรกคือหัวคอลัมน์ · คั่นด้วย tab จาก Excel, comma หรือ semicolon ก็ได้ · วางแล้วกด นำเข้า
+                        </p>
+                        <textarea
+                          value={tableImportText}
+                          onChange={(e) => setTableImportText(e.target.value)}
+                          rows={6}
+                          placeholder={"ประธาน,รูปกริยา,ตัวอย่าง\nHe / She / It,เติม s / es,She plays tennis.\nI / You / We / They,ไม่เติม s,They play tennis."}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        />
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            onClick={applyTableImport}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
+                          >
+                            <Upload className="w-3.5 h-3.5" /> นำเข้า
+                          </button>
+                          <button
+                            onClick={() => setTableImport(null)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200"
+                          >
+                            ยกเลิก
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Header row */}
                     <div className="flex items-center gap-1.5 mb-1.5">
@@ -732,7 +942,7 @@ export default function LessonPageEditor({
                           )}
                         </div>
                       ))}
-                      {section.table.headers.length < 5 && (
+                      {section.table.headers.length < 10 && (
                         <button
                           onClick={() => addTableColumn(si)}
                           className="shrink-0 w-8 h-8 rounded-lg border-2 border-dashed border-indigo-300 text-indigo-400 hover:text-indigo-600 hover:border-indigo-400 flex items-center justify-center"
@@ -773,12 +983,20 @@ export default function LessonPageEditor({
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => addTable(si)}
-                    className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> เพิ่มตาราง
-                  </button>
+                  <div className="flex items-center gap-2 mb-4">
+                    <button
+                      onClick={() => addTable(si)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> เพิ่มตาราง
+                    </button>
+                    <button
+                      onClick={() => openTableImport(si)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg"
+                    >
+                      <Upload className="w-3.5 h-3.5" /> Import ตาราง
+                    </button>
+                  </div>
                 )}
 
                 {/* Examples */}
@@ -980,7 +1198,44 @@ export default function LessonPageEditor({
                 >
                   <Plus className="w-3.5 h-3.5" /> เพิ่มคอลัมน์
                 </button>
+                <button
+                  onClick={openVocabImport}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50 px-2.5 py-1.5 rounded-lg"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Import
+                </button>
               </div>
+
+              {/* Import paste area */}
+              {vocabImportOpen && (
+                <div className="bg-white border-2 border-dashed border-amber-300 rounded-xl p-3 mt-3">
+                  <p className="text-xs font-bold text-amber-700 mb-1.5">วางข้อมูลคลังศัพท์ (CSV / TSV / Excel)</p>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    แถวแรกคือชื่อคอลัมน์ (2–8 คอลัมน์) · คัดลอกจาก Excel / Google Sheets แล้ววางได้เลย
+                  </p>
+                  <textarea
+                    value={vocabImportText}
+                    onChange={(e) => setVocabImportText(e.target.value)}
+                    rows={6}
+                    placeholder={"ประธาน,รูปกริยา,ตัวอย่าง\nHe / She / It,เติม s / es,She plays tennis.\nI / You / We / They,ไม่เติม s,They play tennis."}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={applyVocabImport}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-bold hover:bg-amber-600"
+                    >
+                      <Upload className="w-3.5 h-3.5" /> นำเข้า
+                    </button>
+                    <button
+                      onClick={() => setVocabImportOpen(false)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200"
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Intro — "จำไว้เลย" summary (optional) */}
