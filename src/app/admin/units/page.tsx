@@ -35,7 +35,11 @@ interface PageRow {
   id: number;
   nodeId: number;
   pageType: string;
-  sections: Array<{ heading: string; body: string }> | null;
+  sections: Array<{
+    heading: string;
+    body: string;
+    tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> };
+  }> | null;
   quiz:
     | { sentence: string; options: string[]; answerIndex: number; explanation: string }
     | { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation: string }> }
@@ -67,6 +71,8 @@ export default function AdminUnitsPage() {
   const [expandedUnits, setExpandedUnits] = useState<Record<number, boolean>>({});
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
   const [pagesOf, setPagesOf] = useState<Record<number, PageRow[]>>({});
+  const [loadingPages, setLoadingPages] = useState<Record<number, boolean>>({});
+  const [pagesError, setPagesError] = useState<Record<number, string>>({});
 
   // Create / edit forms
   const [newUnit, setNewUnit] = useState<{ title: string; subtitle: string; colorKey: string } | null>(null);
@@ -190,9 +196,25 @@ export default function AdminUnitsPage() {
   }, []);
 
   const fetchPages = async (nodeId: number) => {
-    const res = await fetch(`/api/admin/nodes/${nodeId}/pages`);
-    const json = await res.json();
-    if (json.success) setPagesOf((p) => ({ ...p, [nodeId]: json.data }));
+    setLoadingPages((p) => ({ ...p, [nodeId]: true }));
+    setPagesError((p) => ({ ...p, [nodeId]: '' }));
+    try {
+      const res = await fetch(`/api/admin/nodes/${nodeId}/pages`, { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        const message = json.error ?? `HTTP ${res.status}`;
+        setPagesError((p) => ({ ...p, [nodeId]: message }));
+        toast.error(`โหลดหน้าของโหนด #${nodeId} ไม่สำเร็จ: ${message}`);
+        return;
+      }
+      setPagesOf((p) => ({ ...p, [nodeId]: Array.isArray(json.data) ? json.data : [] }));
+    } catch {
+      const message = 'เครือข่ายขัดข้อง';
+      setPagesError((p) => ({ ...p, [nodeId]: message }));
+      toast.error(`โหลดหน้าของโหนด #${nodeId} ไม่สำเร็จ: ${message}`);
+    } finally {
+      setLoadingPages((p) => ({ ...p, [nodeId]: false }));
+    }
   };
 
   // ---------- Unit actions ----------
@@ -242,11 +264,17 @@ export default function AdminUnitsPage() {
   };
 
   const toggleUnitPublish = async (unit: UnitRow) => {
-    await fetch(`/api/admin/units/${unit.id}`, {
+    const res = await fetch(`/api/admin/units/${unit.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isPublished: !unit.isPublished }),
     });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      toast.error(json?.error ?? 'เผยแพร่ไม่สำเร็จ');
+      return;
+    }
+    toast.success(unit.isPublished ? 'ซ่อน Unit แล้ว' : 'เผยแพร่ Unit แล้ว');
     await fetchData();
   };
 
@@ -357,7 +385,8 @@ export default function AdminUnitsPage() {
       await fetchData();
     } else {
       const j = await res.json().catch(() => null);
-      toast.error(j?.error ?? 'บันทึกไม่สำเร็จ');
+      const details = Array.isArray(j?.issues) ? `: ${j.issues[0]?.message ?? ''}` : '';
+      toast.error(`${j?.error ?? 'บันทึกไม่สำเร็จ'}${details}`);
     }
   };
 
@@ -684,15 +713,26 @@ export default function AdminUnitsPage() {
                         {/* Pages of this node */}
                         {expandedNodes[node.id] && (
                           <div className="border-t border-slate-50 px-3.5 py-2.5 space-y-1.5 bg-slate-50/70 rounded-b-xl">
-                            {(pagesOf[node.id] ?? []).map((page, pIdx) => (
+                            {loadingPages[node.id] ? (
+                              <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
+                                <Loader2 className="w-4 h-4 animate-spin" /> กำลังโหลดหน้าเนื้อหา…
+                              </div>
+                            ) : pagesError[node.id] ? (
+                              <div className="flex items-center justify-between gap-3 py-2 text-xs">
+                                <span className="text-rose-600">โหลดหน้าไม่สำเร็จ: {pagesError[node.id]}</span>
+                                <button onClick={() => void fetchPages(node.id)} className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 font-bold text-rose-600 hover:bg-rose-50">ลองใหม่</button>
+                              </div>
+                            ) : (pagesOf[node.id] ?? []).map((page, pIdx) => (
                               <div key={page.id} className="flex items-center gap-2 text-sm bg-white rounded-lg border border-slate-100 px-3 py-2">
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${page.pageType === 'quiz' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'}`}>
-                                  {page.pageType === 'quiz' ? 'คำถาม' : 'เนื้อหา'}
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${page.pageType === 'quiz' ? 'bg-purple-100 text-purple-700' : page.pageType === 'tap' ? 'bg-teal-100 text-teal-700' : 'bg-sky-100 text-sky-700'}`}>
+                                  {page.pageType === 'quiz' ? 'คำถาม' : page.pageType === 'tap' ? 'Tap & Select' : 'เนื้อหา'}
                                 </span>
                                 <span className="flex-1 truncate text-slate-600">
                                   {page.pageType === 'quiz'
                                     ? (page.quiz && 'questions' in page.quiz ? `${page.quiz.questions.length} ข้อสอบ` : page.quiz?.sentence)
-                                    : page.sections?.[0]?.heading ?? '(ว่าง)'}
+                                    : page.pageType === 'tap'
+                                      ? `${page.sections?.[0]?.tap?.title ?? 'Tap & Select'} · ${page.sections?.[0]?.tap?.items?.length ?? 0} โจทย์`
+                                      : page.sections?.[0]?.heading ?? '(ว่าง)'}
                                 </span>
                                 {!page.isPublished && <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Draft</span>}
                                 <button onClick={() => movePage(node.id, page.id, 'up')} disabled={pIdx === 0} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30"><ChevronUp className="w-3.5 h-3.5" /></button>
@@ -702,14 +742,19 @@ export default function AdminUnitsPage() {
                                 <button onClick={() => deletePage(node.id, page.id)} className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50" title="ลบหน้า"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
                             ))}
-                            <div className="flex items-center gap-2 pt-1">
+                            {!loadingPages[node.id] && !pagesError[node.id] && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
                               <button onClick={() => createQuizPage(node.id)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-600 hover:bg-purple-50 px-2.5 py-1.5 rounded-lg transition-colors">
                                 <Plus className="w-3.5 h-3.5" /> เพิ่มหน้าคำถาม
                               </button>
+                              <Link href={`/admin/units/nodes/${node.id}/pages/new?type=tap`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:bg-teal-50 px-2.5 py-1.5 rounded-lg transition-colors">
+                                <Plus className="w-3.5 h-3.5" /> เพิ่มหน้าฝึกแตะ
+                              </Link>
                               <Link href={`/admin/units/nodes/${node.id}/pages/new`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:bg-sky-50 px-2.5 py-1.5 rounded-lg transition-colors">
                                 <Plus className="w-3.5 h-3.5" /> เพิ่มหน้าเนื้อหา
                               </Link>
                             </div>
+                            )}
                           </div>
                         )}
                       </div>

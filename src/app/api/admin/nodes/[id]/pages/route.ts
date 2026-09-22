@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { learningNodes, lessonPages } from '@/db/schema';
+import { learningNodes, lessonPages, lessonPageVersions } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { validateLearningPages } from '@/lib/learning-validation';
 
 export const dynamic = 'force-dynamic';
 
-const PAGE_TYPES = ['explain', 'quiz'];
+const PAGE_TYPES = ['explain', 'quiz', 'tap'];
 
 /** GET /api/admin/nodes/[id]/pages — pages of one node */
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -33,7 +34,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
 /** POST /api/admin/nodes/[id]/pages — create page */
 export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error, session } = await requireAdmin();
   if (error) return error;
 
   const nodeId = parseInt(params.id);
@@ -72,11 +73,44 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       }
     }
 
+    if (pageType === 'tap' && body.isPublished === true) {
+      const tapItems = Array.isArray(body.sections?.[0]?.tap?.items) ? body.sections[0].tap.items : [];
+      const validTap = tapItems.every(
+        (item: { prompt?: unknown; choiceA?: unknown; choiceB?: unknown }) =>
+          typeof item.prompt === 'string' && item.prompt.trim() !== '' &&
+          typeof item.choiceA === 'string' && item.choiceA.trim() !== '' &&
+          typeof item.choiceB === 'string' && item.choiceB.trim() !== ''
+      );
+      if (tapItems.length === 0 || !validTap) {
+        return NextResponse.json(
+          { success: false, error: 'หน้า Tap & Select ต้องมีอย่างน้อย 1 โจทย์ที่มีประโยคและตัวเลือก A/B ครบ' },
+          { status: 422 }
+        );
+      }
+    }
+
     const existing = await db
       .select({ orderIndex: lessonPages.orderIndex })
       .from(lessonPages)
       .where(eq(lessonPages.nodeId, nodeId))
       .orderBy(asc(lessonPages.orderIndex));
+
+    const shouldPublish = body.isPublished === true;
+    if (shouldPublish) {
+      const existingPages = await db.select({ pageType: lessonPages.pageType, sections: lessonPages.sections, quiz: lessonPages.quiz })
+        .from(lessonPages)
+        .where(eq(lessonPages.nodeId, nodeId));
+      const validation = validateLearningPages([
+        ...existingPages,
+        { pageType, sections: Array.isArray(body.sections) ? body.sections : [], quiz: body.quiz ?? null },
+      ]);
+      if (!validation.valid) {
+        return NextResponse.json(
+          { success: false, error: 'Node ยังไม่พร้อมเผยแพร่หน้านี้', issues: validation.issues },
+          { status: 422 }
+        );
+      }
+    }
     const nextOrder =
       existing.length > 0 ? (existing[existing.length - 1].orderIndex ?? 0) + 1 : 0;
 
@@ -102,10 +136,30 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
               : null,
         tip: body.tip?.trim() || null,
         intro: body.intro?.trim() || null,
-        isPublished: body.isPublished !== false,
+        // New pages start as drafts; publish only after the whole Node passes validation.
+        isPublished: body.isPublished === true,
         orderIndex: nextOrder,
       })
       .returning();
+
+    if (created) {
+      await db.insert(lessonPageVersions).values({
+        pageId: created.id,
+        version: 1,
+        snapshot: {
+          pageType: created.pageType,
+          sections: created.sections,
+          quiz: created.quiz,
+          vocabBank: created.vocabBank,
+          tip: created.tip,
+          intro: created.intro,
+          isPublished: created.isPublished,
+          orderIndex: created.orderIndex,
+        },
+        changeType: 'create',
+        changedBy: session?.user?.id ?? null,
+      });
+    }
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (err) {

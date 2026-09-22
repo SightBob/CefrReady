@@ -362,8 +362,7 @@ export const learningNodes = pgTable('learning_nodes', {
 // quiz: {sentence, options[], answerIndex, explanation}
 export const lessonPages = pgTable('lesson_pages', {
   id: serial('id').primaryKey(),
-  nodeId: integer('node_id').notNull().references(() => learningNodes.id, { onDelete: 'cascade' }),
-  // 'explain' | 'quiz'
+  nodeId: integer('node_id').notNull().references(() => learningNodes.id, { onDelete: 'cascade' }),    // 'explain' | 'tap' | 'quiz'
   pageType: varchar('page_type', { length: 20 }).default('explain').notNull(),
   sections: jsonb('sections').$type<Array<{
     heading: string;
@@ -525,7 +524,24 @@ export type NewLearningNode = typeof learningNodes.$inferInsert;
 export type DbLessonPage = typeof lessonPages.$inferSelect;
 export type NewLessonPage = typeof lessonPages.$inferInsert;
 
-// Persistent completion state for UnitsPath nodes. Unlike localStorage, this
+// Immutable content versions for admin audit and safe rollback.
+export const lessonPageVersions = pgTable('lesson_page_versions', {
+  id: serial('id').primaryKey(),
+  pageId: integer('page_id').notNull().references(() => lessonPages.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull(),
+  snapshot: jsonb('snapshot').notNull(),
+  changeType: varchar('change_type', { length: 20 }).default('update').notNull(),
+  changedBy: text('changed_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  pageIdx: index('lesson_page_versions_page_idx').on(table.pageId, table.version),
+  createdAtIdx: index('lesson_page_versions_created_at_idx').on(table.createdAt),
+}));
+
+export type DbLessonPageVersion = typeof lessonPageVersions.$inferSelect;
+export type NewLessonPageVersion = typeof lessonPageVersions.$inferInsert;
+
+// Persistent completion state for UnitsPath. Unlike localStorage, this
 // follows the learner across browsers and devices.
 export const learningNodeProgress = pgTable('learning_node_progress', {
   id: serial('id').primaryKey(),

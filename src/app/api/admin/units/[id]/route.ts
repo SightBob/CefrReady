@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { learningUnits, learningNodes } from '@/db/schema';
+import { learningUnits, learningNodes, lessonPages } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { validateLearningPages } from '@/lib/learning-validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,29 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       updates.colorKey = body.colorKey;
     }
     if (body.orderIndex !== undefined) updates.orderIndex = Number(body.orderIndex);
-    if (body.isPublished !== undefined) updates.isPublished = Boolean(body.isPublished);
+    if (body.isPublished !== undefined) {
+      const nextPublished = Boolean(body.isPublished);
+      if (nextPublished) {
+        const nodes = await db.select({ id: learningNodes.id })
+          .from(learningNodes)
+          .where(eq(learningNodes.unitId, unitId));
+        const incompleteNodes: Array<{ nodeId: number; issues: ReturnType<typeof validateLearningPages>['issues'] }> = [];
+        for (const node of nodes) {
+          const pages = await db.select({ pageType: lessonPages.pageType, sections: lessonPages.sections, quiz: lessonPages.quiz })
+            .from(lessonPages)
+            .where(eq(lessonPages.nodeId, node.id));
+          const validation = validateLearningPages(pages);
+          if (!validation.valid) incompleteNodes.push({ nodeId: node.id, issues: validation.issues });
+        }
+        if (incompleteNodes.length > 0) {
+          return NextResponse.json(
+            { success: false, error: `Unit ยังไม่พร้อมเผยแพร่ มี ${incompleteNodes.length} Node ที่ข้อมูลไม่ครบ`, incompleteNodes },
+            { status: 422 }
+          );
+        }
+      }
+      updates.isPublished = nextPublished;
+    }
 
     const [updated] = await db
       .update(learningUnits)

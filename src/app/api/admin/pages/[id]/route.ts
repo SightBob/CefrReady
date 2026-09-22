@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { lessonPages } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { lessonPages, lessonPageVersions } from '@/db/schema';
+import { eq, max } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { validateLearningPages } from '@/lib/learning-validation';
 
 export const dynamic = 'force-dynamic';
 
 /** PUT /api/admin/pages/[id] — replace page content */
 export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error, session } = await requireAdmin();
   if (error) return error;
 
   const pageId = parseInt(params.id);
@@ -47,7 +48,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     }> = {};
 
     if (body.pageType !== undefined) {
-      if (!['explain', 'quiz'].includes(body.pageType)) {
+      if (!['explain', 'quiz', 'tap'].includes(body.pageType)) {
         return NextResponse.json({ success: false, error: 'Invalid pageType' }, { status: 400 });
       }
       updates.pageType = body.pageType;
@@ -57,7 +58,9 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
         return NextResponse.json({ success: false, error: 'sections must be an array' }, { status: 400 });
       }
       for (const s of body.sections) {
-        if (!s.heading?.trim() || !s.body?.trim()) {
+        // Tap pages intentionally store the exercise in sections[0].tap and
+        // do not need concept heading/body fields.
+        if (body.pageType !== 'tap' && (!s.heading?.trim() || !s.body?.trim())) {
           return NextResponse.json(
             { success: false, error: 'each section needs heading and body' },
             { status: 400 }
@@ -68,6 +71,16 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
         }
         if (s.bodySize !== undefined && !['sm', 'md', 'lg'].includes(s.bodySize)) {
           return NextResponse.json({ success: false, error: 'invalid bodySize' }, { status: 400 });
+        }
+      }
+      if (body.pageType === 'tap') {
+        const tapItems = body.sections[0]?.tap?.items;
+        if (!Array.isArray(tapItems) || tapItems.length === 0 || tapItems.some((item: { prompt?: unknown; choiceA?: unknown; choiceB?: unknown }) =>
+          typeof item.prompt !== 'string' || !item.prompt.trim() ||
+          typeof item.choiceA !== 'string' || !item.choiceA.trim() ||
+          typeof item.choiceB !== 'string' || !item.choiceB.trim()
+        )) {
+          return NextResponse.json({ success: false, error: 'หน้า Tap & Select ต้องมีโจทย์และตัวเลือก A/B ครบ' }, { status: 422 });
         }
       }
       updates.sections = body.sections;
@@ -144,6 +157,43 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     if (body.intro !== undefined) updates.intro = body.intro?.trim() || null;
     if (body.isPublished !== undefined) updates.isPublished = Boolean(body.isPublished);
     if (body.orderIndex !== undefined) updates.orderIndex = Number(body.orderIndex);
+
+    const [currentPage] = await db.select().from(lessonPages).where(eq(lessonPages.id, pageId)).limit(1);
+    if (!currentPage) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+
+    if (updates.isPublished === true) {
+      const nodePages = await db.select({ id: lessonPages.id, pageType: lessonPages.pageType, sections: lessonPages.sections, quiz: lessonPages.quiz })
+        .from(lessonPages)
+        .where(eq(lessonPages.nodeId, currentPage.nodeId));
+      const candidatePages = nodePages.map((page) => page.id === pageId ? { ...page, ...updates } : page);
+      const validation = validateLearningPages(candidatePages);
+      if (!validation.valid) {
+        return NextResponse.json(
+          { success: false, error: 'Node ยังไม่พร้อมเผยแพร่หน้านี้', issues: validation.issues },
+          { status: 422 }
+        );
+      }
+    }
+
+    const [{ value: latest }] = await db.select({ value: max(lessonPageVersions.version) })
+      .from(lessonPageVersions)
+      .where(eq(lessonPageVersions.pageId, pageId));
+    await db.insert(lessonPageVersions).values({
+      pageId,
+      version: Number(latest ?? 0) + 1,
+      snapshot: {
+        pageType: currentPage.pageType,
+        sections: currentPage.sections,
+        quiz: currentPage.quiz,
+        vocabBank: currentPage.vocabBank,
+        tip: currentPage.tip,
+        intro: currentPage.intro,
+        isPublished: currentPage.isPublished,
+        orderIndex: currentPage.orderIndex,
+      },
+      changeType: updates.isPublished !== undefined && updates.isPublished !== currentPage.isPublished ? 'publish' : 'update',
+      changedBy: session?.user?.id ?? null,
+    });
 
     const [updated] = await db
       .update(lessonPages)

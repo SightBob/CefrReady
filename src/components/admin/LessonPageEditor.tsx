@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Trash2, Loader2, Check, X, FileText, HelpCircle,
   ChevronUp, ChevronDown, Lightbulb, Sparkles, BookOpen, AlertTriangle, Upload,
+  History, RotateCcw, MousePointerClick,
 } from 'lucide-react';
 
 // ============================================================
@@ -31,6 +32,7 @@ interface TapItem {
   choiceB: string;         // ตัวเลือกที่ 2 — เช่น "ผิด"
   correct: 0 | 1;          // 0 = choiceA ถูก, 1 = choiceB ถูก
 }
+
 interface TapExercise {
   title: string;           // เช่น "แตะเลือกว่าประโยคนี้ถูกหรือผิด"
   items: TapItem[];        // โจทย์แต่ละข้อ
@@ -222,7 +224,25 @@ export default function LessonPageEditor({
   initial: PageData | null;
 }) {
   const router = useRouter();
-  const [pageType, setPageType] = useState<'explain' | 'quiz'>(initial?.pageType === 'quiz' ? 'quiz' : 'explain');
+  const [pageType, setPageType] = useState<'explain' | 'quiz' | 'tap'>(
+    initial?.pageType === 'quiz' ? 'quiz' : initial?.pageType === 'tap' ? 'tap' : 'explain'
+  );
+
+  /** Switch page type. A 'tap' page stores its exercise in sections[0].tap;
+   *  switching away clears it so tap data never leaks into explain pages. */
+  const switchPageType = (next: 'explain' | 'quiz' | 'tap') => {
+    setPageType(next);
+    setSections((s) =>
+      s.map((sec, idx) => {
+        if (next === 'tap') {
+          return idx === 0 && !sec.tap
+            ? { ...sec, tap: { title: 'แตะเลือกว่าประโยคนี้ถูกหรือผิด', items: [emptyTapItem()] } }
+            : sec;
+        }
+        return sec.tap ? { ...sec, tap: null } : sec;
+      })
+    );
+  };
   const [sections, setSections] = useState<SectionRow[]>(
     initial?.sections?.length
       ? initial.sections.map((s) => ({
@@ -234,7 +254,12 @@ export default function LessonPageEditor({
           table: (s as { table?: TableData | null }).table ?? null,
           tap: (s as { tap?: TapExercise | null }).tap ?? null,
         }))
-      : [emptySection()]
+      : [
+          // New tap page: seed sections[0].tap so the page-level editor has data.
+          initial?.pageType === 'tap'
+            ? { ...emptySection(), tap: { title: 'แตะเลือกว่าประโยคนี้ถูกหรือผิด', items: [emptyTapItem()] } }
+            : emptySection(),
+        ]
   );
 
   const HEADING_SIZES = [
@@ -258,6 +283,10 @@ export default function LessonPageEditor({
   const [tableImportText, setTableImportText] = useState('');
   const [vocabImportOpen, setVocabImportOpen] = useState(false);
   const [vocabImportText, setVocabImportText] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [versions, setVersions] = useState<Array<{ id: number; version: number; changeType: string; changedBy: string | null; createdAt: string }>>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
 
   // ---------- Sections ----------
   const updateSection = (i: number, patch: Partial<SectionRow>) =>
@@ -396,28 +425,7 @@ export default function LessonPageEditor({
       })
     );
 
-  // ---------- Tap & Select exercise within a section ----------
-  const addTap = (si: number) =>
-    setSections((s) =>
-      s.map((sec, idx) =>
-        idx === si
-          ? {
-              ...sec,
-              tap: {
-                title: 'แตะเลือกว่าประโยคนี้ถูกหรือผิด',
-                items: [
-                  { prompt: '', choiceA: 'ถูก', choiceB: 'ผิด', correct: 0 },
-                  { prompt: '', choiceA: 'ถูก', choiceB: 'ผิด', correct: 0 },
-                ],
-              },
-            }
-          : sec
-      )
-    );
-
-  const removeTap = (si: number) =>
-    setSections((s) => s.map((sec, idx) => (idx === si ? { ...sec, tap: null } : sec)));
-
+  // ---------- Tap & Select exercise (page-level, stored in sections[0].tap) ----------
   const updateTap = (si: number, patch: Partial<Omit<TapExercise, 'items'>>) =>
     setSections((s) =>
       s.map((sec, idx) => (idx === si && sec.tap ? { ...sec, tap: { ...sec.tap, ...patch } } : sec))
@@ -537,6 +545,48 @@ export default function LessonPageEditor({
       };
     });
 
+  // ---------- Version history ----------
+  const loadVersions = async () => {
+    if (!pageId) return;
+    setLoadingVersions(true);
+    try {
+      const res = await fetch(`/api/admin/pages/${pageId}/versions`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'โหลดประวัติไม่สำเร็จ');
+      setVersions(json.data ?? []);
+      setHistoryOpen(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'โหลดประวัติไม่สำเร็จ');
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  const restoreVersion = async (versionId: number) => {
+    if (!pageId || !confirm('กู้คืนเวอร์ชันนี้หรือไม่? ระบบจะบันทึกข้อมูลปัจจุบันเป็นเวอร์ชันใหม่ก่อนกู้คืน')) return;
+    setRestoringVersion(versionId);
+    try {
+      const res = await fetch(`/api/admin/pages/${pageId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ versionId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        const detail = Array.isArray(json.issues) ? `: ${json.issues[0]?.message ?? ''}` : '';
+        throw new Error(`${json.error ?? 'กู้คืนไม่สำเร็จ'}${detail}`);
+      }
+      toast.success(`กู้คืนเป็นเวอร์ชัน ${versions.find((v) => v.id === versionId)?.version ?? ''} แล้ว`);
+      setHistoryOpen(false);
+      router.refresh();
+      window.location.reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'กู้คืนไม่สำเร็จ');
+    } finally {
+      setRestoringVersion(null);
+    }
+  };
+
   // ---------- Save ----------
   const validationWarnings = pageType === 'explain'
     ? sections.flatMap((section, sectionIndex) => {
@@ -545,19 +595,23 @@ export default function LessonPageEditor({
         if (hasSectionText && (!section.heading.trim() || !section.body.trim())) {
           warnings.push(`หัวข้อที่ ${sectionIndex + 1} ต้องมีทั้งชื่อและคำอธิบาย`);
         }
-        if (section.tap) {
-          if (section.tap.items.length === 0) {
-            warnings.push(`หัวข้อที่ ${sectionIndex + 1} ยังไม่มีโจทย์ Tap & Select`);
-          } else {
-            section.tap.items.forEach((item, itemIndex) => {
-              if (!item.prompt.trim() || !item.choiceA.trim() || !item.choiceB.trim()) {
-                warnings.push(`Tap & Select ข้อที่ ${itemIndex + 1} ต้องมีโจทย์และตัวเลือก A/B ครบ`);
-              }
-            });
-          }
-        }
         return warnings;
       })
+    : pageType === 'tap'
+    ? (() => {
+        const warnings: string[] = [];
+        const tap = sections[0]?.tap;
+        if (!tap || tap.items.length === 0) {
+          warnings.push('หน้า Tap & Select ยังไม่มีโจทย์');
+        } else {
+          tap.items.forEach((item, itemIndex) => {
+            if (!item.prompt.trim() || !item.choiceA.trim() || !item.choiceB.trim()) {
+              warnings.push(`Tap & Select ข้อที่ ${itemIndex + 1} ต้องมีโจทย์และตัวเลือก A/B ครบ`);
+            }
+          });
+        }
+        return warnings;
+      })()
     : quiz.flatMap((question, questionIndex) => {
         const warnings: string[] = [];
         if (!question.sentence.trim()) warnings.push(`Real Exam ข้อที่ ${questionIndex + 1} ยังไม่มีโจทย์`);
@@ -582,6 +636,18 @@ export default function LessonPageEditor({
       for (const s of valid) {
         if (!s.heading.trim() || !s.body.trim()) {
           toast.error('ทุกหัวข้อต้องมีทั้งชื่อหัวข้อและเนื้อหา');
+          return;
+        }
+      }
+    } else if (pageType === 'tap') {
+      const tap = sections[0]?.tap;
+      if (!tap || tap.items.length === 0) {
+        toast.error('หน้า Tap & Select ต้องมีอย่างน้อย 1 โจทย์');
+        return;
+      }
+      for (const item of tap.items) {
+        if (!item.prompt.trim() || !item.choiceA.trim() || !item.choiceB.trim()) {
+          toast.error('ทุกโจทย์ต้องมีประโยคและตัวเลือก A/B ครบ');
           return;
         }
       }
@@ -629,21 +695,6 @@ export default function LessonPageEditor({
                           rows: s.table.rows.map((row) => row.map((c) => c.trim())),
                         }
                       : undefined,
-                  tap:
-                    s.tap &&
-                    s.tap.items.some((it) => it.prompt.trim() && it.choiceA.trim() && it.choiceB.trim())
-                      ? {
-                          title: s.tap.title.trim() || 'แตะเลือกคำตอบที่ถูกต้อง',
-                          items: s.tap.items
-                            .filter((it) => it.prompt.trim() && it.choiceA.trim() && it.choiceB.trim())
-                            .map((it) => ({
-                              prompt: it.prompt.trim(),
-                              choiceA: it.choiceA.trim(),
-                              choiceB: it.choiceB.trim(),
-                              correct: it.correct,
-                            })),
-                        }
-                      : undefined,
                 })),
               vocabBank:
                 vocab.rows.filter((r) => r.cells.some((c) => c.trim())).length > 0
@@ -656,6 +707,31 @@ export default function LessonPageEditor({
                   : null,
               tip: tip.trim() || null,
               intro: intro.trim() || null,
+              isPublished,
+            }
+          : pageType === 'tap'
+          ? {
+              pageType,
+              // Tap page: the exercise lives in sections[0].tap (JSONB storage)
+              sections: [
+                {
+                  heading: '',
+                  body: '',
+                  headingSize: 'md' as const,
+                  bodySize: 'md' as const,
+                  tap: {
+                    title: (sections[0]?.tap?.title ?? '').trim() || 'แตะเลือกว่าประโยคนี้ถูกหรือผิด',
+                    items: (sections[0]?.tap?.items ?? [])
+                      .filter((it) => it.prompt.trim() && it.choiceA.trim() && it.choiceB.trim())
+                      .map((it) => ({
+                        prompt: it.prompt.trim(),
+                        choiceA: it.choiceA.trim(),
+                        choiceB: it.choiceB.trim(),
+                        correct: it.correct,
+                      })),
+                  },
+                },
+              ],
               isPublished,
             }
           : {
@@ -707,14 +783,26 @@ export default function LessonPageEditor({
               <ArrowLeft className="w-4 h-4" /> เส้นทางการเรียน
             </Link>
           </div>
-          <button
+          <div className="flex items-center gap-2">
+            {pageId && (
+              <button
+                onClick={loadVersions}
+                disabled={loadingVersions}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-sky-300 hover:text-sky-700 text-slate-600 rounded-xl text-sm font-semibold disabled:opacity-50"
+              >
+                {loadingVersions ? <Loader2 className="w-4 h-4 animate-spin" /> : <History className="w-4 h-4" />}
+                ประวัติการแก้ไข
+              </button>
+            )}
+            <button
             onClick={handleSave}
             disabled={saving}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             {pageId ? 'บันทึก' : 'สร้างหน้า'}
-          </button>
+            </button>
+          </div>
         </div>
 
         {/* Validation checklist */}
@@ -749,18 +837,23 @@ export default function LessonPageEditor({
             </Link>
           )}
           <span className="text-sm font-semibold text-slate-600">ประเภทหน้า:</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPageType('explain')}
+          <div className="flex gap-2">            <button
+              onClick={() => switchPageType('explain')}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${pageType === 'explain' ? 'border-sky-400 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-500 hover:text-slate-700'}`}
             >
               <FileText className="w-4 h-4" /> เนื้อหาอธิบาย
             </button>
             <button
-              onClick={() => setPageType('quiz')}
+              onClick={() => switchPageType('quiz')}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${pageType === 'quiz' ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500 hover:text-slate-700'}`}
             >
               <HelpCircle className="w-4 h-4" /> คำถาม (Quiz)
+            </button>
+            <button
+              onClick={() => switchPageType('tap')}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${pageType === 'tap' ? 'border-teal-400 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:text-slate-700'}`}
+            >
+              <MousePointerClick className="w-4 h-4" /> Tap & Select
             </button>
           </div>
         </div>
@@ -1036,89 +1129,6 @@ export default function LessonPageEditor({
                     <Plus className="w-3.5 h-3.5" /> เพิ่มตัวอย่าง
                   </button>
                 </div>
-
-                {/* Tap & Select — ฝึกแยกถูก/ผิด */}
-                {section.tap ? (
-                  <div className="bg-teal-50/60 rounded-xl p-3.5 mt-3">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <p className="text-xs font-extrabold uppercase tracking-wider text-teal-600">Tap & Select — ฝึกแยกถูก/ผิด</p>
-                      <button
-                        onClick={() => removeTap(si)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 px-2 py-1 rounded-lg"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> ลบแบบฝึก
-                      </button>
-                    </div>
-
-                    <input
-                      type="text"
-                      placeholder="ชื่อคำสั่ง เช่น แตะเลือกว่าประโยคนี้ถูกหรือผิด"
-                      value={section.tap.title}
-                      onChange={(e) => updateTap(si, { title: e.target.value })}
-                      className="w-full mb-2 px-2.5 py-1.5 border border-teal-200 bg-white rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400"
-                    />
-
-                    {/* Items — each with its own prompt + 2 editable choices */}
-                    <div className="space-y-2">
-                      {section.tap.items.map((it, ii) => (
-                        <div key={ii} className="bg-white rounded-lg border border-teal-100 p-2.5">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-[10px] font-black text-teal-500 shrink-0 w-5 text-center">{ii + 1}</span>
-                            <input
-                              type="text"
-                              placeholder="โจทย์ เช่น She work at a bank."
-                              value={it.prompt}
-                              onChange={(e) => updateTapItem(si, ii, { prompt: e.target.value })}
-                              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400"
-                            />
-                            <button onClick={() => removeTapItem(si, ii)} className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0" title="ลบโจทย์นี้"><Trash2 className="w-3.5 h-3.5" /></button>
-                          </div>
-                          <div className="flex items-center gap-1.5 pl-7">
-                            {[0, 1].map((choice) => {
-                              const isA = choice === 0;
-                              return (
-                                <div key={choice} className="flex-1 min-w-0 flex items-center gap-1">
-                                  <input
-                                    type="text"
-                                    placeholder={`ตัวเลือก ${isA ? 'A' : 'B'} (เช่น ${isA ? 'ถูก' : 'ผิด'})`}
-                                    value={isA ? it.choiceA : it.choiceB}
-                                    onChange={(e) => updateTapItem(si, ii, isA ? { choiceA: e.target.value } : { choiceB: e.target.value })}
-                                    className="flex-1 min-w-0 px-2 py-1.5 border border-teal-200 bg-teal-50/40 rounded-lg text-xs font-bold text-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => updateTapItem(si, ii, { correct: (isA ? 0 : 1) as 0 | 1 })}
-                                    className={`shrink-0 w-7 h-7 rounded-lg text-[10px] font-black transition-colors ${
-                                      it.correct === choice
-                                        ? isA
-                                          ? 'bg-emerald-500 text-white'
-                                          : 'bg-rose-500 text-white'
-                                        : 'bg-slate-100 text-slate-400 hover:text-slate-600'
-                                    }`}
-                                    title={`กำหนดให้ตัวเลือก ${isA ? 'A' : 'B'} เป็นคำตอบที่ถูก`}
-                                  >
-                                    {isA ? 'A' : 'B'}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={() => addTapItem(si)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:bg-teal-50 px-2.5 py-1.5 rounded-lg">
-                      <Plus className="w-3.5 h-3.5" /> เพิ่มโจทย์
-                    </button>
-                    <p className="text-[10px] text-slate-400 mt-1.5">แต่ละโจทย์มี 2 ตัวเลือกของตัวเอง — แก้ไขข้อความได้ และกด A/B เพื่อกำหนดคำตอบที่ถูก</p>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => addTap(si)}
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:bg-teal-50 px-2.5 py-1.5 rounded-lg border border-dashed border-teal-300"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> เพิ่ม Tap & Select (ฝึกแยกถูก/ผิด)
-                  </button>
-                )}
               </div>
             ))}
 
@@ -1269,6 +1279,75 @@ export default function LessonPageEditor({
           </div>
         )}
 
+        {/* ============ TAP & SELECT PAGE ============ */}
+        {pageType === 'tap' && (
+          <div className="bg-white rounded-2xl border border-slate-100 p-5">
+            <p className="text-xs font-extrabold uppercase tracking-wider text-teal-600 mb-1">Tap & Select — ฝึกแยกถูก/ผิด (ทั้งหน้า)</p>
+            <p className="text-xs text-slate-400 mb-3">ผู้เรียนจะเจอโจทย์ทีละข้อบนหน้าแยกของบทเรียน ระหว่างเนื้อหากับ Real Exam</p>
+
+            <input
+              type="text"
+              placeholder="ชื่อคำสั่ง เช่น แตะเลือกว่าประโยคนี้ถูกหรือผิด"
+              value={sections[0]?.tap?.title ?? ''}
+              onChange={(e) => updateTap(0, { title: e.target.value })}
+              className="w-full mb-2 px-2.5 py-1.5 border border-teal-200 bg-teal-50/40 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400"
+            />
+
+            {/* Items — each with its own prompt + 2 editable choices */}
+            <div className="space-y-2">
+              {(sections[0]?.tap?.items ?? []).map((it, ii) => (
+                <div key={ii} className="bg-white rounded-lg border border-teal-100 p-2.5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px] font-black text-teal-500 shrink-0 w-5 text-center">{ii + 1}</span>
+                    <input
+                      type="text"
+                      placeholder="โจทย์ เช่น She work at a bank."
+                      value={it.prompt}
+                      onChange={(e) => updateTapItem(0, ii, { prompt: e.target.value })}
+                      className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    />
+                    <button onClick={() => removeTapItem(0, ii)} className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0" title="ลบโจทย์นี้"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                  <div className="flex items-center gap-1.5 pl-7">
+                    {[0, 1].map((choice) => {
+                      const isA = choice === 0;
+                      return (
+                        <div key={choice} className="flex-1 min-w-0 flex items-center gap-1">
+                          <input
+                            type="text"
+                            placeholder={`ตัวเลือก ${isA ? 'A' : 'B'} (เช่น ${isA ? 'ถูก' : 'ผิด'})`}
+                            value={isA ? it.choiceA : it.choiceB}
+                            onChange={(e) => updateTapItem(0, ii, isA ? { choiceA: e.target.value } : { choiceB: e.target.value })}
+                            className="flex-1 min-w-0 px-2 py-1.5 border border-teal-200 bg-teal-50/40 rounded-lg text-xs font-bold text-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateTapItem(0, ii, { correct: (isA ? 0 : 1) as 0 | 1 })}
+                            className={`shrink-0 w-7 h-7 rounded-lg text-[10px] font-black transition-colors ${
+                              it.correct === choice
+                                ? isA
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-rose-500 text-white'
+                                : 'bg-slate-100 text-slate-400 hover:text-slate-600'
+                            }`}
+                            title={`กำหนดให้ตัวเลือก ${isA ? 'A' : 'B'} เป็นคำตอบที่ถูก`}
+                          >
+                            {isA ? 'A' : 'B'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => addTapItem(0)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:bg-teal-50 px-2.5 py-1.5 rounded-lg">
+              <Plus className="w-3.5 h-3.5" /> เพิ่มโจทย์
+            </button>
+            <p className="text-[10px] text-slate-400 mt-1.5">แต่ละโจทย์มี 2 ตัวเลือกของตัวเอง — แก้ไขข้อความได้ และกด A/B เพื่อกำหนดคำตอบที่ถูก</p>
+          </div>
+        )}
+
         {/* ============ QUIZ PAGE ============ */}
         {pageType === 'quiz' && (
           <div className="space-y-4">
@@ -1375,6 +1454,41 @@ export default function LessonPageEditor({
           </button>
         </div>
       </div>
+
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setHistoryOpen(false)}>
+          <div className="w-full max-w-lg max-h-[80vh] overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-800"><History className="w-5 h-5 text-sky-600" /> ประวัติการแก้ไข</h2>
+                <p className="mt-1 text-xs text-slate-400">ระบบจะเก็บฉบับก่อนหน้าไว้ทุกครั้งที่กดบันทึก</p>
+              </div>
+              <button type="button" onClick={() => setHistoryOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-4">
+              {versions.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400">ยังไม่มีประวัติ การบันทึกครั้งถัดไปจะสร้างเวอร์ชันแรก</p>
+              ) : (
+                <div className="space-y-2">
+                  {versions.map((version) => (
+                    <div key={version.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-xs font-black text-sky-700">v{version.version}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-slate-700">{version.changeType === 'restore' ? 'กู้คืนเวอร์ชัน' : version.changeType === 'publish' ? 'ก่อนเผยแพร่' : 'ก่อนแก้ไข'}</p>
+                        <p className="text-xs text-slate-400">{new Date(version.createdAt).toLocaleString('th-TH')}</p>
+                      </div>
+                      <button type="button" onClick={() => restoreVersion(version.id)} disabled={restoringVersion !== null} className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-sky-600 shadow-sm hover:bg-sky-50 disabled:opacity-50">
+                        {restoringVersion === version.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                        กู้คืน
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

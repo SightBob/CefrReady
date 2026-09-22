@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { learningNodes } from '@/db/schema';
+import { learningNodes, lessonPages } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { validateLearningPages } from '@/lib/learning-validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,22 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       }
       updates.kind = body.kind;
     }
-    if (body.isPublished !== undefined) updates.isPublished = Boolean(body.isPublished);
+    if (body.isPublished !== undefined) {
+      const nextPublished = Boolean(body.isPublished);
+      if (nextPublished) {
+        const pages = await db.select({ pageType: lessonPages.pageType, sections: lessonPages.sections, quiz: lessonPages.quiz })
+          .from(lessonPages)
+          .where(eq(lessonPages.nodeId, nodeId));
+        const validation = validateLearningPages(pages);
+        if (!validation.valid) {
+          return NextResponse.json(
+            { success: false, error: 'Node ยังไม่พร้อมเผยแพร่', issues: validation.issues },
+            { status: 422 }
+          );
+        }
+      }
+      updates.isPublished = nextPublished;
+    }
     if (body.passScore !== undefined) {
       const passScore = Number(body.passScore);
       if (!Number.isInteger(passScore) || passScore < 0 || passScore > 100) {
