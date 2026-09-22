@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, BookOpen } from '@phosphor-icons/react/dist/ssr';
 import { fetchNodeLesson, fetchLearningPath, type UnitData } from '@/lib/learning-path';
 import LessonContent from '@/components/LessonContent';
 
@@ -68,11 +66,21 @@ export default async function LessonPage({
         table: (s as { table?: { headers: string[]; rows: string[][] } }).table,
       }))
   );
-  const tapExercises = explainPages.flatMap((p) =>
-    p.sections
-      .map((s) => (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap)
-      .filter((tap): tap is { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } => Boolean(tap?.items?.length))
-  );
+  // Tap & Select exercises: dedicated 'tap' pages first (new format), then
+  // legacy taps embedded in explain-page sections.
+  const tapPages = node.pages.filter((p) => p.pageType === 'tap').sort((a, b) => a.orderIndex - b.orderIndex);
+  const tapExercises = [
+    ...tapPages.flatMap((p) =>
+      p.sections
+        .map((s) => s.tap)
+        .filter((tap): tap is NonNullable<typeof tap> => Boolean(tap?.items?.length))
+    ),
+    ...explainPages.flatMap((p) =>
+      p.sections
+        .map((s) => (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap)
+        .filter((tap): tap is { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } => Boolean(tap?.items?.length))
+    ),
+  ];
   const vocabBank = explainPages.find((p) => p.vocabBank)?.vocabBank ?? null;
   const tip = explainPages.find((p) => p.tip)?.tip ?? null;
   // ALL quiz questions across every quiz page of this node, in page order —
@@ -116,47 +124,13 @@ export default async function LessonPage({
   const unitNumber = (await fetchUnitNumber(unit.id)) ?? unit.id;
 
   return (
-    <div className="max-w-[720px] mx-auto px-4 sm:px-6 pb-16 pt-[65px] max-lg:pt-[45px] min-h-svh">
-      {/* Breadcrumb / back */}
-      <div className="flex items-center gap-3 mb-6">
-        <Link
-          href="/units"
-          className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
-          aria-label="กลับไปหน้าเส้นทางการเรียน"
-        >
-          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
-          เส้นทางการเรียน
-        </Link>
-        <span className="text-xs font-semibold text-slate-400">
-          ยูนิต {unitNumber} · จุดที่ {nodeIndex}/{totalNodes}
-        </span>
-      </div>
-
-      {/* Lesson header */}
-      <header
-        className="rounded-2xl px-6 py-6 mb-6 shadow-[0_4px_0_rgba(0,0,0,0.12)]"
-        style={{ background: colors.base }}
-      >
-        <div className="flex items-center gap-3 mb-2">
-          <span
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.22)' }}
-          >
-            <BookOpen size={18} weight="fill" color="#ffffff" aria-hidden="true" />
-          </span>
-          <p className="text-xs font-bold tracking-wider uppercase text-white/80">
-            บทเรียน
-          </p>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white">{node.title}</h1>
-        <p className="mt-2 text-sm sm:text-base font-medium text-white/90 leading-relaxed">
-          {unit.title}
-        </p>
-      </header>
-
-      {/* Content: paginated flow — explanation, quiz, result */}
-      <LessonContent lesson={lesson} accent={colors} />
-    </div>
+    <LessonContent
+      lesson={lesson}
+      accent={colors}
+      unitTitle={unit.title}
+      unitNumber={unitNumber}
+      siblings={siblings.map((n) => ({ id: n.id, title: n.title }))}
+    />
   );
 }
 

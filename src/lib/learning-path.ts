@@ -108,7 +108,7 @@ export function normalizeVocabBank(value: unknown): VocabBankData | null {
 
 export interface LessonPageData {
   id: number;
-  pageType: 'explain' | 'quiz';
+  pageType: 'explain' | 'quiz' | 'tap';
   isPublished: boolean;
   /** Short "จำไว้เลย" summary — optional; hidden when empty */
   intro: string | null;

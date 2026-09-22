@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import UnitsPath from '@/components/UnitsPath';
+import ResumeCard from '@/components/ResumeCard';
 import { fetchLearningPath } from '@/lib/learning-path';
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,9 @@ export default async function UnitsPage() {
           ก้าวผ่านทุกจุดเลเวลเพื่อปลดล็อกยูนิตถัดไป
         </p>
       </header>
+
+      {/* เรียนต่อจากเดิม — last visited node (signed-in learners only) */}
+      <ResumeCard units={units} />
 
       {units.length === 0 ? (
         <div className="text-center py-16 text-slate-500">

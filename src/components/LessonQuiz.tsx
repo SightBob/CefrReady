@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { CheckCircle, XCircle, CaretDown, ArrowRight, ArrowCounterClockwise, Check } from '@phosphor-icons/react';
-// (ArrowCounterClockwise still used by the ลองข้อนี้อีกครั้ง button in retry)
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import { CheckCircle, XCircle, CaretDown } from '@phosphor-icons/react';
 import type { QuizSet, QuizQuestion } from '@/content/units-path-lessons';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
@@ -39,18 +38,43 @@ function shuffleQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
   });
 }
 
+export interface LessonQuizState {
+  /** Chosen option per question from the FIRST attempt (null = unanswered). */
+  answers: (number | null)[];
+  /** First-attempt correct count so far. */
+  correctCount: number;
+  total: number;
+  /** Whether the quiz is fully done (all first-pass + retry rounds cleared). */
+  finished: boolean;
+  /** Whether the question currently on screen has been answered. */
+  answeredCurrent: boolean;
+  /** True while the retry round is running. */
+  inRetry: boolean;
+  retryPos: number;
+  retryTotal: number;
+  /** In the retry round: whether the current retry attempt was wrong. */
+  retryCurrentWrong: boolean;
+}
+
+export interface LessonQuizHandle {
+  /** Pick an option for the active question (ignored when already answered). */
+  select: (optionIndex: number) => void;
+  /** Advance: next first-pass question or next retry item. */
+  next: () => void;
+  /** Retry the current wrong retry-question (clears the wrong attempt). */
+  retryCurrent: () => void;
+  /** Leave the retry round early. */
+  exitRetry: () => void;
+}
+
 function QuestionCard({
   question,
-  index,
-  total,
   accent,
   selected,
   onSelect,
   isRetry,
 }: {
   question: QuizQuestion;
-  index: number;
-  total: number;
   accent: { base: string; dark: string; light: string };
   selected: number | null;
   onSelect: (optionIndex: number) => void;
@@ -61,31 +85,17 @@ function QuestionCard({
   const isCorrect = selected === question.answerIndex;
 
   return (
-    <section className="bg-white rounded-2xl border-2 border-slate-100 p-5 sm:p-6 shadow-sm">
-      {/* Progress chip — no question numbering shown */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-extrabold" style={{ color: accent.dark }}>
-          {isRetry && (
-            <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 align-middle">
-              ทำซ้ำข้อที่ผิด
-            </span>
-          )}
-        </h2>
-        {answered && (
-          <span
-            className="text-xs font-extrabold px-3 py-1 rounded-full"
-            style={{
-              background: isCorrect ? '#f0fdf4' : '#fef2f2',
-              color: isCorrect ? '#16a34a' : '#ef4444',
-            }}
-          >
-            {isCorrect ? 'ถูกต้อง ✓' : 'ยังไม่ถูก ✗'}
+    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 sm:p-7">
+      {isRetry && (
+        <div className="mb-4">
+          <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 align-middle">
+            ทำซ้ำข้อที่ผิด
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Fill-in sentence */}
-      <p className="text-base sm:text-lg font-semibold text-slate-800 mb-5 leading-relaxed">
+      <p className="text-base sm:text-xl font-semibold text-slate-800 mb-6 leading-relaxed">
         {question.sentence.split('____').map((part, i, arr) => (
           <React.Fragment key={i}>
             {part}
@@ -106,8 +116,8 @@ function QuestionCard({
         ))}
       </p>
 
-      {/* Options — card/radio style */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="ตัวเลือกคำตอบ">
+      {/* Options — full-width rows like the mockup */}
+      <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label="ตัวเลือกคำตอบ">
         {question.options.map((opt, i) => {
           const isSelected = selected === i;
           const revealState = answered
@@ -128,58 +138,53 @@ function QuestionCard({
               aria-checked={isSelected}
               disabled={answered}
               onClick={() => onSelect(i)}
-              className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-150 ${
+              className={`flex items-center gap-3 rounded-2xl border px-4 sm:px-5 py-4 text-left transition-all duration-150 ${
                 revealState === 'dim' ? 'opacity-45' : ''
-              } ${answered ? 'cursor-default' : 'hover:-translate-y-0.5 active:translate-y-0 cursor-pointer'}`}
+              } ${
+                revealState === 'selected' && !answered
+                  ? 'bg-[#F1F2F4] cursor-pointer'
+                  : revealState === 'idle'
+                    ? 'bg-white border-slate-200/80 hover:bg-slate-50 cursor-pointer'
+                    : 'bg-white border-transparent cursor-default'
+              }`}
               style={{
                 borderColor:
                   revealState === 'correct'
                     ? '#22c55e'
                     : revealState === 'wrong'
                       ? '#f87171'
-                      : revealState === 'selected'
+                      : revealState === 'selected' && !answered
                         ? accent.base
-                        : '#e2e8f0',
+                        : undefined,
                 background:
                   revealState === 'correct'
                     ? '#f0fdf4'
                     : revealState === 'wrong'
                       ? '#fef2f2'
-                      : revealState === 'selected'
-                        ? accent.light
-                        : '#ffffff',
+                      : undefined,
                 boxShadow:
-                  revealState === 'selected' && !answered
-                    ? `0 3px 0 ${accent.base}`
-                    : '0 2px 0 #e2e8f0',
+                  revealState === 'correct'
+                    ? '0 2px 0 #bbf7d0'
+                    : revealState === 'wrong'
+                      ? '0 2px 0 #fecaca'
+                      : undefined,
               }}
             >
               <span
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 border-2"
-                style={{
-                  borderColor:
-                    revealState === 'correct'
-                      ? '#22c55e'
-                      : revealState === 'wrong'
-                        ? '#f87171'
-                        : revealState === 'selected'
-                          ? accent.base
-                          : '#cbd5e1',
-                  color:
-                    revealState === 'correct'
-                      ? '#16a34a'
-                      : revealState === 'wrong'
-                        ? '#ef4444'
-                        : revealState === 'selected'
-                          ? accent.dark
-                          : '#64748b',
-                  background: '#ffffff',
-                }}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
+                  revealState === 'correct'
+                    ? 'bg-emerald-500 text-white'
+                    : revealState === 'wrong'
+                      ? 'bg-red-400 text-white'
+                      : revealState === 'selected'
+                        ? 'bg-slate-500 text-white'
+                        : 'bg-slate-200 text-slate-600'
+                }`}
                 aria-hidden="true"
               >
                 {LETTERS[i]}
               </span>
-              <span className="flex-1 font-semibold text-slate-700">{opt}</span>
+              <span className="flex-1 font-medium text-[1rem] text-slate-800">{opt}</span>
               {revealState === 'correct' && (
                 <CheckCircle size={20} weight="fill" className="text-green-500 shrink-0" aria-hidden="true" />
               )}
@@ -198,10 +203,9 @@ function QuestionCard({
             type="button"
             onClick={() => setShowExplanation((v) => !v)}
             aria-expanded={showExplanation}
-            className="w-full flex items-center justify-center gap-2 text-sm font-bold py-3 rounded-xl border-2 transition-all hover:brightness-95"
-            style={{ borderColor: accent.light, background: accent.light, color: accent.dark }}
+            className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 transition-all hover:brightness-95"
           >
-            อธิบายเหตุผลสั้นๆ (ไม่บังคับ)
+            ดูคำอธิบาย
             <CaretDown
               size={12}
               weight="bold"
@@ -211,8 +215,8 @@ function QuestionCard({
           </button>
           {showExplanation && (
             <div
-              className="mt-3 rounded-xl border-2 p-4 text-sm font-medium text-slate-600 leading-relaxed"
-              style={{ borderColor: accent.light, background: '#fafafa', animation: 'fadeIn 0.3s ease-out both' }}
+              className="mt-3 rounded-xl border border-amber-100 bg-amber-50/60 p-4 text-sm font-medium text-slate-600 leading-relaxed"
+              style={{ animation: 'fadeIn 0.3s ease-out both' }}
             >
               <span className="font-bold" style={{ color: isCorrect ? '#16a34a' : '#ef4444' }}>
                 {isCorrect ? 'ถูกต้อง! ' : 'ยังไม่ถูก — '}
@@ -230,16 +234,15 @@ function QuestionCard({
  * Quiz flow: answer every question once, then any wrong answers are re-served
  * in a retry round (original order). Rounds repeat until everything is
  * correct; the reported score = first-attempt correct count.
+ *
+ * The parent layout (LessonContent) drives navigation through the imperative
+ * handle and receives state updates through onStateChange.
  */
-export default function LessonQuiz({
-  quiz,
-  accent,
-  onFinish,
-}: {
+const LessonQuiz = forwardRef<LessonQuizHandle, {
   quiz: QuizSet;
   accent: { base: string; dark: string; light: string };
-  onFinish?: (score: { correct: number; total: number }) => void;
-}) {
+  onStateChange?: (state: LessonQuizState) => void;
+}>(function LessonQuiz({ quiz, accent, onStateChange }, ref) {
   const sourceQuestions = quiz.questions;
   // Keep the first render deterministic for SSR/hydration, then shuffle in
   // the browser so every exam mount gets a fresh option order.
@@ -271,6 +274,9 @@ export default function LessonQuiz({
   const activeIndex = inRetry ? retryQueue![retryPos] : Math.min(current, questions.length - 1);
   const answeredCurrent = inRetry ? retryAnswer !== null : answers[activeIndex] !== null;
   const isLastFirstPass = current === questions.length - 1;
+  const retryDone = inRetry && retryAnswer !== null && retryPos === retryQueue!.length - 1;
+  const retryCurrentWrong = inRetry && retryAnswer !== null && retryAnswer !== questions[retryQueue![retryPos]].answerIndex;
+  const finished = firstPassFinished && (wrongIndices.length === 0 || (inRetry && retryDone && !retryCurrentWrong));
 
   const select = (optionIndex: number) => {
     if (answeredCurrent) return;
@@ -282,15 +288,22 @@ export default function LessonQuiz({
   };
 
   const goNext = () => {
-    if (!answeredCurrent || inRetry || isLastFirstPass) return;
-    setCurrent((c) => c + 1);
+    if (!answeredCurrent) return;
+    if (inRetry) {
+      if (retryPos < retryQueue!.length - 1) {
+        setRetryAnswer(null);
+        setRetryPos((p) => p + 1);
+      }
+      return;
+    }
+    if (!isLastFirstPass) {
+      setCurrent((c) => c + 1);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Auto-retry: when the first pass completes with wrong answers, enter the
-  // retry round immediately (no button press needed). Wrong questions are
-  // appended right after the current position — the learner just keeps
-  // pressing ข้อถัดไป and the retry questions flow in seamlessly.
+  // retry round immediately (no button press needed).
   React.useEffect(() => {
     if (!inRetry && firstPassFinished && wrongIndices.length > 0 && retryQueue === null && !retryScheduled.current) {
       retryScheduled.current = true;
@@ -299,18 +312,42 @@ export default function LessonQuiz({
     }
   }, [inRetry, firstPassFinished, wrongIndices, retryQueue]);
 
-  const finish = () => {
-    onFinish?.({ correct: correctCount, total: questions.length });
-  };
+  useImperativeHandle(ref, () => ({
+    select,
+    next: goNext,
+    retryCurrent: () => {
+      if (inRetry) setRetryAnswer(null);
+    },
+    exitRetry: () => {
+      setRetryQueue(null);
+      setRetryPos(0);
+      setRetryAnswer(null);
+    },
+  }));
 
-  const retryDone = inRetry && retryAnswer !== null && retryPos === retryQueue!.length - 1;
-  const retryCurrentWrong = inRetry && retryAnswer !== null && retryAnswer !== questions[retryQueue![retryPos]].answerIndex;
+  // Report state upward so the parent layout can drive its chrome.
+  React.useEffect(() => {
+    onStateChange?.({
+      answers,
+      correctCount,
+      total: questions.length,
+      finished,
+      answeredCurrent,
+      inRetry,
+      retryPos,
+      retryTotal: retryQueue?.length ?? 0,
+      retryCurrentWrong,
+    });
+  }, [answers, correctCount, questions.length, finished, answeredCurrent, inRetry, retryPos, retryQueue, retryCurrentWrong, onStateChange]);
+
+  const activeQuestion = questions[activeIndex];
+  if (!activeQuestion) return null;
 
   return (
     <div className="space-y-4">
       {/* Retry round banner */}
       {inRetry && (
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
           <p className="text-sm font-bold text-amber-800">
             รอบทบทวน — ลองทำข้อที่ผิดอีกครั้ง ({retryPos + 1}/{retryQueue!.length})
           </p>
@@ -329,90 +366,15 @@ export default function LessonQuiz({
       )}
 
       <QuestionCard
-        key={inRetry ? `retry-${activeIndex}` : `first-${activeIndex}`}
-        question={questions[activeIndex]}
-        index={activeIndex}
-        total={questions.length}
+        key={inRetry ? `retry-${activeIndex}-${retryPos}` : `first-${activeIndex}`}
+        question={activeQuestion}
         accent={accent}
         selected={inRetry ? retryAnswer : answers[activeIndex]}
         onSelect={select}
         isRetry={inRetry}
       />
-
-      {/* Bottom action bar — explicit navigation, no auto-advance */}
-      <div className="flex items-center justify-between gap-3">
-        {/* Left: hint / summary of progress */}
-        <p className="text-xs font-semibold text-slate-400">
-          ถูก {correctCount} ข้อ
-        </p>
-
-        {/* Right: context-sensitive action */}
-        {inRetry ? (
-          retryDone ? (
-            retryCurrentWrong ? (
-              <button
-                type="button"
-                onClick={() => setRetryAnswer(null)}
-                className="inline-flex items-center gap-2 text-sm font-extrabold px-6 py-3 rounded-xl transition-all hover:brightness-105"
-                style={{ background: accent.base, color: '#ffffff', boxShadow: `0 4px 0 ${accent.dark}` }}
-              >
-                <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
-                ลองข้อนี้อีกครั้ง
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={finish}
-                className="inline-flex items-center gap-2 text-sm font-extrabold px-6 py-3 rounded-xl transition-all hover:brightness-105 active:translate-y-[2px]"
-                style={{ background: '#22c55e', color: '#ffffff', boxShadow: '0 4px 0 #16a34a' }}
-              >
-                <Check size={16} weight="bold" aria-hidden="true" />
-                เสร็จสิ้น
-              </button>
-            )
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                if (retryAnswer === null) return;
-                setRetryAnswer(null);
-                setRetryPos((p) => p + 1);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              disabled={retryAnswer === null}
-              className="btn-primary !py-2.5 !px-6 text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: accent.base }}
-            >
-              ข้อถัดไป
-              <ArrowRight size={16} weight="bold" aria-hidden="true" />
-            </button>
-          )
-        ) : isLastFirstPass ? (
-          // Last first-pass question answered — the auto-retry effect enters
-          // the retry round instantly; show เสร็จสิ้น only when all correct.
-          <button
-            type="button"
-            onClick={finish}
-            disabled={!answeredCurrent}
-            className="inline-flex items-center gap-2 text-sm font-extrabold px-6 py-3 rounded-xl transition-all hover:brightness-105 active:translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:translate-y-0"
-            style={{ background: '#22c55e', color: '#ffffff', boxShadow: '0 4px 0 #16a34a' }}
-          >
-            <Check size={16} weight="bold" aria-hidden="true" />
-            เสร็จสิ้น
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={goNext}
-            disabled={!answeredCurrent}
-            className="btn-primary !py-2.5 !px-6 text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: accent.base }}
-          >
-            ข้อถัดไป
-            <ArrowRight size={16} weight="bold" aria-hidden="true" />
-          </button>
-        )}
-      </div>
     </div>
   );
-}
+});
+
+export default LessonQuiz;
