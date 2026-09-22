@@ -76,9 +76,15 @@ export const authConfig: NextAuthConfig = {
       const isProtected = protectedRoutes.some((r) => nextUrl.pathname.startsWith(r));
 
       if (isProtected) {
-        if (!isLoggedIn) return Response.redirect(new URL('/', nextUrl));
-        const isAuthedAdmin = auth.user?.isAdmin === true || isAdminEmail(auth.user?.email);
-        if (!isAuthedAdmin) return Response.redirect(new URL('/', nextUrl));
+        // Only require authentication at the Edge. AdminLayout performs the
+        // authoritative DB-backed admin check, so an older JWT without the
+        // isAdmin claim cannot redirect a valid admin into a mixed admin/404
+        // page during navigation.
+        if (!isLoggedIn) {
+          const signInUrl = new URL('/api/auth/signin', nextUrl);
+          signInUrl.searchParams.set('callbackUrl', `${nextUrl.pathname}${nextUrl.search}`);
+          return Response.redirect(signInUrl);
+        }
       }
 
       return true;
