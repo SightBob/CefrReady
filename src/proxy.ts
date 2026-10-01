@@ -74,6 +74,8 @@ export const config = {
   // checks keep working while every other /api/* route flows through the
   // maintenance gate above.
   matcher: [
-    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|[^?]*\\.(?:html?|css|js|png|jpg|jpeg|gif|svg|ico|webp)).*)',
+    // Self-hosted fonts (public/fonts/*.woff2) are excluded alongside other
+    // static assets so they never hit the auth/maintenance gate.
+    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|fonts/|[^?]*\\.(?:html?|css|js|woff2?|png|jpg|jpeg|gif|svg|ico|webp)).*)',
   ],
 };

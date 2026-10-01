@@ -1,19 +1,14 @@
 import type { Metadata } from 'next';
-import { IBM_Plex_Sans_Thai } from 'next/font/google';
 import './globals.css';
+// Self-hosted IBM Plex Sans Thai — next/font/google cannot reach
+// fonts.googleapis.com on networks that block Google (see fonts.css).
+import './fonts.css';
 import ChromeShell from '@/components/ChromeShell';
 import { SessionProvider } from 'next-auth/react';
 import Script from 'next/script';
 import { Suspense } from 'react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import TopLoadingBar from '@/components/TopLoadingBar';
-
-const ibmPlexSansThai = IBM_Plex_Sans_Thai({
-  weight: ['300', '400', '500', '600', '700'],
-  subsets: ['latin', 'thai'],
-  variable: '--font-ibm',
-  display: 'swap',
-});
 
 const BASE_URL = 'https://cefr-ready.site';
 const SITE_NAME = 'CEFR Ready';
@@ -114,7 +109,7 @@ export default async function RootLayout({
         {/* PostHog is the remaining third-party — warm the connection early. */}
         <link rel="preconnect" href="https://us.i.posthog.com" crossOrigin="" />
       </head>
-      <body className={`${ibmPlexSansThai.variable} font-sans`}>
+      <body className="font-sans">
         <Suspense fallback={null}>
           <TopLoadingBar />
         </Suspense>
