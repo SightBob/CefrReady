@@ -54,6 +54,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         optionD: questions.optionD,
         correctAnswer: questions.correctAnswer,
         explanation: questions.explanation,
+        grammarTopic: questions.grammarTopic,
         conversation: questions.conversation,
         audioUrl: questions.audioUrl,
         transcript: questions.transcript,

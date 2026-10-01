@@ -108,6 +108,34 @@ export const questions = pgTable('questions', {
   activeIdx: index('questions_active_idx').on(table.active),
 }));
 
+// Test-side explanations are independently managed from UnitsPath lessons.
+export const testExplains = pgTable('test_explains', {
+  id: serial('id').primaryKey(),
+  grammarTopic: varchar('grammar_topic', { length: 200 }).notNull().unique(),
+  title: varchar('title', { length: 200 }).notNull(),
+  intro: text('intro'),
+  sections: jsonb('sections').$type<Array<{
+    type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice';
+    heading?: string;
+    body?: string;
+    chip?: string;
+    description?: string;
+    rows?: Array<{ left: string; right?: string }>;
+    examples?: Array<{ en: string; th?: string; ok?: boolean }>;
+    practice?: { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation?: string }> };
+    tip?: string;
+  }>>().default([]).notNull(),
+  tip: text('tip'),
+  isPublished: boolean('is_published').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  publishedIdx: index('test_explains_published_idx').on(table.isPublished),
+}));
+
+export type DbTestExplain = typeof testExplains.$inferSelect;
+export type NewTestExplain = typeof testExplains.$inferInsert;
+
 // ============================================================
 // Test Set Tables (Section → Test Set → Questions)
 // ============================================================
@@ -358,19 +386,30 @@ export const learningNodes = pgTable('learning_nodes', {
 
 // One page of a lesson: either an explanation page (sections) or a quiz page.
 // pages render in orderIndex; the LAST quiz page is followed by a result view.
-// sections: [{heading, body, examples:[{en, th, ok}]}]
+// sections (explain): [{chip, description, rows:[{left, right?}], tip}]
+// sections (tap): [{tap: {title, items}}] — legacy heading/body rows tolerated
 // quiz: {sentence, options[], answerIndex, explanation}
 export const lessonPages = pgTable('lesson_pages', {
   id: serial('id').primaryKey(),
   nodeId: integer('node_id').notNull().references(() => learningNodes.id, { onDelete: 'cascade' }),    // 'explain' | 'tap' | 'quiz'
   pageType: varchar('page_type', { length: 20 }).default('explain').notNull(),
   sections: jsonb('sections').$type<Array<{
-    heading: string;
-    body: string;
+    // Configurable explanation blocks
+    type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice';
+    chip?: string;
+    description?: string;
+    rows?: Array<{ left: string; right?: string }>;
+    tip?: string;
+    practice?: { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation?: string }> };
+    legacyType?: string;
+    // Legacy-only properties retained in the database JSON type for historical imports.
+    table?: { headers: string[]; rows: string[][] };
+    // legacy fields (old rows may still carry them)
+    heading?: string;
+    body?: string;
     headingSize?: 'sm' | 'md' | 'lg' | 'xl';
     bodySize?: 'sm' | 'md' | 'lg';
-    examples?: Array<{ en: string; th: string; ok: boolean }>;
-    table?: { headers: string[]; rows: string[][] };
+    examples?: Array<{ en: string; th?: string; ok?: boolean }>;
     tap?: {
       title: string;
       items: Array<{

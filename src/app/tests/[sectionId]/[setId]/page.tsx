@@ -15,6 +15,7 @@ import { usePostHog } from '@/lib/posthog';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import { buildWrongSet, shuffleQueue } from '@/lib/review-round';
 import dynamic from 'next/dynamic';
+import TestExplainOverlay from '@/components/TestExplainOverlay';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
   loading: () => (
@@ -63,6 +64,7 @@ interface RawQuestion {
   article?: { title: string; text: string; blanks: Blank[] } | null;
   cefrLevel: string;
   difficulty?: string | null;
+  grammarTopic?: string | null;
   orderIndex: number;
 }
 
@@ -113,6 +115,10 @@ export default function SetQuizPage() {
   const [testStartedAt] = useState(() => new Date().toISOString());
   const [formMeaningTotalBlanks, setFormMeaningTotalBlanks] = useState(0);
   const [attemptId, setAttemptId] = useState<number | null>(null);
+  const [testExplain, setTestExplain] = useState<import('@/components/TestExplainOverlay').TestExplainContent | null>(null);
+  const [showTestExplain, setShowTestExplain] = useState(false);
+  const explainCache = useRef(new Map<string, import('@/components/TestExplainOverlay').TestExplainContent | null>());
+  const explainRequestId = useRef(0);
 
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
@@ -128,6 +134,8 @@ export default function SetQuizPage() {
 
   // Set selector dropdown
   const [availableSets, setAvailableSets] = useState<{ id: number; name: string; description?: string | null }[]>([]);
+  const explainQuestionIndex = phase === 'review' ? (reviewQueue[reviewIndex] ?? 0) : currentQuestion;
+  const explainTopic = setData?.questions[explainQuestionIndex]?.grammarTopic?.trim() ?? '';
 
   useEffect(() => {
     if (status !== 'authenticated') return;
@@ -136,6 +144,46 @@ export default function SetQuizPage() {
       .then(d => { if (d.success) setAvailableSets(d.data); })
       .catch(() => {});
   }, [status, sectionId]);
+
+  useEffect(() => {
+    const requestId = ++explainRequestId.current;
+    if (!explainTopic) {
+      setTestExplain(null);
+      setShowTestExplain(false);
+      return;
+    }
+    const cached = explainCache.current.get(explainTopic);
+    if (cached !== undefined) {
+      setTestExplain(cached);
+      return;
+    }
+    setTestExplain(null);
+    fetch(`/api/test-explains/lookup?topic=${encodeURIComponent(explainTopic)}`, { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (requestId !== explainRequestId.current) return;
+        const result = payload?.success && payload.data ? payload.data as import('@/components/TestExplainOverlay').TestExplainContent : null;
+        explainCache.current.set(explainTopic, result);
+        setTestExplain(result);
+      })
+      .catch(() => {
+        if (requestId === explainRequestId.current) setTestExplain(null);
+      });
+  }, [explainTopic]);
+
+  useEffect(() => {
+    if (!showTestExplain) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowTestExplain(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showTestExplain]);
 
   const setSelectorProps = {
     availableSets,
@@ -504,8 +552,10 @@ export default function SetQuizPage() {
       );
     }
     return (
+      <>
       <FormMeaningQuiz
         questions={setData.questions}
+        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
         sectionId={sectionId}
         setId={setId}
         setName={setData.name}
@@ -514,6 +564,8 @@ export default function SetQuizPage() {
         onFinish={(s, total) => { setScore(s); setFormMeaningTotalBlanks(total); setIsFinished(true); }}
         onAttemptId={(id) => setAttemptId(id)}
       />
+      <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
+      </>
     );
   }
 
@@ -579,6 +631,7 @@ export default function SetQuizPage() {
   // ─── Listening ───────────────────────────────────────────────────
   if (sectionId === 'listening') {
     return (
+      <>
       <TestLayout
         title={setData.name}
         {...setSelectorProps}
@@ -598,6 +651,7 @@ export default function SetQuizPage() {
         sectionColor="from-orange-500 to-amber-500"
         sectionLabel="Listening"
         onResetAnswer={handleResetAnswer}
+        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
       >
         <ListeningAudioPlayer
           key={isReviewPhase ? `${question.id}-review` : question.id}
@@ -619,12 +673,15 @@ export default function SetQuizPage() {
         />
         {modalsFragment}
       </TestLayout>
+      <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
+      </>
     );
   }
 
   // ─── Focus Meaning ────────────────────────────────────────────────
   if (sectionId === 'focus-meaning') {
     return (
+      <>
       <TestLayout
         title={setData.name}
         {...setSelectorProps}
@@ -643,8 +700,9 @@ export default function SetQuizPage() {
         sectionIcon={BookOpen}
         sectionColor="from-emerald-500 to-teal-500"
         onResetAnswer={handleResetAnswer}
+        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
       >
-        <FocusFormQuestionCard
+      <FocusFormQuestionCard
           key={isReviewPhase ? `${question.id}-review` : question.id}
           questionText={question.questionText}
           options={[
@@ -665,6 +723,8 @@ export default function SetQuizPage() {
         />
         {modalsFragment}
       </TestLayout>
+      <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
+      </>
     );
   }
 
@@ -696,6 +756,7 @@ export default function SetQuizPage() {
       reviewSegmentStart={isReviewPhase ? answers.length : undefined}
       currentQuestionId={question.id}
       onResetAnswer={handleResetAnswer}
+      reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
     >
       <FocusFormQuestionCard
         key={isReviewPhase ? `${question.id}-review` : question.id}
@@ -710,6 +771,8 @@ export default function SetQuizPage() {
       />
       {modalsFragment}
     </TestLayout>
+    <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
     </>
   );
 }
+

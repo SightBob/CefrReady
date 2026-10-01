@@ -15,6 +15,7 @@ import {
   Languages,
   Database,
   Map,
+  Highlighter,
 } from 'lucide-react';
 import MaintenanceToggle from '@/components/admin/MaintenanceToggle';
 
@@ -141,6 +142,15 @@ export default function AdminDashboard() {
       href: '/admin/units',
       color: 'from-emerald-500 to-green-500',
       bgColor: 'bg-green-50',
+      count: 0,
+    },
+    {
+      title: 'Explain ในข้อสอบ',
+      description: 'เชื่อมเนื้อหาอธิบายกับ grammarTopic ในข้อสอบ',
+      icon: Highlighter,
+      href: '/admin/test-explains',
+      color: 'from-sky-500 to-cyan-500',
+      bgColor: 'bg-sky-50',
       count: 0,
     },
     {
