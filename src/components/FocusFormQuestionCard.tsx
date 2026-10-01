@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle, XCircle, MessageCircle } from 'lucide-react';
+import { CheckCircle, XCircle, HelpCircle } from 'lucide-react';
 import SelectableText from './SelectableText';
 import ExplanationText from './ExplanationText';
+
+const OTTER_AVATAR = '/logo-otter/otter.png';
 
 interface ConversationLine {
   speaker: string;
@@ -77,25 +79,34 @@ export default function FocusFormQuestionCard({
   const dialogueLines = questionText.split(/(?<=[.?!])\s*(?=[A-Z][a-zA-Z]*:)/);
   const hasDialogue = dialogueLines.length > 1 || dialogueLines[0]?.includes(':');
 
+  // Figma-style chat bubble: 34px avatar, speaker #64748B SemiBold 14,
+  // words #334155 Medium 15/lh26 gap 5px, ? icon 15px #334155
   const renderConversation = (lines: ConversationLine[]) => (
-    <div>
-      <div className="bg-slate-50 rounded-xl p-[1.6875rem] space-y-6">
-        {lines.map((line, i) => (
-          <div key={i} className="flex gap-3 items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${i % 2 === 0
-              ? theme.speakerA
-              : theme.speakerB
-              }`}>
-              {line.speaker.charAt(0)}
-            </div>
-            <div className="flex-1 pt-1">
-              <div className="text-[1rem] text-[#334155] leading-relaxed">
-                <SelectableText text={line.text} contextSentence={line.text} />
-              </div>
-            </div>
+    <div className="space-y-[0.9375rem]">
+      {lines.map((line, i) => (
+        <div key={i} className="flex items-center gap-[1.3125rem] bg-[#F6F6F6] rounded-[10px] ps-4 pe-6 py-2 min-h-[5.125rem]">
+          <div
+            className="w-[2.125rem] h-[2.125rem] rounded-full shrink-0 bg-cover bg-center"
+            style={{
+              // Figma: woman = #DDBABA, man = #A7C4DB — even line = first speaker
+              backgroundColor: i % 2 === 0 ? '#DDBABA' : '#A7C4DB',
+              backgroundImage: `url(${OTTER_AVATAR})`,
+            }}
+            role="img"
+            aria-label={line.speaker}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="h-6 text-sm font-semibold text-[#64748B] leading-5">{line.speaker}</p>
+            <p className="flex flex-wrap items-center gap-x-[5px] text-[0.9375rem] font-medium leading-[1.625rem] text-[#334155]">
+              {line.text.split(/(\s+)/).filter(Boolean).map((word, wi) =>
+                /^\s+$/.test(word)
+                  ? null
+                  : <span key={wi}><SelectableText text={word} contextSentence={line.text} /></span>,
+              )}
+            </p>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 
@@ -112,8 +123,8 @@ export default function FocusFormQuestionCard({
     }
     if (!hasDialogue) {
       return (
-        <div className="bg-slate-50 rounded-xl p-[1.6875rem] py-[2.8125rem]">
-          <div className="text-[1.25rem] md:text-xl text-slate-800 leading-relaxed">
+        <div className="bg-[#F6F6F6] rounded-[10px] px-6 py-10">
+          <div className="text-[1.25rem] md:text-xl text-[#334155] leading-relaxed">
             <SelectableText text={questionText} contextSentence={questionText} />
           </div>
         </div>
@@ -131,7 +142,7 @@ export default function FocusFormQuestionCard({
   };
 
   return (
-    <div className="">
+    <div className="bg-white rounded-[20px] p-4 sm:p-6">
       {HeaderIcon && headerLabel && (
         <div className="flex items-center gap-2 mb-4">
           <HeaderIcon className={`w-5 h-5 ${theme.headerText}`} />
@@ -140,26 +151,39 @@ export default function FocusFormQuestionCard({
       )}
       {renderQuestion()}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+      {conversation && conversation.length > 0 && (
+        <div className="flex items-center gap-2.5 mt-[1.4375rem]">
+          <span className="shrink-0 text-[#334155]">
+            <HelpCircle className="w-[0.9375rem] h-[0.9375rem]" />
+          </span>
+          <div className="text-base font-semibold text-[#334155] tracking-[0.0219em]">
+            <SelectableText text={questionText} contextSentence={questionText} />
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-7 mt-6 sm:mt-[1.75rem]">
         {options.map((opt) => {
           const isSelected = selectedAnswer === opt.key;
           const isCorrectOption = opt.key === correctAnswer;
           const showFeedback = selectedAnswer !== null && correctAnswer !== null;
 
-          let buttonClass = 'p-4 py-6 rounded-xl border-2 text-left transition-all duration-200 flex items-start gap-3 ';
+          // Figma option card: 380x78, border #E2E8F0 1.6px, radius 16px,
+          // badge 28px #F1F5F9 radius 8px, answer text 16px Medium #1E293B
+          let buttonClass = 'px-4 min-h-[4.875rem] rounded-2xl border-[0.1rem] text-left transition-all duration-200 flex items-center gap-3 ';
 
           if (!showFeedback) {
             if (isSelected) {
               buttonClass += theme.selected;
             } else {
-              buttonClass += `border-slate-200 ${theme.hover}`;
+              buttonClass += `border-[#E2E8F0] bg-white ${theme.hover}`;
             }
           } else if (isCorrectOption) {
             buttonClass += 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20';
           } else if (isSelected) {
             buttonClass += 'border-red-400 bg-red-50 ring-1 ring-red-400/20';
           } else {
-            buttonClass += 'border-slate-200 opacity-40';
+            buttonClass += 'border-[#E2E8F0] bg-white opacity-40';
           }
 
           return (
@@ -170,20 +194,20 @@ export default function FocusFormQuestionCard({
               disabled={showFeedback || disabled}
               className={buttonClass}
             >
-              <span className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold ${
+              <span className={`shrink-0 w-7 h-7 rounded-lg grid place-items-center text-sm font-bold ${
                     !showFeedback
                       ? isSelected
                         ? theme.badge
-                        : 'bg-slate-100 text-slate-500'
+                        : 'bg-[#F1F5F9] text-[#64748B]'
                       : isCorrectOption
                         ? 'bg-emerald-500 text-white'
                         : isSelected
                           ? 'bg-red-400 text-white'
-                          : 'bg-slate-100 text-slate-400'
+                          : 'bg-[#F1F5F9] text-slate-300'
                   }`}>
                 {opt.key}
               </span>
-              <span className="font-medium text-[#1E293B] pt-0.5">
+              <span className="text-base font-medium text-[#1E293B]">
                 <SelectableText text={opt.value} contextSentence={opt.value} />
               </span>
             </button>

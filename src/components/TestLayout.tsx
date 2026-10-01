@@ -5,25 +5,17 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
-  Clock,
   ChevronLeft,
   ChevronRight,
   CheckCircle,
   Circle,
-  Menu,
   X,
-  Search,
   ChevronDown,
-  List,
-  Grid3X3,
-  AlertTriangle,
   PenTool,
   LogOut,
   RotateCcw,
   ArrowRight
 } from 'lucide-react';
-import ReportModal from '@/components/ReportModal';
-import TestTimer from '@/components/TestTimer';
 
 interface Section {
   id: string;
@@ -68,6 +60,8 @@ interface TestLayoutProps {
   phaseLabel?: string;
   /** Review Round: question indices >= this render with review styling. */
   reviewSegmentStart?: number;
+  /** Open the current question's linked explain content. */
+  reviewAction?: { label: string; onClick: () => void };
 }
 
 const QUESTIONS_PER_PAGE = 20;
@@ -100,11 +94,10 @@ export default function TestLayout({
   sequentialNav = false,
   phaseLabel,
   reviewSegmentStart,
+  reviewAction,
 }: TestLayoutProps) {
   const router = useRouter();
   const [showNavPanel, setShowNavPanel] = useState(true);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportedQuestions, setReportedQuestions] = useState<Set<number>>(new Set());
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -133,9 +126,6 @@ export default function TestLayout({
     };
   }, [isSetMenuOpen]);
 
-  const effectiveMinutes = durationMinutes && durationMinutes > 0 ? durationMinutes : DEFAULT_DURATION_MINUTES;
-  const EXAM_DURATION = effectiveMinutes * 60;
-  const durationLabel = `${effectiveMinutes} นาที`;
   const currentSetIndex = availableSets?.findIndex(s => s.id === currentSetId) ?? -1;
   const currentSetLabel = `set - ${currentSetIndex >= 0 ? currentSetIndex + 1 : 1}`;
 
@@ -186,23 +176,27 @@ export default function TestLayout({
     const status = getQuestionStatus(index);
     const isActive = index === currentQuestion;
 
-    let baseClass = 'w-9 h-9 rounded-lg font-medium text-xs flex items-center justify-center transition-all duration-200 ';
-
-    if (isActive) {
-      baseClass += 'ring-2 ring-primary-500 ring-offset-1 ';
-    }
+    // Figma spec: boxes 38x41 (w-[2.375rem] h-[2.5625rem]), radius 8px, gap 14px.
+    let baseClass = 'w-[2.375rem] h-[2.5625rem] rounded-lg font-semibold text-[0.8125rem] flex items-center justify-center transition-all duration-200 ';
 
     const isReviewItem = reviewSegmentStart !== undefined && index >= reviewSegmentStart;
 
+    // Figma: current question = #719CC0 bg + white text
+    if (isActive) {
+      return baseClass + 'bg-[#719CC0] text-white hover:bg-[#5F8BAC]';
+    }
+
     switch (status) {
       case 'answered':
-        return isReviewItem
-          ? baseClass + 'bg-amber-500 text-white hover:bg-amber-600'
-          : baseClass + 'bg-[#6D89EF] text-white hover:bg-[#5A75E0]';
-      default:
+        // Figma answered: light blue #DCEFFF with dark blue text #2A4246
         return isReviewItem
           ? baseClass + 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-          : baseClass + 'bg-[#EDEDED] text-slate-600 hover:bg-slate-200';
+          : baseClass + 'bg-[#DCEFFF] text-[#2A4246] hover:bg-[#C7E5FB]';
+      default:
+        // Figma unanswered: #F8F8F8 with gray text #585E5F
+        return isReviewItem
+          ? baseClass + 'bg-amber-500 text-white'
+          : baseClass + 'bg-[#F8F8F8] text-[#585E5F] hover:bg-[#ECECEC]';
     }
   };
 
@@ -213,9 +207,7 @@ export default function TestLayout({
       setCurrentPage(Math.floor((questionNum - 1) / QUESTIONS_PER_PAGE));
       setJumpToQuestion('');
     }
-  };
-
-  const handlePageChange = (page: number) => {
+  };  const handlePageChange = (page: number) => {
     setCurrentPage(page);
     // Select first question of new page (sequential exams are view-only)
     const firstQuestion = page * QUESTIONS_PER_PAGE;
@@ -225,59 +217,10 @@ export default function TestLayout({
   };
 
   return (
-    <div className="flex flex-col bg-white min-h-svh relative">
-      {/* Top Progress Bar */}
-      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
-        <div
-          className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all duration-300"
-          style={{ width: `${((currentQuestion + 1) / totalQuestions) * 100}%` }}
-        />
-      </div>
-
-            {/* Header */}
-      <div className="bg-white border-b border-slate-200 shadow-[0_1px_6.4px_0_rgba(221,221,221,0.25)] shrink-0 z-40 pt-1 sticky top-0">
-        <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-3 md:py-0 md:h-[6.6875rem] h-[90px]">
-            <div className="flex items-center gap-2 md:gap-4">
-
-              <div className={`bg-gradient-to-br ${sectionColor} w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0`}>
-                <SectionIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-              </div>
-
-              <div>
-                <h1 className="font-bold text-base sm:text-[1.375rem] line-clamp-1 flex items-center gap-2">
-                  {title}
-                  {phaseLabel && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] sm:text-xs font-semibold text-amber-700 shrink-0">
-                      <RotateCcw className="w-3 h-3" />
-                      {phaseLabel}
-                    </span>
-                  )}
-                </h1>
-                <div className="flex items-center gap-2 text-xs sm:text-[1rem] text-[#5A6387] font-medium">
-                  <span>set 1 - {totalQuestions} ข้อ</span>
-                  <span>|</span>
-                  <span>{durationLabel}</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowExitConfirm(true)}
-              className="text-[#616161] text-sm sm:text-[1.125rem] rounded-lg font-semibold flex items-center shrink-0"
-              aria-label="จบการสอบ"
-            >
-              <span className="hidden sm:inline">จบการสอบ</span>
-              <LogOut className="w-5 h-5 text-slate-600 sm:ms-2" />
-            </button>
-
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Dot Map - sticky below header */}
+    <div className="flex flex-col bg-[#F7F7F7] min-h-svh relative">
+      {/* Mobile Dot Map - below header (scrolls away with it) */}
       {showQuestionNav && (
-      <div className="md:hidden sticky top-[95px] z-30 bg-white border-b border-slate-200 shadow-sm">
+      <div className="md:hidden bg-white border-b border-slate-200 shadow-sm">
         <div className="overflow-x-auto dot-map-scroll" style={{ scrollbarWidth: 'none' }}>
           <div className="flex items-center gap-2 px-3 py-4 min-w-max">
             {Array.from({ length: totalQuestions }, (_, i) => {
@@ -401,131 +344,130 @@ export default function TestLayout({
         </div>
       )}
 
-      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 w-full mt-[30px] pb-44">
-
-        <div className="w-full flex items-center justify-between">
-          
-            <div className="w-72 bg-[#F9F9F9] py-1 flex items-center space-x-3 rounded-full ps-4">
-              <SectionIcon className='size-[1rem]' />
-              <p className='text-[0.9375rem] font-medium'>{sectionLabel}</p>
-            </div>
-
-            {/* Desktop Stats */}
-            <div className="hidden md:flex items-center gap-4">
-              {/* Timer */}
-              <TestTimer initialSeconds={timerSeconds ?? EXAM_DURATION} isSubmitted={isSubmitted} onTimeUp={onTimeUp} />
-
-               {!isSubmitted && (
-                    <>
-                      {currentQuestionId && (
-                        <button className='flex items-center space-x-1 text-[#917B21] text-[0.8125rem] bg-[#FFF2BE] py-1.5 px-3 rounded-full font-medium' onClick={() => setShowReportModal(true)} aria-label="��§ҹ��ͼԴ��Ҵ">
-                          {reportedQuestions.has(currentQuestionId)
-                            ? <><CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งข้อสอบผิดแล้ว</span></>
-                            : <><AlertTriangle className="w-3.5 h-3.5 md:w-4 md:h-4" /><span className="hidden sm:inline">แจ้งข้อสอบผิด</span></>}
+      {/* Sets modal (opened from the header) */}
+      {isSetMenuOpen && mounted && createPortal(
+                  <div
+                    className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in"
+                    onClick={() => setIsSetMenuOpen(false)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="เลือกชุดข้อสอบ"
+                  >
+                    <div
+                      className="bg-white rounded-2xl shadow-xl w-full max-w-[1330px] max-h-[85vh] flex flex-col animate-slide-up"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-4 p-6 border-b border-slate-100">
+                        <div className={`bg-gradient-to-br ${sectionColor} p-3 rounded-2xl shrink-0`}>
+                          <SectionIcon className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h2 className="text-[1.125rem] font-semibold text-[#525252]">ชุดข้อสอบ</h2>
+                          <p className="text-sm font-medium mt-0.5 text-[#525252]">{title}</p>
+                        </div>
+                        <button
+                          onClick={() => setIsSetMenuOpen(false)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                          aria-label="ปิด"
+                        >
+                          <X className="w-5 h-5" />
                         </button>
-                      )}
-                    </>
-                  )}
+                      </div>
+                      <div className="overflow-y-auto p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {availableSets!.map((s, i) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              data-current={s.id === currentSetId || undefined}
+                              onClick={() => {
+                                setIsSetMenuOpen(false);
+                                if (s.id !== currentSetId) onSetSelect?.(s.id);
+                              }}
+                              className={`group block w-full bg-white rounded-2xl border p-5 text-left ${
+                                s.id === currentSetId
+                                  ? 'border-[#3B82F6]'
+                                  : 'border-[#BFDFEB]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h3 className="font-bold text-slate-800 text-[1rem] leading-snug">ข้อสอบ - {i + 1}</h3>
+                                    {s.id === currentSetId && (
+                                      <span className="text-xs font-semibold text-[#3B82F6] shrink-0">ชุดปัจจุบัน</span>
+                                    )}
+                                  </div>
+                                  {s.description && (
+                                    <p className="text-sm text-slate-500 line-clamp-1 mt-3">{s.description}</p>
+                                  )}
+                                </div>
+                                <div className="p-2 rounded-full flex items-center justify-center bg-[#E2E8FF]">
+                                  <ArrowRight className="w-5 h-5 text-[#7372DF] shrink-0" />
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
+                )}      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 w-full mt-[30px] pb-44">
+        {/* Quiz controls row — set dropdown (left) + progress pill + exit ✕ (right) */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-[15px] min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => availableSets?.length ? setIsSetMenuOpen(v => !v) : undefined}
+              className="shrink-0 w-full max-w-[18.4375rem] h-[2.8125rem] bg-white border border-[#EAEAEA] shadow-[3px_3px_0_0_#D5D3D3] rounded-xl px-4 flex items-center justify-between gap-2 disabled:opacity-70"
+              aria-expanded={isSetMenuOpen}
+              aria-label="เลือกชุดข้อสอบ"
+              disabled={!availableSets?.length}
+            >
+              <span className="truncate text-[1rem] font-bold text-[#6387A5]">{currentSetLabel}</span>
+              {availableSets?.length ? (
+                <ChevronDown className="w-3.5 h-3.5 shrink-0 text-[#6387A5]" />
+              ) : null}
+            </button>
+
+
+            {/* Progress pill — Figma: white card h45 radius 13, bar h14 #E3E2E2, fill #58CC02, label 11px Bold #3F4A36 */}
+            <div className="hidden sm:flex flex-1 max-w-full items-center gap-3 bg-white rounded-[13px] px-5 h-[2.8125rem]">
+              <div className="flex-1 h-[0.875rem] bg-[#E3E2E2] rounded-full shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.05)] overflow-hidden">
+                <div
+                  className="relative h-full bg-[#58CC02] rounded-full transition-all duration-500"
+                  style={{ width: totalQuestions > 0 ? `${(answeredCount / totalQuestions) * 100}%` : '0%' }}
+                >
+                  <div className="absolute inset-x-0 top-0 h-1 rounded-full bg-white/40" />
+                </div>
+              </div>
+              <span className="shrink-0 text-[0.6875rem] font-bold tracking-[0.06em] text-[#3F4A36]">
+                ทั้งหมด {totalQuestions} ข้อ
+              </span>
             </div>
+          </div>
+
+
+          <button
+            onClick={() => setShowExitConfirm(true)}
+            className="shrink-0 bg-white border-b-2 border-r-2 border-[#C0BFB7] rounded-lg shadow-[0_0_0.6px_0_rgba(0,0,0,0.25)] w-[2.7rem] h-[2.4rem] grid place-items-center hover:bg-slate-50 transition-colors"
+            aria-label="จบการสอบ"
+          >
+            <X className="w-6 h-6 text-slate-600" />
+          </button>
         </div>
 
         <div className="flex gap-6 mt-[1.1875rem] ">
           {/* Desktop Navigation Panel */}
           {showNavPanel && showQuestionNav && (
-            <div className="hidden md:block w-72 shrink-0 ">
-              <div className=" rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden p-[1.1875rem] bg-slate-50">
-
-
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => availableSets?.length ? setIsSetMenuOpen(v => !v) : undefined}
-                    className="w-full bg-[linear-gradient(78deg,#3B82F6_0%,#06B6D4_100%)] min-h-[2.75rem] rounded-xl px-4 flex items-center justify-between text-white font-semibold disabled:opacity-70"
-                    aria-expanded={isSetMenuOpen}
-                    disabled={!availableSets?.length}
-                  >
-                    <span className="truncate">{currentSetLabel}</span>
-                    {availableSets?.length ? (
-                      <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${isSetMenuOpen ? 'rotate-180' : ''}`} />
-                    ) : null}
-                  </button>
-
-                  {/* Sets modal */}
-                  {isSetMenuOpen && mounted && createPortal(
-                    <div
-                      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in"
-                      onClick={() => setIsSetMenuOpen(false)}
-                      role="dialog"
-                      aria-modal="true"
-                      aria-label="เลือกชุดข้อสอบ"
-                    >
-                      <div
-                        className="bg-white rounded-2xl shadow-xl w-full max-w-[1330px] max-h-[85vh] flex flex-col animate-slide-up"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center gap-4 p-6 border-b border-slate-100">
-                          <div className={`bg-gradient-to-br ${sectionColor} p-3 rounded-2xl shrink-0`}>
-                            <SectionIcon className="w-5 h-5 text-white" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h2 className="text-[1.125rem] font-semibold text-[#525252]">ชุดข้อสอบ</h2>
-                            <p className="text-sm font-medium mt-0.5 text-[#525252]">{title}</p>
-                          </div>
-                          <button
-                            onClick={() => setIsSetMenuOpen(false)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                            aria-label="ปิด"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                        <div className="overflow-y-auto p-6">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {availableSets!.map((s, i) => (
-                              <button
-                                key={s.id}
-                                type="button"
-                                data-current={s.id === currentSetId || undefined}
-                                onClick={() => {
-                                  setIsSetMenuOpen(false);
-                                  if (s.id !== currentSetId) onSetSelect?.(s.id);
-                                }}
-                                className={`group block w-full bg-white rounded-2xl border p-5 text-left ${
-                                  s.id === currentSetId
-                                    ? 'border-[#3B82F6]'
-                                    : 'border-[#BFDFEB]'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-4">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <h3 className="font-bold text-slate-800 text-[1rem] leading-snug">ข้อสอบ - {i + 1}</h3>
-                                      {s.id === currentSetId && (
-                                        <span className="text-xs font-semibold text-[#3B82F6] shrink-0">ชุดปัจจุบัน</span>
-                                      )}
-                                    </div>
-                                    {s.description && (
-                                      <p className="text-sm text-slate-500 line-clamp-1 mt-3">{s.description}</p>
-                                    )}
-                                  </div>
-                                  <div className="p-2 rounded-full flex items-center justify-center bg-[#E2E8FF]">
-                                    <ArrowRight className="w-5 h-5 text-[#7372DF] shrink-0" />
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>,
-                    document.body
-                  )}
-                </div>
+            <div className="hidden md:flex w-[18.4375rem] shrink-0 ">
+              <div className="rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden w-full p-[1.1875rem] bg-white">
 
                 {/* Question Grid/List */}
                 <div className="px-3 max-h-76 overflow-y-auto py-[1.1875rem]">
                   {viewMode === 'grid' ? (
-                    <div className="grid grid-cols-4 gap-5">
+                    <div className="grid grid-cols-5 gap-5">
                       {pageQuestions.map(i => (
                         <button
                           key={i}
@@ -657,19 +599,6 @@ export default function TestLayout({
 
       {/* Old Mobile Bottom Bar — replaced by universal bottom bar below */}
 
-      {/* Report Modal */}
-      {showReportModal && currentQuestionId && (
-        <ReportModal
-          questionId={currentQuestionId}
-          questionNumber={currentQuestion + 1}
-          onClose={() => setShowReportModal(false)}
-          onSuccess={() =>
-            setReportedQuestions(prev => new Set(prev).add(currentQuestionId!))
-          }
-        />
-      )}
-
-      {/* Exit Confirm Modal */}
       {!isSubmitted && (
         <div
           className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity ${showExitConfirm ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
@@ -705,61 +634,41 @@ export default function TestLayout({
         </div>
       )}
 
-     {/* Universal Bottom Bar */}
-<div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)]">
-  <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-3 md:py-0 md:min-h-[8rem] flex flex-col md:flex-row items-center justify-between gap-3 w-full">
-    {/* Progress Ring */}
-    <div className="w-full md:w-auto p-2 md:p-0 rounded-xl">
-      <div className="flex items-center gap-3">
-        <div className="relative w-12 h-12 scale-90 md:scale-100 origin-center shrink-0">
-          <svg className="w-12 h-12 transform -rotate-90">
-            <circle cx="24" cy="24" r="20" stroke="#e2e8f0" strokeWidth="4" fill="none" />
-            <circle
-              cx="24"
-              cy="24"
-              r="20"
-              stroke="#10b981"
-              strokeWidth="4"
-              fill="none"
-              strokeDasharray={`${totalQuestions > 0 ? (answeredCount / totalQuestions) * 125.6 : 0} 125.6`}
-              className="transition-all duration-500"
-            />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700">
-            {totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0}%
-          </span>
-        </div>
-        <div className="text-sm hidden sm:block">
-          <p className="text-slate-900 font-medium">{answeredCount} answered</p>
-          <p className="text-slate-500">{unansweredCount} remaining</p>
-        </div>
-        <p className="text-sm font-medium text-slate-900 sm:hidden">
-          {answeredCount}/{totalQuestions}
-        </p>
-      </div>
-    </div>
+     {/* Universal Bottom Bar — Figma: white bar, yellow action button right */}
+<div className="fixed bottom-0 left-0 w-full bg-white z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_6.6px_0_rgba(172,172,172,0.25)]">
+  <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-4 md:py-3 md:min-h-[6rem] flex items-center justify-end gap-2 sm:gap-3 w-full">
 
     {/* Next / Submit / Retry */}
     {!isSubmitted && (
       (() => { const isLastQuestion = currentQuestion >= totalQuestions - 1;
                const isAnswered = answers[currentQuestion] != null && answers[currentQuestion] !== ''; return (
       <div className="w-full flex items-center gap-2 md:gap-3 md:w-auto justify-center">
+        {reviewAction && (
+          <button
+            type="button"
+            onClick={reviewAction.onClick}
+            className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] rounded-[7px] flex items-center justify-center gap-2 border-2 text-[1rem] font-semibold text-[#524924] shadow-[3px_3px_0_0_#D5D3D3] hover:bg-blue-50 transition-colors"
+          >
+            <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span className="text-sm md:text-base text-center font-bold whitespace-nowrap">{reviewAction.label}</span>
+          </button>
+        )}
         {currentQuestion < totalQuestions - 1 ? (
           <button
             onClick={onNext}
-            className={`flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] rounded-full flex items-center space-x-1 justify-center text-white transition-colors ${
-              isAnswered ? 'bg-[#6D89EF] hover:bg-[#5A75E0]' : 'bg-[#BABABA] hover:bg-[#a5a5a5]'
+            className={`flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] rounded-[14px] flex items-center justify-center space-x-1 text-[1rem] text-[#524924] transition-colors ${
+              isAnswered ? 'bg-[#FFF0AE] border-b-[3px] border-r-[4px] border-[#FFDB40] hover:bg-[#FFEA8F]' : 'bg-[#FFF0AE]/60 border-b-[3px] border-r-[4px] border-[#FFDB40]/50 hover:bg-[#FFF0AE]'
             }`}
           >
-            <span className='text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap'>ข้อถัดไป</span>
+            <span className='text-base md:text-[1rem] text-center font-semibold whitespace-nowrap'>ข้อถัดไป</span>
             <ArrowRight className='size-[1.125rem] shrink-0' />
           </button>
         ) : (
           <button
             onClick={onSubmit}
-            className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors"
+            className="flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] bg-[#FFF0AE] border-b-[3px] border-r-[4px] border-[#FFDB40] hover:bg-[#FFEA8F] rounded-[14px] flex items-center space-x-1 justify-center text-[#524924] transition-colors"
           >
-            <span className='text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap'>ส่งข้อสอบ</span>
+            <span className='text-base md:text-[1rem] text-center font-semibold whitespace-nowrap'>ตรวจคำตอบ</span>
             <CheckCircle className='size-[1.125rem] shrink-0' />
           </button>
         )}

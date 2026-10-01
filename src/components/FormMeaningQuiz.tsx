@@ -27,6 +27,8 @@ interface FormMeaningQuizProps {
   demo?: boolean;
   onExit?: () => void;
   durationMinutes?: number;
+  reviewAction?: { label: string; onClick: () => void };
+  reviewOverlay?: React.ReactNode;
 }
 
 export default function FormMeaningQuiz({
@@ -41,6 +43,8 @@ export default function FormMeaningQuiz({
   demo = false,
   onExit,
   durationMinutes = 15,
+  reviewAction,
+  reviewOverlay,
 }: FormMeaningQuizProps) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -391,6 +395,15 @@ export default function FormMeaningQuiz({
 
           {/* Submit / View Results */}
           <div className="w-full flex items-center gap-2 md:gap-3 md:w-auto justify-center">
+            {!isSubmitted && reviewAction && (
+              <button
+                type="button"
+                onClick={reviewAction.onClick}
+                className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] rounded-full flex items-center justify-center border-2 border-[#6D89EF] text-[#516DD8] hover:bg-blue-50 transition-colors"
+              >
+                <span className="text-sm md:text-base text-center font-bold whitespace-nowrap">{reviewAction.label}</span>
+              </button>
+            )}
             {!isSubmitted ? (
               <button
                 onClick={handleSubmit}
@@ -412,6 +425,8 @@ export default function FormMeaningQuiz({
           </div>
         </div>
       </div>
+
+      {reviewOverlay}
 
       <ConfirmModal
         isOpen={showSubmitConfirm}
