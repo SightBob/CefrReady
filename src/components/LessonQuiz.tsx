@@ -39,32 +39,26 @@ function shuffleQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
 }
 
 export interface LessonQuizState {
-  /** Chosen option per question from the FIRST attempt (null = unanswered). */
+  /** Chosen option per question (null = unanswered). */
   answers: (number | null)[];
-  /** First-attempt correct count so far. */
+  /** Correct count so far. */
   correctCount: number;
   total: number;
-  /** Whether the quiz is fully done (all first-pass + retry rounds cleared). */
+  /** Whether the quiz is fully done (all questions answered). */
   finished: boolean;
   /** Whether the question currently on screen has been answered. */
   answeredCurrent: boolean;
-  /** True while the retry round is running. */
-  inRetry: boolean;
-  retryPos: number;
-  retryTotal: number;
-  /** In the retry round: whether the current retry attempt was wrong. */
-  retryCurrentWrong: boolean;
+  /** Index of the question currently on screen (0-based). */
+  activeIndex: number;
 }
 
 export interface LessonQuizHandle {
   /** Pick an option for the active question (ignored when already answered). */
   select: (optionIndex: number) => void;
-  /** Advance: next first-pass question or next retry item. */
+  /** Advance: next question. */
   next: () => void;
-  /** Retry the current wrong retry-question (clears the wrong attempt). */
-  retryCurrent: () => void;
-  /** Leave the retry round early. */
-  exitRetry: () => void;
+  /** Jump to a specific question index. */
+  goTo?: (index: number) => void;
 }
 
 function QuestionCard({
@@ -72,13 +66,11 @@ function QuestionCard({
   accent,
   selected,
   onSelect,
-  isRetry,
 }: {
   question: QuizQuestion;
   accent: { base: string; dark: string; light: string };
   selected: number | null;
   onSelect: (optionIndex: number) => void;
-  isRetry?: boolean;
 }) {
   const [showExplanation, setShowExplanation] = useState(false);
   const answered = selected !== null;
@@ -86,13 +78,6 @@ function QuestionCard({
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 sm:p-7">
-      {isRetry && (
-        <div className="mb-4">
-          <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 align-middle">
-            ทำซ้ำข้อที่ผิด
-          </span>
-        </div>
-      )}
 
       {/* Fill-in sentence */}
       <p className="text-base sm:text-xl font-semibold text-slate-800 mb-6 leading-relaxed">
@@ -231,9 +216,9 @@ function QuestionCard({
 }
 
 /**
- * Quiz flow: answer every question once, then any wrong answers are re-served
- * in a retry round (original order). Rounds repeat until everything is
- * correct; the reported score = first-attempt correct count.
+ * Quiz flow: answer every question once. Wrong answers are revealed and the
+ * learner simply moves on — there is NO retry round. The reported score =
+ * correct count.
  *
  * The parent layout (LessonContent) drives navigation through the imperative
  * handle and receives state updates through onStateChange.
@@ -250,78 +235,37 @@ const LessonQuiz = forwardRef<LessonQuizHandle, {
   React.useEffect(() => {
     setQuestions(shuffleQuizQuestions(sourceQuestions));
   }, [sourceQuestions]);
-  // Chosen option per question from the FIRST attempt (null = not yet answered)
+  // Chosen option per question (null = not yet answered)
   const [answers, setAnswers] = useState<(number | null)[]>(() => questions.map(() => null));
-  // First-pass cursor
+  // Cursor
   const [current, setCurrent] = useState(0);
-  // Retry round: subset of question indices answered wrong, in original order.
-  // null = no retry round active (still in the first pass).
-  const [retryQueue, setRetryQueue] = useState<number[] | null>(null);
-  const [retryPos, setRetryPos] = useState(0);
-  // Chosen option in the CURRENT retry attempt (reset per retry question)
-  const [retryAnswer, setRetryAnswer] = useState<number | null>(null);
-  // Guards the auto-retry effect from firing more than once per pass
-  const retryScheduled = React.useRef(false);
-
-  const inRetry = retryQueue !== null;
 
   const correctCount = answers.filter((a, i) => a === questions[i].answerIndex).length;
-  const wrongIndices = answers
-    .map((a, i) => (a !== null && a !== questions[i].answerIndex ? i : -1))
-    .filter((i) => i !== -1);
 
-  const firstPassFinished = answers.every((a) => a !== null);
-  const activeIndex = inRetry ? retryQueue![retryPos] : Math.min(current, questions.length - 1);
-  const answeredCurrent = inRetry ? retryAnswer !== null : answers[activeIndex] !== null;
-  const isLastFirstPass = current === questions.length - 1;
-  const retryDone = inRetry && retryAnswer !== null && retryPos === retryQueue!.length - 1;
-  const retryCurrentWrong = inRetry && retryAnswer !== null && retryAnswer !== questions[retryQueue![retryPos]].answerIndex;
-  const finished = firstPassFinished && (wrongIndices.length === 0 || (inRetry && retryDone && !retryCurrentWrong));
+  const activeIndex = Math.min(current, questions.length - 1);
+  const answeredCurrent = answers[activeIndex] !== null;
+  const isLastQuestion = current === questions.length - 1;
+  const finished = answers.every((a) => a !== null);
 
   const select = (optionIndex: number) => {
     if (answeredCurrent) return;
-    if (inRetry) {
-      setRetryAnswer(optionIndex);
-    } else {
-      setAnswers((prev) => prev.map((a, i) => (i === activeIndex ? optionIndex : a)));
-    }
+    setAnswers((prev) => prev.map((a, i) => (i === activeIndex ? optionIndex : a)));
   };
 
   const goNext = () => {
     if (!answeredCurrent) return;
-    if (inRetry) {
-      if (retryPos < retryQueue!.length - 1) {
-        setRetryAnswer(null);
-        setRetryPos((p) => p + 1);
-      }
-      return;
-    }
-    if (!isLastFirstPass) {
+    if (!isLastQuestion) {
       setCurrent((c) => c + 1);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Auto-retry: when the first pass completes with wrong answers, enter the
-  // retry round immediately (no button press needed).
-  React.useEffect(() => {
-    if (!inRetry && firstPassFinished && wrongIndices.length > 0 && retryQueue === null && !retryScheduled.current) {
-      retryScheduled.current = true;
-      setRetryQueue(wrongIndices);
-      setRetryPos(0);
-    }
-  }, [inRetry, firstPassFinished, wrongIndices, retryQueue]);
-
   useImperativeHandle(ref, () => ({
     select,
     next: goNext,
-    retryCurrent: () => {
-      if (inRetry) setRetryAnswer(null);
-    },
-    exitRetry: () => {
-      setRetryQueue(null);
-      setRetryPos(0);
-      setRetryAnswer(null);
+    // Jump to a specific question.
+    goTo: (index: number) => {
+      setCurrent(Math.max(0, Math.min(index, questions.length - 1)));
     },
   }));
 
@@ -333,47 +277,34 @@ const LessonQuiz = forwardRef<LessonQuizHandle, {
       total: questions.length,
       finished,
       answeredCurrent,
-      inRetry,
-      retryPos,
-      retryTotal: retryQueue?.length ?? 0,
-      retryCurrentWrong,
+      activeIndex,
     });
-  }, [answers, correctCount, questions.length, finished, answeredCurrent, inRetry, retryPos, retryQueue, retryCurrentWrong, onStateChange]);
+  }, [answers, correctCount, questions.length, finished, answeredCurrent, activeIndex, onStateChange]);
 
   const activeQuestion = questions[activeIndex];
   if (!activeQuestion) return null;
 
   return (
-    <div className="space-y-4">
-      {/* Retry round banner */}
-      {inRetry && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
-          <p className="text-sm font-bold text-amber-800">
-            รอบทบทวน — ลองทำข้อที่ผิดอีกครั้ง ({retryPos + 1}/{retryQueue!.length})
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setRetryQueue(null);
-              setRetryPos(0);
-              setRetryAnswer(null);
-            }}
-            className="text-xs font-bold text-amber-700 hover:underline shrink-0"
-          >
-            ออกจากรอบทบทวน
-          </button>
-        </div>
-      )}
+    <section
+      className="rounded-2xl border p-5 sm:p-6"
+      style={{ background: '#F5FBFF', borderColor: '#DBEAF5' }}
+    >
+      {/* Practice header — green title + question pagination (UI Reference) */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h3 className="text-base sm:text-lg font-extrabold" style={{ color: '#22A45D' }}>
+          ตอบคำถามเกี่ยวกับความหมายของประโยค
+        </h3>
+        
+      </div>
 
       <QuestionCard
-        key={inRetry ? `retry-${activeIndex}-${retryPos}` : `first-${activeIndex}`}
+        key={`q-${activeIndex}`}
         question={activeQuestion}
         accent={accent}
-        selected={inRetry ? retryAnswer : answers[activeIndex]}
+        selected={answers[activeIndex]}
         onSelect={select}
-        isRetry={inRetry}
       />
-    </div>
+    </section>
   );
 });
 

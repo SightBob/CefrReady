@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Trash2, Loader2, Check, X, FileText, HelpCircle,
-  ChevronUp, ChevronDown, Lightbulb, Sparkles, BookOpen, AlertTriangle, Upload,
-  History, RotateCcw, MousePointerClick,
+  ChevronUp, ChevronDown, Sparkles, AlertTriangle, Upload,
+  History, RotateCcw, MousePointerClick, Highlighter,
 } from 'lucide-react';
+import { normalizeLessonSection, type LessonSection } from '@/lib/lesson-sections';
 
 // ============================================================
 // Types (mirror lesson_pages JSONB shapes)
@@ -18,11 +19,6 @@ interface ExampleRow {
   en: string;
   th: string;
   ok: boolean;
-}
-
-interface TableData {
-  headers: string[];
-  rows: string[][];
 }
 
 /** Tap & Select — ฝึกแยกถูก/ผิด: each item has its own prompt + 2 editable choices */
@@ -38,13 +34,24 @@ interface TapExercise {
   items: TapItem[];        // โจทย์แต่ละข้อ
 }
 
+/** One pattern row inside a review topic (UI Reference) */
+interface RowDraft {
+  left: string;
+  right: string;
+}
+
+type SectionType = NonNullable<LessonSection['type']>;
+
 interface SectionRow {
+  type: SectionType;
   heading: string;
   body: string;
-  headingSize?: 'sm' | 'md' | 'lg' | 'xl';
-  bodySize?: 'sm' | 'md' | 'lg';
+  chip: string;
+  description: string;
+  rows: RowDraft[];
   examples: ExampleRow[];
-  table: TableData | null;
+  practice: QuizRow[];
+  tip: string;
   tap: TapExercise | null;
 }
 
@@ -119,7 +126,7 @@ interface PageData {
   id: number;
   nodeId: number;
   pageType: string;
-  sections: SectionRow[];
+  sections: LessonSection[];
   quiz:
     | { sentence: string; options: string[]; answerIndex: number; explanation: string }
     | { questions: QuizRow[] }
@@ -134,15 +141,115 @@ interface PageData {
   orderIndex: number;
 }
 
-const emptySection = (): SectionRow => ({ heading: '', body: '', examples: [], table: null, tap: null });
-const emptyTapItem = (): TapItem => ({ prompt: '', choiceA: 'ถูก', choiceB: 'ผิด', correct: 0 });
+const emptySection = (type: SectionType = 'rule'): SectionRow => ({
+  type,
+  heading: '',
+  body: '',
+  chip: '',
+  description: '',
+  rows: [],
+  examples: [],
+  practice: [{ sentence: '', options: ['', '', ''], answerIndex: 0, explanation: '' }],
+  tip: '',
+  tap: null,
+});
+const emptyRow = (): RowDraft => ({ left: '', right: '' });
 const emptyExample = (): ExampleRow => ({ en: '', th: '', ok: true });
+
+function inferSectionType(section: Partial<SectionRow> | Partial<LessonSection>): SectionType {
+  return normalizeLessonSection(section).type ?? 'detailedRule';
+}
+
+function sectionHasContent(section: SectionRow): boolean {
+  switch (section.type) {
+    case 'rule':
+      return Boolean(section.heading.trim() || section.chip.trim() || section.description.trim() || section.examples.some((example) => example.en.trim() || example.th.trim()) || section.rows.some((row) => row.left.trim() || row.right.trim()) || section.tip.trim());
+    case 'detailedRule':
+      return Boolean(section.heading.trim() || section.chip.trim() || section.description.trim() || section.body.trim() || section.rows.some((row) => row.left.trim() || row.right.trim()) || section.tip.trim() || section.examples.some((example) => example.en.trim() || example.th.trim()));
+    case 'importantNote':
+      return Boolean(section.heading.trim() || section.body.trim() || section.tip.trim());
+    case 'practice':
+      return section.practice.some((question) => question.sentence.trim());
+  }
+}
+
+function sectionToPayload(section: SectionRow) {
+  const payload: Record<string, unknown> = { type: section.type };
+  if (section.heading.trim()) payload.heading = section.heading.trim();
+  if (section.body.trim()) payload.body = section.body.trim();
+  if (section.type === 'rule' || section.type === 'detailedRule') {
+    if (section.chip.trim()) payload.chip = section.chip.trim();
+    if (section.description.trim()) payload.description = section.description.trim();
+    if (section.body.trim()) payload.body = section.body.trim();
+    if (section.tip.trim()) payload.tip = section.tip.trim();
+    const rows = section.rows.filter((row) => row.left.trim() || row.right.trim());
+    if (rows.length) payload.rows = rows.map((row) => ({ left: row.left.trim(), right: row.right.trim() || undefined }));
+    const examples = section.examples.filter((example) => example.en.trim() || example.th.trim());
+    if (examples.length) payload.examples = examples.map((example) => ({ en: example.en.trim(), th: example.th.trim() || undefined, ok: example.ok }));
+  }
+  if (section.type === 'importantNote' && section.body.trim()) payload.body = section.body.trim();
+  if (section.type === 'practice') {
+    const questions = section.practice.filter((question) => question.sentence.trim()).map((question) => ({
+      sentence: question.sentence.trim(),
+      options: question.options.map((option) => option.trim()).filter(Boolean),
+      answerIndex: question.options.slice(0, question.answerIndex).filter((option) => option.trim()).length,
+      explanation: question.explanation.trim() || undefined,
+    }));
+    if (questions.length) payload.practice = { questions };
+  }
+  return payload;
+}
+const emptyTapItem = (): TapItem => ({ prompt: '', choiceA: 'ถูก', choiceB: 'ผิด', correct: 0 });
+
+function toSectionDraft(value: LessonSection): SectionRow {
+  const normalized = normalizeLessonSection(value);
+  const type = inferSectionType({ ...normalized, rows: normalized.rows?.map((row) => ({ left: row.left, right: row.right ?? '' })) });
+  return {
+    ...emptySection(type),
+    ...normalized,
+    type,
+    heading: normalized.heading ?? '',
+    body: normalized.body ?? '',
+    chip: normalized.chip ?? '',
+    description: normalized.description ?? '',
+    rows: (normalized.rows ?? []).map((row) => ({ left: row.left ?? '', right: row.right ?? '' })),
+    practice: normalized.practice?.questions?.length ? normalized.practice.questions.map((question) => ({
+      sentence: question.sentence ?? '',
+      options: question.options?.length ? [...question.options] : ['', '', ''],
+      answerIndex: question.answerIndex ?? 0,
+      explanation: question.explanation ?? '',
+    })) : [{ sentence: '', options: ['', '', ''], answerIndex: 0, explanation: '' }],
+    tip: normalized.tip ?? '',
+    examples: (normalized.examples ?? []).map((example) => ({ en: example.en ?? '', th: example.th ?? '', ok: example.ok ?? true })),
+    tap: normalized.tap ?? null,
+  };
+}
+
+function initialSections(initial: PageData | null): SectionRow[] {
+  const sections = initial?.sections?.length ? initial.sections.map(toSectionDraft) : [
+    initial?.pageType === 'tap'
+      ? { ...emptySection('detailedRule'), tap: { title: 'แตะเลือกว่าประโยคนี้ถูกหรือผิด', items: [emptyTapItem()] } }
+      : emptySection(),
+  ];
+  if (initial?.pageType !== 'explain') return sections;
+
+  const intro = initial.intro?.trim();
+  if (intro && !sections.some((section) => section.body.trim() === intro)) {
+    sections.push({ ...emptySection('detailedRule'), heading: 'บทนำ', body: intro });
+  }
+
+  const tip = initial.tip?.trim();
+  if (tip && !sections.some((section) => section.body.trim() === tip || section.tip.trim() === tip)) {
+    sections.push({ ...emptySection('importantNote'), heading: 'จุดสำคัญที่ควรจำ', body: tip });
+  }
+  return sections;
+}
 
 /**
  * Parse pasted CSV / TSV / semicolon text into a table.
  * First non-empty line = headers. Supports simple double-quote escaping.
  */
-export function parseTableText(raw: string): TableData | null {
+export function parseTableText(raw: string): { headers: string[]; rows: string[][] } | null {
   const lines = raw
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -243,44 +350,12 @@ export default function LessonPageEditor({
       })
     );
   };
-  const [sections, setSections] = useState<SectionRow[]>(
-    initial?.sections?.length
-      ? initial.sections.map((s) => ({
-          heading: s.heading,
-          body: s.body,
-          headingSize: (s as { headingSize?: 'sm' | 'md' | 'lg' | 'xl' }).headingSize ?? 'md',
-          bodySize: (s as { bodySize?: 'sm' | 'md' | 'lg' }).bodySize ?? 'md',
-          examples: s.examples ?? [],
-          table: (s as { table?: TableData | null }).table ?? null,
-          tap: (s as { tap?: TapExercise | null }).tap ?? null,
-        }))
-      : [
-          // New tap page: seed sections[0].tap so the page-level editor has data.
-          initial?.pageType === 'tap'
-            ? { ...emptySection(), tap: { title: 'แตะเลือกว่าประโยคนี้ถูกหรือผิด', items: [emptyTapItem()] } }
-            : emptySection(),
-        ]
-  );
+  const [sections, setSections] = useState<SectionRow[]>(() => initialSections(initial));
 
-  const HEADING_SIZES = [
-    { value: 'sm', label: 'หัวเรื่องย่อย', preview: 'text-sm', hint: 'เล็ก กระชับ' },
-    { value: 'md', label: 'หัวเรื่อง', preview: 'text-base', hint: 'ปกติ (ค่าเริ่มต้น)' },
-    { value: 'lg', label: 'หัวเรื่องใหญ่', preview: 'text-lg', hint: 'เด่นกว่าปกติ' },
-    { value: 'xl', label: 'หัวเรื่องใหญ่พิเศษ', preview: 'text-xl', hint: 'ใหญ่สุด เหมาะกับหัวข้อหลัก' },
-  ] as const;
-  const BODY_SIZES = [
-    { value: 'sm', label: 'เนื้อหาเล็ก', preview: 'text-xs', hint: 'เนื้อหาเสริม/หมายเหตุ' },
-    { value: 'md', label: 'เนื้อหาปกติ', preview: 'text-sm', hint: 'ปกติ (ค่าเริ่มต้น)' },
-    { value: 'lg', label: 'เนื้อหาใหญ่', preview: 'text-base', hint: 'อ่านง่าย เหมาะกับเนื้อหาสำคัญ' },
-  ] as const;
   const [quiz, setQuiz] = useState<QuizRow[]>(() => toQuizRows(initial?.quiz ?? null));
   const [vocab, setVocab] = useState<VocabBankDraft>(() => toVocabDraft(initial?.vocabBank ?? null));
-  const [tip, setTip] = useState(initial?.tip ?? '');
-  const [intro, setIntro] = useState(initial?.intro ?? '');
   const [isPublished, setIsPublished] = useState(initial?.isPublished ?? true);
   const [saving, setSaving] = useState(false);
-  const [tableImport, setTableImport] = useState<{ sectionIndex: number } | null>(null);
-  const [tableImportText, setTableImportText] = useState('');
   const [vocabImportOpen, setVocabImportOpen] = useState(false);
   const [vocabImportText, setVocabImportText] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -289,11 +364,89 @@ export default function LessonPageEditor({
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
 
   // ---------- Sections ----------
+  // Wrap the current selection of a textarea/input with ==highlight== markers
+  // (or remove existing markers around the selection). Usage: select text in
+  // the field, then click the highlight button.
+  const toggleHighlight = (element: HTMLTextAreaElement | HTMLInputElement, onChange: (value: string) => void) => {
+    const { selectionStart, selectionEnd, value } = element;
+    if (selectionStart === null || selectionEnd === null) return;
+    const selected = value.slice(selectionStart, selectionEnd);
+    const before = value.slice(0, selectionStart);
+    const after = value.slice(selectionEnd);
+    if (!selected) {
+      toast.info('คลุมข้อความที่ต้องการไฮไลต์ก่อน แล้วกดปุ่มอีกครั้ง');
+      return;
+    }
+    // Already wrapped → unwrap
+    if (selected.startsWith('==') && selected.endsWith('==') && selected.length > 4) {
+      onChange(before + selected.slice(2, -2) + after);
+      requestAnimationFrame(() => {
+        element.focus();
+        element.setSelectionRange(selectionStart, selectionEnd - 4);
+      });
+      return;
+    }
+    if (before.endsWith('==') && after.startsWith('==')) {
+      onChange(before.slice(0, -2) + selected + after.slice(2));
+      requestAnimationFrame(() => {
+        element.focus();
+        element.setSelectionRange(selectionStart - 2, selectionEnd - 2);
+      });
+      return;
+    }
+    // Wrap: avoid nested markers if the text already contains ==
+    const cleaned = selected.replace(/==/g, '');
+    onChange(`${before}==${cleaned}==${after}`);
+    requestAnimationFrame(() => {
+      element.focus();
+      element.setSelectionRange(selectionStart + 2, selectionStart + 2 + cleaned.length);
+    });
+  };
+
+  // Small toolbar button placed under a text field that supports ==highlight==.
+  // Finds the field by its data-highlight-field id, wraps/ unwraps the selection.
+  // Small toolbar button placed under a text field that supports ==highlight==.
+  // Finds the field by its data-highlight-field id, wraps/ unwraps the selection.
+  const HighlightFieldToggle = ({ fieldKey, onApply }: { fieldKey: string; onApply: (el: HTMLTextAreaElement | HTMLInputElement) => void }) => (
+    <button
+      type="button"
+      onClick={() => {
+        const el = document.querySelector<HTMLTextAreaElement | HTMLInputElement>(`[data-highlight-field="${fieldKey}"]`);
+        if (el) onApply(el);
+      }}
+      title="คลุมข้อความแล้วกดเพื่อไฮไลต์ด้วย ==...=="
+      className="inline-flex items-center gap-1 self-end rounded-md px-1.5 py-1 text-[11px] font-semibold text-slate-400 hover:bg-amber-50 hover:text-amber-700 transition-colors"
+    >
+      <Highlighter className="w-3 h-3" /> ไฮไลต์
+    </button>
+  );
+
   const updateSection = (i: number, patch: Partial<SectionRow>) =>
     setSections((s) => s.map((sec, idx) => (idx === i ? { ...sec, ...patch } : sec)));
 
-  const addSection = () => setSections((s) => [...s, emptySection()]);
+  const addSection = (type: SectionType = 'rule') => setSections((s) => [...s, emptySection(type)]);
   const removeSection = (i: number) => setSections((s) => s.filter((_, idx) => idx !== i));
+  const addExample = (si: number) => setSections((s) => s.map((section, i) => i === si ? { ...section, examples: [...section.examples, emptyExample()] } : section));
+  const updateExample = (si: number, ei: number, patch: Partial<ExampleRow>) => setSections((s) => s.map((section, i) => i === si ? { ...section, examples: section.examples.map((example, j) => j === ei ? { ...example, ...patch } : example) } : section));
+  const removeExample = (si: number, ei: number) => setSections((s) => s.map((section, i) => i === si ? { ...section, examples: section.examples.filter((_, j) => j !== ei) } : section));
+  const updatePractice = (si: number, qi: number, patch: Partial<QuizRow>) => setSections((s) => s.map((section, i) => i === si ? { ...section, practice: section.practice.map((question, j) => j === qi ? { ...question, ...patch } : question) } : section));
+  const updatePracticeOption = (si: number, qi: number, oi: number, value: string) => setSections((s) => s.map((section, i) => i === si ? { ...section, practice: section.practice.map((question, j) => j === qi ? { ...question, options: question.options.map((option, k) => k === oi ? value : option) } : question) } : section));
+  const addPracticeOption = (si: number, qi: number) => setSections((s) => s.map((section, i) => i === si ? { ...section, practice: section.practice.map((question, j) => j === qi ? { ...question, options: [...question.options, ''] } : question) } : section));
+  const removePracticeOption = (si: number, qi: number, oi: number) => setSections((s) => s.map((section, i) => i === si ? { ...section, practice: section.practice.map((question, j) => {
+    if (j !== qi || question.options.length <= 2) return question;
+    const options = question.options.filter((_, k) => k !== oi);
+    return { ...question, options, answerIndex: Math.min(question.answerIndex, options.length - 1) };
+  }) } : section));
+  const addPracticeQuestion = (si: number) => setSections((s) => s.map((section, i) => i === si ? { ...section, practice: [...section.practice, { sentence: '', options: ['', '', ''], answerIndex: 0, explanation: '' }] } : section));
+  const removePracticeQuestion = (si: number, qi: number) => setSections((s) => s.map((section, i) => i === si && section.practice.length > 1 ? { ...section, practice: section.practice.filter((_, j) => j !== qi) } : section));
+  const movePracticeQuestion = (si: number, qi: number, direction: 'up' | 'down') => setSections((sections) => sections.map((section, index) => {
+    if (index !== si) return section;
+    const target = direction === 'up' ? qi - 1 : qi + 1;
+    if (target < 0 || target >= section.practice.length) return section;
+    const questions = [...section.practice];
+    [questions[qi], questions[target]] = [questions[target], questions[qi]];
+    return { ...section, practice: questions };
+  }));
   const moveSection = (i: number, dir: 'up' | 'down') =>
     setSections((s) => {
       const j = dir === 'up' ? i - 1 : i + 1;
@@ -303,185 +456,39 @@ export default function LessonPageEditor({
       return copy;
     });
 
-  // ---------- Examples within a section ----------
-  const updateExample = (si: number, ei: number, patch: Partial<ExampleRow>) =>
+  // ---------- Review rows within a section (UI Reference) ----------
+  const updateRow = (si: number, ri: number, patch: Partial<RowDraft>) =>
     setSections((s) =>
       s.map((sec, idx) =>
         idx === si
-          ? { ...sec, examples: sec.examples.map((ex, i2) => (i2 === ei ? { ...ex, ...patch } : ex)) }
+          ? { ...sec, rows: sec.rows.map((row, i2) => (i2 === ri ? { ...row, ...patch } : row)) }
           : sec
       )
     );
 
-  const addExample = (si: number) =>
+  const addRow = (si: number) =>
     setSections((s) =>
-      s.map((sec, idx) => (idx === si ? { ...sec, examples: [...sec.examples, emptyExample()] } : sec))
+      s.map((sec, idx) => (idx === si ? { ...sec, rows: [...sec.rows, emptyRow()] } : sec))
     );
 
-  const removeExample = (si: number, ei: number) =>
+  const removeRow = (si: number, ri: number) =>
     setSections((s) =>
       s.map((sec, idx) =>
-        idx === si ? { ...sec, examples: sec.examples.filter((_, i2) => i2 !== ei) } : sec
+        idx === si ? { ...sec, rows: sec.rows.filter((_, i2) => i2 !== ri) } : sec
       )
     );
 
-  // ---------- Table within a section ----------
-  const addTable = (si: number) =>
-    setSections((s) =>
-      s.map((sec, idx) =>
-        idx === si
-          ? { ...sec, table: { headers: ['', ''], rows: [['', ''], ['', '']] } }
-          : sec
-      )
-    );
-
-  const removeTable = (si: number) =>
-    setSections((s) => s.map((sec, idx) => (idx === si ? { ...sec, table: null } : sec)));
-
-  const updateHeader = (si: number, ci: number, value: string) =>
+  const moveRow = (si: number, ri: number, dir: 'up' | 'down') =>
     setSections((s) =>
       s.map((sec, idx) => {
-        if (idx !== si || !sec.table) return sec;
-        return { ...sec, table: { ...sec.table, headers: sec.table.headers.map((h, i) => (i === ci ? value : h)) } };
+        if (idx !== si) return sec;
+        const j = dir === 'up' ? ri - 1 : ri + 1;
+        if (j < 0 || j >= sec.rows.length) return sec;
+        const rows = [...sec.rows];
+        [rows[ri], rows[j]] = [rows[j], rows[ri]];
+        return { ...sec, rows };
       })
     );
-
-  const updateCell = (si: number, ri: number, ci: number, value: string) =>
-    setSections((s) =>
-      s.map((sec, idx) => {
-        if (idx !== si || !sec.table) return sec;
-        return {
-          ...sec,
-          table: {
-            ...sec.table,
-            rows: sec.table.rows.map((row, r) => (r === ri ? row.map((c, i) => (i === ci ? value : c)) : row)),
-          },
-        };
-      })
-    );
-
-  const addTableRow = (si: number) =>
-    setSections((s) =>
-      s.map((sec, idx) => {
-        if (idx !== si || !sec.table) return sec;
-        return { ...sec, table: { ...sec.table, rows: [...sec.table.rows, sec.table.headers.map(() => '')] } };
-      })
-    );
-
-  const removeTableRow = (si: number, ri: number) =>
-    setSections((s) =>
-      s.map((sec, idx) => {
-        if (idx !== si || !sec.table) return sec;
-        return { ...sec, table: { ...sec.table, rows: sec.table.rows.filter((_, r) => r !== ri) } };
-      })
-    );
-
-  const addTableColumn = (si: number) =>
-    setSections((s) =>
-      s.map((sec, idx) => {
-        if (idx !== si || !sec.table) return sec;
-        return {
-          ...sec,
-          table: {
-            headers: [...sec.table.headers, ''],
-            rows: sec.table.rows.map((row) => [...row, '']),
-          },
-        };
-      })
-    );
-
-  // ---------- Table import (paste CSV/TSV) ----------
-  const openTableImport = (si: number) => {
-    setTableImportText('');
-    setTableImport({ sectionIndex: si });
-  };
-
-  const applyTableImport = () => {
-    if (!tableImport) return;
-    const parsed = parseTableText(tableImportText);
-    if (!parsed) {
-      toast.error('อ่านตารางไม่สำเร็จ — ต้องมีแถวหัวคอลัมน์ + อย่างน้อย 1 แถวข้อมูล');
-      return;
-    }
-    const si = tableImport.sectionIndex;
-    setSections((s) => s.map((sec, idx) => (idx === si ? { ...sec, table: parsed } : sec)));
-    setTableImport(null);
-    setTableImportText('');
-    toast.success(`นำเข้าตารางสำเร็จ — ${parsed.headers.length} คอลัมน์, ${parsed.rows.length} แถว`);
-  };
-
-  const removeTableColumn = (si: number, ci: number) =>
-    setSections((s) =>
-      s.map((sec, idx) => {
-        if (idx !== si || !sec.table) return sec;
-        if (sec.table.headers.length <= 1) return sec;
-        return {
-          ...sec,
-          table: {
-            headers: sec.table.headers.filter((_, i) => i !== ci),
-            rows: sec.table.rows.map((row) => row.filter((_, i) => i !== ci)),
-          },
-        };
-      })
-    );
-
-  // ---------- Tap & Select exercise (page-level, stored in sections[0].tap) ----------
-  const updateTap = (si: number, patch: Partial<Omit<TapExercise, 'items'>>) =>
-    setSections((s) =>
-      s.map((sec, idx) => (idx === si && sec.tap ? { ...sec, tap: { ...sec.tap, ...patch } } : sec))
-    );
-
-  const updateTapItem = (si: number, ii: number, patch: Partial<TapItem>) =>
-    setSections((s) =>
-      s.map((sec, idx) =>
-        idx === si && sec.tap
-          ? { ...sec, tap: { ...sec.tap, items: sec.tap.items.map((it, i2) => (i2 === ii ? { ...it, ...patch } : it)) } }
-          : sec
-      )
-    );
-
-  const addTapItem = (si: number) =>
-    setSections((s) =>
-      s.map((sec, idx) => (idx === si && sec.tap ? { ...sec, tap: { ...sec.tap, items: [...sec.tap.items, emptyTapItem()] } } : sec))
-    );
-
-  const removeTapItem = (si: number, ii: number) =>
-    setSections((s) =>
-      s.map((sec, idx) =>
-        idx === si && sec.tap
-          ? { ...sec, tap: { ...sec.tap, items: sec.tap.items.filter((_, i2) => i2 !== ii) } }
-          : sec
-      )
-    );
-
-  // ---------- Quiz ----------
-  const updateQuiz = (qi: number, patch: Partial<QuizRow>) =>
-    setQuiz((items) => items.map((item, i) => (i === qi ? { ...item, ...patch } : item)));
-
-  const updateQuizOption = (qi: number, oi: number, value: string) =>
-    setQuiz((items) => items.map((item, i) => i === qi
-      ? { ...item, options: item.options.map((option, index) => index === oi ? value : option) }
-      : item
-    ));
-
-  const addQuizQuestion = () =>
-    setQuiz((items) => [...items, { sentence: '', options: ['', '', '', ''], answerIndex: 0, explanation: '' }]);
-
-  const removeQuizQuestion = (qi: number) =>
-    setQuiz((items) => items.length <= 1 ? items : items.filter((_, i) => i !== qi));
-
-  const addOption = (qi: number) =>
-    setQuiz((items) => items.map((item, i) => i === qi ? { ...item, options: [...item.options, ''] } : item));
-
-  const removeOption = (qi: number, oi: number) =>
-    setQuiz((items) => items.map((item, i) => {
-      if (i !== qi || item.options.length <= 2) return item;
-      return {
-        ...item,
-        options: item.options.filter((_, index) => index !== oi),
-        answerIndex: item.answerIndex >= oi && item.answerIndex > 0 ? item.answerIndex - 1 : item.answerIndex,
-      };
-    }));
 
   // ---------- Vocab bank (flexible columns) ----------
   const openVocabImport = () => {
@@ -587,15 +594,77 @@ export default function LessonPageEditor({
     }
   };
 
+  // ---------- Tap items within a section ----------
+  const updateTap = (si: number, patch: Partial<TapExercise>) =>
+    setSections((s) =>
+      s.map((sec, idx) => (idx === si && sec.tap ? { ...sec, tap: { ...sec.tap, ...patch } } : sec))
+    );
+
+  const updateTapItem = (si: number, ii: number, patch: Partial<TapItem>) =>
+    setSections((s) =>
+      s.map((sec, idx) =>
+        idx === si && sec.tap
+          ? { ...sec, tap: { ...sec.tap, items: sec.tap.items.map((it, i2) => (i2 === ii ? { ...it, ...patch } : it)) } }
+          : sec
+      )
+    );
+
+  const removeTapItem = (si: number, ii: number) =>
+    setSections((s) =>
+      s.map((sec, idx) =>
+        idx === si && sec.tap
+          ? { ...sec, tap: { ...sec.tap, items: sec.tap.items.filter((_, i2) => i2 !== ii) } }
+          : sec
+      )
+    );
+
+  const addTapItem = (si: number) =>
+    setSections((s) =>
+      s.map((sec, idx) =>
+        idx === si && sec.tap ? { ...sec, tap: { ...sec.tap, items: [...sec.tap.items, emptyTapItem()] } } : sec
+      )
+    );
+
+  // ---------- Quiz questions ----------
+  const updateQuiz = (qi: number, patch: Partial<QuizRow>) =>
+    setQuiz((q) => q.map((row, i) => (i === qi ? { ...row, ...patch } : row)));
+
+  const addQuizQuestion = () =>
+    setQuiz((q) => [...q, { sentence: '', options: ['', '', '', ''], answerIndex: 0, explanation: '' }]);
+
+  const removeQuizQuestion = (qi: number) =>
+    setQuiz((q) => q.filter((_, i) => i !== qi));
+
+  const updateQuizOption = (qi: number, oi: number, value: string) =>
+    setQuiz((q) =>
+      q.map((row, i) => (i === qi ? { ...row, options: row.options.map((o, j) => (j === oi ? value : o)) } : row))
+    );
+
+  const addOption = (qi: number) =>
+    setQuiz((q) =>
+      q.map((row, i) => (i === qi ? { ...row, options: [...row.options, ''] } : row))
+    );
+
+  const removeOption = (qi: number, oi: number) =>
+    setQuiz((q) =>
+      q.map((row, i) => {
+        if (i !== qi || row.options.length <= 2) return row;
+        const options = row.options.filter((_, j) => j !== oi);
+        return { ...row, options, answerIndex: Math.min(row.answerIndex, options.length - 1) };
+      })
+    );
+
   // ---------- Save ----------
   const validationWarnings = pageType === 'explain'
-    ? sections.flatMap((section, sectionIndex) => {
-        const warnings: string[] = [];
-        const hasSectionText = section.heading.trim() || section.body.trim();
-        if (hasSectionText && (!section.heading.trim() || !section.body.trim())) {
-          warnings.push(`หัวข้อที่ ${sectionIndex + 1} ต้องมีทั้งชื่อและคำอธิบาย`);
-        }
-        return warnings;
+    ? sections.flatMap((section, index) => {
+        if (section.type !== 'practice') return [];
+        if (!section.practice.some((question) => question.sentence.trim())) return [`Mini Quiz Section ${index + 1} ต้องมีโจทย์อย่างน้อย 1 ข้อ`];
+        return section.practice.flatMap((question, questionIndex) => {
+          if (!question.sentence.trim()) return [];
+          if (question.options.filter((option) => option.trim()).length < 2) return [`Mini Quiz Section ${index + 1} ข้อ ${questionIndex + 1} ต้องมีตัวเลือกอย่างน้อย 2 ข้อ`];
+          if (!question.options[question.answerIndex]?.trim()) return [`Mini Quiz Section ${index + 1} ข้อ ${questionIndex + 1} ต้องกำหนดคำตอบที่ถูกต้อง`];
+          return [];
+        });
       })
     : pageType === 'tap'
     ? (() => {
@@ -628,14 +697,20 @@ export default function LessonPageEditor({
 
     // Validation
     if (pageType === 'explain') {
-      const valid = sections.filter((s) => s.heading.trim() || s.body.trim());
+      const valid = sections.filter(sectionHasContent);
       if (valid.length === 0) {
-        toast.error('ต้องมีอย่างน้อย 1 หัวข้อพร้อมเนื้อหา');
+        toast.error('ต้องมีอย่างน้อย 1 Section ที่มีเนื้อหา');
         return;
       }
       for (const s of valid) {
-        if (!s.heading.trim() || !s.body.trim()) {
-          toast.error('ทุกหัวข้อต้องมีทั้งชื่อหัวข้อและเนื้อหา');
+        for (const r of s.rows) {
+          if (!r.left.trim() && r.right.trim()) {
+            toast.error('แถวที่มีช่องขวา (ตัวอย่างสีเหลือง) ต้องมีช่องซ้ายด้วย');
+            return;
+          }
+        }
+        if (s.type === 'practice' && s.practice.some((question) => question.sentence.trim() && (question.options.filter((option) => option.trim()).length < 2 || !question.options[question.answerIndex]?.trim()))) {
+          toast.error('Mini Quiz ทุกข้อที่มีโจทย์ต้องมีตัวเลือกอย่างน้อย 2 ข้อ และกำหนดคำตอบที่ถูกต้อง');
           return;
         }
       }
@@ -678,24 +753,7 @@ export default function LessonPageEditor({
         pageType === 'explain'
           ? {
               pageType,
-              sections: sections
-                .filter((s) => s.heading.trim() || s.body.trim())
-                .map((s) => ({
-                  heading: s.heading.trim(),
-                  body: s.body.trim(),
-                  headingSize: s.headingSize ?? 'md',
-                  bodySize: s.bodySize ?? 'md',
-                  examples: s.examples.length > 0 ? s.examples : undefined,
-                  table:
-                    s.table &&
-                    s.table.headers.some((h) => h.trim()) &&
-                    s.table.rows.some((row) => row.some((c) => c.trim()))
-                      ? {
-                          headers: s.table.headers.map((h) => h.trim()),
-                          rows: s.table.rows.map((row) => row.map((c) => c.trim())),
-                        }
-                      : undefined,
-                })),
+              sections: sections.filter(sectionHasContent).map(sectionToPayload),
               vocabBank:
                 vocab.rows.filter((r) => r.cells.some((c) => c.trim())).length > 0
                   ? {
@@ -705,16 +763,17 @@ export default function LessonPageEditor({
                         .map((r) => r.cells.map((c) => c.trim())),
                     }
                   : null,
-              tip: tip.trim() || null,
-              intro: intro.trim() || null,
+              // These legacy page-level fields are migrated into editable Sections.
+              tip: null,
+              intro: null,
               isPublished,
             }
           : pageType === 'tap'
           ? {
               pageType,
-              // Tap page: the exercise lives in sections[0].tap (JSONB storage)
               sections: [
                 {
+                  type: 'detailedRule',
                   heading: '',
                   body: '',
                   headingSize: 'md' as const,
@@ -766,7 +825,12 @@ export default function LessonPageEditor({
         router.refresh();
       } else {
         const j = await res.json().catch(() => null);
-        toast.error(j?.error ?? 'บันทึกไม่สำเร็จ');
+        const issues = Array.isArray(j?.issues)
+          ? j.issues.filter((issue: { message?: unknown }) => typeof issue?.message === 'string')
+          : [];
+        const detail = issues[0]?.message;
+        const remaining = issues.length > 1 ? ` (และอีก ${issues.length - 1} รายการ)` : '';
+        toast.error(detail ? `${j?.error ?? 'บันทึกไม่สำเร็จ'}: ${detail}${remaining}` : j?.error ?? 'บันทึกไม่สำเร็จ');
       }
     } finally {
       setSaving(false);
@@ -862,279 +926,166 @@ export default function LessonPageEditor({
         {pageType === 'explain' && (
           <div className="space-y-4">
             {sections.map((section, si) => (
-              <div key={si} className="bg-white rounded-2xl border border-slate-100 p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400">หัวข้อที่ {si + 1}</p>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => moveSection(si, 'up')} disabled={si === 0} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>
-                    <button onClick={() => moveSection(si, 'down')} disabled={si === sections.length - 1} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30"><ChevronDown className="w-4 h-4" /></button>
-                    <button onClick={() => removeSection(si)} disabled={sections.length === 1} className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button>
+              <div key={si} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm ring-1 ring-slate-100 p-5">
+                <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid size-6 place-items-center rounded-lg bg-sky-50 text-[11px] font-black text-sky-600">{si + 1}</span>
+                    <select
+                      aria-label={`รูปแบบ Section ${si + 1}`}
+                      value={section.type}
+                      onChange={(event) => updateSection(si, { type: event.target.value as SectionType })}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                    >
+                      <option value="rule">Rule / Grammar Card</option>
+                      <option value="detailedRule">Rule / Grammar แบบละเอียด</option>
+                      <option value="importantNote">Important Note / Key Point</option>
+                      <option value="practice">Mini Quiz / Practice</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-0.5 rounded-lg bg-slate-50 p-0.5">
+                    <button onClick={() => moveSection(si, 'up')} disabled={si === 0} aria-label="เลื่อน Section ขึ้น" className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent"><ChevronUp className="w-4 h-4" /></button>
+                    <button onClick={() => moveSection(si, 'down')} disabled={si === sections.length - 1} aria-label="เลื่อน Section ลง" className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent"><ChevronDown className="w-4 h-4" /></button>
+                    <button onClick={() => removeSection(si)} disabled={sections.length === 1} aria-label="ลบ Section" className="p-1.5 rounded-md text-slate-300 hover:text-red-500 hover:bg-white disabled:opacity-30 disabled:hover:text-slate-300 disabled:hover:bg-transparent"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
 
-                <input
-                  type="text"
-                  placeholder="ชื่อหัวข้อ เช่น 1. ประธานเอกพจน์ → กริยาเติม s/es"
-                  value={section.heading}
-                  onChange={(e) => updateSection(si, { heading: e.target.value })}
-                  className="w-full mb-2 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-400"
-                />
+                <div className="space-y-3">                  <input
+                    type="text"
+                    placeholder={section.type === 'importantNote' ? 'หัวข้อ เช่น ทริคสำคัญ' : section.type === 'practice' ? 'Header เช่น ลองทำโจทย์เพื่อทบทวนความเข้าใจ' : 'Header ของ Card (ไม่บังคับ)'}
+                    value={section.heading}
+                    onChange={(event) => updateSection(si, { heading: event.target.value })}
+                    data-highlight-field={`${si}-heading`}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                  {(section.type === 'rule' || section.type === 'importantNote') && <HighlightFieldToggle fieldKey={`${si}-heading`} onApply={(el) => toggleHighlight(el, (value) => updateSection(si, { heading: value }))} />}
 
-                {/* Font-size pickers — heading + body */}
-                <div className="flex flex-col sm:flex-row gap-2 mb-2">
-                  <div className="flex items-center gap-1 flex-1 bg-slate-50 rounded-lg p-1">
-                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-1.5">ขนาดหัวข้อ</span>
-                    {HEADING_SIZES.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => updateSection(si, { headingSize: opt.value })}
-                        title={opt.hint}
-                        className={`flex-1 px-1.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
-                          (section.headingSize ?? 'md') === opt.value
-                            ? 'bg-sky-500 text-white shadow-sm'
-                            : 'text-slate-500 hover:bg-slate-200/70'
-                        }`}
-                      >
-                        <span className={opt.preview}>{opt.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1 flex-1 bg-slate-50 rounded-lg p-1">
-                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-1.5">ขนาดเนื้อหา</span>
-                    {BODY_SIZES.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => updateSection(si, { bodySize: opt.value })}
-                        title={opt.hint}
-                        className={`flex-1 px-1.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
-                          (section.bodySize ?? 'md') === opt.value
-                            ? 'bg-indigo-500 text-white shadow-sm'
-                            : 'text-slate-500 hover:bg-slate-200/70'
-                        }`}
-                      >
-                        <span className={opt.preview}>{opt.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Mini formatting toolbar for the body text */}
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 mr-1">จัดรูปแบบ:</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const ta = (e.currentTarget.closest('div')?.parentElement?.querySelector(`[data-body-ta="${si}"]`) ?? null) as HTMLTextAreaElement | null;
-                      if (!ta) return;
-                      const { value, caret } = wrapSelection(ta, '**');
-                      updateSection(si, { body: value });
-                      requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(caret, caret); });
-                    }}
-                    className="w-7 h-7 rounded-lg border border-slate-200 bg-white text-xs font-extrabold text-slate-600 hover:border-sky-300 hover:text-sky-600"
-                    title="ตัวหนา — ล้อมข้อความที่เลือกด้วย ** **"
-                  >
-                    B
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const ta = (e.currentTarget.closest('div')?.parentElement?.querySelector(`[data-body-ta="${si}"]`) ?? null) as HTMLTextAreaElement | null;
-                      if (!ta) return;
-                      const { value, caret } = wrapSelection(ta, '==');
-                      updateSection(si, { body: value });
-                      requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(caret, caret); });
-                    }}
-                    className="h-7 px-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-amber-600 bg-amber-50 hover:border-amber-300"
-                    title="ไฮไลต์ — ล้อมข้อความที่เลือกด้วย == =="
-                  >
-                    ไฮไลต์
-                  </button>
-                  <span className="text-[10px] text-slate-300">หรือพิมพ์ **ตัวหนา** / ==ไฮไลต์== ได้โดยตรง</span>
-                </div>
-                <textarea
-                  data-body-ta={si}
-                  placeholder="คำอธิบายสั้นๆ เกี่ยวกับ Grammar หัวข้อนี้"
-                  value={section.body}
-                  onChange={(e) => updateSection(si, { body: e.target.value })}
-                  rows={3}
-                  className="w-full mb-4 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-y"
-                />
-
-                {/* Table editor */}
-                {section.table ? (
-                  <div className="bg-indigo-50/60 rounded-xl p-3.5 mb-4">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <p className="text-xs font-extrabold uppercase tracking-wider text-indigo-500">ตาราง</p>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => openTableImport(si)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 px-2 py-1 rounded-lg"
-                        >
-                          <Upload className="w-3.5 h-3.5" /> Import
-                        </button>
-                        <button
-                          onClick={() => removeTable(si)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 px-2 py-1 rounded-lg"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> ลบตาราง
-                        </button>
-                      </div>
+                  {(section.type === 'detailedRule' || section.type === 'importantNote') && (
+                    <div className="space-y-1">
+                    <textarea
+                      placeholder={section.type === 'importantNote' ? 'สรุปจุดสำคัญ รองรับ **ตัวหนา** / ==ไฮไลต์คำสำคัญ==' : 'คำอธิบายหลักการ รองรับ **ตัวหนา** / ==ไฮไลต์=='}
+                      value={section.body}
+                      onChange={(event) => updateSection(si, { body: event.target.value })}
+                      rows={section.type === 'importantNote' ? 2 : 3}
+                      className={`w-full resize-y rounded-xl border px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 ${section.type === 'importantNote' ? 'border-amber-200 bg-amber-50/50 focus:ring-amber-400' : 'border-slate-200 focus:ring-sky-400'}`}
+                      data-highlight-field={`${si}-body`}
+                    />
+                    <HighlightFieldToggle fieldKey={`${si}-body`} onApply={(el) => toggleHighlight(el, (value) => updateSection(si, { body: value }))} />
                     </div>
+                  )}
 
-                    {/* Import paste area */}
-                    {tableImport?.sectionIndex === si && (
-                      <div className="bg-white border-2 border-dashed border-indigo-300 rounded-xl p-3 mb-3">
-                        <p className="text-xs font-bold text-indigo-700 mb-1.5">วางข้อมูลตาราง (CSV / TSV / Excel)</p>
-                        <p className="text-[11px] text-slate-500 mb-2">
-                          แถวแรกคือหัวคอลัมน์ · คั่นด้วย tab จาก Excel, comma หรือ semicolon ก็ได้ · วางแล้วกด นำเข้า
-                        </p>
-                        <textarea
-                          value={tableImportText}
-                          onChange={(e) => setTableImportText(e.target.value)}
-                          rows={6}
-                          placeholder={"ประธาน,รูปกริยา,ตัวอย่าง\nHe / She / It,เติม s / es,She plays tennis.\nI / You / We / They,ไม่เติม s,They play tennis."}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                        />
-                        <div className="flex items-center gap-2 mt-2">
-                          <button
-                            onClick={applyTableImport}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
-                          >
-                            <Upload className="w-3.5 h-3.5" /> นำเข้า
-                          </button>
-                          <button
-                            onClick={() => setTableImport(null)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200"
-                          >
-                            ยกเลิก
-                          </button>
+                  {(section.type === 'rule' || section.type === 'detailedRule') && (
+                    <>
+                      {section.type === 'rule' && (
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <div className="flex flex-col gap-1">
+                          <input type="text" placeholder="ป้ายกฎ เช่น Does / Did" value={section.chip} onChange={(event) => updateSection(si, { chip: event.target.value })} data-highlight-field={`${si}-chip`} className="sm:w-56 shrink-0 rounded-xl border border-amber-200 bg-amber-50/50 px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                          <HighlightFieldToggle fieldKey={`${si}-chip`} onApply={(el) => toggleHighlight(el, (value) => updateSection(si, { chip: value }))} />
+                          </div>
+                          <div className="flex flex-1 flex-col gap-1">
+                          <input type="text" placeholder="อธิบายกฎสั้น ๆ ข้างป้าย" value={section.description} onChange={(event) => updateSection(si, { description: event.target.value })} data-highlight-field={`${si}-desc`} className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                          <HighlightFieldToggle fieldKey={`${si}-desc`} onApply={(el) => toggleHighlight(el, (value) => updateSection(si, { description: value }))} />
+                          </div>
                         </div>
+                      )}
+                      {section.type === 'detailedRule' && (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <input type="text" placeholder="ป้ายหลักการ เช่น Did" value={section.chip} onChange={(event) => updateSection(si, { chip: event.target.value })} className="w-40 rounded-xl border border-amber-200 bg-amber-50/50 px-3.5 py-2.5 text-sm font-bold" />
+                            <input type="text" placeholder="คำอธิบายหลักการหลายขั้นตอน" value={section.description} onChange={(event) => updateSection(si, { description: event.target.value })} className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+                          </div>
+                          <textarea placeholder="คำอธิบายหลักเพิ่มเติม (ไม่บังคับ)" value={section.body} onChange={(event) => updateSection(si, { body: event.target.value })} rows={2} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {section.rows.map((row, ri) => (
+                          <div key={ri} className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5">
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <input type="text" placeholder="กฎ / เงื่อนไข" value={row.left} onChange={(event) => updateRow(si, ri, { left: event.target.value })} data-highlight-field={`${si}-row-${ri}-left`} className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                              <HighlightFieldToggle fieldKey={`${si}-row-${ri}-left`} onApply={(el) => toggleHighlight(el, (value) => updateRow(si, ri, { left: value }))} />
+                              <input type="text" placeholder="ตัวอย่างหรือผลลัพธ์ (ไม่บังคับ)" value={row.right} onChange={(event) => updateRow(si, ri, { right: event.target.value })} data-highlight-field={`${si}-row-${ri}-right`} className="w-full rounded-lg border border-amber-200 bg-amber-50/40 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                              <HighlightFieldToggle fieldKey={`${si}-row-${ri}-right`} onApply={(el) => toggleHighlight(el, (value) => updateRow(si, ri, { right: value }))} />
+                            </div>
+                            <div className="flex shrink-0 items-center gap-0.5">
+                              <button onClick={() => moveRow(si, ri, 'up')} disabled={ri === 0} aria-label="เลื่อนแถวขึ้น" className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ChevronUp className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => moveRow(si, ri, 'down')} disabled={ri === section.rows.length - 1} aria-label="เลื่อนแถวลง" className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30"><ChevronDown className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => removeRow(si, ri)} aria-label="ลบแถว" className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </div>
+                        ))}
+                        <button onClick={() => addRow(si)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-sky-600 hover:bg-sky-50"><Plus className="w-3.5 h-3.5" /> เพิ่มแถวคำอธิบาย → ตัวอย่าง</button>
                       </div>
-                    )}
+                      {section.type === 'rule' && (
+                        <div className="space-y-2 rounded-xl border border-slate-100 p-3">
+                          <p className="text-xs font-bold text-slate-600">Example Cards</p>
+                          {section.examples.map((example, ei) => (
+                            <div key={ei} className="grid gap-2 rounded-xl bg-slate-50 p-2.5 sm:grid-cols-[1fr_1fr_auto_auto]">
+                              <div className="space-y-0.5"><input placeholder="ประโยคตัวอย่าง" value={example.en} onChange={(event) => updateExample(si, ei, { en: event.target.value })} data-highlight-field={`${si}-example-${ei}-en`} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" /><HighlightFieldToggle fieldKey={`${si}-example-${ei}-en`} onApply={(el) => toggleHighlight(el, (value) => updateExample(si, ei, { en: value }))} /></div>
+                              <div className="space-y-0.5"><input placeholder="คำแปล/คำอธิบาย (ไม่บังคับ)" value={example.th} onChange={(event) => updateExample(si, ei, { th: event.target.value })} data-highlight-field={`${si}-example-${ei}-th`} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" /><HighlightFieldToggle fieldKey={`${si}-example-${ei}-th`} onApply={(el) => toggleHighlight(el, (value) => updateExample(si, ei, { th: value }))} /></div>
+                              <select aria-label={`สถานะตัวอย่าง ${ei + 1}`} value={example.ok ? 'correct' : 'incorrect'} onChange={(event) => updateExample(si, ei, { ok: event.target.value === 'correct' })} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"><option value="correct">ถูก</option><option value="incorrect">ไม่ถูก</option></select>
+                              <button onClick={() => removeExample(si, ei)} aria-label="ลบตัวอย่าง" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="size-4" /></button>
+                            </div>
+                          ))}
+                          <button onClick={() => addExample(si)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-sky-600 hover:bg-sky-50"><Plus className="size-3.5" /> เพิ่ม Example Card</button>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <input type="text" placeholder="Summary / Tip ด้านล่าง (ไม่บังคับ) รองรับ ==ไฮไลต์==" value={section.tip} onChange={(event) => updateSection(si, { tip: event.target.value })} data-highlight-field={`${si}-tip`} className="w-full rounded-xl border border-sky-200 bg-sky-50/40 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                        <HighlightFieldToggle fieldKey={`${si}-tip`} onApply={(el) => toggleHighlight(el, (value) => updateSection(si, { tip: value }))} />
+                      </div>
+                    </>
+                  )}
 
-                    {/* Header row */}
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      {section.table.headers.map((h, ci) => (
-                        <div key={ci} className="flex-1 min-w-0 relative">
-                          <input
-                            type="text"
-                            placeholder={`หัวคอลัมน์ ${ci + 1}`}
-                            value={h}
-                            onChange={(e) => updateHeader(si, ci, e.target.value)}
-                            className="w-full pl-2.5 pr-6 py-1.5 border-2 border-indigo-300 rounded-lg text-xs font-bold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                          />
-                          {section.table!.headers.length > 1 && (
-                            <button
-                              onClick={() => removeTableColumn(si, ci)}
-                              className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded text-indigo-300 hover:text-rose-500"
-                              title="ลบคอลัมน์นี้"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          )}
+                  {section.type === 'importantNote' && (
+                    <p className="text-xs text-amber-700">แสดงเป็นการ์ดจุดสำคัญขนาดกะทัดรัดพร้อมไอคอนหลอดไฟ</p>
+                  )}
+
+                  {section.type === 'practice' && (
+                    <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                      {section.practice.map((question, qi) => (
+                        <div key={qi} className="space-y-2 rounded-xl border border-emerald-100 bg-white p-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-extrabold text-emerald-700">โจทย์ที่ {qi + 1}</p>
+                            <div className="flex items-center">
+                              <button type="button" onClick={() => movePracticeQuestion(si, qi, 'up')} disabled={qi === 0} aria-label="เลื่อนโจทย์ Mini Quiz ขึ้น" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronUp className="size-4" /></button>
+                              <button type="button" onClick={() => movePracticeQuestion(si, qi, 'down')} disabled={qi === section.practice.length - 1} aria-label="เลื่อนโจทย์ Mini Quiz ลง" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronDown className="size-4" /></button>
+                              <button type="button" onClick={() => removePracticeQuestion(si, qi)} disabled={section.practice.length <= 1} aria-label="ลบโจทย์ Mini Quiz" className="rounded p-1 text-slate-400 hover:text-red-500 disabled:opacity-30"><Trash2 className="size-4" /></button>
+                            </div>
+                          </div>
+                          <input placeholder="ประโยคคำถาม ใช้ ____ แทนช่องว่าง" value={question.sentence} onChange={(event) => updatePractice(si, qi, { sentence: event.target.value })} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                          {question.options.map((option, oi) => <div key={oi} className="flex gap-2"><input placeholder={`ตัวเลือก ${oi + 1}`} value={option} onChange={(event) => updatePracticeOption(si, qi, oi, event.target.value)} className="flex-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm" /><label className="flex items-center gap-1 text-xs text-slate-600"><input type="radio" name={`practice-answer-${si}-${qi}`} checked={question.answerIndex === oi} onChange={() => updatePractice(si, qi, { answerIndex: oi })} /> เฉลย</label><button onClick={() => removePracticeOption(si, qi, oi)} disabled={question.options.length <= 2} aria-label="ลบตัวเลือก" className="rounded p-1 text-slate-400 hover:text-red-500 disabled:opacity-30"><Trash2 className="size-4" /></button></div>)}
+                          <button onClick={() => addPracticeOption(si, qi)} className="text-xs font-semibold text-emerald-700">+ เพิ่มตัวเลือก</button>
+                          <textarea placeholder="คำอธิบายหลังตอบ (ไม่บังคับ)" value={question.explanation} onChange={(event) => updatePractice(si, qi, { explanation: event.target.value })} rows={2} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
                         </div>
                       ))}
-                      {section.table.headers.length < 10 && (
-                        <button
-                          onClick={() => addTableColumn(si)}
-                          className="shrink-0 w-8 h-8 rounded-lg border-2 border-dashed border-indigo-300 text-indigo-400 hover:text-indigo-600 hover:border-indigo-400 flex items-center justify-center"
-                          title="เพิ่มคอลัมน์"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button onClick={() => addPracticeQuestion(si)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100"><Plus className="size-3.5" /> เพิ่มโจทย์ใน Mini Quiz</button>
                     </div>
-
-                    {/* Data rows */}
-                    {section.table.rows.map((row, ri) => (
-                      <div key={ri} className="flex items-center gap-1.5 mb-1.5">
-                        {row.map((cell, ci) => (
-                          <input
-                            key={ci}
-                            type="text"
-                            placeholder={ci === 0 ? 'แถวนี้…' : ''}
-                            value={cell}
-                            onChange={(e) => updateCell(si, ri, ci, e.target.value)}
-                            className={`flex-1 min-w-0 px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 ${ci === 0 ? 'font-semibold bg-white' : ''}`}
-                          />
-                        ))}
-                        <button
-                          onClick={() => removeTableRow(si, ri)}
-                          className="shrink-0 p-1 rounded text-slate-300 hover:text-rose-500 hover:bg-rose-50"
-                          title="ลบแถวนี้"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => addTableRow(si)}
-                      className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> เพิ่มแถว
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 mb-4">
-                    <button
-                      onClick={() => addTable(si)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> เพิ่มตาราง
-                    </button>
-                    <button
-                      onClick={() => openTableImport(si)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg"
-                    >
-                      <Upload className="w-3.5 h-3.5" /> Import ตาราง
-                    </button>
-                  </div>
-                )}
-
-                {/* Examples */}
-                <div className="bg-slate-50 rounded-xl p-3.5">
-                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2.5">ตัวอย่างประโยค</p>
-                  <div className="space-y-2">
-                    {section.examples.map((ex, ei) => (
-                      <div key={ei} className="flex items-start gap-2 bg-white rounded-lg border border-slate-100 p-2.5">
-                        <button
-                          onClick={() => updateExample(si, ei, { ok: !ex.ok })}
-                          className={`mt-1 w-5 h-5 rounded-full shrink-0 text-[10px] font-black flex items-center justify-center transition-colors ${ex.ok ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-500'}`}
-                          title={ex.ok ? 'ถูก (กดเพื่อเปลี่ยนเป็นผิด)' : 'ผิด (กดเพื่อเปลี่ยนเป็นถูก)'}
-                        >
-                          {ex.ok ? '✓' : '✗'}
-                        </button>
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <input
-                            type="text"
-                            placeholder="ประโยคภาษาอังกฤษ"
-                            value={ex.en}
-                            onChange={(e) => updateExample(si, ei, { en: e.target.value })}
-                            className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                          />
-                          <input
-                            type="text"
-                            placeholder="คำแปล/คำอธิบาย"
-                            value={ex.th}
-                            onChange={(e) => updateExample(si, ei, { th: e.target.value })}
-                            className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
-                          />
-                        </div>
-                        <button onClick={() => removeExample(si, ei)} className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
-                    ))}
-                  </div>
-                  <button onClick={() => addExample(si)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:bg-sky-50 px-2.5 py-1.5 rounded-lg">
-                    <Plus className="w-3.5 h-3.5" /> เพิ่มตัวอย่าง
-                  </button>
+                  )}
                 </div>
               </div>
             ))}
 
-            <button onClick={addSection} className="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-white border-2 border-dashed border-slate-200 rounded-2xl text-sm font-semibold text-slate-400 hover:text-sky-600 hover:border-sky-300 transition-colors">
-              <Plus className="w-4 h-4" /> เพิ่มหัวข้อ
-            </button>
+
+            <div className="flex justify-center">
+              <label className="group inline-flex items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:border-sky-400 hover:bg-sky-50/40 hover:text-sky-700 cursor-pointer">
+                <span className="grid size-5 place-items-center rounded-full bg-slate-100 text-slate-400 transition-colors group-hover:bg-sky-100 group-hover:text-sky-600">
+                  <Plus className="w-3.5 h-3.5" />
+                </span> เพิ่ม Section
+                <select
+                  aria-label="เลือกรูปแบบ Section ใหม่"
+                  value=""
+                  onChange={(event) => {
+                    if (event.target.value) addSection(event.target.value as SectionType);
+                  }}
+                  className="max-w-36 bg-transparent text-sm font-bold outline-none cursor-pointer"
+                >
+                  <option value="" disabled>เลือกรูปแบบ…</option>
+                  <option value="rule">Rule / Grammar Card</option>
+                  <option value="detailedRule">Rule / Grammar แบบละเอียด</option>
+                  <option value="importantNote">Important Note / Key Point</option>
+                  <option value="practice">Mini Quiz / Practice</option>
+                </select>
+              </label>
+            </div>
 
             {/* Vocab bank — flexible columns */}
             <div className="bg-white rounded-2xl border border-slate-100 p-5">
@@ -1248,34 +1199,6 @@ export default function LessonPageEditor({
               )}
             </div>
 
-            {/* Intro — "จำไว้เลย" summary (optional) */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-5">
-              <p className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-1">
-                <BookOpen className="w-4 h-4 text-emerald-500" /> จำไว้เลย (ไม่บังคับ)
-              </p>
-              <p className="text-xs text-slate-400 mb-3">กล่องสรุปสั้นด้านบนของหน้าเนื้อหา — เว้นว่างถ้าไม่ต้องการแสดง</p>
-              <textarea
-                placeholder="เช่น หลักการพื้นฐานคือ กริยาต้องเปลี่ยนรูปตามประธาน…"
-                value={intro}
-                onChange={(e) => setIntro(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-y"
-              />
-            </div>
-
-            {/* Tip */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-5">
-              <p className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
-                <Lightbulb className="w-4 h-4 text-yellow-500" /> เคล็ดลับ (ไม่บังคับ)
-              </p>
-              <textarea
-                placeholder="เทคนิคจำ เช่น เอกพจน์เติม s — พหูพจน์ไม่เติม s"
-                value={tip}
-                onChange={(e) => setTip(e.target.value)}
-                rows={2}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-y"
-              />
-            </div>
           </div>
         )}
 

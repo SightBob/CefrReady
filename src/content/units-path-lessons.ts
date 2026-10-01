@@ -4,24 +4,68 @@
 // UI-first mock: replace with DB-backed lessons later.
 // ============================================================
 
+/**
+ * Review content (UI Reference): one row inside a topic card.
+ *  - left  = gray pill (Thai rule / source)
+ *  - right = optional yellow result (English example). When absent the row
+ *    renders as a standalone gray pill (Compare/Pattern variant).
+ * Supports **bold** / ==highlight== inline markup via RichText.
+ */
+export interface ReviewRow {
+  left: string;
+  right?: string;
+}
+
+/** A practice question embedded in the explanation flow (separate from the exam). */
+export interface LessonPracticeQuestion {
+  sentence: string;
+  options: string[];
+  answerIndex: number;
+  explanation?: string;
+}
+
+export interface LessonPractice {
+  questions: LessonPracticeQuestion[];
+}
+
+export interface LessonExample {
+  en: string;
+  th?: string;
+  ok?: boolean;
+}
+
 export interface LessonTable {
   headers: string[];
   rows: string[][];
 }
 
-/** Optional per-section font sizes chosen in the Admin editor */
-export type HeadingSize = 'sm' | 'md' | 'lg' | 'xl';
-export type BodySize = 'sm' | 'md' | 'lg';
+export type LessonSectionType = 'rule' | 'detailedRule' | 'importantNote' | 'practice';
 
-export interface LessonSection {
-  heading: string;
-  body: string;
-  headingSize?: HeadingSize;
-  bodySize?: BodySize;
-  examples?: Array<{ en: string; th: string; ok: boolean }>;
-  table?: LessonTable;
+/**
+ * A configurable lesson section. Each item chooses its own presentation type,
+ * and carries only the data needed by that block (legacy fields stay optional
+ * so existing saved lessons remain readable/editable).
+ */
+export interface ReviewTopic {
+  type?: LessonSectionType;
+  heading?: string;
+  body?: string;
+  /** Yellow chip label for rule cards, e.g. "Past Simple: V.2" or "Does" */
+  chip?: string;
+  /** Description next to the chip (supports **bold** / ==highlight==) */
+  description?: string;
+  /** Pattern/example rows */
+  rows?: ReviewRow[];
+  examples?: LessonExample[];
+  practice?: LessonPractice;
   tap?: TapExercise;
+  /** Historical type marker accepted while normalizing older saved sections. */
+  legacyType?: string;
+  /** ℹ️ blue tip line at the card bottom (optional) */
+  tip?: string;
 }
+
+export interface LessonSection extends ReviewTopic {}
 
 /** หนึ่งแถวในตาราง "คลังศัพท์ช่วยชีวิต" (legacy 3-column shape) */
 export interface VocabRow {
@@ -88,37 +132,33 @@ export const LESSONS: Record<string, LessonContent> = {
       'หลักการพื้นฐานของ Subject-Verb Agreement คือ กริยาต้องเปลี่ยนรูปตามประธานว่าเป็นเอกพจน์ (singular) หรือพหูพจน์ (plural)',
     sections: [
       {
-        heading: '1. ประธานเอกพจน์ → กริยาเติม s/es',
-        body: 'ในประโยค Present Simple ถ้าประธานเป็นเอกพจน์บุรุษที่ 3 (he, she, it หรือคน/สิ่งเดียว) กริยาต้องเติม s หรือ es เสมอ',
-        examples: [
-          { en: 'She works at a hospital.', th: 'เธอทำงานที่โรงพยาบาล', ok: true },
-          { en: 'The dog barks loudly.', th: 'หมาเห่าดัง', ok: true },
-          { en: 'He work at a bank.', th: 'ผิด — กริยาไม่เติม s ทั้งที่ประธานเอกพจน์', ok: false },
+        chip: '1. ประธานเอกพจน์ → กริยาเติม s/es',
+        rows: [
+        { left: 'เธอทำงานที่โรงพยาบาล', right: 'She works at a hospital.' },
+        { left: 'หมาเห่าดัง', right: 'The dog barks loudly.' },
+        { left: 'ผิด — กริยาไม่เติม s ทั้งที่ประธานเอกพจน์', right: 'He work at a bank.' }
         ],
       },
       {
-        heading: '2. ประธานพหูพจน์ → กริยาไม่เติม s',
-        body: 'ถ้าประธานเป็นพหูพจน์ (I, you, we, they หรือคน/สิ่งมากกว่าหนึ่ง) กริยาใช้รูปพื้นฐาน ไม่เติม s',
-        examples: [
-          { en: 'They play football every weekend.', th: 'พวกเขาเล่นฟุตบอลทุกสุดสัปดาห์', ok: true },
-          { en: 'We study English on Mondays.', th: 'พวกเราเรียนภาษาอังกฤษวันจันทร์', ok: true },
-          { en: 'She play tennis.', th: 'ผิด — ประธานเอกพจน์ต้องใช้ plays', ok: false },
+        chip: '2. ประธานพหูพจน์ → กริยาไม่เติม s',
+        rows: [
+        { left: 'พวกเขาเล่นฟุตบอลทุกสุดสัปดาห์', right: 'They play football every weekend.' },
+        { left: 'พวกเราเรียนภาษาอังกฤษวันจันทร์', right: 'We study English on Mondays.' },
+        { left: 'ผิด — ประธานเอกพจน์ต้องใช้ plays', right: 'She play tennis.' }
         ],
       },
       {
-        heading: '3. การใช้ Do / Does ในคำถาม',
-        body: '"Do" คู่กับประธาน I, You, We, They และพหูพจน์ทุกชนิด ส่วน "Does" คู่กับ He, She, It และเอกพจน์ทุกชนิด (และเมื่อใช้ Does แล้ว กริยาหลักต้องกลับเป็นรูปพื้นฐาน)',
-        examples: [
-          { en: 'Do you like coffee?', th: 'Do + you (ถูกต้อง)', ok: true },
-          { en: 'They do not play tennis.', th: 'ประธานพหูพจน์ใช้ do', ok: true },
-          { en: 'Do she like coffee?', th: 'ผิด — she เป็นเอกพจน์ ต้องใช้ Does she like…?', ok: false },
+        chip: '3. การใช้ Do / Does ในคำถาม',
+        rows: [
+        { left: 'Do + you (ถูกต้อง)', right: 'Do you like coffee?' },
+        { left: 'ประธานพหูพจน์ใช้ do', right: 'They do not play tennis.' },
+        { left: 'ผิด — she เป็นเอกพจน์ ต้องใช้ Does she like…?', right: 'Do she like coffee?' }
         ],
       },
       {
-        heading: '4. ใช้กับ Tense อื่น',
-        body: 'หลักนี้ใช้ชัดเจนที่สุดใน Present Simple ส่วน tense อื่น เช่น Past Simple กริยาไม่เปลี่ยนตามประธาน (ใช้รูปเดียวกันหมด)',
-        examples: [
-          { en: 'He was late. / They were late.', th: 'Past Simple ใช้ was/were แยกเอกพจน์-พหูพจน์', ok: true },
+        chip: '4. ใช้กับ Tense อื่น',
+        rows: [
+        { left: 'Past Simple ใช้ was/were แยกเอกพจน์-พหูพจน์', right: 'He was late. / They were late.' }
         ],
       },
     ],
@@ -150,27 +190,24 @@ export const LESSONS: Record<string, LessonContent> = {
       'ประธานบางประเภทดูเหมือนพหูพจน์แต่จริงๆ เป็นเอกพจน์ และบางประเภทดูเหมือนเอกพจน์แต่ใช้กริยาพหูพจน์',
     sections: [
       {
-        heading: '1. ประธานที่ลงท้ายด้วย s แต่เป็นเอกพจน์',
-        body: 'คำที่ลงท้าย s แต่เป็นเอกพจน์ เช่น news, physics, mathematics, economics ใช้กริยาเอกพจน์',
-        examples: [
-          { en: 'The news is good today.', th: 'ข่าววันนี้ดี (news = เอกพจน์)', ok: true },
-          { en: 'Physics is my favorite subject.', th: 'ฟิสิกส์เป็นวิชาโปรดของฉัน', ok: true },
+        chip: '1. ประธานที่ลงท้ายด้วย s แต่เป็นเอกพจน์',
+        rows: [
+        { left: 'ข่าววันนี้ดี (news = เอกพจน์)', right: 'The news is good today.' },
+        { left: 'ฟิสิกส์เป็นวิชาโปรดของฉัน', right: 'Physics is my favorite subject.' }
         ],
       },
       {
-        heading: '2. Uncountable nouns',
-        body: 'คำนามไม่นับได้ เช่น water, money, information, advice ถือเป็นเอกพจน์เสมอ',
-        examples: [
-          { en: 'The information is very useful.', th: 'ข้อมูลมีประโยชน์มาก', ok: true },
-          { en: 'Her advice was helpful.', th: 'คำแนะนำของเธอช่วยได้', ok: true },
+        chip: '2. Uncountable nouns',
+        rows: [
+        { left: 'ข้อมูลมีประโยชน์มาก', right: 'The information is very useful.' },
+        { left: 'คำแนะนำของเธอช่วยได้', right: 'Her advice was helpful.' }
         ],
       },
       {
-        heading: '3. ประธานพหูพจน์ธรรมดา',
-        body: 'คำนามพหูพจน์ทั่วไป เช่น books, cars, children ใช้กริยาไม่เติม s',
-        examples: [
-          { en: 'The books are on the table.', th: 'หนังสืออยู่บนโต๊ะ', ok: true },
-          { en: 'Children like cartoons.', th: 'เด็กๆ ชอบการ์ตูน', ok: true },
+        chip: '3. ประธานพหูพจน์ธรรมดา',
+        rows: [
+        { left: 'หนังสืออยู่บนโต๊ะ', right: 'The books are on the table.' },
+        { left: 'เด็กๆ ชอบการ์ตูน', right: 'Children like cartoons.' }
         ],
       },
     ],
@@ -183,27 +220,24 @@ export const LESSONS: Record<string, LessonContent> = {
       'ประธานที่มีมากกว่าหนึ่งตัวเชื่อมด้วย and / or / nor มีกฎที่ต่างกันออกไป',
     sections: [
       {
-        heading: '1. เชื่อมด้วย and → กริยาพหูพจน์',
-        body: 'ประธานสองตัวขึ้นไปเชื่อมด้วย and ถือเป็นพหูพจน์',
-        examples: [
-          { en: 'Tom and Jerry are friends.', th: 'ทอมกับเจอร์รี่เป็นเพื่อนกัน', ok: true },
-          { en: 'Coffee and tea are popular drinks.', th: 'กาแฟกับชาเป็นเครื่องดื่มยอดนิยม', ok: true },
+        chip: '1. เชื่อมด้วย and → กริยาพหูพจน์',
+        rows: [
+        { left: 'ทอมกับเจอร์รี่เป็นเพื่อนกัน', right: 'Tom and Jerry are friends.' },
+        { left: 'กาแฟกับชาเป็นเครื่องดื่มยอดนิยม', right: 'Coffee and tea are popular drinks.' }
         ],
       },
       {
-        heading: '2. ข้อยกเว้น: คำเดียวกัน/แนวคิดเดียว',
-        body: 'ถ้าประธานสองตัวหมายถึงคนเดียวกัน หรือเป็นแนวคิดเดียว ให้ใช้กริยาเอกพจน์',
-        examples: [
-          { en: 'The owner and manager is here.', th: 'เจ้าของที่เป็นผู้จัดการคนเดียวกันอยู่นี่ (คนเดียว)', ok: true },
-          { en: 'Fish and rice is her favorite dish.', th: 'ปลากับข้าวเป็นจานโปรด (ถือเป็นจานเดียว)', ok: true },
+        chip: '2. ข้อยกเว้น: คำเดียวกัน/แนวคิดเดียว',
+        rows: [
+        { left: 'เจ้าของที่เป็นผู้จัดการคนเดียวกันอยู่นี่ (คนเดียว)', right: 'The owner and manager is here.' },
+        { left: 'ปลากับข้าวเป็นจานโปรด (ถือเป็นจานเดียว)', right: 'Fish and rice is her favorite dish.' }
         ],
       },
       {
-        heading: '3. เชื่อมด้วย or / nor → ดูประธานตัวหลัง',
-        body: 'ถ้าเชื่อมด้วย or หรือ nor กริยาจะตรงกับประธานตัวที่อยู่ใกล้กริยาที่สุด (proximity rule)',
-        examples: [
-          { en: 'Neither the teacher nor the students are ready.', th: 'นักเรียน (พหูพจน์) อยู่ใกล้กริยา → ใช้ are', ok: true },
-          { en: 'Either the students or the teacher is ready.', th: 'ครู (เอกพจน์) อยู่ใกล้กริยา → ใช้ is', ok: true },
+        chip: '3. เชื่อมด้วย or / nor → ดูประธานตัวหลัง',
+        rows: [
+        { left: 'นักเรียน (พหูพจน์) อยู่ใกล้กริยา → ใช้ are', right: 'Neither the teacher nor the students are ready.' },
+        { left: 'ครู (เอกพจน์) อยู่ใกล้กริยา → ใช้ is', right: 'Either the students or the teacher is ready.' }
         ],
       },
     ],
@@ -216,27 +250,24 @@ export const LESSONS: Record<string, LessonContent> = {
       'คำสรรพนามไม่ชี้เฉพาะ อย่าง everyone, someone, anybody, each, neither ส่วนใหญ่เป็นเอกพจน์',
     sections: [
       {
-        heading: '1. กลุ่ม -one, -body, -thing → เอกพจน์',
-        body: 'everyone, everybody, everything, someone, somebody, something, anyone, anybody, anything, no one, nobody, nothing ล้วนใช้กริยาเอกพจน์',
-        examples: [
-          { en: 'Everybody likes pizza.', th: 'ทุกคนชอบพิซซ่า', ok: true },
-          { en: 'Something is wrong with my phone.', th: 'มีอะไรบางอย่างผิดปกติกับโทรศัพท์', ok: true },
+        chip: '1. กลุ่ม -one, -body, -thing → เอกพจน์',
+        rows: [
+        { left: 'ทุกคนชอบพิซซ่า', right: 'Everybody likes pizza.' },
+        { left: 'มีอะไรบางอย่างผิดปกติกับโทรศัพท์', right: 'Something is wrong with my phone.' }
         ],
       },
       {
-        heading: '2. each, every, either, neither → เอกพจน์',
-        body: 'แม้จะตามด้วยประธานพหูพจน์ คำเหล่านี้ก็ยังถือเป็นเอกพจน์',
-        examples: [
-          { en: 'Each of the students has a book.', th: 'นักเรียนแต่ละคนมีหนังสือ (has ไม่ใช่ have)', ok: true },
-          { en: 'Neither answer is correct.', th: 'ไม่มีคำตอบไหนถูก', ok: true },
+        chip: '2. each, every, either, neither → เอกพจน์',
+        rows: [
+        { left: 'นักเรียนแต่ละคนมีหนังสือ (has ไม่ใช่ have)', right: 'Each of the students has a book.' },
+        { left: 'ไม่มีคำตอบไหนถูก', right: 'Neither answer is correct.' }
         ],
       },
       {
-        heading: '3. กลุ่มที่ขึ้นกับความหมาย',
-        body: 'some, any, none, most, all อาจเป็นเอกพจน์หรือพหูพจน์ได้ ขึ้นอยู่กับคำนามที่ตามหลัง (นับได้ = พหูพจน์, นับไม่ได้ = เอกพจน์)',
-        examples: [
-          { en: 'Some of the water is cold.', th: 'น้ำบางส่วนเย็น (นับไม่ได้ → เอกพจน์)', ok: true },
-          { en: 'Some of the students are absent.', th: 'นักเรียนบางคนไม่มา (นับได้ → พหูพจน์)', ok: true },
+        chip: '3. กลุ่มที่ขึ้นกับความหมาย',
+        rows: [
+        { left: 'น้ำบางส่วนเย็น (นับไม่ได้ → เอกพจน์)', right: 'Some of the water is cold.' },
+        { left: 'นักเรียนบางคนไม่มา (นับได้ → พหูพจน์)', right: 'Some of the students are absent.' }
         ],
       },
     ],
@@ -249,25 +280,22 @@ export const LESSONS: Record<string, LessonContent> = {
       'คำนามรวมกลุ่ม เช่น team, family, class, staff, committee มักใช้กริยาเอกพจน์ในภาษาอเมริกัน',
     sections: [
       {
-        heading: '1. มองเป็นหน่วยเดียว → เอกพจน์',
-        body: 'ภาษาอังกฤษอเมริกัน (ใช้ในข้อสอบส่วนใหญ่) มองว่า collective noun เป็นหน่วยเดียว',
-        examples: [
-          { en: 'The team is playing well today.', th: 'ทีมเล่นได้ดีวันนี้', ok: true },
-          { en: 'My family lives in Bangkok.', th: 'ครอบครัวฉันอยู่ที่กรุงเทพฯ', ok: true },
+        chip: '1. มองเป็นหน่วยเดียว → เอกพจน์',
+        rows: [
+        { left: 'ทีมเล่นได้ดีวันนี้', right: 'The team is playing well today.' },
+        { left: 'ครอบครัวฉันอยู่ที่กรุงเทพฯ', right: 'My family lives in Bangkok.' }
         ],
       },
       {
-        heading: '2. มองเป็นสมาชิกแยกกัน → พหูพจน์ (British)',
-        body: 'ภาษาอังกฤษอังกฤษ (British English) มองสมาชิกภายในกลุ่มแยกกัน จึงใช้กริยาพหูพจน์ได้',
-        examples: [
-          { en: 'The team are arguing among themselves.', th: 'สมาชิกทีมกำลังทะเลาะกันเอง (แยกตัวบุคคล)', ok: true },
+        chip: '2. มองเป็นสมาชิกแยกกัน → พหูพจน์ (British)',
+        rows: [
+        { left: 'สมาชิกทีมกำลังทะเลาะกันเอง (แยกตัวบุคคล)', right: 'The team are arguing among themselves.' }
         ],
       },
       {
-        heading: '3. ในข้อสอบ CEFR',
-        body: 'โจทย์มาตรฐานส่วนใหญ่นิยม American English ให้ตอบเป็นเอกพจน์เมื่อเห็น team/family/class ทำหน้าที่เป็นประธานทั่วไป',
-        examples: [
-          { en: 'The committee has made a decision.', th: 'คณะกรรมการตัดสินใจแล้ว', ok: true },
+        chip: '3. ในข้อสอบ CEFR',
+        rows: [
+        { left: 'คณะกรรมการตัดสินใจแล้ว', right: 'The committee has made a decision.' }
         ],
       },
     ],
@@ -279,35 +307,31 @@ export const LESSONS: Record<string, LessonContent> = {
     intro: 'โครงสร้างพิเศษที่ออกสอบบ่อย แต่คนพลาดบ่อยที่สุด',
     sections: [
       {
-        heading: '1. There is / There are',
-        body: 'กริยาต้องตรงกับประธานจริงที่อยู่หลัง there',
-        examples: [
-          { en: 'There is a book on the desk.', th: 'มีหนังสือหนึ่งเล่มบนโต๊ะ', ok: true },
-          { en: 'There are many books on the desk.', th: 'มีหนังสือหลายเล่มบนโต๊ะ', ok: true },
+        chip: '1. There is / There are',
+        rows: [
+        { left: 'มีหนังสือหนึ่งเล่มบนโต๊ะ', right: 'There is a book on the desk.' },
+        { left: 'มีหนังสือหลายเล่มบนโต๊ะ', right: 'There are many books on the desk.' }
         ],
       },
       {
-        heading: '2. ขัดจากประธานด้วยวลี (Prepositional phrases)',
-        body: 'วลีระหว่างประธานกับกริยา ไม่มีผลต่อการเลือกกริยา — ให้ข้ามไปดูประธานตัวจริง',
-        examples: [
-          { en: 'The box of chocolates is on the table.', th: 'ประธานจริงคือ box (เอกพจน์) → is', ok: true },
-          { en: 'The students in this class work hard.', th: 'ประธานจริงคือ students (พหูพจน์) → work', ok: true },
+        chip: '2. ขัดจากประธานด้วยวลี (Prepositional phrases)',
+        rows: [
+        { left: 'ประธานจริงคือ box (เอกพจน์) → is', right: 'The box of chocolates is on the table.' },
+        { left: 'ประธานจริงคือ students (พหูพจน์) → work', right: 'The students in this class work hard.' }
         ],
       },
       {
-        heading: '3. ประธานเป็น clause หรือ gerund',
-        body: 'ประโยค วลี หรือ gerund (V-ing) ทำหน้าที่เป็นประธาน ถือเป็นเอกพจน์',
-        examples: [
-          { en: 'Swimming is good exercise.', th: 'ว่ายน้ำเป็นการออกกำลังกายที่ดี', ok: true },
-          { en: 'What she said was surprising.', th: 'สิ่งที่เธอพูดน่าประหลาดใจ', ok: true },
+        chip: '3. ประธานเป็น clause หรือ gerund',
+        rows: [
+        { left: 'ว่ายน้ำเป็นการออกกำลังกายที่ดี', right: 'Swimming is good exercise.' },
+        { left: 'สิ่งที่เธอพูดน่าประหลาดใจ', right: 'What she said was surprising.' }
         ],
       },
       {
-        heading: '4. Fractions & amounts',
-        body: 'จำนวนเงิน ระยะทาง เวลา ที่มองเป็นผลรวมเดียว ใช้กริยาเอกพจน์',
-        examples: [
-          { en: 'Ten dollars is enough.', th: 'สิบดอลลาร์พอแล้ว (มองเป็นจำนวนเดียว)', ok: true },
-          { en: 'Five kilometers is a long walk.', th: 'ห้ากิโลเมตรเป็นทางเดินที่ไกล', ok: true },
+        chip: '4. Fractions & amounts',
+        rows: [
+        { left: 'สิบดอลลาร์พอแล้ว (มองเป็นจำนวนเดียว)', right: 'Ten dollars is enough.' },
+        { left: 'ห้ากิโลเมตรเป็นทางเดินที่ไกล', right: 'Five kilometers is a long walk.' }
         ],
       },
     ],
@@ -320,15 +344,14 @@ export const LESSONS: Record<string, LessonContent> = {
       'ทบทวนกฎทั้งหมดของยูนิต Subject-Verb Agreement ก่อนขึ้นเลเวลถัดไป',
     sections: [
       {
-        heading: 'สรุปกฎทั้ง 6 ข้อ',
-        body: 'เช็คลิสต์ทบทวนเร็ว:',
-        examples: [
-          { en: '1. เอกพจน์เติม s / พหูพจน์ไม่เติม s', th: 'She works · They work', ok: true },
-          { en: '2. News/physics + uncountable = เอกพจน์', th: 'The news is good', ok: true },
-          { en: '3. A and B = พหูพจน์ (ยกเว้นคน/สิ่งเดียวกัน)', th: 'Tom and Jerry are…', ok: true },
-          { en: '4. or/nor → ดูประธานตัวใกล้กริยา', th: 'Neither A nor B are/is…', ok: true },
-          { en: '5. Everyone/each/either/neither = เอกพจน์', th: 'Everybody likes…', ok: true },
-          { en: '6. ตัดวลีขวางก่อนดูประธานจริง', th: 'The box of… is…', ok: true },
+        chip: 'สรุปกฎทั้ง 6 ข้อ',
+        rows: [
+        { left: 'She works · They work', right: '1. เอกพจน์เติม s / พหูพจน์ไม่เติม s' },
+        { left: 'The news is good', right: '2. News/physics + uncountable = เอกพจน์' },
+        { left: 'Tom and Jerry are…', right: '3. A and B = พหูพจน์ (ยกเว้นคน/สิ่งเดียวกัน)' },
+        { left: 'Neither A nor B are/is…', right: '4. or/nor → ดูประธานตัวใกล้กริยา' },
+        { left: 'Everybody likes…', right: '5. Everyone/each/either/neither = เอกพจน์' },
+        { left: 'The box of… is…', right: '6. ตัดวลีขวางก่อนดูประธานจริง' }
         ],
       },
     ],

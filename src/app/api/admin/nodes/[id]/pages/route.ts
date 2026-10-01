@@ -48,12 +48,59 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     if (!node) return NextResponse.json({ success: false, error: 'Node not found' }, { status: 404 });
 
     if (Array.isArray(body.sections)) {
-      for (const s of body.sections) {
-        if (s.headingSize !== undefined && !['sm', 'md', 'lg', 'xl'].includes(s.headingSize)) {
+      for (const rawSection of body.sections) {
+        if (!rawSection || typeof rawSection !== 'object' || Array.isArray(rawSection)) {
+          return NextResponse.json({ success: false, error: 'each section must be an object' }, { status: 400 });
+        }
+        const s = rawSection as Record<string, unknown>;
+        if (s.headingSize !== undefined && !['sm', 'md', 'lg', 'xl'].includes(String(s.headingSize))) {
           return NextResponse.json({ success: false, error: 'invalid headingSize' }, { status: 400 });
         }
-        if (s.bodySize !== undefined && !['sm', 'md', 'lg'].includes(s.bodySize)) {
+        if (s.bodySize !== undefined && !['sm', 'md', 'lg'].includes(String(s.bodySize))) {
           return NextResponse.json({ success: false, error: 'invalid bodySize' }, { status: 400 });
+        }
+        if (s.type !== undefined && !['rule', 'detailedRule', 'importantNote', 'practice'].includes(String(s.type))) {
+          return NextResponse.json({ success: false, error: 'invalid section type' }, { status: 400 });
+        }
+        if (s.rows !== undefined) {
+          const rows = s.rows;
+          if (!Array.isArray(rows) || rows.some((rawRow) => {
+            if (!rawRow || typeof rawRow !== 'object') return true;
+            const row = rawRow as { left?: unknown; right?: unknown };
+            return typeof row.left !== 'string' || (row.right !== undefined && typeof row.right !== 'string');
+          })) return NextResponse.json({ success: false, error: 'rows must contain a non-empty left and optional string right' }, { status: 400 });
+        }
+        if (s.examples !== undefined) {
+          const examples = s.examples;
+          if (!Array.isArray(examples) || examples.some((rawExample) => {
+            if (!rawExample || typeof rawExample !== 'object') return true;
+            const example = rawExample as { en?: unknown; th?: unknown; ok?: unknown };
+            return typeof example.en !== 'string' || (example.th !== undefined && typeof example.th !== 'string') || (example.ok !== undefined && typeof example.ok !== 'boolean');
+          })) return NextResponse.json({ success: false, error: 'examples must contain English text and optional translation/status' }, { status: 400 });
+        }
+        if (s.table !== undefined) {
+          const table = s.table as { headers?: unknown; rows?: unknown } | null;
+          if (!table || typeof table !== 'object' || !Array.isArray(table.headers) || !Array.isArray(table.rows) || table.rows.some((row) => !Array.isArray(row))) {
+            return NextResponse.json({ success: false, error: 'table must contain headers and rows arrays' }, { status: 400 });
+          }
+        }
+        if (s.type === 'practice' && s.practice === undefined) {
+          return NextResponse.json({ success: false, error: 'practice section must include a questions array' }, { status: 400 });
+        }
+        if (s.practice !== undefined) {
+          const practice = s.practice as { questions?: unknown } | null;
+          if (!practice || typeof practice !== 'object' || !Array.isArray(practice.questions) || practice.questions.some((rawQuestion) => {
+            if (!rawQuestion || typeof rawQuestion !== 'object') return true;
+            const question = rawQuestion as { sentence?: unknown; options?: unknown; answerIndex?: unknown };
+            return typeof question.sentence !== 'string' || !Array.isArray(question.options) || typeof question.answerIndex !== 'number' || question.answerIndex < 0 || question.answerIndex >= question.options.length;
+          })) {
+            return NextResponse.json({ success: false, error: 'practice must contain a questions array with valid sentence, options, and answerIndex' }, { status: 400 });
+          }
+        }
+        for (const field of ['heading', 'body', 'chip', 'description', 'tip'] as const) {
+          if (s[field] !== undefined && s[field] !== null && typeof s[field] !== 'string') {
+            return NextResponse.json({ success: false, error: `${field} must be a string` }, { status: 400 });
+          }
         }
       }
     }

@@ -5,20 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ChevronRight, FileText, HelpCircle, Loader2, PanelTop, Pencil, RotateCcw, XCircle } from 'lucide-react';
 import StudentLessonContent from '@/components/LessonContent';
 import type { LessonContent as StudentLesson } from '@/content/units-path-lessons';
+import { normalizeLessonSections } from '@/lib/lesson-sections';
 
 interface PageRow {
   id: number;
   nodeId: number;
   pageType: string;
-  sections: Array<{
-    heading: string;
-    body: string;
-    headingSize?: 'sm' | 'md' | 'lg' | 'xl';
-    bodySize?: 'sm' | 'md' | 'lg';
-    examples?: Array<{ en: string; th: string; ok: boolean }>;
-    table?: { headers: string[]; rows: string[][] };
-    tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> };
-  }> | null;
+  sections: StudentLesson['sections'] | null;
   quiz: { questions?: Array<{ sentence: string; options: string[]; answerIndex: number; explanation: string }> } | null;
   intro: string | null;
   tip: string | null;
@@ -51,10 +44,10 @@ function getStatus(pages: PageRow[]) {
   const explain = pages.filter((page) => page.pageType === 'explain');
   const quiz = pages.filter((page) => page.pageType === 'quiz');
   const tap = pages.filter((page) => page.pageType === 'tap');
-  const hasConcept = explain.some((page) => page.sections?.some((section) => section.heading.trim() && section.body.trim()) || page.intro?.trim());
+  const hasConcept = explain.some((page) => normalizeLessonSections(page.sections, { intro: page.intro, tip: page.tip }).some((section) => Boolean(section.heading?.trim() || section.body?.trim() || section.chip?.trim() || section.description?.trim() || section.rows?.some((row) => row.left.trim()) || section.examples?.some((example) => example.en.trim()) || section.practice?.questions?.some((question) => question.sentence.trim()) || section.tap?.items?.some((item) => item.prompt.trim()))) || Boolean(page.intro?.trim()));
   const hasTap =
-    tap.some((page) => page.sections?.some((section) => section.tap?.items?.some((item) => item.prompt.trim() && item.choiceA.trim() && item.choiceB.trim()))) ||
-    explain.some((page) => page.sections?.some((section) => section.tap?.items?.some((item) => item.prompt.trim() && item.choiceA.trim() && item.choiceB.trim())));
+    tap.some((page) => normalizeLessonSections(page.sections).some((section) => section.tap?.items?.some((item) => item.prompt.trim() && item.choiceA.trim() && item.choiceB.trim()))) ||
+    explain.some((page) => normalizeLessonSections(page.sections).some((section) => section.tap?.items?.some((item) => item.prompt.trim() && item.choiceA.trim() && item.choiceB.trim())));
   const questionCount = quiz.reduce((count, page) => count + (page.quiz?.questions?.length ?? 0), 0);
   return { hasConcept, hasTap, hasExam: questionCount > 0, questionCount, explain, quiz, tap };
 }
@@ -98,14 +91,14 @@ export default function NodeContentBuilder({ nodeId }: { nodeId: number }) {
   const previewLesson: StudentLesson = {
     nodeId: String(nodeId),
     title: node?.title ?? 'ตัวอย่าง Node',
-    intro: conceptPage?.intro ?? undefined,
-    sections: status.explain.flatMap((page) => (page.sections ?? []).filter((section) => !section.tap)),
+    intro: undefined,
+    sections: status.explain.flatMap((page) => normalizeLessonSections(page.sections, { intro: page.intro, tip: page.tip }).filter((section) => !section.tap)),
     tapExercises: [
-      ...status.tap.flatMap((page) => (page.sections ?? []).flatMap((section) => (section.tap ? [section.tap] : []))),
-      ...status.explain.flatMap((page) => (page.sections ?? []).flatMap((section) => (section.tap ? [section.tap] : []))),
+      ...status.tap.flatMap((page) => normalizeLessonSections(page.sections).flatMap((section) => (section.tap ? [section.tap] : []))),
+      ...status.explain.flatMap((page) => normalizeLessonSections(page.sections).flatMap((section) => (section.tap ? [section.tap] : []))),
     ],
     tapInline: true,
-    tip: conceptPage?.tip ?? undefined,
+    tip: undefined,
     vocabBank: conceptPage?.vocabBank ?? undefined,
     quiz: examQuestions.length > 0 ? { questions: examQuestions } : undefined,
   };

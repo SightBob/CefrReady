@@ -48,11 +48,7 @@ async function main() {
       await db.insert(lessonPages).values({
         nodeId: nodeRow.id,
         pageType: 'explain',
-        sections: lesson.sections.map((s) => ({
-          heading: s.heading,
-          body: s.body,
-          examples: s.examples,
-        })),
+        sections: lesson.sections.map((s) => ({ ...s })),
         vocabBank: lesson.vocabBank ?? null,
         tip: lesson.tip ?? null,
         orderIndex: 0,

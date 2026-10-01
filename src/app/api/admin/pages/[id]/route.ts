@@ -21,18 +21,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
 
     const updates: Partial<{
       pageType: string;
-      sections: Array<{
-        heading: string;
-        body: string;
-        headingSize?: 'sm' | 'md' | 'lg' | 'xl';
-        bodySize?: 'sm' | 'md' | 'lg';
-        examples?: Array<{ en: string; th: string; ok: boolean }>;
-        table?: { headers: string[]; rows: string[][] };
-        tap?: {
-          title: string;
-          items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }>;
-        };
-      }>;
+      sections: Array<Record<string, unknown>>;
       quiz:
         | { sentence: string; options: string[]; answerIndex: number; explanation: string }
         | { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation: string }> }
@@ -57,20 +46,43 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       if (!Array.isArray(body.sections)) {
         return NextResponse.json({ success: false, error: 'sections must be an array' }, { status: 400 });
       }
-      for (const s of body.sections) {
-        // Tap pages intentionally store the exercise in sections[0].tap and
-        // do not need concept heading/body fields.
-        if (body.pageType !== 'tap' && (!s.heading?.trim() || !s.body?.trim())) {
-          return NextResponse.json(
-            { success: false, error: 'each section needs heading and body' },
-            { status: 400 }
-          );
+      for (const rawSection of body.sections) {
+        if (!rawSection || typeof rawSection !== 'object' || Array.isArray(rawSection)) {
+          return NextResponse.json({ success: false, error: 'each section must be an object' }, { status: 400 });
         }
-        if (s.headingSize !== undefined && !['sm', 'md', 'lg', 'xl'].includes(s.headingSize)) {
-          return NextResponse.json({ success: false, error: 'invalid headingSize' }, { status: 400 });
+        const s = rawSection as Record<string, unknown>;
+        if (s.type !== undefined && !['rule', 'detailedRule', 'importantNote', 'practice'].includes(String(s.type))) {
+          return NextResponse.json({ success: false, error: 'invalid section type' }, { status: 400 });
         }
-        if (s.bodySize !== undefined && !['sm', 'md', 'lg'].includes(s.bodySize)) {
-          return NextResponse.json({ success: false, error: 'invalid bodySize' }, { status: 400 });
+        if (s.rows !== undefined && (!Array.isArray(s.rows) || s.rows.some((row) => !row || typeof row !== 'object' || typeof row.left !== 'string' || (row.right !== undefined && typeof row.right !== 'string')))) {
+          return NextResponse.json({ success: false, error: 'rows must contain a non-empty left and optional string right' }, { status: 400 });
+        }
+        if (s.examples !== undefined && (!Array.isArray(s.examples) || s.examples.some((example) => !example || typeof example !== 'object' || typeof example.en !== 'string' || (example.th !== undefined && typeof example.th !== 'string') || (example.ok !== undefined && typeof example.ok !== 'boolean')))) {
+          return NextResponse.json({ success: false, error: 'examples must contain English text and optional translation/status' }, { status: 400 });
+        }
+        if (s.table !== undefined) {
+          const table = s.table as { headers?: unknown; rows?: unknown } | null;
+          if (!table || typeof table !== 'object' || !Array.isArray(table.headers) || !Array.isArray(table.rows) || table.rows.some((row: unknown) => !Array.isArray(row))) {
+            return NextResponse.json({ success: false, error: 'table must contain headers and rows arrays' }, { status: 400 });
+          }
+        }
+        if (s.type === 'practice' && s.practice === undefined) {
+          return NextResponse.json({ success: false, error: 'practice section must include a questions array' }, { status: 400 });
+        }
+        if (s.practice !== undefined) {
+          const practice = s.practice as { questions?: unknown } | null;
+          if (!practice || typeof practice !== 'object' || !Array.isArray(practice.questions) || practice.questions.some((rawQuestion) => {
+            if (!rawQuestion || typeof rawQuestion !== 'object') return true;
+            const question = rawQuestion as { sentence?: unknown; options?: unknown; answerIndex?: unknown };
+            return typeof question.sentence !== 'string' || !Array.isArray(question.options) || typeof question.answerIndex !== 'number' || question.answerIndex < 0 || question.answerIndex >= question.options.length;
+          })) {
+            return NextResponse.json({ success: false, error: 'practice must contain a questions array with valid sentence, options, and answerIndex' }, { status: 400 });
+          }
+        }
+        for (const field of ['heading', 'body', 'chip', 'description', 'tip'] as const) {
+          if (s[field] !== undefined && s[field] !== null && typeof s[field] !== 'string') {
+            return NextResponse.json({ success: false, error: `${field} must be a string` }, { status: 400 });
+          }
         }
       }
       if (body.pageType === 'tap') {
@@ -161,7 +173,11 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     const [currentPage] = await db.select().from(lessonPages).where(eq(lessonPages.id, pageId)).limit(1);
     if (!currentPage) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
 
-    if (updates.isPublished === true) {
+    // Only validate node completeness when this page is being published for
+    // the first time (or republished after being a draft). Editing an already
+    // published page must remain saveable even if other node content is still
+    // incomplete; node-level readiness is enforced at the publication step.
+    if (updates.isPublished === true && !currentPage.isPublished) {
       const nodePages = await db.select({ id: lessonPages.id, pageType: lessonPages.pageType, sections: lessonPages.sections, quiz: lessonPages.quiz })
         .from(lessonPages)
         .where(eq(lessonPages.nodeId, currentPage.nodeId));

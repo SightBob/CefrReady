@@ -1,6 +1,7 @@
 import { db } from '@/db';
 import { learningUnits, learningNodes, lessonPages } from '@/db/schema';
 import { and, asc, eq } from 'drizzle-orm';
+import { normalizeLessonSections } from './lesson-sections';
 
 // ============================================================
 // Shared types — used by both public pages and the admin panel
@@ -8,18 +9,19 @@ import { and, asc, eq } from 'drizzle-orm';
 
 export type UnitColorKey = 'green' | 'blue' | 'purple' | 'orange';
 
-/** A table block inside a lesson section */
-export interface LessonTable {
-  /** Column headers; the first column is treated as the row label */
-  headers: string[];
-  rows: string[][];
-}
-
+/** One content block in a learner-facing explanation page. */
 export interface LessonSection {
-  heading: string;
-  body: string;
-  examples?: Array<{ en: string; th: string; ok: boolean }>;
-  table?: LessonTable;
+  type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice';
+  heading?: string;
+  body?: string;
+  chip?: string;
+  description?: string;
+  rows?: Array<{ left: string; right?: string }>;
+  examples?: Array<{ en: string; th?: string; ok?: boolean }>;
+  practice?: { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation?: string }> };
+  legacyType?: string;
+  tip?: string;
+  /** Tap exercises remain supported for old pages and dedicated Tap pages. */
   tap?: TapExercise;
 }
 
@@ -193,11 +195,11 @@ export async function fetchLearningPath(): Promise<UnitData[]> {
             id: p.id,
             pageType: p.pageType as LessonPageData['pageType'],
             isPublished: p.isPublished,
-            intro: p.intro ?? null,
-            sections: p.sections ?? [],
+            intro: null,
+            sections: normalizeLessonSections(p.sections, { intro: p.intro, tip: p.tip }),
             quiz: normalizeQuiz(p.quiz),
             vocabBank: normalizeVocabBank(p.vocabBank),
-            tip: p.tip ?? null,
+            tip: null,
             orderIndex: p.orderIndex,
           })),
       })),
@@ -239,11 +241,11 @@ export async function fetchNodeLesson(
         id: p.id,
         pageType: p.pageType as LessonPageData['pageType'],
         isPublished: p.isPublished,
-        intro: p.intro ?? null,
-        sections: p.sections ?? [],
+        intro: null,
+        sections: normalizeLessonSections(p.sections, { intro: p.intro, tip: p.tip }),
         quiz: normalizeQuiz(p.quiz),
         vocabBank: normalizeVocabBank(p.vocabBank),
-        tip: p.tip ?? null,
+        tip: null,
         orderIndex: p.orderIndex,
       })),
     },

@@ -2,24 +2,13 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Sparkle,
-  ArrowRight,
-  RotateCcw,
-  CheckCircle,
-  XCircle,
-  Lightbulb,
-  BookOpen,
-  Trophy,
-  House,
-} from 'lucide-react';
-import type { LessonContent, HeadingSize, BodySize } from '@/content/units-path-lessons';
+import { Trophy } from 'lucide-react';
+import type { LessonContent, ReviewTopic } from '@/content/units-path-lessons';
 import LessonLayout from './LessonLayout';
 import type { LessonStop } from './lesson-stops';
-import VocabBankModal from './VocabBankModal';
 import LessonQuiz from './LessonQuiz';
 import type { LessonQuizHandle, LessonQuizState } from './LessonQuiz';
-import RichText from './RichText';
+import ReviewContent from './ReviewContent';
 import TapSelectFlow from './TapSelectFlow';
 import type { TapFlowState } from './TapSelectFlow';
 
@@ -43,28 +32,21 @@ export default function LessonContent({
   siblings?: Array<{ id: number; title: string; completed?: boolean }>;
 }) {
   const router = useRouter();
-  const [vocabOpen, setVocabOpen] = useState(false);
 
-  // Per-section font-size classes (chosen in the Admin editor)
-  const HEADING_CLASS: Record<HeadingSize, string> = {
-    sm: 'text-base',
-    md: 'text-lg',
-    lg: 'text-xl sm:text-2xl',
-    xl: 'text-2xl sm:text-3xl',
-  };
-  const BODY_CLASS: Record<BodySize, string> = {
-    sm: 'text-sm',
-    md: 'text-sm sm:text-base',
-    lg: 'text-base sm:text-lg',
-  };
-  // Page flow: concept card -> Tab & Select (if any) -> real exam -> result.
+  // Page flow: Tab & Select (if any) -> real exam -> result.
+  // The Concept Card is NOT part of the main flow anymore — learners reach it
+  // through the "โหมดทบทวน" (review mode) button next to the primary action.
   const hasQuiz = Boolean(lesson.quiz?.questions?.length);
   const hasTap = Boolean(lesson.tapExercises?.some((exercise) => exercise.items.length > 0));
-  const tapPage = 1;
-  const quizPage = hasTap ? 2 : 1;
+  const tapPage = 0;
+  const quizPage = hasTap ? 1 : 0;
   const resultPage = quizPage + (hasQuiz ? 1 : 0);
   const contentPageCount = resultPage;
   const [page, setPage] = useState(0);
+  // Review mode — an overlay page showing the Concept Card, outside the main
+  // flow (has its own stop in the sidebar; not counted in the stats).
+  const [reviewMode, setReviewMode] = useState(false);
+
   const [score, setScore] = useState<{ correct: number; total: number } | null>(null);
 
   // Quiz state reported upward by LessonQuiz so the layout chrome can react.
@@ -118,42 +100,37 @@ export default function LessonContent({
     }
   };
 
-  const restart = () => {
-    setScore(null);
-    setQuizState(null);
-    setPage(0);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const goBack = () => {
-    if (page === 0) {
-      router.push('/units');
-      return;
-    }
-    setPage((p) => Math.max(p - 1, 0));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   // ===== Sidebar stops (numbered grid) =====
-  const stopLabels: string[] = ['Concept Card'];
-  if (hasTap) stopLabels.push('Tab & Select');
-  if (hasQuiz) stopLabels.push('Real Exam');
-  stopLabels.push('สรุปผล');
-  const stops: LessonStop[] = stopLabels.map((label, i) => ({
-    label,
-    state: i < page ? 'done' : i === page ? 'active' : 'todo',
-  }));
-
-  // ===== Bottom bar stats =====
-  // The mockup counts each stop as one "point": correct = stops finished,
-  // total = all stops (result page included once the quiz is done).
-  const statsTotal = stops.length;
-  const statsCorrect = page >= resultPage && score ? score.correct : page; // stops finished so far
+  // Each numbered stop = one REAL exam question (plus Tap & Select when
+  // present). "กำลังทำ" (active) always follows the question actually shown
+  // on screen (quizState.activeIndex) — whether reached by clicking a number,
+  // the next button, or the natural flow.
+  const tapCount = hasTap ? 1 : 0;
+  const questionCount = quizState?.total ?? lesson.quiz?.questions?.length ?? 0;
+  const stopCount = tapCount + questionCount;
+  const onQuizPage = page === quizPage && !reviewMode && page < resultPage;
+  const shownQuizIndex = onQuizPage && quizState ? quizState.activeIndex : null;
+  const stops: LessonStop[] = Array.from({ length: stopCount }, (_, i) => {
+    if (hasTap && i === 0) {
+      return { label: 'Tab & Select', state: page > tapPage ? 'done' : 'active' };
+    }
+    const qi = i - tapCount; // quiz question index (0-based)
+    const answered = quizState?.answers?.[qi] != null;
+    return {
+      label: `ข้อ ${qi + 1}`,
+      state: onQuizPage && shownQuizIndex === qi
+        ? 'active'
+        : answered || (quizState?.finished ?? false) || page > quizPage
+          ? 'done'
+          : 'todo',
+    } as LessonStop;
+  });
 
   // ===== Primary (yellow) action per page =====
   const tapPageActive = hasTap && page === tapPage;
-  const primaryLabel =
-    page === resultPage
+  const primaryLabel = reviewMode
+    ? 'ทำข้อสอบ'
+    : page === resultPage
       ? lesson.nextNodeId
         ? 'บทถัดไป'
         : 'กลับหน้าหลัก'
@@ -166,6 +143,13 @@ export default function LessonContent({
         : 'ต่อไป';
 
   const handlePrimary = () => {
+    // Review mode → back to the exam exactly where the learner left off
+    // (quiz/tap state lives in this component, so nothing resets).
+    if (reviewMode) {
+      setReviewMode(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     if (page === resultPage) {
       if (lesson.nextNodeId) {
         router.push(`/units/${lesson.nextNodeId}`);
@@ -198,47 +182,59 @@ export default function LessonContent({
       }
       return;
     }
-    // Concept / Tap pages → advance one page
+    // Tap page → advance to the next page (quiz or result)
     setPage((p) => Math.min(p + 1, contentPageCount));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const primaryDisabled =
-    (page === quizPage && hasQuiz && !quizState?.finished && !quizState?.answeredCurrent) ||
-    (tapPageActive && !tapState?.answeredCurrent);
-
-  // Concept bullets for the green summary card (max 3)
-  const summaryBullets: string[] = [];
-  if (lesson.intro?.trim()) {
-    // Strip RichText markup for a plain-text bullet
-    summaryBullets.push(lesson.intro.replace(/[*_`#]/g, '').slice(0, 80));
-  }
-  for (const section of lesson.sections) {
-    if (summaryBullets.length >= 3) break;
-    summaryBullets.push(section.body.replace(/[*_`#]/g, '').slice(0, 80));
-  }
-  if (lesson.tip && summaryBullets.length < 3) {
-    summaryBullets.push(lesson.tip.replace(/[*_`#]/g, '').slice(0, 80));
-  }
+    !reviewMode &&
+    ((page === quizPage && hasQuiz && !quizState?.finished && !quizState?.answeredCurrent) ||
+      (tapPageActive && !tapState?.answeredCurrent));
 
   const layout = (children: React.ReactNode) => (
     <LessonLayout
       unitNumber={unitNumber ?? 0}
       title={lesson.title}
       stops={stops}
-      activeStop={Math.min(page, stops.length - 1)}
-      progress={contentPageCount > 0 ? page / contentPageCount : 0}
+      activeStop={Math.min(
+        shownQuizIndex != null ? tapCount + shownQuizIndex : tapCount + (quizState
+            ? (() => {
+                const firstUnanswered = quizState.answers?.findIndex((a) => a == null) ?? -1;
+                return firstUnanswered === -1 ? (quizState.answers?.length ?? 1) - 1 : firstUnanswered;
+              })()
+            : Math.max(page - quizPage, 0)),
+        Math.max(stopCount - 1, 0)
+      )}
+      progress={stopCount > 0 ? Math.min((quizState?.answers?.filter((a) => a != null).length ?? 0) / stopCount, 1) : 0}
       accent={accent}
-      summary={{
-        title: lesson.sections[0]?.heading?.replace(/[*_`#]/g, '').slice(0, 40) || 'สรุปในส่วนนี้',
-        bullets: summaryBullets.length > 0 ? summaryBullets : ['เนื้อหาในบทนี้'],
-      }}
+      reviewMode={reviewMode}
       primaryAction={{ label: primaryLabel, onClick: handlePrimary, disabled: primaryDisabled }}
-      onBack={goBack}
-      stats={{ correct: statsCorrect, total: statsTotal }}
-      onRestart={restart}
+      secondaryAction={
+        // Toggle: opens the Concept Card in review mode. Closing is done via
+        // the primary "ทำข้อสอบ" button — no separate close button.
+        !reviewMode && page < resultPage
+          ? {
+              label: 'โหมดทบทวน',
+              onClick: () => {
+                setReviewMode(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              },
+            }
+          : undefined
+      }
       onStopSelect={(i) => {
-        setPage(Math.min(i, contentPageCount));
+        // Numbered stops map to real exam questions: clicking one leaves
+        // review mode and jumps to that question via the quiz handle.
+        // The highlighted number follows quizState.activeIndex automatically.
+        if (reviewMode) setReviewMode(false);
+        if (hasTap && i === 0) {
+          setPage(tapPage);
+        } else {
+          const qi = i - tapCount;
+          setPage(quizPage);
+          quizRef.current?.goTo?.(qi);
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }}
       onExit={() => router.push('/units')}
@@ -250,73 +246,26 @@ export default function LessonContent({
     </LessonLayout>
   );
 
-  // ===== Admin preview: keep the old simple chrome without the sidebar =====
+  // ===== Admin preview: same review rendering as the learner sees =====
   if (compact) {
     return (
       <div className="space-y-5">
-        {lesson.vocabBank && (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setVocabOpen(true)}
-              className="inline-flex items-center gap-2 bg-white text-sm font-extrabold px-4 py-2.5 rounded-xl"
-              style={{ boxShadow: `0 3px 0 ${accent.base}`, color: accent.dark, border: `2px solid ${accent.light}` }}
-              aria-haspopup="dialog"
-            >
-              <Sparkle size={16} style={{ color: accent.base }} aria-hidden="true" />
-              คลังศัพท์ช่วยชีวิต
-            </button>
-          </div>
-        )}
-        <ConceptSections
-          lesson={lesson}
-          accent={accent}
-          headingClass={HEADING_CLASS}
-          bodyClass={BODY_CLASS}
+        <ReviewContent
+          title={lesson.title}
+          topics={lesson.sections as ReviewTopic[]}
+          intro={lesson.intro}
+          tip={lesson.tip}
         />
-        {vocabOpen && lesson.vocabBank && (
-          <VocabBankModal
-            bank={lesson.vocabBank}
-            accent={{ base: accent.base, light: accent.light }}
-            onClose={() => setVocabOpen(false)}
-          />
-        )}
       </div>
     );
   }
 
   return layout(
     <>
-      {/* Concept / quiz / result content */}
-      {page < resultPage && (
-        <div className="flex justify-end mb-4">
-          {lesson.vocabBank && (
-            <button
-              type="button"
-              onClick={() => setVocabOpen(true)}
-              className="inline-flex items-center gap-2 bg-white text-sm font-extrabold px-4 py-2.5 rounded-full"
-              style={{ boxShadow: `0 3px 0 ${accent.base}`, color: accent.dark, border: `2px solid ${accent.light}` }}
-              aria-haspopup="dialog"
-            >
-              <Sparkle size={16} style={{ color: accent.base }} aria-hidden="true" />
-              คลังศัพท์ช่วยชีวิต
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ============ PAGE 0: EXPLANATION ============ */}
-      {page === 0 && (
-        <div style={{ animation: 'fadeIn 0.3s ease-out both' }}>
-          <ConceptSections lesson={lesson} accent={accent} headingClass={HEADING_CLASS} bodyClass={BODY_CLASS} />
-        </div>
-      )}
-
-      {/* ============ PAGE 1: TAB & SELECT (one-at-a-time) ============ */}
-      {tapPageActive && lesson.tapExercises?.[0] && (
+      {/* ============ PAGE 0: TAB & SELECT (one-at-a-time) ============ */}
+      {!reviewMode && tapPageActive && lesson.tapExercises?.[0] && (
         <div style={{ animation: 'fadeIn 0.3s ease-out both' }}>
           <TapSelectFlow
-            key={`tap-attempt-${score === null ? 'fresh' : 'done'}`}
             exercise={lesson.tapExercises[0]}
             tip={lesson.tip ?? null}
             accent={accent}
@@ -329,11 +278,10 @@ export default function LessonContent({
       )}
 
       {/* ============ REAL EXAM ============ */}
-      {page === quizPage && hasQuiz && lesson.quiz && (
+      {!reviewMode && page === quizPage && hasQuiz && lesson.quiz && (
         <div style={{ animation: 'fadeIn 0.3s ease-out both' }}>
           <LessonQuiz
             ref={quizRef}
-            key={`quiz-attempt-${score === null ? 'fresh' : 'done'}`}
             quiz={lesson.quiz}
             accent={accent}
             onStateChange={handleQuizState}
@@ -341,8 +289,20 @@ export default function LessonContent({
         </div>
       )}
 
+      {/* ============ REVIEW MODE: "หลังการเรียนรู้" (UI Reference) ============ */}
+      {reviewMode && (
+        <div style={{ animation: 'fadeIn 0.3s ease-out both' }}>
+          <ReviewContent
+            title={lesson.title}
+            topics={lesson.sections as ReviewTopic[]}
+            intro={lesson.intro}
+            tip={lesson.tip}
+          />
+        </div>
+      )}
+
       {/* ============ RESULT ============ */}
-      {page === resultPage && score && (
+      {!reviewMode && page === resultPage && score && (
         <div className="flex flex-col items-center text-center" style={{ animation: 'fadeIn 0.4s ease-out both' }}>
           <section
             className="w-full rounded-2xl border border-slate-200/70 bg-white p-8 sm:p-10 shadow-sm"
@@ -376,165 +336,6 @@ export default function LessonContent({
         </div>
       )}
 
-      {/* Modal */}
-      {vocabOpen && lesson.vocabBank && (
-        <VocabBankModal
-          bank={lesson.vocabBank}
-          accent={{ base: accent.base, light: accent.light }}
-          onClose={() => setVocabOpen(false)}
-        />
-      )}
-    </>
-  );
-}
-
-/** Shared concept sections (intro, boxes, tables, examples, tip). */
-function ConceptSections({
-  lesson,
-  accent,
-  headingClass,
-  bodyClass,
-}: {
-  lesson: LessonContent;
-  accent: { base: string; dark: string; light: string };
-  headingClass: Record<HeadingSize, string>;
-  bodyClass: Record<BodySize, string>;
-}) {
-  return (
-    <>
-      {/* จำไว้เลย box */}
-      {lesson.intro?.trim() && (
-        <section
-          className="rounded-2xl border-2 p-5 sm:p-6 mb-6 bg-white"
-          style={{ borderColor: accent.light, background: accent.light }}
-        >
-          <p
-            className="text-xs font-extrabold uppercase tracking-wider mb-2 flex items-center gap-1.5"
-            style={{ color: accent.dark }}
-          >
-            <BookOpen size={14} aria-hidden="true" />
-            คำนะสำหรับบทนี้
-          </p>
-          <RichText
-            text={lesson.intro}
-            highlightColor={accent.light}
-            className="text-sm sm:text-base font-semibold text-slate-700 leading-relaxed"
-          />
-        </section>
-      )}
-
-      {/* Lesson boxes */}
-      <div className="space-y-6">
-        {lesson.sections.map((section) => (
-          <section
-            key={section.heading}
-            className="bg-white rounded-2xl border border-slate-200/70 p-5 sm:p-6 shadow-sm"
-          >
-            <h2 className={`${headingClass[section.headingSize ?? 'md']} font-extrabold mb-2 leading-snug`} style={{ color: accent.dark }}>
-              <RichText text={section.heading} highlightColor={accent.light} as="span" />
-            </h2>
-            <RichText
-              text={section.body}
-              highlightColor={accent.light}
-              className={`${bodyClass[section.bodySize ?? 'md']} text-slate-600 leading-relaxed mb-4`}
-            />
-
-            {section.table && section.table.rows.length > 0 && (
-              <div className="mb-4 overflow-x-auto rounded-xl border-2" style={{ borderColor: accent.light }}>
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr>
-                      {section.table.headers.map((h, hi) => (
-                        <th
-                          key={hi}
-                          className="text-left font-extrabold px-3.5 py-2.5 text-white text-xs uppercase tracking-wider first:rounded-tl-xl last:rounded-tr-xl"
-                          style={{ background: accent.base }}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {section.table.rows.map((row, ri) => (
-                      <tr key={ri} className={ri % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                        {row.map((cell, ci) => (
-                          <td
-                            key={ci}
-                            className={`px-3.5 py-2.5 align-top ${
-                              ci === 0 ? 'font-bold text-slate-700' : 'text-slate-600'
-                            } ${ri === section.table!.rows.length - 1 ? (ci === 0 ? 'rounded-bl-xl' : '') && (ci === row.length - 1 ? 'rounded-br-xl' : '') : ''}`}
-                          >
-                            {cell}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {section.examples && (
-              <>
-                <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2.5">
-                  เลือกคำที่เป็นประโยคได้ถูกต้อง
-                </p>
-                <ul className="space-y-2.5">
-                  {section.examples.map((ex, i) => (
-                    <li
-                      key={i}
-                      className={`flex items-start gap-3 rounded-xl px-4 py-3 border-2 ${
-                        ex.ok
-                          ? 'bg-emerald-50 border-emerald-100'
-                          : 'bg-rose-50 border-rose-100'
-                      }`}
-                    >
-                      {ex.ok ? (
-                        <CheckCircle size={20} className="text-emerald-500 shrink-0 mt-0.5" aria-hidden="true" />
-                      ) : (
-                        <XCircle size={20} className="text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
-                      )}
-                      <div className="min-w-0">
-                        <p
-                          className={`font-semibold text-sm sm:text-base ${
-                            ex.ok
-                              ? 'text-slate-800'
-                              : 'text-slate-500 line-through decoration-rose-300'
-                          }`}
-                        >
-                          {ex.en}
-                        </p>
-                        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">{ex.th}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </section>
-        ))}
-      </div>
-
-      {/* Tip box */}
-      {lesson.tip && (
-        <aside
-          className="mt-6 rounded-2xl border-2 p-5 flex items-start gap-3"
-          style={{ borderColor: accent.light, background: '#fafafa' }}
-        >
-          <Lightbulb size={24} className="shrink-0 mt-0.5" style={{ color: accent.dark }} aria-hidden="true" />
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: accent.dark }}>
-              เคล็ดลับ
-            </p>
-            <RichText
-              text={lesson.tip}
-              highlightColor={accent.light}
-              className="text-sm sm:text-base font-semibold text-slate-700 mt-1"
-            />
-          </div>
-        </aside>
-      )}
     </>
   );
 }

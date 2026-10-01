@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import LessonPageEditor from '@/components/admin/LessonPageEditor';
+import type { LessonSection } from '@/content/units-path-lessons';
 
 interface PageData {
   id: number;
   nodeId: number;
   pageType: string;
-  sections: Array<{ heading: string; body: string; examples?: Array<{ en: string; th: string; ok: boolean }> }> | null;
+  sections: LessonSection[] | null;
   quiz:
     | { sentence: string; options: string[]; answerIndex: number; explanation: string }
     | { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation: string }> }
@@ -30,9 +31,6 @@ export default function EditLessonPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // The pages API is nested under a node; fetch all pages of the node once
-    // we resolve the page → node. Simplest reliable path: try each known
-    // node via the units tree.
     (async () => {
       try {
         const unitsRes = await fetch('/api/admin/units');
@@ -41,7 +39,6 @@ export default function EditLessonPage() {
           setError(unitsJson.error ?? 'โหลดข้อมูลไม่สำเร็จ');
           return;
         }
-        // Find the node that owns this page by scanning node pages
         for (const unit of unitsJson.data) {
           for (const node of unit.nodes) {
             const pagesRes = await fetch(`/api/admin/nodes/${node.id}/pages`);
@@ -49,17 +46,7 @@ export default function EditLessonPage() {
             if (pagesJson.success) {
               const found = (pagesJson.data as PageData[]).find((p) => p.id === pageId);
               if (found) {
-                setPage({
-                  ...found,
-                  sections: (found.sections ?? []).map((s) => ({
-                    heading: s.heading,
-                    body: s.body,
-                    examples: s.examples ?? [],
-                    table: (s as { table?: { headers: string[]; rows: string[][] } | null }).table ?? null,
-                    tap:
-                      (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap ?? null,
-                  })),
-                });
+                setPage(found);
                 return;
               }
             }
@@ -97,13 +84,7 @@ export default function EditLessonPage() {
         id: page.id,
         nodeId: page.nodeId,
         pageType: page.pageType,
-        sections: (page.sections ?? []).map((s) => ({
-          heading: s.heading,
-          body: s.body,
-          examples: s.examples ?? [],
-          table: (s as { table?: { headers: string[]; rows: string[][] } | null }).table ?? null,
-          tap: (s as { tap?: { title: string; items: Array<{ prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }> } | null }).tap ?? null,
-        })),
+        sections: page.sections ?? [],
         quiz: page.quiz,
         vocabBank: page.vocabBank,
         tip: page.tip,

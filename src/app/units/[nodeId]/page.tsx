@@ -46,25 +46,14 @@ export default async function LessonPage({
   const { node, unit } = data;
   const colors = accentFor(unit);
 
-  // Convert DB pages into the shape LessonContent expects:
-  // intro = first section body of the first explain page; sections carry on.
+  // Convert DB pages into the shape LessonContent expects.
+  // Explain pages carry the Review Mode cards (chip/description/rows/tip).
   const explainPages = node.pages.filter((p) => p.pageType === 'explain');
-  // Keep concept content and Tap & Select data from the same or separate
-  // explain pages. Unit 2 stores both blocks on one page; older nodes may
-  // still have a dedicated Tap page, which remains supported.
-  const conceptPages = explainPages;
   const tapOnConcept = explainPages.some(
     (p) => p.orderIndex === 0 && p.sections.some((s) => Boolean(s.tap))
   );
-  const sections = conceptPages.flatMap((p) =>
-    p.sections
-      .filter((s) => !s.tap)
-      .map((s) => ({
-        heading: s.heading,
-        body: s.body,
-        examples: s.examples,
-        table: (s as { table?: { headers: string[]; rows: string[][] } }).table,
-      }))
+  const sections = explainPages.flatMap((p) =>
+    p.sections.filter((s) => !s.tap)
   );
   // Tap & Select exercises: dedicated 'tap' pages first (new format), then
   // legacy taps embedded in explain-page sections.
@@ -106,13 +95,13 @@ export default async function LessonPage({
     title: node.title,
     nextNodeId: nextNode?.id,
     nextNodeTitle: nextNode?.title,
-    // "จำไว้เลย" box comes from the explain page's own intro field —
-    // shown only when the admin filled it in.
-    intro: explainPages.find((p) => p.intro?.trim())?.intro?.trim(),
+    // Legacy page-level intro/tip are no longer rendered separately; new content
+    // is authored as ordered explanation sections.
+    intro: undefined,
     sections,
     tapExercises,
     tapInline: tapOnConcept,
-    tip: tip ?? undefined,
+    tip: undefined,
     vocabBank: vocabBank ?? undefined,
     quiz: questions.length > 0 ? { questions } : undefined,
   };
