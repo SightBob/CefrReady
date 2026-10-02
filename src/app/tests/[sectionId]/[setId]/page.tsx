@@ -13,7 +13,21 @@ import { ApiError, apiFetch } from '@/lib/api-fetch';
 import type { QuestionResult, Option, Blank } from '@/types/test';
 import { usePostHog } from '@/lib/posthog';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
-import { buildWrongSet, shuffleQueue } from '@/lib/review-round';
+import { shuffleQueue } from '@/lib/review-round';
+import {
+  buildTestSubmissionAnswers,
+  countTestSetItems,
+  createQuestionChoiceOptions,
+  expandTestSetSlots,
+  getDisplayedChoiceAnswer,
+  getOriginalChoiceAnswer,
+  getOriginalTapChoiceAnswer,
+  shuffleTapExerciseChoices,
+  type ShuffledChoiceOption,
+  type TestSetSlot,
+  type TapExerciseData,
+} from '@/lib/test-set-slots';
+import type { PublicTapExerciseData } from '@/lib/test-set-slots';
 import dynamic from 'next/dynamic';
 import TestExplainOverlay from '@/components/TestExplainOverlay';
 
@@ -38,6 +52,7 @@ const TestResults = dynamic(() => import('@/components/TestResults'), {
 });
 const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
 const FormMeaningQuiz = dynamic(() => import('@/components/FormMeaningQuiz'));
+const TestTapSelectCard = dynamic(() => import('@/components/TestTapSelectCard'));
 
 const SECTION_HEADER: Record<string, { icon: React.ElementType; color: string }> = {
   'focus-form': { icon: PenTool, color: 'from-blue-500 to-cyan-500' },
@@ -62,6 +77,7 @@ interface RawQuestion {
   audioUrl?: string | null;
   transcript?: string | null;
   article?: { title: string; text: string; blanks: Blank[] } | null;
+  tapExercise?: TapExerciseData | PublicTapExerciseData | null;
   cefrLevel: string;
   difficulty?: string | null;
   grammarTopic?: string | null;
@@ -106,13 +122,14 @@ export default function SetQuizPage() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [answers, setAnswers] = useState<(string | null)[]>([]);
+  const [scoredTotal, setScoredTotal] = useState<number | null>(null);
   const [results, setResults] = useState<QuestionResult[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
-  const [testStartedAt] = useState(() => new Date().toISOString());
+  const [testStartedAt, setTestStartedAt] = useState(() => new Date().toISOString());
   const [formMeaningTotalBlanks, setFormMeaningTotalBlanks] = useState(0);
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [testExplain, setTestExplain] = useState<import('@/components/TestExplainOverlay').TestExplainContent | null>(null);
@@ -130,11 +147,18 @@ export default function SetQuizPage() {
   const [reviewAnswers, setReviewAnswers] = useState<(string | null)[]>([]);
   const [showReviewIntro, setShowReviewIntro] = useState(false);
   const [introWrongCount, setIntroWrongCount] = useState(0);
+  const [checkingReview, setCheckingReview] = useState(false);
+  const [reviewableWrongSlots, setReviewableWrongSlots] = useState<number[]>([]);
   const [retryResults, setRetryResults] = useState<Array<{ questionId: number; recovered: boolean }> | null>(null);
 
   // Set selector dropdown
   const [availableSets, setAvailableSets] = useState<{ id: number; name: string; description?: string | null }[]>([]);
-  const explainQuestionIndex = phase === 'review' ? (reviewQueue[reviewIndex] ?? 0) : currentQuestion;
+  const mainSlots = useMemo(() => setData ? expandTestSetSlots(setData.questions) : [], [setData]);
+  const choiceShuffleSeed = `${setId}-${testStartedAt}`;
+  const mainSlot = mainSlots[currentQuestion];
+  const explainQuestionIndex = phase === 'review'
+    ? (mainSlots[reviewQueue[reviewIndex] ?? 0]?.questionIndex ?? 0)
+    : (mainSlot?.questionIndex ?? currentQuestion);
   const explainTopic = setData?.questions[explainQuestionIndex]?.grammarTopic?.trim() ?? '';
 
   useEffect(() => {
@@ -200,19 +224,11 @@ export default function SetQuizPage() {
       const res = await fetch(`/api/test-sets/${setId}`);
       const data = await res.json();
       if (data.success) {
-        let finalQuestions = data.data.questions;
-
-        // Shuffle questions for sections that don't depend on sequential order
-        if (sectionId !== 'form-meaning') {
-          finalQuestions = [...finalQuestions];
-          for (let i = finalQuestions.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [finalQuestions[i], finalQuestions[j]] = [finalQuestions[j], finalQuestions[i]];
-          }
-        }
-
+        // Keep the authored test-set order so teaching groups remain inserted
+        // between the intended exam questions.
+        const finalQuestions: RawQuestion[] = data.data.questions;
         setSetData({ ...data.data, questions: finalQuestions });
-        setAnswers(Array(finalQuestions.length).fill(null));
+        setAnswers(Array(countTestSetItems(finalQuestions)).fill(null));
       } else {
         setNotFound(true);
       }
@@ -221,7 +237,7 @@ export default function SetQuizPage() {
     } finally {
       setLoading(false);
     }
-  }, [setId, sectionId]);
+  }, [setId]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -252,6 +268,52 @@ export default function SetQuizPage() {
 
   const isReviewPhase = phase === 'review';
 
+  const getQuestionChoices = useCallback((question: RawQuestion, salt: string): ShuffledChoiceOption[] => createQuestionChoiceOptions(
+    [
+      { key: 'A', value: question.optionA },
+      { key: 'B', value: question.optionB },
+      { key: 'C', value: question.optionC },
+      { key: 'D', value: question.optionD },
+    ],
+    `${choiceShuffleSeed}-${question.id}-${salt}`,
+    true
+  ), [choiceShuffleSeed]);
+
+  const toStoredAnswer = useCallback((question: RawQuestion, slot: TestSetSlot, answer: string): string => {
+    if (slot.kind === 'tap') {
+      const item = question.tapExercise?.items[slot.itemIndex];
+      if (!item) return answer;
+      const { answerKeys } = shuffleTapExerciseChoices(item, `${choiceShuffleSeed}-${question.id}-tap-${slot.itemIndex}`);
+      return getOriginalTapChoiceAnswer(answer, answerKeys);
+    }
+    if (slot.kind === 'question') {
+      return getOriginalChoiceAnswer(answer, getQuestionChoices(question, `question-${slot.questionIndex}`));
+    }
+    return answer;
+  }, [choiceShuffleSeed, getQuestionChoices]);
+
+  const checkReviewableWrongSlots = useCallback(async () => {
+    if (!setData) return [];
+    try {
+      const response = await apiFetch('/api/tests/review-wrong-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testTypeId: sectionId,
+          testSetId: setId,
+          answers: buildTestSubmissionAnswers(setData.questions, mainSlots, answers, toStoredAnswer),
+        }),
+      });
+      const data = await response.json();
+      return data.success && Array.isArray(data.data?.wrongSlots)
+        ? data.data.wrongSlots as number[]
+        : [];
+    } catch {
+      // Submission still works if the optional review check is unavailable.
+      return [];
+    }
+  }, [setData, sectionId, setId, mainSlots, answers, toStoredAnswer]);
+
   // ─── Answer + navigation handlers (phase-aware) ──────────────────
 
   // Store the picked option for the ACTIVE phase: main round writes into
@@ -275,6 +337,15 @@ export default function SetQuizPage() {
 
   // Layout index → phase-correct slot. In review phase, layout indices are
   // offset by the main round length.
+  const handleFreeTextAnswer = (answer: string) => {
+    setSelectedAnswer(answer);
+    if (isReviewPhase) {
+      setReviewAnswers(previous => previous.map((value, index) => index === reviewIndex ? answer : value));
+      return;
+    }
+    setAnswers(previous => previous.map((value, index) => index === currentQuestion ? answer : value));
+  };
+
   const handleResetAnswer = (index: number) => {
     if (isReviewPhase) {
       const rIdx = index - answers.length;
@@ -334,7 +405,7 @@ export default function SetQuizPage() {
       }
       return;
     }
-    if (currentQuestion < setData.questions.length - 1) {
+    if (currentQuestion < mainSlots.length - 1) {
       const next = currentQuestion + 1;
       setCurrentQuestion(next);
       setSelectedAnswer(answers[next]);
@@ -351,10 +422,20 @@ export default function SetQuizPage() {
   const buildRetriesPayload = (): RetryPayload[] => {
     if (!setData) return [];
     return reviewQueue
-      .map((questionIdx, rIdx) => ({
-        questionId: setData.questions[questionIdx].id,
-        selectedAnswer: reviewAnswers[rIdx],
-      }))
+      .map((slotIndex, rIdx) => {
+        const slot = mainSlots[slotIndex];
+        const answer = reviewAnswers[rIdx] ?? '';
+        const question = setData.questions[slot.questionIndex];
+        const storedAnswer = toStoredAnswer(question, slot, answer);
+        return {
+          questionId: question.id,
+          selectedAnswer: slot.kind === 'tap'
+            ? JSON.stringify({ [slot.itemIndex]: storedAnswer })
+            : slot.kind === 'article'
+              ? JSON.stringify({ [slot.blankId]: storedAnswer })
+              : storedAnswer,
+        };
+      })
       .filter((r): r is RetryPayload => r.selectedAnswer !== null);
   };
 
@@ -370,23 +451,21 @@ export default function SetQuizPage() {
           testTypeId: sectionId,
           testSetId: setId,
           startedAt: testStartedAt,
-          answers: setData.questions.map((q, i) => ({
-            questionId: q.id,
-            selectedAnswer: answers[i] || '',
-          })),
+          answers: buildTestSubmissionAnswers(setData.questions, mainSlots, answers, toStoredAnswer),
           retries: retriesPayload,
         }),
       });
       const data = await res.json();
       if (data.success) {
         setScore(data.data.correctAnswers);
+        setScoredTotal(data.data.totalQuestions ?? setData.questions.length);
         setResults(data.data.results ?? []);
         setAttemptId(data.data.attemptId ?? null);
         setRetryResults(data.data.retryResults ?? null);
         setIsFinished(true);
         // Track test_submitted
         if (posthog && testStartedAtRef.current > 0) {
-          const totalQuestions = data.data.results?.length ?? setData.questions.length;
+          const totalQuestions = data.data.totalQuestions ?? mainSlots.length;
           const wrongIds = (data.data.results ?? [])
             .filter((r: { isCorrect: boolean }) => !r.isCorrect)
             .map((r: { questionId: number }) => r.questionId);
@@ -435,8 +514,8 @@ export default function SetQuizPage() {
   // - main + has wrong answers → offer the review round first
   // - main + no wrong answers → submit as before
   // - review → confirm then submit with collected retries
-  const handleSubmit = (force = false) => {
-    if (!setData || submitting) return;
+  const handleSubmit = async (force = false) => {
+    if (!setData || submitting || checkingReview) return;
 
     if (phase === 'review') {
       const unansweredRetries = reviewAnswers.filter((a) => a === null).length;
@@ -454,25 +533,33 @@ export default function SetQuizPage() {
     if (!force && unanswered > 0) {
       setUnansweredCount(unanswered);
       setShowSubmitConfirm(true);
-    } else {
-      const wrongSet = buildWrongSet(setData.questions, answers);
-      if (!force && wrongSet.length > 0) {
-        setIntroWrongCount(wrongSet.length);
-        setShowReviewIntro(true);
-        return;
-      }
+    } else if (force) {
       executeSubmit();
+    } else {
+      setCheckingReview(true);
+      try {
+        const wrongSet = await checkReviewableWrongSlots();
+        setReviewableWrongSlots(wrongSet);
+        if (wrongSet.length > 0) {
+          setIntroWrongCount(wrongSet.length);
+          setShowReviewIntro(true);
+          return;
+        }
+        executeSubmit();
+      } finally {
+        setCheckingReview(false);
+      }
     }
   };
 
   const handleTimeUp = () => {
-    handleSubmit(true);
+    void handleSubmit(true);
   };
 
   // Leave the main round behind and start the shuffled retry queue.
   const enterReviewRound = () => {
     if (!setData) return;
-    const wrongSet = shuffleQueue(buildWrongSet(setData.questions, answers));
+    const wrongSet = shuffleQueue(reviewableWrongSlots);
     setReviewQueue(wrongSet);
     setReviewAnswers(Array(wrongSet.length).fill(null));
     setReviewIndex(0);
@@ -516,8 +603,11 @@ export default function SetQuizPage() {
     : {};
 
   const handleRestartTest = () => {
+    const restartedAt = new Date().toISOString();
+    setTestStartedAt(restartedAt);
     setScore(0);
-    setAnswers(Array(setData.questions.length).fill(null));
+    setScoredTotal(null);
+    setAnswers(Array(mainSlots.length).fill(null));
     setSelectedAnswer(null);
     setCurrentQuestion(0);
     setAttemptId(null);
@@ -529,12 +619,14 @@ export default function SetQuizPage() {
     setReviewQueue([]);
     setReviewIndex(0);
     setReviewAnswers([]);
+    setReviewableWrongSlots([]);
     setShowReviewIntro(false);
     setRetryResults(null);
   };
 
-  // form-meaning uses its own special renderer
-  if (sectionId === 'form-meaning') {
+  // form-meaning uses its own special renderer when all entries are articles.
+  // Mixed Tap & Select sets use the common per-slot test flow below.
+  if (sectionId === 'form-meaning' && !setData.questions.some(q => q.tapExercise?.items.length)) {
     if (isFinished) {
       return (
         <TestResults
@@ -573,7 +665,7 @@ export default function SetQuizPage() {
     return (
       <TestResults
         score={score}
-        totalQuestions={setData.questions.length}
+        totalQuestions={scoredTotal ?? mainSlots.length}
         attemptId={attemptId}
         onRestart={handleRestartTest}
         retryResults={retryResults ?? undefined}
@@ -587,15 +679,23 @@ export default function SetQuizPage() {
     );
   }
 
-  // Phase-aware question/answer source keeps the three section renders
-  // identical between main and review phases.
-  const activeQuestionIndex = isReviewPhase ? (reviewQueue[reviewIndex] ?? 0) : currentQuestion;
-  const question = setData.questions[activeQuestionIndex];
-  if (!question) return <Spinner />;
+  // Layout positions are virtual item slots. Tap & Select groups expand to
+  // one slot per item, so navigation and answer progress stay item-granular.
+  const activeSlotIndex = isReviewPhase ? (reviewQueue[reviewIndex] ?? 0) : currentQuestion;
+  const activeSlot: TestSetSlot | undefined = mainSlots[activeSlotIndex];
+  const question = setData.questions[activeSlot?.questionIndex ?? 0];
+  if (!question || !activeSlot) return <Spinner />;
+  const tapItem = activeSlot.kind === 'tap' ? question.tapExercise?.items[activeSlot.itemIndex] : undefined;
+  const tapDisplay = tapItem && activeSlot.kind === 'tap'
+    ? shuffleTapExerciseChoices(tapItem, `${choiceShuffleSeed}-${question.id}-tap-${activeSlot.itemIndex}`)
+    : null;
+  const questionChoices = activeSlot.kind === 'question'
+    ? getQuestionChoices(question, `question-${activeSlot.questionIndex}`)
+    : [];
+  const displayedCorrectAnswer = getDisplayedChoiceAnswer(question.correctAnswer ?? null, questionChoices);
+  const articleBlank = activeSlot.kind === 'article' ? question.article?.blanks.find(blank => blank.id === activeSlot.blankId) : undefined;
 
-  // Layout-level totals include the review segment so progress dots and
-  // the top bar keep working across phases.
-  const layoutTotal = isReviewPhase ? answers.length + reviewQueue.length : setData.questions.length;
+  const layoutTotal = isReviewPhase ? answers.length + reviewQueue.length : mainSlots.length;
   const layoutCurrent = isReviewPhase ? answers.length + reviewIndex : currentQuestion;
   const layoutAnswers = isReviewPhase ? [...answers, ...reviewAnswers] : answers;
 
@@ -628,6 +728,85 @@ export default function SetQuizPage() {
     </>
   );
 
+  // ─── Mixed form-meaning blank slot ────────────────────────────────
+  if (articleBlank && activeSlot?.kind === 'article') {
+    const articleText = question.article?.text ?? '';
+    const readableText = question.article?.blanks.reduce(
+      (text, blank) => text.replaceAll(`{{${blank.id}}}`, '_____'),
+      articleText
+    ) ?? articleText;
+    return (
+      <TestLayout
+        title={setData.name}
+        {...setSelectorProps}
+        durationMinutes={setData.duration ?? undefined}
+        totalQuestions={layoutTotal}
+        currentQuestion={layoutCurrent}
+        answers={layoutAnswers}
+        onQuestionSelect={handleQuestionSelect}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onSubmit={() => handleSubmit()}
+        onTimeUp={handleTimeUp}
+        currentQuestionId={question.id}
+        onResetAnswer={handleResetAnswer}
+        phaseLabel={isReviewPhase ? 'รอบทบทวน' : undefined}
+        reviewSegmentStart={isReviewPhase ? answers.length : undefined}
+      >
+        <div className="space-y-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm md:p-8">
+          <h2 className="text-xl font-bold text-slate-800">{question.article?.title || question.questionText}</h2>
+          <p className="whitespace-pre-line text-base leading-8 text-slate-700">{readableText}</p>
+          <label className="block text-sm font-semibold text-slate-700">
+            ข้อ {activeSlot.blankId}: เติมคำตอบ
+            <input
+              value={selectedAnswer ?? ''}
+              onChange={event => handleFreeTextAnswer(event.target.value)}
+              disabled={submitting}
+              className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-base focus:border-blue-400 focus:outline-none"
+              placeholder={articleBlank.hint || 'พิมพ์คำตอบ'}
+            />
+          </label>
+        </div>
+        {modalsFragment}
+      </TestLayout>
+    );
+  }
+
+  // ─── Tap & Select item ───────────────────────────────────────────
+  if (tapItem) {
+    return (
+      <>
+        <TestLayout
+          title={setData.name}
+          {...setSelectorProps}
+          durationMinutes={setData.duration ?? undefined}
+          totalQuestions={layoutTotal}
+          currentQuestion={layoutCurrent}
+          answers={layoutAnswers}
+          onQuestionSelect={handleQuestionSelect}
+          onPrevious={handlePrevious}
+          onNext={handleNext}
+          onSubmit={() => handleSubmit()}
+          onTimeUp={handleTimeUp}
+          currentQuestionId={question.id}
+          onResetAnswer={handleResetAnswer}
+        >
+          <TestTapSelectCard
+            key={`${question.id}-${activeSlot.kind === 'tap' ? activeSlot.itemIndex : ''}`}
+            title={question.tapExercise?.title ?? question.questionText}
+            hint={question.tapExercise?.hint}
+            item={tapDisplay?.item ?? tapItem!}
+            itemIndex={activeSlot.kind === 'tap' ? activeSlot.itemIndex : 0}
+            selectedAnswer={selectedAnswer}
+            onAnswer={handleAnswer}
+            disabled={submitting}
+          />
+          {modalsFragment}
+        </TestLayout>
+      </>
+    );
+  }
+
   // ─── Listening ───────────────────────────────────────────────────
   if (sectionId === 'listening') {
     return (
@@ -658,14 +837,9 @@ export default function SetQuizPage() {
           audioUrl={question.audioUrl ?? undefined}
           transcript={question.transcript ?? question.questionText}
           questionText={question.questionText}
-          options={[
-            { key: 'A', value: question.optionA ?? '' },
-            { key: 'B', value: question.optionB ?? '' },
-            { key: 'C', value: question.optionC ?? '' },
-            { key: 'D', value: question.optionD ?? '' },
-          ]}
+          options={questionChoices}
           selectedAnswer={selectedAnswer}
-          correctAnswer={selectedAnswer !== null ? (question.correctAnswer ?? null) : null}
+          correctAnswer={selectedAnswer !== null ? displayedCorrectAnswer : null}
           explanation={selectedAnswer !== null ? (question.explanation || 'See transcript above.') : null}
           onAudioPlayed={() => setAudioPlayedMap(prev => ({ ...prev, [currentQuestion]: true }))}
           onAnswerSelect={handleAnswer}
@@ -705,14 +879,9 @@ export default function SetQuizPage() {
       <FocusFormQuestionCard
           key={isReviewPhase ? `${question.id}-review` : question.id}
           questionText={question.questionText}
-          options={[
-            { key: 'A', value: question.optionA ?? '' },
-            { key: 'B', value: question.optionB ?? '' },
-            { key: 'C', value: question.optionC ?? '' },
-            { key: 'D', value: question.optionD ?? '' },
-          ]}
+          options={questionChoices}
           selectedAnswer={selectedAnswer}
-          correctAnswer={question.correctAnswer ?? null}
+          correctAnswer={displayedCorrectAnswer}
           explanation={question.explanation ?? null}
           conversation={question.conversation ?? null}
           onAnswerSelect={handleAnswer}
@@ -729,13 +898,8 @@ export default function SetQuizPage() {
   }
 
   // ─── Focus Form (default MCQ) ─────────────────────────────────────
-  const options: Option[] = [
-    { key: 'A', value: question.optionA ?? '' },
-    { key: 'B', value: question.optionB ?? '' },
-    { key: 'C', value: question.optionC ?? '' },
-    { key: 'D', value: question.optionD ?? '' },
-  ];
-  const correctAnswer = question.correctAnswer ?? results[currentQuestion]?.correctAnswer ?? null;
+  const options: Option[] = questionChoices;
+  const correctAnswer = displayedCorrectAnswer ?? results[currentQuestion]?.correctAnswer ?? null;
   const explanation = question.explanation ?? results[currentQuestion]?.explanation ?? null;
 
   return (

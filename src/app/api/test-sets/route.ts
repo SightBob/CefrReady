@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
   }
 
   const sectionId = req.nextUrl.searchParams.get('sectionId');
+  if (sectionId === 'tap-select') {
+    return NextResponse.json({ success: false, error: 'Tap & Select is an exercise inside a test set, not a section' }, { status: 404 });
+  }
   if (!sectionId) {
     return NextResponse.json({ success: false, error: 'Missing sectionId' }, { status: 400 });
   }

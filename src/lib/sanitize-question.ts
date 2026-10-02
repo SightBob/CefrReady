@@ -23,19 +23,41 @@ export function sanitizeArticleForClient<T>(article: T): T {
   } as T;
 }
 
+type SanitizedTapExercise<T> = T extends { items: Array<infer Item> }
+  ? Omit<T, 'items'> & { items: Array<Omit<Item, 'correct'>> }
+  : T extends null | undefined
+    ? T
+    : T;
+
 interface QuestionWithAnswers {
   correctAnswer?: unknown;
   explanation?: unknown;
   article?: unknown;
+  tapExercise?: unknown;
   [key: string]: unknown;
 }
 
-/** Returns a copy of the question without correctAnswer/explanation and with
- *  cloze answers stripped from article.blanks. */
+/** Returns a copy of a question without answer keys before the test is submitted. */
 export function sanitizeQuestionForClient<Q extends QuestionWithAnswers>(question: Q) {
-  const { correctAnswer: _ca, explanation: _ex, article, ...rest } = question;
+  const { correctAnswer: _ca, explanation: _ex, article, tapExercise, ...rest } = question;
   return {
     ...rest,
     article: sanitizeArticleForClient(article),
+    tapExercise: sanitizeTapExerciseForClient(tapExercise),
   };
+}
+
+/** Strip each Tap & Select item's answer key before exposing it to test takers. */
+export function sanitizeTapExerciseForClient<T>(tapExercise: T): SanitizedTapExercise<T> {
+  if (!tapExercise || typeof tapExercise !== 'object') return tapExercise as SanitizedTapExercise<T>;
+  const exercise = tapExercise as { items?: unknown; [key: string]: unknown };
+  if (!Array.isArray(exercise.items)) return tapExercise as SanitizedTapExercise<T>;
+  return {
+    ...exercise,
+    items: exercise.items.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      const { correct: _correct, ...rest } = item as Record<string, unknown>;
+      return rest;
+    }),
+  } as SanitizedTapExercise<T>;
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testSets, testTypes, testSetQuestions } from '@/db/schema';
-import { eq, asc, count as drizzleCount } from 'drizzle-orm';
+import { eq, asc, ne, count as drizzleCount } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export async function GET() {
 
   try {
     const [sections, sets] = await Promise.all([
-      db.select().from(testTypes).orderBy(asc(testTypes.id)),
+      db.select().from(testTypes).where(ne(testTypes.id, 'tap-select')).orderBy(asc(testTypes.id)),
       db
         .select({
           id: testSets.id,
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   try {
     const { sectionId, name, description } = await request.json();
 
-    if (!sectionId || !name?.trim()) {
+    if (!sectionId || sectionId === 'tap-select' || !name?.trim()) {
       return NextResponse.json({ success: false, error: 'sectionId and name required' }, { status: 400 });
     }
 

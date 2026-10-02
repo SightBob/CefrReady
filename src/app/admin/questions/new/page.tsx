@@ -120,6 +120,7 @@ export default function NewQuestion() {
       if (formData.testTypeId !== 'form-meaning') {
         delete payload.article;
       }
+      delete payload.tapExercise;
       const response = await fetch('/api/admin/questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -223,7 +224,7 @@ export default function NewQuestion() {
                   required
                 >
                   <option value="">เลือกประเภทข้อสอบ</option>
-                  {testTypes.map(type => (
+                  {testTypes.filter(type => type.id !== 'tap-select').map(type => (
                     <option key={type.id} value={type.id}>{type.name}</option>
                   ))}
                 </select>

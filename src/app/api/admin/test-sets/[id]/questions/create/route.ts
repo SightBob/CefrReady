@@ -48,12 +48,24 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       article,
       audioUrl,
       transcript,
+      tapExercise,
     } = body;
 
-    // Use set's sectionId as testTypeId
+    // Use set's sectionId as testTypeId; Tap & Select is stored as a structured
+    // sub-question within this section rather than as a separate test type.
     const testTypeId = set.sectionId;
 
-    if (!questionText || !difficulty || !cefrLevel) {
+    if (tapExercise) {
+      if (typeof tapExercise.title !== 'string' || !tapExercise.title.trim() || !Array.isArray(tapExercise.items) || tapExercise.items.length === 0) {
+        return NextResponse.json({ error: 'Tap & Select ต้องมีชื่อและอย่างน้อย 1 item' }, { status: 400 });
+      }
+      const validItems = tapExercise.items.every((item: { prompt?: unknown; choiceA?: unknown; choiceB?: unknown; correct?: unknown }) =>
+        typeof item.prompt === 'string' && typeof item.choiceA === 'string' && typeof item.choiceB === 'string' && (item.correct === 0 || item.correct === 1)
+      );
+      if (!validItems) return NextResponse.json({ error: 'ข้อมูล item ของ Tap & Select ไม่ถูกต้อง' }, { status: 400 });
+    }
+
+    if ((!questionText && !tapExercise) || !difficulty || !cefrLevel) {
       return NextResponse.json(
         { error: 'Missing required fields: questionText, difficulty, cefrLevel are required' },
         { status: 400 }
@@ -61,7 +73,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     }
 
     const isFormMeaning = testTypeId === 'form-meaning';
-    const isMcq = !isFormMeaning;
+    const isMcq = !isFormMeaning && !tapExercise;
 
     if (isMcq && (!optionA || !optionB || !optionC || !correctAnswer)) {
       return NextResponse.json(
@@ -70,7 +82,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       );
     }
 
-    if (isFormMeaning && (!article?.title || !article?.text)) {
+    if (isFormMeaning && !tapExercise && (!article?.title || !article?.text)) {
       return NextResponse.json(
         { error: 'Missing required fields: article.title and article.text are required for form-meaning questions' },
         { status: 400 }
@@ -82,7 +94,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       .insert(questions)
       .values({
         testTypeId,
-        questionText,
+        questionText: tapExercise ? tapExercise.title.trim() : questionText,
         optionA: optionA || null,
         optionB: optionB || null,
         optionC: optionC || null,
@@ -97,6 +109,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
         ...(article ? { article } : {}),
         ...(audioUrl ? { audioUrl } : {}),
         ...(transcript ? { transcript } : {}),
+        ...(tapExercise ? { tapExercise } : {}),
       })
       .returning();
 

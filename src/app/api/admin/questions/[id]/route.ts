@@ -82,17 +82,43 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     if (body.transcript !== undefined) {
       updateData.transcript = body.transcript || null;
     }
+    if (body.tapExercise !== undefined) {
+      const tapExercise = body.tapExercise as {
+        title?: unknown;
+        hint?: unknown;
+        items?: Array<{ prompt?: unknown; choiceA?: unknown; choiceB?: unknown; correct?: unknown }>;
+      } | null;
+      if (tapExercise !== null && (
+        typeof tapExercise?.title !== 'string'
+        || !tapExercise.title.trim()
+        || !Array.isArray(tapExercise.items)
+        || tapExercise.items.length === 0
+        || !tapExercise.items.every(item =>
+          typeof item.prompt === 'string'
+          && Boolean(item.prompt.trim())
+          && typeof item.choiceA === 'string'
+          && Boolean(item.choiceA.trim())
+          && typeof item.choiceB === 'string'
+          && Boolean(item.choiceB.trim())
+          && (item.correct === 0 || item.correct === 1)
+        )
+      )) {
+        return NextResponse.json({ error: 'Invalid Tap & Select exercise' }, { status: 400 });
+      }
+      updateData.tapExercise = tapExercise as typeof questions.$inferInsert.tapExercise;
+    }
     // Note: Do NOT include createdAt, updatedAt, or any other fields
 
     // Validate required fields
-    if (!updateData.testTypeId || !updateData.questionText) {
+    if (!updateData.testTypeId || (!updateData.questionText && !updateData.tapExercise)) {
       return NextResponse.json({ error: 'Missing required fields: testTypeId and questionText are required' }, { status: 400 });
     }
+    if (updateData.tapExercise) updateData.questionText = updateData.tapExercise.title;
 
     const isFormMeaning = updateData.testTypeId === 'form-meaning';
     const isMcq = !isFormMeaning;
 
-    if (isMcq && !updateData.correctAnswer) {
+    if (isMcq && !updateData.correctAnswer && !updateData.tapExercise) {
       return NextResponse.json({ error: 'Missing required field: correctAnswer is required for MCQ questions' }, { status: 400 });
     }
 

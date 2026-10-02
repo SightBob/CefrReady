@@ -23,6 +23,11 @@ interface DbQuestion {
   correctAnswer: string | null;
   explanation: string | null;
   article?: unknown;
+  tapExercise?: {
+    title: string;
+    hint?: string;
+    items: { prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }[];
+  } | null;
 }
 
 interface ScoreResult {
@@ -63,6 +68,30 @@ export function calculateScore(
         userAnswer: answer.selectedAnswer,
         correctAnswer: null,
         explanation: null,
+      };
+    }
+
+    // Tap & Select: selectedAnswer is JSON keyed by item index; each item counts independently.
+    if (question.tapExercise?.items?.length) {
+      let parsedAnswers: Record<string, string> = {};
+      try { parsedAnswers = JSON.parse(answer.selectedAnswer); } catch {}
+      let itemCorrect = 0;
+      const correctJson: Record<string, string> = {};
+      question.tapExercise.items.forEach((item, index) => {
+        totalItems++;
+        const correctKey = item.correct === 0 ? 'A' : 'B';
+        correctJson[String(index)] = correctKey;
+        if ((parsedAnswers[String(index)] ?? '').trim().toUpperCase() === correctKey) {
+          correctCount++;
+          itemCorrect++;
+        }
+      });
+      return {
+        questionId: answer.questionId,
+        isCorrect: itemCorrect === question.tapExercise.items.length,
+        userAnswer: answer.selectedAnswer,
+        correctAnswer: JSON.stringify(correctJson),
+        explanation: question.explanation,
       };
     }
 

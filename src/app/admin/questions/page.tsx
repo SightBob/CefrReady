@@ -65,6 +65,7 @@ interface Question {
   createdAt: string;
   conversation?: ConversationLine[] | null;
   article?: Article | null;
+  tapExercise?: { title: string; hint?: string; items: { prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }[] } | null;
   testType?: {
     id: string;
     name: string;
@@ -158,7 +159,7 @@ export default function QuestionsManagement() {
       const response = await fetch('/api/admin/test-types');
       if (response.ok) {
         const data = await response.json();
-        setTestTypes(data);
+        setTestTypes(data.filter((type: TestType) => type.id !== 'tap-select'));
       }
     } catch (error) {
       console.error('Error fetching test types:', error);
@@ -905,8 +906,17 @@ export default function QuestionsManagement() {
                                 </div>
                               )}
 
+                              {question.tapExercise && (
+                                <div className="mt-2 space-y-1.5">
+                                  <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">Tap &amp; Select · {question.tapExercise.items.length} ข้อย่อย</span>
+                                  {question.tapExercise.items.slice(0, 2).map((item, index) => (
+                                    <p key={index} className="text-xs text-slate-500">{index + 1}. {item.prompt} — A: {item.choiceA} / B: {item.choiceB}</p>
+                                  ))}
+                                </div>
+                              )}
+
                               {/* MCQ options */}
-                              {question.testTypeId !== 'form-meaning' && (
+                              {question.testTypeId !== 'form-meaning' && !question.tapExercise && (
                                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
                                   {(['A', 'B', 'C', 'D'] as const).map((opt) => {
                                     const val =
@@ -1295,8 +1305,21 @@ export default function QuestionsManagement() {
               </div>
             )}
 
+            {previewQuestion.tapExercise && (
+              <div className="mb-5 space-y-3">
+                {previewQuestion.tapExercise.hint && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{previewQuestion.tapExercise.hint}</p>}
+                {previewQuestion.tapExercise.items.map((item, index) => (                                <div key={index} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <p className="text-sm font-semibold text-slate-800">{index + 1}. {item.prompt}</p>
+                    <p className="mt-2 text-sm text-slate-600">A: {item.choiceA}</p>
+                    <p className="text-sm text-slate-600">B: {item.choiceB}</p>
+                    <p className="mt-1 text-xs font-semibold text-emerald-700">คำตอบ: {item.correct === 0 ? 'A' : 'B'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* MCQ options */}
-            {previewQuestion.testTypeId !== 'form-meaning' && (
+            {previewQuestion.testTypeId !== 'form-meaning' && !previewQuestion.tapExercise && (
               <div className="grid grid-cols-2 gap-2 mb-5">
                 {(['A', 'B', 'C', 'D'] as const).map((opt) => {
                   const val =

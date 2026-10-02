@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { questions, testTypes } from '@/db/schema';
 import { eq, sql, and, asc } from 'drizzle-orm';
 import { checkIpThrottle } from '@/lib/api-security';
-import { sanitizeArticleForClient } from '@/lib/sanitize-question';
+import { sanitizeArticleForClient, sanitizeTapExerciseForClient } from '@/lib/sanitize-question';
 
 /**
  * GET /api/tests/[type]
@@ -26,6 +26,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ type:
     if (ipThrottleError) return ipThrottleError;
 
     const testTypeName = params.type;
+    if (testTypeName === 'tap-select') {
+      return NextResponse.json({ success: false, error: 'Tap & Select is an exercise inside a test set, not a test type' }, { status: 404 });
+    }
     const searchParams = request.nextUrl.searchParams;
     const cefrLevel = searchParams.get('cefrLevel');
     const isDemo = searchParams.get('demo') === 'true';
@@ -78,6 +81,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ type:
       audioUrl: questions.audioUrl,
       transcript: questions.transcript,
       article: questions.article,
+      tapExercise: questions.tapExercise,
     };
 
     // In demo mode, include answers and explanations
@@ -112,6 +116,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ type:
       : fetchedQuestions.map((q) => ({
           ...q,
           article: sanitizeArticleForClient(q.article),
+          tapExercise: sanitizeTapExerciseForClient(q.tapExercise),
         }));
 
     return NextResponse.json({

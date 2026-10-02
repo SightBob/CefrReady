@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { testSets, testSetQuestions, questions, testTypes } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
+import { sanitizeTapExerciseForClient } from '@/lib/sanitize-question';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         audioUrl: questions.audioUrl,
         transcript: questions.transcript,
         article: questions.article,
+        tapExercise: questions.tapExercise,
         cefrLevel: questions.cefrLevel,
         difficulty: questions.difficulty,
       })
@@ -66,6 +68,11 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
       .innerJoin(questions, eq(questions.id, testSetQuestions.questionId))
       .where(eq(testSetQuestions.testSetId, setId))
       .orderBy(asc(testSetQuestions.orderIndex));
+
+    const publicQuestions = setQuestions.map((question) => ({
+      ...question,
+      tapExercise: sanitizeTapExerciseForClient(question.tapExercise),
+    }));
 
     return NextResponse.json({
       success: true,
@@ -75,7 +82,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         name: set.name,
         description: set.description,
         duration: set.duration,
-        questions: setQuestions,
+        questions: publicQuestions,
       },
     });
   } catch (err) {

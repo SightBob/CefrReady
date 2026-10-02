@@ -1,13 +1,13 @@
 import { db } from '@/db';
 import { testTypes, testSets, testSetQuestions } from '@/db/schema';
-import { eq, asc, count as drizzleCount } from 'drizzle-orm';
+import { eq, and, asc, ne, count as drizzleCount } from 'drizzle-orm';
 
 export async function fetchSectionsFromDb() {
   const [sections, sets] = await Promise.all([
     db
       .select()
       .from(testTypes)
-      .where(eq(testTypes.active, 'true'))
+      .where(and(eq(testTypes.active, 'true'), ne(testTypes.id, 'tap-select')))
       .orderBy(asc(testTypes.id)),
     db
       .select({

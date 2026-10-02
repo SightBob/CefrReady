@@ -92,6 +92,11 @@ export const questions = pgTable('questions', {
   audioUrl: text('audio_url'),          // listening: audio file URL
   transcript: text('transcript'),       // listening: audio transcript
   article: jsonb('article'),            // form-meaning: {title, text, blanks[]}
+  tapExercise: jsonb('tap_exercise').$type<{
+    title: string;
+    hint?: string;
+    items: { prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }[];
+  }>(), // Tap & Select teaching questions embedded in a test set
 
   cefrLevel: varchar('cefr_level', { length: 10 }).notNull(),
   difficulty: varchar('difficulty', { length: 20 }),

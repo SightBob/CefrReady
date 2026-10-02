@@ -6,7 +6,9 @@ import Link from 'next/link';
 import { ArrowLeft, Save, Plus, Trash2, Upload, X, LayoutList } from 'lucide-react';
 import ArticleEditor from '@/components/ArticleEditor';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
+import TapExerciseEditor from '@/components/admin/TapExerciseEditor';
 import { toast } from 'sonner';
+import type { TapExerciseData } from '@/lib/test-set-slots';
 
 interface TestType {
   id: string;
@@ -50,6 +52,7 @@ interface Question {
   audioUrl?: string | null;
   transcript?: string | null;
   article?: Article | null;
+  tapExercise?: TapExerciseData | null;
 }
 
 export default function EditQuestion() {
@@ -63,7 +66,7 @@ export default function EditQuestion() {
   const [audioUploading, setAudioUploading] = useState(false);
   const [assignedSets, setAssignedSets] = useState<{ id: number; name: string; sectionId: string; orderIndex: number }[]>([]);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{ testTypeId: string; questionText: string; optionA: string; optionB: string; optionC: string; optionD: string; correctAnswer: string; explanation: string; difficulty: string; cefrLevel: string; active: string; orderIndex: number; conversation: ConversationLine[]; audioUrl: string; transcript: string; article: Article; tapExercise: TapExerciseData | null }>({
     testTypeId: '',
     questionText: '',
     optionA: '',
@@ -80,6 +83,7 @@ export default function EditQuestion() {
     audioUrl: '',
     transcript: '',
     article: { title: '', text: '', blanks: [] } as Article,
+    tapExercise: null as TapExerciseData | null,
   });
 
   const fetchTestTypes = useCallback(async () => {
@@ -117,6 +121,7 @@ export default function EditQuestion() {
           audioUrl: data.audioUrl || '',
           transcript: data.transcript || '',
           article: data.article || { title: '', text: '', blanks: [] },
+          tapExercise: data.tapExercise ?? null,
         });
       } else {
         toast.error('ไม่พบข้อสอบ');
@@ -151,10 +156,20 @@ export default function EditQuestion() {
 
     const isFormMeaning = formData.testTypeId === 'form-meaning';
     const isFocusMeaning = formData.testTypeId === 'focus-meaning';
-    const isMcq = !isFormMeaning;
+    const isTapExercise = Boolean(formData.tapExercise);
+    const isMcq = !isFormMeaning && !isTapExercise;
 
-    if (!formData.testTypeId || !formData.questionText) {
+    if (!formData.testTypeId || (!formData.questionText && !isTapExercise)) {
       toast.error('กรุณากรอกประเภทข้อสอบและโจทย์');
+      return;
+    }
+
+    if (isTapExercise && (
+      !formData.tapExercise?.title.trim()
+      || formData.tapExercise.items.length === 0
+      || formData.tapExercise.items.some(item => !item.prompt.trim() || !item.choiceA.trim() || !item.choiceB.trim())
+    )) {
+      toast.error('กรุณากรอกชื่อกิจกรรมและข้อมูล item ให้ครบ');
       return;
     }
 
@@ -173,12 +188,12 @@ export default function EditQuestion() {
       }
     }
 
-    if (isFormMeaning && (!formData.article.title || !formData.article.text)) {
+    if (isFormMeaning && !isTapExercise && (!formData.article.title || !formData.article.text)) {
       toast.error('กรุณากรอกชื่อบทความและเนื้อหา');
       return;
     }
 
-    if (isFormMeaning && formData.article.blanks.some(b => !b.correctAnswer)) {
+    if (isFormMeaning && !isTapExercise && formData.article.blanks.some(b => !b.correctAnswer)) {
       toast.error('กรุณากรอกคำตอบให้ครบทุกช่องว่าง');
       return;
     }
@@ -194,8 +209,15 @@ export default function EditQuestion() {
         delete payload.audioUrl;
         delete payload.transcript;
       }
-      if (formData.testTypeId !== 'form-meaning') {
+      if (formData.testTypeId !== 'form-meaning' || isTapExercise) {
         delete payload.article;
+      }
+      if (formData.tapExercise) {
+        payload.tapExercise = formData.tapExercise;
+        payload.questionText = formData.tapExercise.title.trim();
+        payload.correctAnswer = null;
+      } else {
+        delete payload.tapExercise;
       }
       const response = await fetch(`/api/admin/questions/${questionId}`, {
         method: 'PUT',
@@ -307,28 +329,33 @@ export default function EditQuestion() {
                 <select
                   value={formData.testTypeId}
                   onChange={(e) => setFormData({ ...formData, testTypeId: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  disabled={Boolean(formData.tapExercise)}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-slate-100 disabled:text-slate-500"
                   required
                 >
                   <option value="">เลือกประเภทข้อสอบ</option>
-                  {testTypes.map(type => (
+                  {testTypes.filter(type => type.id !== 'tap-select').map(type => (
                     <option key={type.id} value={type.id}>{type.name}</option>
                   ))}
                 </select>
+                {formData.tapExercise && (
+                  <p className="mt-2 text-xs text-slate-500">กิจกรรมนี้จะคงอยู่ในหมวดเดิมและ Test Set ที่สังกัด</p>
+                )}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  โจทย์ข้อสอบ <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={formData.questionText}
-                  onChange={(e) => setFormData({ ...formData, questionText: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  rows={3}
-                  required
-                />
-              </div>
+              {!formData.tapExercise && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      โจทย์ข้อสอบ <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={formData.questionText}
+                      onChange={(e) => setFormData({ ...formData, questionText: e.target.value })}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      rows={3}
+                      required
+                    />
+                  </div>
+                )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -398,7 +425,20 @@ export default function EditQuestion() {
             </div>
           </div>
 
-          {formData.testTypeId === 'focus-meaning' && (
+          {formData.tapExercise && (
+            <div className="rounded-xl border border-amber-100 bg-white p-6 shadow-sm">
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-amber-900">แก้ไข Tap &amp; Select</h2>
+                <p className="mt-1 text-sm text-slate-600">กิจกรรมย่อยนี้ยังอยู่ในหมวด {testTypes.find(type => type.id === formData.testTypeId)?.name || formData.testTypeId} และ Test Set เดิม</p>
+              </div>
+              <TapExerciseEditor
+                value={formData.tapExercise}
+                onChange={tapExercise => setFormData(current => ({ ...current, tapExercise }))}
+              />
+            </div>
+          )}
+
+          {formData.testTypeId === 'focus-meaning' && !formData.tapExercise && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-slate-900">บทสนทนา</h2>
@@ -468,7 +508,7 @@ export default function EditQuestion() {
             </div>
           )}
 
-          {formData.testTypeId === 'form-meaning' && (
+          {formData.testTypeId === 'form-meaning' && !formData.tapExercise && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
               <h2 className="text-xl font-bold text-slate-900 mb-6">บทความ (Fill in the blanks)</h2>
               <ArticleEditor
@@ -478,7 +518,7 @@ export default function EditQuestion() {
             </div>
           )}
 
-          {formData.testTypeId !== 'form-meaning' && (
+          {formData.testTypeId !== 'form-meaning' && !formData.tapExercise && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-6">ตัวเลือกคำตอบ</h2>
 
@@ -685,7 +725,7 @@ export default function EditQuestion() {
                 onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
                 className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 rows={4}
-                required
+                required={!formData.tapExercise}
               />
             </div>
           </div>

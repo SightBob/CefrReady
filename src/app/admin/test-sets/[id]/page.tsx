@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, BookOpen, Plus, Trash2, Loader2, LayoutList, X,
+  ArrowLeft, BookOpen, Plus, Trash2, Loader2, LayoutList, X, Pencil,
   GripVertical, ChevronDown, ChevronUp
 } from 'lucide-react';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
 import ArticleEditor from '@/components/ArticleEditor';
+import TapExerciseEditor from '@/components/admin/TapExerciseEditor';
+import { countTestSetItems, type TapExerciseData } from '@/lib/test-set-slots';
 import { toast } from 'sonner';
 
 interface Question {
@@ -30,6 +32,7 @@ interface Question {
   article?: { title: string; text: string; blanks: { id: number; correctAnswer: string; hint?: string }[] };
   audioUrl?: string;
   transcript?: string;
+  tapExercise?: TapExerciseData | null;
 }
 
 interface SetQuestion {
@@ -80,6 +83,23 @@ interface Article {
   blanks: Blank[];
 }
 
+interface CreateQuestionForm {
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctAnswer: string;
+  explanation: string;
+  difficulty: string;
+  cefrLevel: string;
+  conversation: ConversationLine[];
+  article: Article;
+  audioUrl: string;
+  transcript: string;
+  tapExercise: { title: string; hint: string; items: { prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }[] };
+}
+
 export default function TestSetDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
   const router = useRouter();
@@ -94,7 +114,7 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Create question form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateQuestionForm>({
     questionText: '',
     optionA: '',
     optionB: '',
@@ -108,9 +128,17 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
     article: { title: '', text: '', blanks: [] } as Article,
     audioUrl: '',
     transcript: '',
+    tapExercise: { title: '', hint: '', items: [{ prompt: '', choiceA: '', choiceB: '', correct: 0 }] },
   });
   const [creating, setCreating] = useState(false);
   const [audioUploading, setAudioUploading] = useState(false);
+  const [tapExerciseMode, setTapExerciseMode] = useState(false);
+  const [editingTap, setEditingTap] = useState<SetQuestion | null>(null);
+  const [tapEditData, setTapEditData] = useState<TapExerciseData>({ title: '', hint: '', items: [] });
+  const [savingTap, setSavingTap] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const [draggedQuestionId, setDraggedQuestionId] = useState<number | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -138,6 +166,66 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
     fetchData();
   }, [fetchData]);
 
+  const moveQuestion = async (fromIndex: number, toIndex: number) => {
+    if (reordering || fromIndex < 0 || toIndex < 0 || fromIndex >= questions.length || toIndex >= questions.length || fromIndex === toIndex) return;
+    setReordering(true);
+    try {
+      const reordered = [...questions];
+      const [movedQuestion] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, movedQuestion);
+      const response = await fetch(`/api/admin/test-sets/${setId}/questions/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignmentIds: reordered.map(item => item.assignmentId) }),
+      });
+      if (!response.ok) {
+        toast.error('จัดลำดับข้อสอบไม่สำเร็จ');
+        return;
+      }
+      setQuestions(reordered.map((item, orderIndex) => ({ ...item, orderIndex })));
+    } catch {
+      toast.error('ไม่สามารถจัดลำดับข้อสอบได้');
+    } finally {
+      setReordering(false);
+      setDraggedQuestionId(null);
+      setDropTargetId(null);
+    }
+  };
+
+  const saveTapExercise = async () => {
+    if (!editingTap) return;
+    const tap = tapEditData;
+    if (!tap.title.trim() || tap.items.length === 0 || tap.items.some(item => !item.prompt.trim() || !item.choiceA.trim() || !item.choiceB.trim())) {
+      toast.error('กรุณากรอกชื่อกิจกรรมและข้อมูล item ให้ครบ');
+      return;
+    }
+    setSavingTap(true);
+    try {
+      const response = await fetch(`/api/admin/questions/${editingTap.question.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testTypeId: editingTap.question.testTypeId,
+          questionText: tap.title.trim(),
+          correctAnswer: null,
+          tapExercise: tap,
+        }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        toast.error(body?.error ?? 'บันทึก Tap & Select ไม่สำเร็จ');
+        return;
+      }
+      setEditingTap(null);
+      await fetchData();
+      toast.success('บันทึก Tap & Select แล้ว');
+    } catch {
+      toast.error('ไม่สามารถบันทึก Tap & Select ได้');
+    } finally {
+      setSavingTap(false);
+    }
+  };
+
   const handleRemoveQuestion = async (questionId: number) => {
     if (!confirm('ลบข้อสอบนี้ออกจากชุด?')) return;
 
@@ -159,9 +247,16 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
 
     const isFormMeaning = section?.id === 'form-meaning';
     const isFocusMeaning = section?.id === 'focus-meaning';
-    const isMcq = !isFormMeaning;
+    const useTapExercise = tapExerciseMode;
+    const isMcq = !isFormMeaning && !useTapExercise;
 
-    if (!formData.questionText) {
+    if (useTapExercise) {
+      const tap = formData.tapExercise;
+      if (!tap?.title.trim() || tap.items.length === 0 || tap.items.some(item => !item.prompt.trim() || !item.choiceA.trim() || !item.choiceB.trim())) {
+        toast.error('กรุณากรอกชื่อกิจกรรมและข้อมูล item ให้ครบ');
+        return;
+      }
+    } else if (!formData.questionText) {
       toast.error('กรุณากรอกโจทย์');
       return;
     }
@@ -181,12 +276,12 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
       }
     }
 
-    if (isFormMeaning && (!formData.article.title || !formData.article.text)) {
+    if (isFormMeaning && !useTapExercise && (!formData.article.title || !formData.article.text)) {
       toast.error('กรุณากรอกชื่อบทความและเนื้อหา');
       return;
     }
 
-    if (isFormMeaning && formData.article.blanks.some(b => !b.correctAnswer)) {
+    if (isFormMeaning && !useTapExercise && formData.article.blanks.some(b => !b.correctAnswer)) {
       toast.error('กรุณากรอกคำตอบให้ครบทุกช่องว่าง');
       return;
     }
@@ -204,6 +299,11 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
       }
       if (section?.id !== 'form-meaning') {
         delete payload.article;
+      }
+      if (!useTapExercise) delete payload.tapExercise;
+      else {
+        payload.tapExercise = formData.tapExercise;
+        payload.questionText = formData.tapExercise.title;
       }
 
       const response = await fetch(`/api/admin/test-sets/${setId}/questions/create`, {
@@ -243,7 +343,9 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
       article: { title: '', text: '', blanks: [] },
       audioUrl: '',
       transcript: '',
+      tapExercise: { title: '', hint: '', items: [{ prompt: '', choiceA: '', choiceB: '', correct: 0 }] },
     });
+    setTapExerciseMode(false);
   };
 
   const addConversationLine = () => {
@@ -314,6 +416,7 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
   const isFormMeaning = section?.id === 'form-meaning';
   const isFocusMeaning = section?.id === 'focus-meaning';
   const isListening = section?.id === 'listening';
+  const scoredItemCount = countTestSetItems(questions.map(({ question }) => question));
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -342,11 +445,11 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
             </div>
             <div className="flex items-center gap-2">
               <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                questions.length >= 20 ? 'bg-emerald-100 text-emerald-700' :
-                questions.length > 0 ? 'bg-amber-100 text-amber-700' :
+                scoredItemCount >= 20 ? 'bg-emerald-100 text-emerald-700' :
+                scoredItemCount > 0 ? 'bg-amber-100 text-amber-700' :
                 'bg-slate-100 text-slate-500'
               }`}>
-                {questions.length}/20 ข้อ
+                {scoredItemCount}/20 ข้อ
               </span>
             </div>
           </div>
@@ -371,6 +474,7 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
         </div>
 
         {/* Questions list */}
+        <p className="mb-2 text-xs text-slate-400">ลากที่ไอคอนจุดเพื่อเปลี่ยนตำแหน่งข้อสอบ หรือใช้ปุ่มลูกศร</p>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           {questions.length === 0 ? (
             <div className="py-16 text-center">
@@ -381,14 +485,46 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
           ) : (
             <div className="divide-y divide-slate-50">
               {questions.map((sq, idx) => (
-                <div key={sq.assignmentId} className="flex items-start gap-4 p-5 hover:bg-slate-50/70 transition-colors">
+                <div
+                  key={sq.assignmentId}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    if (!reordering && draggedQuestionId !== null && draggedQuestionId !== sq.assignmentId) {
+                      setDropTargetId(sq.assignmentId);
+                    }
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const draggedId = Number(event.dataTransfer.getData('text/plain')) || draggedQuestionId;
+                    const fromIndex = questions.findIndex(item => item.assignmentId === draggedId);
+                    const toIndex = questions.findIndex(item => item.assignmentId === sq.assignmentId);
+                    void moveQuestion(fromIndex, toIndex);
+                  }}
+                  className={`flex items-start gap-4 p-5 transition-colors ${dropTargetId === sq.assignmentId ? 'bg-indigo-50 ring-2 ring-inset ring-indigo-300' : 'hover:bg-slate-50/70'} ${draggedQuestionId === sq.assignmentId ? 'opacity-40' : ''}`}
+                >
                   <div className="flex items-center gap-2 pt-1">
-                    <GripVertical className="w-4 h-4 text-slate-300" />
+                    <button
+                      type="button"
+                      draggable={!reordering}
+                      disabled={reordering}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', String(sq.assignmentId));
+                        setDraggedQuestionId(sq.assignmentId);
+                      }}
+                      onDragEnd={() => { setDraggedQuestionId(null); setDropTargetId(null); }}
+                      className="cursor-grab touch-none rounded p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing disabled:cursor-wait"
+                      title="ลากเพื่อเปลี่ยนตำแหน่งข้อสอบ"
+                      aria-label={`ลากเพื่อเปลี่ยนตำแหน่งข้อ ${idx + 1}`}
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </button>
                     <span className="text-sm font-medium text-slate-400 w-6">{idx + 1}.</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-slate-800 line-clamp-2">{sq.question.questionText}</p>
                     <div className="flex items-center gap-3 mt-2">
+                      {sq.question.tapExercise && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">Tap & Select · {sq.question.tapExercise.items.length} ข้อย่อย</span>}
                       <span className="text-xs text-slate-400">{sq.question.cefrLevel}</span>
                       <span className="text-xs text-slate-400 capitalize">{sq.question.difficulty}</span>
                       {isFormMeaning && sq.question.article && (
@@ -400,13 +536,34 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Link
-                      href={`/admin/questions/${sq.question.id}`}
-                      className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                      title="แก้ไข"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Link>
+                    <button
+                      type="button"
+                      disabled={reordering || idx === 0}
+                      onClick={() => void moveQuestion(idx, idx - 1)}
+                      className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-30"
+                      aria-label={`เลื่อนข้อ ${idx + 1} ขึ้น`}
+                    ><ChevronUp className="h-4 w-4" /></button>
+                    <button
+                      type="button"
+                      disabled={reordering || idx === questions.length - 1}
+                      onClick={() => void moveQuestion(idx, idx + 1)}
+                      className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-30"
+                      aria-label={`เลื่อนข้อ ${idx + 1} ลง`}
+                    ><ChevronDown className="h-4 w-4" /></button>
+                    {sq.question.tapExercise ? (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingTap(sq); setTapEditData(sq.question.tapExercise!); }}
+                        className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        title="แก้ไข Tap & Select"
+                      ><Pencil className="w-4 h-4" /></button>
+                    ) : (
+                      <Link
+                        href={`/admin/questions/${sq.question.id}`}
+                        className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        title="แก้ไข"
+                      ><Plus className="w-4 h-4" /></Link>
+                    )}
                     <button
                       onClick={() => handleRemoveQuestion(sq.question.id)}
                       disabled={deletingId === sq.question.id}
@@ -426,6 +583,27 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
           )}
         </div>
       </div>
+
+      {editingTap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl">
+            <header className="flex items-center justify-between border-b border-slate-100 p-5">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">แก้ไข Tap &amp; Select</h2>
+                <p className="mt-1 text-sm text-slate-500">แก้คำแนะนำและรายการย่อยในกิจกรรม</p>
+              </div>
+              <button type="button" onClick={() => setEditingTap(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="ปิด"><X className="h-5 w-5" /></button>
+            </header>
+            <div className="overflow-y-auto p-5">
+              <TapExerciseEditor value={tapEditData} onChange={setTapEditData} />
+            </div>
+            <footer className="flex justify-end gap-3 border-t border-slate-100 p-5">
+              <button type="button" onClick={() => setEditingTap(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700">ยกเลิก</button>
+              <button type="button" disabled={savingTap} onClick={() => void saveTapExercise()} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{savingTap ? 'กำลังบันทึก…' : 'บันทึก'}</button>
+            </footer>
+          </div>
+        </div>
+      )}
 
       {/* Assign to Test Set Modal */}
       <AssignToTestSetModal
@@ -461,6 +639,17 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
             {/* Form */}
             <div className="flex-1 overflow-y-auto p-6">
               <form onSubmit={handleCreateQuestion} className="space-y-5">
+                <label className="flex items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-sm font-medium text-indigo-800">
+                  <input type="checkbox" checked={tapExerciseMode} onChange={event => setTapExerciseMode(event.target.checked)} />
+                  แทรกกิจกรรม Tap &amp; Select (แต่ละ item นับคะแนนแยก)
+                </label>
+                {tapExerciseMode ? (
+                  <TapExerciseEditor
+                    value={formData.tapExercise}
+                    onChange={tapExercise => setFormData(current => ({ ...current, tapExercise: { ...tapExercise, hint: tapExercise.hint ?? '' } }))}
+                  />
+                ) : (
+                <>
                 {/* Basic info */}
                 <div className="space-y-4">
                   <div>
@@ -722,6 +911,8 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
                     />
                   </div>
                 </div>
+                </>
+                )}
               </form>
             </div>
 

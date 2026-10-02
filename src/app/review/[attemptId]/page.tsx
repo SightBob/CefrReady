@@ -10,6 +10,8 @@ import FocusMeaningConversationCard from '@/components/FocusMeaningConversationC
 import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
 import FormMeaningReviewSection from '@/components/FormMeaningReviewSection';
 import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
+import TestTapSelectCard from '@/components/TestTapSelectCard';
+import type { TapExerciseData } from '@/lib/test-set-slots';
 import { usePostHog } from '@/lib/posthog';
 import type { TestTypeId, Option, ConversationLine, Article, Blank } from '@/types/test';
 
@@ -28,7 +30,7 @@ interface ReviewItem {
   questionId: number;
   question: {
     id: number;
-    testTypeId: TestTypeId;
+    testTypeId: TestTypeId | string;
     questionText: string;
     optionA: string | null;
     optionB: string | null;
@@ -40,6 +42,7 @@ interface ReviewItem {
     audioUrl: string | null;
     transcript: string | null;
     article: Article | null;
+    tapExercise: TapExerciseData | null;
     cefrLevel: string;
     difficulty: string | null;
     orderIndex: number;
@@ -380,6 +383,28 @@ function ReviewQuestionCard({
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-slate-500">
         Question data unavailable
+      </div>
+    );
+  }
+
+  if (q.tapExercise?.items.length) {
+    let selected: Record<string, string> = {};
+    try { selected = JSON.parse(item.userAnswer); } catch { /* older answer data */ }
+    return (
+      <div className="space-y-8">
+        {q.tapExercise.items.map((tapItem, index) => (
+          <TestTapSelectCard
+            key={index}
+            title={q.tapExercise!.title}
+            hint={index === 0 ? q.tapExercise!.hint : undefined}
+            item={tapItem}
+            itemIndex={index}
+            selectedAnswer={selected[String(index)] ?? null}
+            onAnswer={onAnswerSelect}
+            revealAnswer
+            disabled
+          />
+        ))}
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, testSetQuestions, testSets } from '@/db/schema';
-import { eq, asc, desc, inArray, notInArray, and, sql, count as drizzleCount, ilike } from 'drizzle-orm';
+import { eq, asc, desc, inArray, notInArray, and, sql, count as drizzleCount, ilike, ne } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 const PAGE_SIZE = 20;
@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10)));
     const offset = (page - 1) * limit;
 
-    const conditions = [];
-    if (testTypeId) conditions.push(eq(questions.testTypeId, testTypeId));
+    const conditions = [ne(questions.testTypeId, 'tap-select')];
+    if (testTypeId && testTypeId !== 'tap-select') conditions.push(eq(questions.testTypeId, testTypeId));
     if (difficulty) conditions.push(eq(questions.difficulty, difficulty));
     if (cefrLevel) conditions.push(eq(questions.cefrLevel, cefrLevel));
     if (search) conditions.push(ilike(questions.questionText, `%${search}%`));
@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
         createdAt: questions.createdAt,
         conversation: questions.conversation,
         article: questions.article,
+        tapExercise: questions.tapExercise,
         audioUrl: questions.audioUrl,
         transcript: questions.transcript,
         testType: {
@@ -145,6 +146,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { testTypeId, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, difficulty, cefrLevel, orderIndex, isDemo, demoOrder, conversation, article, audioUrl, transcript } = body;
 
+    if (testTypeId === 'tap-select') {
+      return NextResponse.json({ error: 'Tap & Select ต้องเพิ่มเป็นข้อย่อยภายใน Test Set' }, { status: 400 });
+    }
+
     if (!testTypeId || !questionText || !difficulty || !cefrLevel) {
       return NextResponse.json({ error: 'Missing required fields: testTypeId, questionText, difficulty, cefrLevel are required' }, { status: 400 });
     }
@@ -160,6 +165,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: article.title and article.text are required for form-meaning questions' }, { status: 400 });
     }
 
+    const normalizedQuestionText = questionText;
+
     // ── Duplicate check ───────────────────────────────────────────────
     const [duplicate] = await db
       .select({ id: questions.id, questionText: questions.questionText })
@@ -167,7 +174,7 @@ export async function POST(request: NextRequest) {
       .where(
         and(
           eq(questions.testTypeId, testTypeId),
-          sql`LOWER(TRIM(${questions.questionText})) = LOWER(TRIM(${questionText}))`
+          sql`LOWER(TRIM(${questions.questionText})) = LOWER(TRIM(${normalizedQuestionText}))`
         )
       )
       .limit(1);
@@ -185,7 +192,7 @@ export async function POST(request: NextRequest) {
 
     const [newQuestion] = await db.insert(questions).values({
       testTypeId,
-      questionText,
+      questionText: normalizedQuestionText,
       optionA: optionA || null,
       optionB: optionB || null,
       optionC: optionC || null,

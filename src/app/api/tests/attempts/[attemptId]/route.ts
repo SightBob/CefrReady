@@ -92,6 +92,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
           audioUrl: question.audioUrl,
           transcript: question.transcript,
           article: question.article,
+          tapExercise: question.tapExercise,
           cefrLevel: question.cefrLevel,
           difficulty: question.difficulty,
           orderIndex: question.orderIndex,
