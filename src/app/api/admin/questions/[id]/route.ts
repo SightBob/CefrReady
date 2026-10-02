@@ -95,7 +95,6 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
         || tapExercise.items.length === 0
         || !tapExercise.items.every(item =>
           typeof item.prompt === 'string'
-          && Boolean(item.prompt.trim())
           && typeof item.choiceA === 'string'
           && Boolean(item.choiceA.trim())
           && typeof item.choiceB === 'string'

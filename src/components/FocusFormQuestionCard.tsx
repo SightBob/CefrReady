@@ -101,7 +101,7 @@ export default function FocusFormQuestionCard({
               {line.text.split(/(\s+)/).filter(Boolean).map((word, wi) =>
                 /^\s+$/.test(word)
                   ? null
-                  : <span key={wi}><SelectableText text={word} contextSentence={line.text} /></span>,
+                  : <span key={wi}><SelectableText text={word} contextSentence={line.text} inline /></span>,
               )}
             </p>
           </div>
@@ -208,7 +208,7 @@ export default function FocusFormQuestionCard({
                 {opt.key}
               </span>
               <span className="text-base font-medium text-[#1E293B]">
-                <SelectableText text={opt.value} contextSentence={opt.value} />
+                <SelectableText text={opt.value} contextSentence={opt.value} inline />
               </span>
             </button>
           );

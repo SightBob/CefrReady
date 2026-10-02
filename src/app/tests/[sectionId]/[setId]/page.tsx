@@ -121,6 +121,7 @@ export default function SetQuizPage() {
   // Standard quiz state (MCQ types)
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [tapAnswerCorrectness, setTapAnswerCorrectness] = useState<Record<number, boolean>>({});
   const [answers, setAnswers] = useState<(string | null)[]>([]);
   const [scoredTotal, setScoredTotal] = useState<number | null>(null);
   const [results, setResults] = useState<QuestionResult[]>([]);
@@ -320,19 +321,51 @@ export default function SetQuizPage() {
   // `answers`, review round writes into `reviewAnswers`.
   const handleAnswer = (answer: string) => {
     if (!setData) return;
+    const answerSlotIndex = isReviewPhase ? (reviewQueue[reviewIndex] ?? -1) : currentQuestion;
+    if (answerSlotIndex < 0) return;
+
     if (isReviewPhase) {
       if (reviewAnswers[reviewIndex] !== null) return;
       const next = [...reviewAnswers];
       next[reviewIndex] = answer;
       setReviewAnswers(next);
-      setSelectedAnswer(answer);
-      return;
+    } else {
+      if (selectedAnswer !== null) return;
+      const next = [...answers];
+      next[currentQuestion] = answer;
+      setAnswers(next);
     }
-    if (selectedAnswer !== null) return;
     setSelectedAnswer(answer);
-    const newAnswers = [...answers];
-    newAnswers[currentQuestion] = answer;
-    setAnswers(newAnswers);
+
+    const slot = mainSlots[answerSlotIndex];
+    if (slot?.kind !== 'tap') return;
+    const question = setData.questions[slot.questionIndex];
+    const item = question.tapExercise?.items[slot.itemIndex];
+    if (!item) return;
+
+    const { answerKeys } = shuffleTapExerciseChoices(
+      item,
+      `${choiceShuffleSeed}-${question.id}-tap-${slot.itemIndex}`,
+    );
+    void apiFetch('/api/tests/tap-answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        testSetId: setId,
+        questionId: question.id,
+        itemIndex: slot.itemIndex,
+        selectedAnswer: getOriginalTapChoiceAnswer(answer, answerKeys),
+      }),
+    })
+      .then(response => response.json())
+      .then(result => {
+        if (result.success && typeof result.data?.isCorrect === 'boolean') {
+          setTapAnswerCorrectness(current => ({ ...current, [answerSlotIndex]: result.data.isCorrect }));
+        }
+      })
+      .catch(() => {
+        // Keep the selected option neutral if server-side answer checking fails.
+      });
   };
 
   // Layout index → phase-correct slot. In review phase, layout indices are
@@ -353,6 +386,12 @@ export default function SetQuizPage() {
       const reviewNext = [...reviewAnswers];
       reviewNext[rIdx] = null;
       setReviewAnswers(reviewNext);
+      const slotIndex = reviewQueue[rIdx];
+      setTapAnswerCorrectness(current => {
+        const next = { ...current };
+        delete next[slotIndex];
+        return next;
+      });
       if (rIdx === reviewIndex) setSelectedAnswer(null);
       return;
     }
@@ -360,6 +399,11 @@ export default function SetQuizPage() {
     newAnswers[index] = null;
     setAnswers(newAnswers);
     setSelectedAnswer(null);
+    setTapAnswerCorrectness(current => {
+      const next = { ...current };
+      delete next[index];
+      return next;
+    });
   };
 
   const handleQuestionSelect = (index: number) => {
@@ -622,6 +666,7 @@ export default function SetQuizPage() {
     setReviewableWrongSlots([]);
     setShowReviewIntro(false);
     setRetryResults(null);
+    setTapAnswerCorrectness({});
   };
 
   // form-meaning uses its own special renderer when all entries are articles.
@@ -799,6 +844,7 @@ export default function SetQuizPage() {
             itemIndex={activeSlot.kind === 'tap' ? activeSlot.itemIndex : 0}
             selectedAnswer={selectedAnswer}
             onAnswer={handleAnswer}
+            answerIsCorrect={tapAnswerCorrectness[activeSlotIndex] ?? null}
             disabled={submitting}
           />
           {modalsFragment}

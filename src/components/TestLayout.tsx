@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
-  ChevronLeft,
   ChevronRight,
   CheckCircle,
   Circle,
@@ -16,6 +15,14 @@ import {
   RotateCcw,
   ArrowRight
 } from 'lucide-react';
+import VerbBankPanel from './VerbBankPanel';
+
+/** ตัวอย่างคลังกริยา 3 ช่อง (Figma node 2654:1249) — จะแทนที่ด้วยข้อมูลจริงภายหลัง */
+const VERB_BANK = [
+  { v1: 'go', v2: 'went', v3: 'gone' },
+  { v1: 'eat', v2: 'ate', v3: 'eaten' },
+  { v1: 'see', v2: 'saw', v3: 'seen' },
+];
 
 interface Section {
   id: string;
@@ -64,7 +71,7 @@ interface TestLayoutProps {
   reviewAction?: { label: string; onClick: () => void };
 }
 
-const QUESTIONS_PER_PAGE = 20;
+const QUESTIONS_PER_PAGE = 10;
 const DEFAULT_DURATION_MINUTES = 20;
 
 export default function TestLayout({
@@ -316,6 +323,7 @@ export default function TestLayout({
               </div>
             )}
 
+            
             <div className="p-4 grid grid-cols-6 gap-1 mb-20">
               {Array.from({ length: totalQuestions }, (_, i) => (
                 <button
@@ -341,7 +349,10 @@ export default function TestLayout({
               </div>
             )}
           </div>
+
+          
         </div>
+        
       )}
 
       {/* Sets modal (opened from the header) */}
@@ -458,16 +469,16 @@ export default function TestLayout({
           </button>
         </div>
 
-        <div className="flex gap-6 mt-[1.1875rem] ">
+        <div className="flex gap-6 mt-[1.1875rem] flex-start">
           {/* Desktop Navigation Panel */}
           {showNavPanel && showQuestionNav && (
-            <div className="hidden md:flex w-[18.4375rem] shrink-0 ">
-              <div className="rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden w-full p-[1.1875rem] bg-white">
+            <div className="hidden md:flex w-[18.4375rem] flex-col gap-[0.9375rem]">
+              <div className="rounded-2xl shadow-sm sticky h-fit overflow-hidden w-full bg-white">
 
                 {/* Question Grid/List */}
-                <div className="px-3 max-h-76 overflow-y-auto py-[1.1875rem]">
+                <div className="h-auto overflow-y-auto p-[1.625rem] py-[1.1875rem]">
                   {viewMode === 'grid' ? (
-                    <div className="grid grid-cols-5 gap-5">
+                    <div className="grid grid-cols-5 gap-[19px]">
                       {pageQuestions.map(i => (
                         <button
                           key={i}
@@ -504,78 +515,13 @@ export default function TestLayout({
                   )}
                 </div>
 
-                {/* Pagination */}
-                <div className="p-3 border-t border-slate-100 flex items-center justify-between gap-1">
-                  <button
-                    onClick={() => handlePageChange(Math.max(0, currentPage - 1))}
-                    disabled={currentPage === 0}
-                    className="p-1 rounded hover:bg-slate-100 disabled:opacity-30"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-
-                  <div className="flex items-center space-x-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i;
-                    } else if (currentPage < 3) {
-                      pageNum = i;
-                    } else if (currentPage > totalPages - 3) {
-                      pageNum = totalPages - 5 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => handlePageChange(pageNum)}
-                        className={`size-[1.75rem] rounded-full text-[0.75rem] font-medium ${currentPage === pageNum
-                          ? 'bg-[#4A4A4A] text-white'
-                          : 'hover:bg-slate-100 text-slate-600'
-                          }`}
-                      >
-                        {pageNum + 1}
-                      </button>
-                    );
-                  })}
-                  </div>
-
-                  <button
-                    onClick={() => handlePageChange(Math.min(totalPages - 1, currentPage + 1))}
-                    disabled={currentPage === totalPages - 1}
-                    className="p-1 rounded hover:bg-slate-100 disabled:opacity-30"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Submit / Next Button */}
-                {/* {!isSubmitted && (
-                  <div className="p-3 border-t border-slate-100">
-                    {currentQuestion < totalQuestions - 1 ? (
-                      <button
-                        onClick={onNext}
-                        className="w-full btn-primary py-3 flex items-center justify-center gap-2"
-                      >
-                        Next Question <ChevronRight className="w-4 h-4" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={onSubmit}
-                        disabled={unansweredCount > 0}
-                        className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed py-3"
-                      >
-                        {unansweredCount > 0
-                          ? `ส่งข้อสอบ (เหลือ ${unansweredCount} ข้อ)`
-                          : 'ส่งข้อสอบ'}
-                      </button>
-                    )}
-                  </div>
-                )} */}
+                  
               </div>
+
+              {/* Verb bank — คลังกริยา 3 ช่อง (Figma node 2654:1249) — กล่องแยกใต้กล่อง navigation */}
+              <VerbBankPanel verbs={VERB_BANK} />
             </div>
+            
           )}
 
           {/* Toggle Nav Button */}
@@ -587,15 +533,15 @@ export default function TestLayout({
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
-            
-
             {/* Question Content */}
             <div className="mb-6">
               {children}
             </div>
           </div>
         </div>
+        
       </div>
+
 
       {/* Old Mobile Bottom Bar — replaced by universal bottom bar below */}
 

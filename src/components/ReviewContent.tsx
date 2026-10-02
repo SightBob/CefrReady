@@ -194,16 +194,15 @@ function ExampleCard({
   ok?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-[0.4375rem] py-[0.4125rem] bg-[#F5F5F5] flex justify-center items-center`}
-    >
+    <div className="flex w-full flex-col items-center justify-center gap-1 rounded-[0.4375rem] bg-[#F5F5F5] px-2 py-[0.4125rem] text-center">
       <p
-        className={`text-sm font-medium leading-relaxed ${ok === false ? "text-slate-600" : "text-slate-800"}`} style={{ color: C.body }}
+        className={`text-sm font-medium leading-relaxed ${ok === false ? "text-slate-600" : "text-slate-800"}`}
+        style={{ color: C.body }}
       >
         <RichText text={en} highlightColor="#FFFFFF" highlightTextColor={C.body} as="span" />
       </p>
       {th && (
-        <p className="mt-1 text-xs leading-relaxed" style={{ color: C.body }}>
+        <p className="text-xs leading-relaxed" style={{ color: C.body }}>
           <RichText text={th} highlightColor="#FFFFFF" highlightTextColor={C.body} as="span" />
         </p>
       )}
@@ -227,7 +226,7 @@ export default function ReviewContent({
   // Node title (e.g. "Node 1: Do / Don't — ลูกมือสายลุย") is intentionally NOT
   // rendered on the explain page — the layout chip already shows the lesson name.
   return (
-    <div className="space-y-4 sm:space-y-5 p-[1.5rem] bg-white rounded-[28px]">
+    <div className="space-y-4 sm:space-y-5">
       {sections.map((section, sectionIndex) => {
         const heading = section.heading?.trim();
         if (section.type === "practice")
@@ -272,7 +271,7 @@ export default function ReviewContent({
         return (
           <section
             key={sectionIndex}
-            className="rounded-2xl p-4 sm:p-5"
+            className="rounded-[20px] p-4 sm:p-5"
             style={{ background: C.card, borderColor: C.cardBorder }}
           >
             {heading && (
@@ -280,12 +279,12 @@ export default function ReviewContent({
                 <RichText text={heading} highlightColor="#FFFFFF" highlightTextColor={C.body} as="span" />
               </h2>
             )}
-          <div className="p-4 bg-white space-y-3 mt-[0.5rem] rounded-[12px]">
+          <div className="mt-2 space-y-3 rounded-xl bg-white p-4 sm:p-5">
             {(section.chip?.trim() || section.description?.trim()) && (
                 <div className="flex flex-wrap items-center gap-2.5">
                 {section.chip?.trim() && (
                   <span
-                className="inline-flex justify-center items-center rounded-lg w-[88px] py-1.5 text-[0.8125rem] font-semibold sm:text-sm"
+                className="inline-flex min-h-8 items-center justify-center rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold sm:text-sm"
                 style={{ background: C.chip, color: C.body }}
               >
                 <RichText
@@ -298,7 +297,7 @@ export default function ReviewContent({
                 )}
                 {section.description?.trim() && (
                   <p
-                    className="min-w-[180px] flex-1 pt-0.5 text-[0.875rem] font-semibold leading-relaxed sm:text-base"
+                    className="min-w-0 flex-1 pt-0.5 text-[0.875rem] font-semibold leading-relaxed sm:text-base"
                     style={{ color: C.body }}
                   >
                     <RichText
@@ -412,9 +411,9 @@ export default function ReviewContent({
             {(section.type === "rule" || section.type === "detailedRule") &&
               section.tip?.trim() && (
                 <div
-                  className="flex items-start gap-1 rounded-xl"
+                  className="flex items-start gap-2 rounded-xl border border-amber-300 bg-[#FFF9E8] px-3 py-2"
                 >
-               <div className="bg-[#C8E6FF] w-[17px] h-[17px] p-1 flex items-center justify-center rounded-[4px]">
+               <div className="flex size-[17px] shrink-0 items-center justify-center rounded-[4px] bg-[#FFF0B8] p-1">
                   <Image
                   src="/logo-otter/star.png"
                   alt=""

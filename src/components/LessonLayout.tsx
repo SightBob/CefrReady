@@ -232,7 +232,7 @@ export default function LessonLayout({
 
       {/* ===== Bottom Bar — same as TestLayout's universal bottom bar ===== */}
       <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)]">
-        <div className={`${reviewMode ? 'max-w-[716px]' : 'max-w-[1360px]'} mx-auto px-3 sm:px-6 lg:px-8 py-3 md:py-0 md:min-h-[8rem] flex items-center justify-end gap-3 w-full`}>
+        <div className={`${reviewMode ? 'max-w-[816px]' : 'max-w-[1360px]'} px-4  mx-auto py-3 md:py-0 md:min-h-[8rem] flex items-center justify-end gap-3 w-full`}>
           {/* Actions — same pill buttons as TestLayout, aligned right */}
           <div className="flex items-center gap-2 md:gap-3 justify-end">
             {secondaryAction && (
