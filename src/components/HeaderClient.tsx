@@ -113,9 +113,9 @@ export default function HeaderClient() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E6F0F8]">
-      <div className="max-w-[1146px] mx-auto flex items-center justify-between h-[88px] px-4 sm:px-6">
+      <div className="max-w-[1146px] mx-auto flex items-center justify-between min-[992px]:grid min-[992px]:grid-cols-[1fr_auto_1fr] h-[88px] px-4 sm:px-6">
         {/* Logo: CEFR + READY! badge (Figma 1:1097) */}
-        <Link href="/" className="flex flex-col items-start group" aria-label="CEFR Ready หน้าหลัก">
+        <Link href="/" className="flex flex-col items-start group justify-self-start" aria-label="CEFR Ready หน้าหลัก">
           <span className="font-['Momo_Trust_Display'] text-[26px] leading-[34px] tracking-[0.52px] text-[#5A95C6] [text-shadow:1px_1px_0_#F8E9A9]">
             CEFR
           </span>
@@ -139,7 +139,7 @@ export default function HeaderClient() {
         </nav>
 
         {/* Right: profile pill (Figma 1:1109) */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 justify-self-end">
           <div className="hidden min-[992px]:flex items-center">
             {isLoadingSession ? (
               <div className="h-[46px] w-[191px] rounded-full bg-[#F4F4F4] animate-pulse" aria-hidden="true" />
