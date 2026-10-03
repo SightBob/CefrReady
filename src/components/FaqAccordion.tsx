@@ -53,7 +53,7 @@ export default function FaqAccordion() {
             >
               <span
                 className={`font-semibold text-sm md:text-base leading-snug transition-colors ${
-                  isOpen ? 'text-primary-700' : 'text-[#4E4E4E]'
+                  isOpen ? 'text-primary-700' : 'text-[#557895]'
                 }`}
               >
                 {faq.question}

@@ -8,7 +8,7 @@ import SelectableText from './SelectableText';
 import ExplanationText from './ExplanationText';
 
 const OTTER_AVATAR = '/logo-otter/otter.png';
-const OTTER_CHEER = '/logo-otter/otter-chear.png';
+const OTTER_CHEER = '/logo-otter/otter-chear1.png';
 
 interface ConversationLine {
   speaker: string;

@@ -198,11 +198,26 @@
   size-adjust: 101.17%;
 }
 
-/* Consumed by tailwind.config.js (sans/serif/ibm) — same variable name
-   next/font/google used, so no other config changes are needed. */
+/*
+ * Caveat — variable font (wght axis 400–700), handwriting accent face.
+ * A single @font-face with a weight *range* lets the browser interpolate
+ * the variable axis instead of downloading one file per weight.
+ */
+@font-face {
+  font-family: 'Caveat';
+  src: url('/fonts/Caveat-VariableFont_wght.ttf') format('truetype-variations'),
+       url('/fonts/Caveat-VariableFont_wght.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Consumed by tailwind.config.js (sans/serif/ibm/momo/caveat) — same variable
+   names next/font/google used, so no other config changes are needed. */
 :root {
   --font-ibm: 'IBM Plex Sans Thai', 'IBM Plex Sans Thai Fallback';
   --font-momo: 'Momo Trust Display', 'IBM Plex Sans Thai', 'IBM Plex Sans Thai Fallback', sans-serif;
+  --font-caveat: 'Caveat', 'Momo Trust Display', 'IBM Plex Sans Thai', cursive;
 }
 
 @font-face {

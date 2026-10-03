@@ -14,6 +14,7 @@ module.exports = {
         serif: ['var(--font-ibm)', 'ui-serif', 'Georgia', 'serif'],
         ibm: ['var(--font-ibm)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         momo: ['var(--font-momo)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        caveat: ['var(--font-caveat)'],
       },
       colors: {
         primary: {

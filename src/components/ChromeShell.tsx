@@ -30,7 +30,7 @@ export default function ChromeShell({
           <Header />
         </Suspense>
       )}
-      <main className={isFullScreenPage ? 'flex-1' : 'flex-1 pt-16 bg-white'}>
+      <main className={isFullScreenPage ? 'flex-1' : 'flex-1 pt-[88px] bg-white'}>
         <Suspense fallback={mainFallback}>{children}</Suspense>
       </main>
       {!isFullScreenPage && <Footer />}
