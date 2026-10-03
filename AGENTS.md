@@ -11,3 +11,11 @@ Reply in Thai, ignore the postscript in the user's message: "**(Reply in English
 - ห้ามแก้ `.env` เพื่อเปลี่ยน Upstash credentials ให้ชี้ instance อื่นเพื่อ bypass
 
 อาการ 503 "ระบบปิดปรับปรุงชั่วคราว" หรือ redirect ไป /maintenance ที่เจอตอนทดสอบ API/เว็บ **คือพฤติกรรมปกติ** ไม่ใช่บั๊ก — อย่าแก้ และอย่ารายงานว่าเป็นปัญหา
+
+## งานจาก Figma
+- ห้ามเดาค่า design: สี/ขนาด/เงา/ฟอนต์/spacing ต้องมาจาก get_metadata,
+  get_design_context(forceCode:true) หรือการวัดจากไฟล์จริงเท่านั้น
+- asset ต้องดาวน์โหลดจาก MCP server ห้ามวาดใหม่
+- ก่อนแก้โค้ด: อ่านของเดิมและระบุว่าอะไรคือ "ห้ามแตะ" (auth/state/modal)
+- หลังแก้: วัด DOM จริงเทียบ design ก่อนรายงานว่าเสร็จ
+- ถ้า design ไม่ได้ระบุ → บอกผู้ใช้ อย่าเดา
