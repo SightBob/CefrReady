@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle, XCircle, HelpCircle } from 'lucide-react';
+import Image from 'next/image';
+import { HelpCircle } from 'lucide-react';
+import { Sparkle } from '@phosphor-icons/react';
 import SelectableText from './SelectableText';
 import ExplanationText from './ExplanationText';
 
 const OTTER_AVATAR = '/logo-otter/otter.png';
+const OTTER_CHEER = '/logo-otter/otter-chear.png';
 
 interface ConversationLine {
   speaker: string;
@@ -162,7 +165,7 @@ export default function FocusFormQuestionCard({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-7 mt-6 sm:mt-[1.75rem]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-7 gap-y-4 mt-6 sm:mt-[1.75rem]">
         {options.map((opt) => {
           const isSelected = selectedAnswer === opt.key;
           const isCorrectOption = opt.key === correctAnswer;
@@ -216,19 +219,45 @@ export default function FocusFormQuestionCard({
       </div>
 
       {showExplanation && (
-        <div className={`mt-6 p-5 rounded-xl border-2 border-l-4 shadow-md flex items-start gap-3 ${isCorrect
-          ? 'bg-emerald-50 border-emerald-200 border-l-emerald-500'
-          : 'bg-amber-50 border-amber-200 border-l-amber-500'
-          }`}>
-          {isCorrect
-            ? <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-            : <XCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-          }
-          <div>
-            <p className={`font-bold mb-1 ${isCorrect ? 'text-emerald-700' : 'text-amber-700'}`}>
-              {isCorrect ? 'ถูกต้อง!' : 'ผิดแล้ว — เฉลย:'} คำอธิบาย
-            </p>
-            {explanation && <ExplanationText text={explanation} className="text-slate-700 text-sm font-medium" />}
+        <div className="mt-6">
+          {/* แถว header — otter + แคปชันเฉลย + หัวใจ */}
+          <div className="relative inline-flex items-end gap-2 pl-[2.6rem]">
+            <Image
+              src={OTTER_CHEER}
+              alt=""
+              width={52}
+              height={52}
+              className="absolute left-0 bottom-0 w-[3.25rem] h-[3.25rem] object-contain object-bottom"
+            />
+            <span className="rounded-full rounded-bl-none bg-[#F5F0E8] px-3.5 py-2 text-sm font-semibold text-[#5C5142]">
+              เฉลยว่าทำไมถึงโดน&nbsp;
+              <span aria-hidden="true">💛</span>
+            </span>
+          </div>
+          {/* กล่องคำอธิบาย — ขอบเหลือง 2 ชั้น พื้นขาว */}
+          <div
+            className="mt-2 rounded-2xl px-4 py-4 sm:px-5"
+            style={{ border: '1.6px solid #F5D963', background: '#FFFFFF' }}
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className="grid size-7 shrink-0 place-items-center rounded-[0.5rem] text-[#1DA1F2]"
+                style={{ background: '#DDF4FF' }}
+              >
+                <Sparkle className="size-4" weight="fill" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-extrabold text-[#5C4A1A]">
+                  คุณตอบ{isCorrect ? "ถูก" : "ผิด"}เลย งานนี้ใช้เหตุผลนี้อธิบาย
+                </p>
+                {explanation && (
+                  <ExplanationText
+                    text={`“ ${explanation} ”`}
+                    className="mt-1 text-sm font-semibold text-[#8A7A4E]"
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

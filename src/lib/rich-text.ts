@@ -33,7 +33,7 @@ export function readableTextColor(background: string): string {
   const luminance = channels
     .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
     .reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
-  return luminance > 0.42 ? '#111827' : '#FFFFFF';
+  return luminance > 0.42 ? '#555555' : '#FFFFFF';
 }
 
 function resolveHighlight(content: string): Omit<InlineTextToken, 'type' | 'value'> | null {

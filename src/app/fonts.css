@@ -202,4 +202,13 @@
    next/font/google used, so no other config changes are needed. */
 :root {
   --font-ibm: 'IBM Plex Sans Thai', 'IBM Plex Sans Thai Fallback';
+  --font-momo: 'Momo Trust Display', 'IBM Plex Sans Thai', 'IBM Plex Sans Thai Fallback', sans-serif;
+}
+
+@font-face {
+  font-family: 'Momo Trust Display';
+  src: url('/fonts/MomoTrustDisplay-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }

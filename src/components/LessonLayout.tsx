@@ -130,21 +130,21 @@ export default function LessonLayout({
           <button
             type="button"
             onClick={() => setIsLessonMenuOpen(true)}
-            className="w-72 shrink-0 bg-white shadow-[3px_3px_0_0_#D5D3D3] border border-slate-100 ps-2 pe-3 py-2 flex items-center gap-2.5 rounded-[12px] min-w-0 hover:bg-slate-50 transition-colors"
+            className="w-72 shrink-0 text-[#638AAA] bg-white shadow-[3px_3px_0_0_#D5D3D3] border border-slate-100 ps-2 pe-3 py-2 flex items-center gap-2.5 rounded-[12px] min-w-0 hover:bg-slate-50 transition-colors"
             aria-haspopup="dialog"
             aria-expanded={isLessonMenuOpen}
           >
             <span
-              className="shrink-0 text-[11px] sm:text-xs font-bold px-2.5 py-1 rounded-lg"
-              style={{ background: accent.light, color: accent.dark }}
+              className="shrink-0 text-[13px] font-semibold px-2.5 py-1 rounded-lg"
+              style={{ background: accent.light}}
             >
               {unitLabel ?? `Unit ${unitNumber}`}
             </span>
-            <span className="flex-1 text-left text-sm sm:text-[0.9375rem] font-bold truncate" style={{ color: accent.dark }}>
-              {title}
+            <span className="flex-1 text-left text-[0.9375rem] font-semibold truncate">
+             : {title}
             </span>
             <ChevronDown
-              className={`size-4 shrink-0 text-slate-400 transition-transform ${isLessonMenuOpen ? 'rotate-180' : ''}`}
+              className={`size-4 shrink-0 transition-transform ${isLessonMenuOpen ? 'rotate-180' : ''}`}
               aria-hidden="true"
             />
           </button>
@@ -255,10 +255,10 @@ export default function LessonLayout({
               type="button"
               onClick={primaryAction.onClick}
               disabled={primaryAction.disabled}
-              className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] rounded-full flex items-center space-x-1 justify-center text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: '#FDE68A' }}
+              className={`flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] rounded-[14px] flex items-center justify-center py-[14px] space-x-1 text-[1rem] text-[#524924] transition-colors bg-[#FFF0AE] border-b-[3px] border-r-[4px] border-[#FFDB40] hover:bg-[#FFEA8F]'
+            }`}
             >
-              <span className="text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap">
+              <span className="text-[1rem] text-center font-semibold whitespace-nowrap">
                 {primaryAction.label}
               </span>
             </button>

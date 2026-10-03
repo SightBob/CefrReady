@@ -91,6 +91,8 @@ export default function TestTapSelectCard({
 
       </section>
 
+      {/* แสดงหลังเลือกคำตอบแล้วเท่านั้น */}
+      {answered && (
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-3.5">
           <h3 className="text-base font-medium leading-8 text-[#1E293B]">เหตุผลที่เลือกข้อนี้</h3>
@@ -115,6 +117,7 @@ export default function TestTapSelectCard({
         </label>
         <p className="flex items-center gap-1.5 text-xs text-slate-400"><RotateCcw size={12} /> โน้ตนี้ใช้ฝึกทบทวนเท่านั้น ยังไม่บันทึกคะแนน</p>
       </section>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { ArrowRight, ArrowRightIcon, ArrowRightToLine, Lightbulb, MoveLeft, Move
 import type {
   LessonPracticeQuestion,
   ReviewTopic,
-} from "@/content/units-path-lessons";
+} from "@/lib/lesson-sections";
 import { normalizeLessonSections } from "@/lib/lesson-sections";
 import RichText from "./RichText";
 import Image from "next/image";
@@ -15,24 +15,29 @@ const C = {
   pill: "#F5F5F5",
   pillBorder: "#E8E8E8",
   result: "#FFF8D9",
-  chip: "#FFF0B8",
+  chip: "#FFF5CF",
   chipText: "#6D5B16",
   arrow: "#555555",
   tipBg: "#E7F3FD",
   tipText: "#2B6CB0",
   heading: "#404040",
-  body: "#555555",
+  body: "#404040",
 };
 
 function SentenceBlank({ sentence }: { sentence: string }) {
   const parts = sentence.split("____");
   return (
-    <p className="text-base sm:text-lg font-bold leading-relaxed text-slate-800">
+    <p className="text-base font-bold leading-relaxed text-slate-800 sm:text-lg">
       {parts.map((part, index) => (
         <React.Fragment key={index}>
           {part}
           {index < parts.length - 1 && (
-            <span className="mx-1 inline-block min-w-16 rounded-sm border-b-[3px] border-slate-400 align-bottom" />
+            <span
+              aria-hidden="true"
+              className="mx-1.5 inline-block rounded-xl bg-[#F2F2F2] px-4 py-0.5 align-middle font-bold text-[#5F5F5F]"
+            >
+              ______
+            </span>
           )}
         </React.Fragment>
       ))}
@@ -48,139 +53,111 @@ function MiniQuiz({
   title: string;
 }) {
   const [active, setActive] = React.useState(0);
-  const [selectedOptions, setSelectedOptions] = React.useState<
-    Record<number, number>
-  >({});
   const [answers, setAnswers] = React.useState<Record<number, number>>({});
   const question = questions[active];
   if (!question) return null;
   const selected = answers[active];
-  const selectedOption = selectedOptions[active];
   const isCorrect = selected === question.answerIndex;
+  // Click an option → check instantly and reveal the answer. One shot per question.
   const choose = (optionIndex: number) =>
-    setSelectedOptions((current) =>
-      current[active] === undefined && answers[active] === undefined
-        ? { ...current, [active]: optionIndex }
-        : current,
+    setAnswers((current) =>
+      current[active] === undefined ? { ...current, [active]: optionIndex } : current,
     );
 
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
-      aria-label={title}
-    >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-extrabold text-emerald-700 sm:text-base">
-          {title}
-        </h2>
-        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-          {active + 1} / {questions.length}
-        </span>
-      </div>
-      <nav
-        className="mb-4 flex flex-wrap gap-2"
-        aria-label="เลือกข้อ Mini Quiz"
+  className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+  aria-label={title}
+>
+  {/* Header */}
+  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <h2 className="flex items-center gap-2 text-base font-bold text-[#2B6C00] sm:text-lg">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-5 shrink-0"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       >
-        {questions.map((item, index) => {
-          const answered = answers[index] !== undefined;
-          const correct = answers[index] === item.answerIndex;
-          return (
-            <button
-              key={index}
-              type="button"
-              onClick={() => setActive(index)}
-              aria-current={active === index ? "step" : undefined}
-              aria-label={`ข้อ ${index + 1}${answered ? (correct ? " ตอบถูก" : " ตอบผิด") : ""}`}
-              className={`grid size-9 place-items-center rounded-full border text-xs font-extrabold transition-colors ${active === index ? "border-emerald-600 bg-emerald-600 text-white" : answered && correct ? "border-emerald-200 bg-emerald-50 text-emerald-700" : answered ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-500 hover:border-emerald-400 hover:bg-emerald-50"}`}
-            >
-              {index + 1}
-            </button>
-          );
-        })}
-      </nav>
-      <div className="mb-4 rounded-xl bg-slate-50 p-4">
-        <SentenceBlank sentence={question.sentence} />
-      </div>
-      <div
-        className="grid gap-2.5 sm:grid-cols-2"
-        role="group"
-        aria-label="เลือกคำตอบ"
-      >
-        {question.options.map((option, index) => {
-          const chosen = selectedOption === index;
-          const answer = question.answerIndex === index;
-          const hasAnswered = selected !== undefined;
-          const stateClass =
-            hasAnswered && answer
-              ? "border-emerald-400 bg-emerald-50 text-emerald-900"
-              : hasAnswered && selected === index
-                ? "border-rose-400 bg-rose-50 text-rose-900"
-                : chosen
-                  ? "border-sky-400 bg-sky-50 text-sky-900"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50";
-          return (
-            <button
-              key={`${index}-${option}`}
-              type="button"
-              onClick={() => choose(index)}
-              disabled={hasAnswered}
-              aria-pressed={chosen}
-              className={`flex min-h-12 items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm font-semibold transition-colors disabled:cursor-default ${stateClass}`}
-            >
-              <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-white/80 text-xs font-extrabold text-slate-500">
-                {String.fromCharCode(65 + index)}
-              </span>
-              <span>{option}</span>
-            </button>
-          );
-        })}
-      </div>
-      {selected !== undefined && (
-        <p
-          className={`mt-3 text-sm font-semibold leading-relaxed ${isCorrect ? "text-emerald-700" : "text-rose-700"}`}
-          role="status"
-        >
-          {isCorrect ? "ถูกต้อง! " : "ยังไม่ถูก คำตอบที่ถูกไฮไลต์ไว้แล้ว · "}
-          {question.explanation}
-        </p>
-      )}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setActive((index) => Math.max(0, index - 1))}
-          disabled={active === 0}
-          className="rounded-lg px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          ← ก่อนหน้า
-        </button>
-        {selected === undefined && (
+        <path d="M4 7v12a2 2 0 0 0 2 2h12" />
+        <rect x="7" y="3" width="14" height="14" rx="2" />
+        <path d="M11.5 8.5a2 2 0 1 1 3 1.7c-.6.4-1 .8-1 1.5" />
+        <path d="M14 14h.01" />
+      </svg>
+      {title}
+    </h2>
+
+    <nav className="flex flex-wrap gap-2" aria-label="เลือกข้อ Mini Quiz">
+      {questions.map((item, index) => {
+        const answered = answers[index] !== undefined;
+        const correct = answers[index] === item.answerIndex;
+        return (
           <button
+            key={index}
             type="button"
-            onClick={() => {
-              if (selectedOption !== undefined)
-                setAnswers((current) => ({
-                  ...current,
-                  [active]: selectedOption,
-                }));
-            }}
-            disabled={selectedOption === undefined}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => setActive(index)}
+            aria-current={active === index ? "step" : undefined}
+            aria-label={`ข้อ ${index + 1}${answered ? (correct ? " ตอบถูก" : " ตอบผิด") : ""}`}
+            className={`grid size-7 place-items-center rounded-md text-xs font-bold transition-colors ${
+              active === index
+                ? "bg-[#F2F2F2] text-[#5C5C5C]"
+                : answered && correct
+                  ? "bg-emerald-100 text-emerald-700"
+                  : answered
+                    ? "bg-rose-100 text-rose-700"
+                    : "bg-[#F2F2F2] text-[#5C5C5C] hover:bg-slate-200"
+            }`}
           >
-            ตรวจคำตอบ
+            {index + 1}
           </button>
-        )}
+        );
+      })}
+    </nav>
+  </div>
+
+  {/* Question */}
+  <div className="mb-5 text-base font-bold text-slate-700">
+    <SentenceBlank sentence={question.sentence} />
+  </div>
+
+  {/* Choices */}
+  <div
+    className="grid gap-3 sm:grid-cols-3"
+    role="group"
+    aria-label="เลือกคำตอบ"
+  >
+    {question.options.map((option, index) => {
+      const chosen = selected === index;
+      const answer = question.answerIndex === index;
+      const hasAnswered = selected !== undefined;
+      const stateClass =
+        hasAnswered && answer
+          ? "border-emerald-400 bg-emerald-50 text-emerald-900"
+          : hasAnswered && selected === index
+            ? "border-rose-400 bg-rose-50 text-rose-900"
+            : chosen
+              ? "border-[#2B6C00] bg-[#2B6C00]/5 text-slate-800"
+              : "border-[#E2E8F0] bg-white text-slate-800 hover:border-[#2B6C00]/50";
+      return (
         <button
+          key={`${index}-${option}`}
           type="button"
-          onClick={() =>
-            setActive((index) => Math.min(questions.length - 1, index + 1))
-          }
-          disabled={active === questions.length - 1}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          ข้อถัดไป →
+          onClick={() => choose(index)}
+          disabled={hasAnswered}
+          aria-pressed={chosen}
+         className={`flex min-h-16 items-center gap-4 rounded-[9px] ring-[1.6px] ring-inset ring-[#E2E8F0] px-4 py-3 text-left text-base font-medium transition-colors outline-none disabled:cursor-default ${stateClass}`}  >
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#F1F5F9] text-sm font-bold text-[#64748B]">
+            {String.fromCharCode(65 + index)}
+          </span>
+          <span>{option}</span>
         </button>
-      </div>
-    </section>
+      );
+    })}
+  </div>
+</section>
   );
 }
 
@@ -221,12 +198,23 @@ export default function ReviewContent({
   intro?: string;
   tip?: string;
 }) {
-  const sections = normalizeLessonSections(topics, { intro, tip: _tip });
+  // ลำดับการแสดงผล: การ์ดเนื้อหา → ทริกสำคัญ/เคล็ดลับ → "ลองทำโจทย์เพื่อทบทวน
+  // ความเข้าใจ" (practice) — ย้าย importantNote ทุกอัน (รวม tip เคล็ดลับท้ายหน้า
+  // จาก legacy field ที่ normalize แล้ว append ท้ายสุด) ไปไว้เหนือ practice
+  // section แรก ไม่ว่าลำดับที่บันทึกใน DB จะเป็นอย่างไร
+  const sections = React.useMemo(() => {
+    const list = normalizeLessonSections(topics, { intro, tip: _tip });
+    if (!list.some((section) => section.type === "practice")) return list;
+    const notes = list.filter((section) => section.type === "importantNote");
+    const rest = list.filter((section) => section.type !== "importantNote");
+    const practiceIndex = rest.findIndex((section) => section.type === "practice");
+    return [...rest.slice(0, practiceIndex), ...notes, ...rest.slice(practiceIndex)];
+  }, [topics, intro, _tip]);
 
   // Node title (e.g. "Node 1: Do / Don't — ลูกมือสายลุย") is intentionally NOT
   // rendered on the explain page — the layout chip already shows the lesson name.
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="space-y-4 sm:space-y-5 bg-white p-[1.75rem] rounded-[1.75rem]">
       {sections.map((section, sectionIndex) => {
         const heading = section.heading?.trim();
         if (section.type === "practice")
@@ -242,7 +230,7 @@ export default function ReviewContent({
             <aside
               key={sectionIndex}
               className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50/80 px-4 py-3 shadow-sm"
-              aria-label={heading || "จุดสำคัญที่ควรจำ"}
+              aria-label={heading || "ทริกสำคัญ"}
             >
               <Lightbulb
                 size={19}
@@ -251,7 +239,7 @@ export default function ReviewContent({
               />
               <div className="min-w-0">
                 <h2 className="text-sm font-extrabold text-amber-950">
-                  <RichText text={heading || "จุดสำคัญที่ควรจำ"} highlightTextColor="#7372DF" highlightBackground="transparent" as="span" />
+                  <RichText text={"ทริกสำคัญ"} highlightTextColor="#7372DF" highlightBackground="transparent" as="span" />
                 </h2>
                 {(section.body || section.tip)?.trim() && (
                   <p className="mt-1 text-sm leading-relaxed text-amber-950">
@@ -275,17 +263,17 @@ export default function ReviewContent({
             style={{ background: C.card, borderColor: C.cardBorder }}
           >
             {heading && (
-              <h2 className="text-[1.0625rem] font-semibold text-[#555555] sm:text-base" style={{ color: C.body }}>
+              <h2 className="text-[1.0625rem] font-semibold text-[#3B3B3B] sm:text-base">
                 <RichText text={heading} highlightColor="#FFFFFF" highlightTextColor={C.body} as="span" />
               </h2>
             )}
-          <div className="mt-2 space-y-3 rounded-xl bg-white p-4 sm:p-5">
+          <div className="mt-2 space-y-3 rounded-xl bg-white p-[1.0625rem]">
             {(section.chip?.trim() || section.description?.trim()) && (
                 <div className="flex flex-wrap items-center gap-2.5">
                 {section.chip?.trim() && (
                   <span
-                className="inline-flex min-h-8 items-center justify-center rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold sm:text-sm"
-                style={{ background: C.chip, color: C.body }}
+                className="inline-flex min-h-8 items-center justify-center rounded-lg w-[5.5rem] px-3 py-1.5 text-[0.8125rem] font-semibold sm:text-sm text-[#6D5B16]"
+                style={{ background: C.chip }}
               >
                 <RichText
                   text={section.chip}
@@ -387,8 +375,8 @@ export default function ReviewContent({
                     style={{ background: C.result }}
                   >
                     <span
-                      className="text-xs font-semibold leading-relaxed sm:text-sm"
-                      style={{ color: C.body }}
+                      className="text-xs font-semibold leading-relaxed sm:text-sm text-[#555555]"
+                      
                     >
                       <RichText
                         text={right || left}
@@ -411,9 +399,9 @@ export default function ReviewContent({
             {(section.type === "rule" || section.type === "detailedRule") &&
               section.tip?.trim() && (
                 <div
-                  className="flex items-start gap-2 rounded-xl border border-amber-300 bg-[#FFF9E8] px-3 py-2"
+                  className="flex items-start gap-2 rounded-xl px-3 py-2"
                 >
-               <div className="flex size-[17px] shrink-0 items-center justify-center rounded-[4px] bg-[#FFF0B8] p-1">
+               <div className="flex size-[17px] shrink-0 items-center justify-center rounded-[4px] bg-[#C8E6FF] p-1">
                   <Image
                   src="/logo-otter/star.png"
                   alt=""
@@ -422,8 +410,7 @@ export default function ReviewContent({
                 />
                     </div>
                   <p
-                    className="text-xs font-semibold leading-relaxed sm:text-sm"
-                    style={{ color: C.body }}
+                    className="text-xs font-semibold leading-relaxed sm:text-sm text-[#555555]"
                   >
                     <RichText
                       text={section.tip}

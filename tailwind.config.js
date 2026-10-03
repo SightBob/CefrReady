@@ -13,6 +13,7 @@ module.exports = {
         sans: ['var(--font-ibm)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         serif: ['var(--font-ibm)', 'ui-serif', 'Georgia', 'serif'],
         ibm: ['var(--font-ibm)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        momo: ['var(--font-momo)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         primary: {

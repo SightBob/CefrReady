@@ -28,7 +28,7 @@ describe('parseInline', () => {
       { type: 'highlight', value: 'white text', background: '#000000', color: '#FFFFFF' },
     ]);
     expect(parseInline('==#ffffff;dark text==')).toEqual([
-      { type: 'highlight', value: 'dark text', background: '#ffffff', color: '#111827' },
+      { type: 'highlight', value: 'dark text', background: '#ffffff', color: '#555555' },
     ]);
   });
 
