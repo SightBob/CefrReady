@@ -22,6 +22,7 @@
   body {
     background-color: #FAFAFA;
     color: #111;
+    font-family: var(--font-momo), 'IBM Plex Sans Thai', 'IBM Plex Sans Thai Fallback', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -57,20 +58,6 @@
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-3px); }
-}
-
-/* UnitsPath — pulse ring on the active level node */
-@keyframes unitsPathPulse {
-  0% { transform: scale(0.9); opacity: 0.45; }
-  70% { transform: scale(1.15); opacity: 0; }
-  100% { transform: scale(1.15); opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .units-path-ring,
-  [style*='unitsPathPulse'] {
-    animation: none !important;
-  }
 }
 
 @keyframes topLoaderIndeterminate {

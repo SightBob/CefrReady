@@ -7,7 +7,6 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 
 const NAV_ITEMS = [
-  { href: '/units', label: 'บทเรียน' },
   { href: '/tests', label: 'ข้อสอบ CEFR' },
   { href: '/#reviews', label: 'รีวิว' },
   { href: '/#levels', label: 'ระดับ A1-C2' },
@@ -132,23 +131,18 @@ export default function HeaderClient() {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-colors duration-300 ${isHome ? 'bg-[#6D88EE]' : 'bg-white border-b border-slate-100 shadow-sm'}`}
+        className={`fixed pt-[14px] pb-[24px] bg-white top-0 left-0 right-0 z-50 transition-colors duration-300 ${isHome ? 'bg-[#6D88EE]' : 'bg-white border-b border-slate-100 shadow-sm'}`}
         style={{ minHeight: '4rem' }}
       >
-        <div className="max-w-[1360px] mx-auto flex flex-col px-4">
+        <div className="max-w-[1146px] mx-auto flex flex-col border h-[49px] ">
           <div className="w-full flex justify-between items-center h-[85px]">
 
             <Link href="/" className="flex items-center gap-2.5 group" aria-label="CEFR Ready หน้าหลัก">
-              {/* Logo badge */}
-              <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200 shrink-0">
-                <span className="text-white font-black text-sm tracking-tighter select-none">CR</span>
-              </div>
-              {/* Site name */}
-              <div className="flex flex-col leading-none">
-                <span className={`text-base font-extrabold tracking-tight transition-colors ${logoText}`}>
-                  CEFR Ready
-                </span>
-                <span className={`text-[10px] font-medium tracking-wide hidden sm:block transition-colors ${subtitleText}`}>ฝึกข้อสอบมาตรฐาน CEFR</span>
+              <div className="">
+                <span className="text-[#5A95C6] text-center [text-shadow:1px_1px_0_#F8E9A9] font-['Momo_Trust_Display'] text-[26px] font-normal leading-normal tracking-[0.52px]">C</span>
+                <span className="text-[#5A95C6] text-center [text-shadow:1px_1px_0_#F8E9A9] font-['Momo_Trust_Display'] text-[26px] font-normal leading-normal tracking-[0.52px]">E</span>
+                <span className="text-[#5A95C6] text-center [text-shadow:1px_1px_0_#F8E9A9] font-['Momo_Trust_Display'] text-[26px] font-normal leading-normal tracking-[0.52px]">F</span>
+                <span className="text-[#5A95C6] text-center [text-shadow:1px_1px_0_#F8E9A9] font-['Momo_Trust_Display'] text-[26px] font-normal leading-normal tracking-[0.52px]">R</span>
               </div>
             </Link>
 

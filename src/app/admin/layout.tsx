@@ -38,7 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <p className="mt-2 text-sm leading-6 text-slate-500">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแล แล้วลองเปิดหน้านี้อีกครั้ง</p>
           <div className="mt-6 flex items-center justify-center gap-3">
             <Link href="/" className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">กลับหน้าหลัก</Link>
-            <Link href="/api/auth/signin?callbackUrl=%2Fadmin%2Funits" className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">เข้าสู่ระบบ</Link>
+            <Link href="/api/auth/signin?callbackUrl=%2Fadmin" className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">เข้าสู่ระบบ</Link>
           </div>
         </div>
       </main>

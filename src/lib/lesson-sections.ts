@@ -1,5 +1,80 @@
-import type { LessonSection, LessonSectionType } from '@/content/units-path-lessons';
-export type { LessonSection } from '@/content/units-path-lessons';
+/**
+ * Shared lesson-section types. Previously lived in
+ * src/content/units-path-lessons.ts (deleted along with /units), but the
+ * test-side explain system (TestExplainOverlay, TestExplainEditor,
+ * api/admin/test-explains) still relies on them.
+ */
+
+/** A row inside a topic card. left = gray pill, right = optional result pill. */
+export interface ReviewRow {
+  left: string;
+  right?: string;
+}
+
+/** A practice question embedded in the explanation flow (separate from the exam). */
+export interface LessonPracticeQuestion {
+  sentence: string;
+  options: string[];
+  answerIndex: number;
+  explanation?: string;
+}
+
+export interface LessonPractice {
+  questions: LessonPracticeQuestion[];
+}
+
+export interface LessonExample {
+  en: string;
+  th?: string;
+  ok?: boolean;
+}
+
+export interface LessonTable {
+  headers: string[];
+  rows: string[][];
+}
+
+export type LessonSectionType = 'rule' | 'detailedRule' | 'importantNote' | 'practice';
+
+/** Tap & Select — each item has its own prompt + 2 editable choices */
+export interface TapItem {
+  prompt: string;
+  choiceA: string;
+  choiceB: string;
+  /** index of the correct choice: 0 = choiceA, 1 = choiceB */
+  correct: 0 | 1;
+}
+
+export interface TapExercise {
+  title: string;
+  items: TapItem[];
+}
+
+/**
+ * A configurable lesson section. Each item chooses its own presentation type,
+ * and carries only the data needed by that block (legacy fields stay optional
+ * so existing saved lessons remain readable/editable).
+ */
+export interface ReviewTopic {
+  type?: LessonSectionType;
+  heading?: string;
+  body?: string;
+  /** Yellow chip label for rule cards */
+  chip?: string;
+  /** Description next to the chip (supports **bold** / ==highlight==) */
+  description?: string;
+  /** Pattern/example rows */
+  rows?: ReviewRow[];
+  examples?: LessonExample[];
+  practice?: LessonPractice;
+  tap?: TapExercise;
+  /** Historical type marker accepted while normalizing older saved sections. */
+  legacyType?: string;
+  /** ℹ️ tip line at the card bottom (optional) */
+  tip?: string;
+}
+
+export interface LessonSection extends ReviewTopic {}
 
 const SECTION_TYPES: readonly LessonSectionType[] = ['rule', 'detailedRule', 'importantNote', 'practice'];
 

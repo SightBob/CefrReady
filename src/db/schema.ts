@@ -113,7 +113,7 @@ export const questions = pgTable('questions', {
   activeIdx: index('questions_active_idx').on(table.active),
 }));
 
-// Test-side explanations are independently managed from UnitsPath lessons.
+// Test-side explanations are managed independently, keyed by grammar topic.
 export const testExplains = pgTable('test_explains', {
   id: serial('id').primaryKey(),
   grammarTopic: varchar('grammar_topic', { length: 200 }).notNull().unique(),
@@ -131,6 +131,9 @@ export const testExplains = pgTable('test_explains', {
     tip?: string;
   }>>().default([]).notNull(),
   tip: text('tip'),
+  // Test sets ที่จะเปิด overlay เนื้อหานี้ให้ผู้เรียนดูอัตโนมัติเมื่อเริ่มทำชุด
+  // [] = ไม่ผูกกับชุดใด (ใช้จาก grammarTopic อย่างเดียวเหมือนเดิม)
+  testSetIds: jsonb('test_set_ids').$type<number[]>().default([]).notNull(),
   isPublished: boolean('is_published').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
@@ -351,118 +354,6 @@ export type DbVocabulary = typeof vocabularies.$inferSelect;
 export type NewVocabulary = typeof vocabularies.$inferInsert;
 
 // ============================================================
-// UnitsPath — Learning path (units → nodes → lesson pages)
-// Admin-managed content for the snake-style path UI at /units
-// ============================================================
-
-// A unit banner on the learning path (e.g. "Subject-Verb Agreement")
-export const learningUnits = pgTable('learning_units', {
-  id: serial('id').primaryKey(),
-  title: varchar('title', { length: 200 }).notNull(),
-  subtitle: varchar('subtitle', { length: 200 }),
-  // Unit color theme key: 'green' | 'blue' | 'purple' | 'orange'
-  colorKey: varchar('color_key', { length: 20 }).default('green').notNull(),
-  orderIndex: integer('order_index').default(0).notNull(),
-  isPublished: boolean('is_published').default(true).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
-}, (table) => ({
-  orderIdx: index('learning_units_order_idx').on(table.orderIndex),
-  publishedIdx: index('learning_units_published_idx').on(table.isPublished),
-}));
-
-// A clickable node on the unit path (a lesson or checkpoint)
-// kind: 'star' (lesson) | 'chest' (bonus) | 'trophy' (unit review)
-export const learningNodes = pgTable('learning_nodes', {
-  id: serial('id').primaryKey(),
-  unitId: integer('unit_id').notNull().references(() => learningUnits.id, { onDelete: 'cascade' }),
-  title: varchar('title', { length: 200 }).notNull(),
-  kind: varchar('kind', { length: 20 }).default('star').notNull(),
-  orderIndex: integer('order_index').default(0).notNull(),
-  isPublished: boolean('is_published').default(true).notNull(),
-  // Minimum percentage required to pass this node's quiz.
-  passScore: integer('pass_score').default(100).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
-}, (table) => ({
-  unitIdx: index('learning_nodes_unit_idx').on(table.unitId),
-  orderIdx: index('learning_nodes_order_idx').on(table.unitId, table.orderIndex),
-}));
-
-// One page of a lesson: either an explanation page (sections) or a quiz page.
-// pages render in orderIndex; the LAST quiz page is followed by a result view.
-// sections (explain): [{chip, description, rows:[{left, right?}], tip}]
-// sections (tap): [{tap: {title, items}}] — legacy heading/body rows tolerated
-// quiz: {sentence, options[], answerIndex, explanation}
-export const lessonPages = pgTable('lesson_pages', {
-  id: serial('id').primaryKey(),
-  nodeId: integer('node_id').notNull().references(() => learningNodes.id, { onDelete: 'cascade' }),    // 'explain' | 'tap' | 'quiz'
-  pageType: varchar('page_type', { length: 20 }).default('explain').notNull(),
-  sections: jsonb('sections').$type<Array<{
-    // Configurable explanation blocks
-    type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice';
-    chip?: string;
-    description?: string;
-    rows?: Array<{ left: string; right?: string }>;
-    tip?: string;
-    practice?: { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation?: string }> };
-    legacyType?: string;
-    // Legacy-only properties retained in the database JSON type for historical imports.
-    table?: { headers: string[]; rows: string[][] };
-    // legacy fields (old rows may still carry them)
-    heading?: string;
-    body?: string;
-    headingSize?: 'sm' | 'md' | 'lg' | 'xl';
-    bodySize?: 'sm' | 'md' | 'lg';
-    examples?: Array<{ en: string; th?: string; ok?: boolean }>;
-    tap?: {
-      title: string;
-      items: Array<{
-        prompt: string;
-        choiceA: string;
-        choiceB: string;
-        correct: 0 | 1;
-      }>;
-    };
-  }>>().default([]),
-  quiz: jsonb('quiz').$type<{
-    sentence: string;
-    options: string[];
-    answerIndex: number;
-    explanation: string;
-  } | {
-    questions: Array<{
-      sentence: string;
-      options: string[];
-      answerIndex: number;
-      explanation: string;
-    }>;
-  } | null>(),
-  // "คลังศัพท์ช่วยชีวิต" table shown on this page.
-  // Legacy rows: fixed subject/verbForm/example fields.
-  // Current: { columns, rows } — flexible column count.
-  vocabBank: jsonb('vocab_bank').$type<
-    | Array<{
-        subject: string;
-        verbForm: string;
-        example: string;
-      }>
-    | { columns: string[]; rows: string[][] }
-  >(),
-  tip: text('tip'),
-  // Short "จำไว้เลย" summary shown at the top of an explain page (optional)
-  intro: text('intro'),
-  // Draft pages are editable by admins but hidden from learners.
-  isPublished: boolean('is_published').default(true).notNull(),
-  orderIndex: integer('order_index').default(0).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
-}, (table) => ({
-  nodeIdx: index('lesson_pages_node_idx').on(table.nodeId),
-  orderIdx: index('lesson_pages_order_idx').on(table.nodeId, table.orderIndex),
-}));
-
-// ============================================================
 // Drizzle-inferred types (for DB layer use)
 // ============================================================
 
@@ -560,59 +451,3 @@ export const questionSelectionLogs = pgTable('question_selection_logs', {
 export type DbQuestionSelectionLog = typeof questionSelectionLogs.$inferSelect;
 export type NewQuestionSelectionLog = typeof questionSelectionLogs.$inferInsert;
 
-// Learning path (UnitsPath)
-export type DbLearningUnit = typeof learningUnits.$inferSelect;
-export type NewLearningUnit = typeof learningUnits.$inferInsert;
-export type DbLearningNode = typeof learningNodes.$inferSelect;
-export type NewLearningNode = typeof learningNodes.$inferInsert;
-export type DbLessonPage = typeof lessonPages.$inferSelect;
-export type NewLessonPage = typeof lessonPages.$inferInsert;
-
-// Immutable content versions for admin audit and safe rollback.
-export const lessonPageVersions = pgTable('lesson_page_versions', {
-  id: serial('id').primaryKey(),
-  pageId: integer('page_id').notNull().references(() => lessonPages.id, { onDelete: 'cascade' }),
-  version: integer('version').notNull(),
-  snapshot: jsonb('snapshot').notNull(),
-  changeType: varchar('change_type', { length: 20 }).default('update').notNull(),
-  changedBy: text('changed_by').references(() => users.id, { onDelete: 'set null' }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (table) => ({
-  pageIdx: index('lesson_page_versions_page_idx').on(table.pageId, table.version),
-  createdAtIdx: index('lesson_page_versions_created_at_idx').on(table.createdAt),
-}));
-
-export type DbLessonPageVersion = typeof lessonPageVersions.$inferSelect;
-export type NewLessonPageVersion = typeof lessonPageVersions.$inferInsert;
-
-// Persistent completion state for UnitsPath. Unlike localStorage, this
-// follows the learner across browsers and devices.
-export const learningNodeProgress = pgTable('learning_node_progress', {
-  id: serial('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  nodeId: integer('node_id').notNull().references(() => learningNodes.id, { onDelete: 'cascade' }),
-  completedAt: timestamp('completed_at'),
-  lastVisitedAt: timestamp('last_visited_at').defaultNow().notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
-}, (table) => ({
-  userIdx: index('learning_node_progress_user_idx').on(table.userId),
-  nodeIdx: index('learning_node_progress_node_idx').on(table.nodeId),
-  uniqueUserNode: uniqueIndex('learning_node_progress_user_node_unique').on(table.userId, table.nodeId),
-}));
-
-export type DbLearningNodeProgress = typeof learningNodeProgress.$inferSelect;
-export type NewLearningNodeProgress = typeof learningNodeProgress.$inferInsert;
-
-// Immutable snapshots created automatically before a destructive replace import.
-export const learningPathBackups = pgTable('learning_path_backups', {
-  id: serial('id').primaryKey(),
-  payload: jsonb('payload').notNull(),
-  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (table) => ({
-  createdAtIdx: index('learning_path_backups_created_at_idx').on(table.createdAt),
-}));
-
-export type DbLearningPathBackup = typeof learningPathBackups.$inferSelect;
-export type NewLearningPathBackup = typeof learningPathBackups.$inferInsert;

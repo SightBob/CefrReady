@@ -5,10 +5,9 @@ import { usePathname } from 'next/navigation';
 import Header from './Header';
 import Footer from './Footer';
 
-// Exam/lesson pages render their own chrome — no site header/footer
-// Covers section sets (/tests/[sectionId]/[setId]), full mock exam + results,
-// and lesson pages (/units/[nodeId])
-const EXAM_PATH = /^\/(?:tests\/(?:[a-z-]+\/\d+|full\/(?:exam|results))|units\/\d+)/;
+// Exam pages render their own chrome — no site header/footer
+// Covers section sets (/tests/[sectionId]/[setId]), full mock exam + results
+const EXAM_PATH = /^\/(?:tests\/(?:[a-z-]+\/\d+|full\/(?:exam|results)))/;
 
 export default function ChromeShell({
   children,
