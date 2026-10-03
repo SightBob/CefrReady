@@ -39,9 +39,6 @@ export default function TestSetCard({
       `}
     >
       <div className="flex items-center justify-between gap-4">
-        {/* Set number circle */}
- 
-
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">

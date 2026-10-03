@@ -183,18 +183,21 @@ export default function SetQuizPage() {
       return;
     }
     setTestExplain(null);
-    fetch(`/api/test-explains/lookup?topic=${encodeURIComponent(explainTopic)}`, { cache: 'no-store' })
+    fetch(`/api/test-explains/lookup?topic=${encodeURIComponent(explainTopic)}&setId=${setId}`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : null)
       .then((payload) => {
         if (requestId !== explainRequestId.current) return;
         const result = payload?.success && payload.data ? payload.data as import('@/components/TestExplainOverlay').TestExplainContent : null;
         explainCache.current.set(explainTopic, result);
         setTestExplain(result);
+        // Explain ที่ผูกกับชุดนี้ไว้ (testSetIds) เปิด overlay ให้อัตโนมัติทันที
+        // ที่เข้าชุด — ผู้เรียนกดปิดได้ และเปิดใหม่ผ่านปุ่มโหมดทบทวนได้เสมอ
+        if (result && payload.auto) setShowTestExplain(true);
       })
       .catch(() => {
         if (requestId === explainRequestId.current) setTestExplain(null);
       });
-  }, [explainTopic]);
+  }, [explainTopic, setId]);
 
   useEffect(() => {
     if (!showTestExplain) return;

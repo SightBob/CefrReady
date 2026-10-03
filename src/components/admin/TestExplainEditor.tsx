@@ -234,6 +234,9 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const [sections, setSections] = useState<SectionRow[]>([emptySection()]);
   const [tip, setTip] = useState('');
   const [isPublished, setIsPublished] = useState(false);
+  // ชุดข้อสอบที่ผูกเนื้อหานี้ไว้ — เปิด overlay อัตโนมัติเมื่อเริ่มทำชุด
+  const [testSetIds, setTestSetIds] = useState<number[]>([]);
+  const [availableTestSets, setAvailableTestSets] = useState<{ id: number; sectionId: string; name: string }[]>([]);
   const [selectedColor, setSelectedColor] = useState<SavedColor>({ hex: '#FEF08A', mode: 'background' });
   const [savedColors, setSavedColors] = useState<SavedColor[]>(DEFAULT_SAVED_COLORS);
   const [newColorHex, setNewColorHex] = useState('#FEF08A');
@@ -304,17 +307,24 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [explainsResponse, topicsResponse] = await Promise.all([
+      const [explainsResponse, topicsResponse, setsResponse] = await Promise.all([
         fetch('/api/admin/test-explains', { cache: 'no-store' }),
         fetch('/api/admin/test-explains/topics', { cache: 'no-store' }),
+        fetch('/api/admin/test-sets', { cache: 'no-store' }),
       ]);
-      const [explainsPayload, topicsPayload] = await Promise.all([explainsResponse.json(), topicsResponse.json()]);
+      const [explainsPayload, topicsPayload, setsPayload] = await Promise.all([explainsResponse.json(), topicsResponse.json(), setsResponse.json()]);
+      if (!setsResponse.ok || !setsPayload.success) throw new Error(setsPayload.error ?? 'โหลดรายการชุดข้อสอบไม่สำเร็จ');
       if (!explainsResponse.ok || !explainsPayload.success) throw new Error(explainsPayload.error ?? 'โหลดเนื้อหาไม่สำเร็จ');
       if (!topicsResponse.ok || !topicsPayload.success) throw new Error(topicsPayload.error ?? 'โหลดหัวข้อข้อสอบไม่สำเร็จ');
       const explainRows = explainsPayload.data as ExplainRow[];
       const topicRows = topicsPayload.data as TopicOption[];
       setRows(explainRows);
       setTopics(topicRows);
+      // /api/admin/test-sets คืนแบบ grouped by section — flatten ออกมาเป็นรายการชุด
+      const groupedSets = Array.isArray(setsPayload.data)
+        ? (setsPayload.data as { testSets?: { id: number; sectionId: string; name: string }[] }[])
+        : [];
+      setAvailableTestSets(groupedSets.flatMap((group) => group.testSets ?? []));
       if (mode === 'edit' && explainId) {
         const selected = explainRows.find((row) => row.id === explainId);
         if (!selected) throw new Error('ไม่พบ explain ที่ต้องการแก้ไข');
@@ -324,6 +334,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         setSections(selected.sections?.length ? selected.sections.map(toSectionDraft) : [emptySection()]);
         setTip(selected.tip ?? '');
         setIsPublished(selected.isPublished);
+        setTestSetIds(selected.testSetIds ?? []);
       } else {
         setGrammarTopic(topicRows[0]?.grammarTopic ?? '');
       }
@@ -492,7 +503,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
       const response = await fetch(mode === 'edit' && explainId ? `/api/admin/test-explains/${explainId}` : '/api/admin/test-explains', {
         method: mode === 'edit' && explainId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grammarTopic: grammarTopic.trim(), title: title.trim(), intro, sections: payloadSections, tip, isPublished }),
+        body: JSON.stringify({ grammarTopic: grammarTopic.trim(), title: title.trim(), intro, sections: payloadSections, tip, testSetIds, isPublished }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error ?? 'บันทึกไม่สำเร็จ');
@@ -693,6 +704,42 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
               <HighlightFieldToggle fieldKey="tip" marker={highlightDirective} onApply={(value) => setTip(value)} />
             </div>
           </label>
+          <div className="sm:col-span-2">
+            <p className="text-sm font-bold text-slate-700">แสดงอัตโนมัติเมื่อเริ่มทำชุดข้อสอบ (ไม่บังคับ)</p>
+            <p className="mt-0.5 text-xs text-slate-500">เลือกชุดที่ต้องการให้เปิดเนื้อหานี้ขึ้นมาทันทีที่ผู้เรียนกดเข้าทำชุด — ไม่เลือก = แสดงผ่านปุ่ม โหมดทบทวน ตาม grammarTopic เหมือนเดิม</p>
+            {availableTestSets.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-400">ยังไม่มีชุดข้อสอบในระบบ</p>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {availableTestSets.map((set) => {
+                  const checked = testSetIds.includes(set.id);
+                  return (
+                    <label
+                      key={set.id}
+                      className={`inline-flex cursor-pointer items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        checked
+                          ? 'border-sky-500 bg-sky-50 text-sky-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={() => setTestSetIds((current) =>
+                          current.includes(set.id)
+                            ? current.filter((id) => id !== set.id)
+                            : [...current, set.id],
+                        )}
+                      />
+                      {checked && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {set.name || `ชุด #${set.id}`}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Highlight color picker (shared across all fields) */}
@@ -979,7 +1026,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
 
         {/* Preview */}
         <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><div><h2 className="font-extrabold text-slate-800">พรีวิวหน้าผู้เรียน</h2><p className="text-xs text-slate-400">แสดงการ์ดแบบเดียวกับหน้า explain ใน /units</p></div><Eye className="h-4 w-4 text-sky-600" /></div>
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><div><h2 className="font-extrabold text-slate-800">พรีวิวหน้าผู้เรียน</h2><p className="text-xs text-slate-400">แสดงการ์ดแบบเดียวกับหน้า explain ของผู้เรียน</p></div><Eye className="h-4 w-4 text-sky-600" /></div>
           <div className="min-h-[400px] bg-[#F7F7F7] p-3 sm:p-5">
             {parsedSections.length ? (
               <>

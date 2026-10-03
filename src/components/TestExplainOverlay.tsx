@@ -13,6 +13,8 @@ export interface TestExplainContent {
   intro: string | null;
   sections: LessonSection[];
   tip: string | null;
+  /** ชุดข้อสอบที่ผูกเนื้อหานี้ไว้ — overlay จะเปิดอัตโนมัติเมื่อเริ่มทำชุดเหล่านั้น */
+  testSetIds?: number[];
 }
 
 const ACCENTS: Record<string, { base: string; dark: string; light: string }> = {

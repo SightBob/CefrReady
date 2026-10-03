@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
+  ChevronLeft,
   ChevronRight,
   CheckCircle,
   Circle,
@@ -71,7 +72,14 @@ interface TestLayoutProps {
   reviewAction?: { label: string; onClick: () => void };
 }
 
-const QUESTIONS_PER_PAGE = 10;
+/**
+ * Question navigation pagination — 5 คอลัมน์ × 2 แถว (10 cell/ชุด) ตาม spec:
+ * ชุดแรก: ข้อ 1-9 + → (ไม่มี ←) · ชุดถัดไป: ← + ข้อ 8 ข้อ + →
+ * ← และ → นับเป็น navigation slot ไม่ใช่เลขข้อ — ไม่มีข้อใดถูกซ่อน
+ * (ชุด 1 ลงท้ายข้อ 9, ชุด 2 เริ่มข้อ 10 ฯลฯ)
+ */
+const FIRST_SET_QUESTIONS = 9;
+const NEXT_SET_QUESTIONS = 8;
 const DEFAULT_DURATION_MINUTES = 20;
 
 export default function TestLayout({
@@ -136,15 +144,21 @@ export default function TestLayout({
   const currentSetIndex = availableSets?.findIndex(s => s.id === currentSetId) ?? -1;
   const currentSetLabel = `set - ${currentSetIndex >= 0 ? currentSetIndex + 1 : 1}`;
 
-  const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
+  const navSetOf = (index: number) =>
+    index < FIRST_SET_QUESTIONS ? 0 : Math.floor((index - FIRST_SET_QUESTIONS) / NEXT_SET_QUESTIONS) + 1;
+  const navSetStart = (set: number) =>
+    set === 0 ? 0 : FIRST_SET_QUESTIONS + (set - 1) * NEXT_SET_QUESTIONS;
+  const navSetSize = (set: number) =>
+    set === 0 ? FIRST_SET_QUESTIONS : NEXT_SET_QUESTIONS;
+  const totalPages = totalQuestions > 0 ? navSetOf(totalQuestions - 1) + 1 : 0;
 
   const answeredCount = answers.filter(a => a !== null).length;
   const unansweredCount = totalQuestions - answeredCount;
 
   // Get questions for current page
   const pageQuestions = useMemo(() => {
-    const start = currentPage * QUESTIONS_PER_PAGE;
-    const end = Math.min(start + QUESTIONS_PER_PAGE, totalQuestions);
+    const start = navSetStart(currentPage);
+    const end = Math.min(start + navSetSize(currentPage), totalQuestions);
 
     let questions = Array.from({ length: totalQuestions }, (_, i) => i);
 
@@ -166,12 +180,12 @@ export default function TestLayout({
   }, [currentPage, totalQuestions, activeSection, filterMode, answers, sections]);
 
   // Get current page based on current question
-  const questionPage = Math.floor(currentQuestion / QUESTIONS_PER_PAGE);
+  const currentNavSet = navSetOf(currentQuestion);
 
   // Keep nav panel pagination in sync with the current question
   useEffect(() => {
-    setCurrentPage(questionPage);
-  }, [questionPage]);
+    setCurrentPage(currentNavSet);
+  }, [currentNavSet]);
 
   const getQuestionStatus = (index: number) => {
     if (isSubmitted) return 'answered';
@@ -211,13 +225,13 @@ export default function TestLayout({
     const questionNum = parseInt(jumpToQuestion);
     if (questionNum >= 1 && questionNum <= totalQuestions) {
       onQuestionSelect(questionNum - 1);
-      setCurrentPage(Math.floor((questionNum - 1) / QUESTIONS_PER_PAGE));
+      setCurrentPage(navSetOf(questionNum - 1));
       setJumpToQuestion('');
     }
   };  const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Select first question of new page (sequential exams are view-only)
-    const firstQuestion = page * QUESTIONS_PER_PAGE;
+    // Select first question of the new set (sequential exams are view-only)
+    const firstQuestion = navSetStart(page);
     if (!sequentialNav && firstQuestion < totalQuestions) {
       onQuestionSelect(firstQuestion);
     }
@@ -479,6 +493,16 @@ export default function TestLayout({
                 <div className="h-auto overflow-y-auto p-[1.625rem] py-[1.1875rem]">
                   {viewMode === 'grid' ? (
                     <div className="grid grid-cols-5 gap-[19px]">
+                      {currentPage > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          aria-label="ชุดก่อนหน้า"
+                          className="flex h-[2.5625rem] w-[2.375rem] items-center justify-center rounded-lg bg-[#F8F8F8] text-[#585E5F] transition-all duration-200 hover:bg-[#ECECEC]"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                      )}
                       {pageQuestions.map(i => (
                         <button
                           key={i}
@@ -489,6 +513,16 @@ export default function TestLayout({
                           {i + 1}
                         </button>
                       ))}
+                      {currentPage + 1 < totalPages && (
+                        <button
+                          type="button"
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          aria-label="ชุดถัดไป"
+                          className="flex h-[2.5625rem] w-[2.375rem] items-center justify-center rounded-lg bg-[#F8F8F8] text-[#585E5F] transition-all duration-200 hover:bg-[#ECECEC]"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-1">
@@ -511,6 +545,26 @@ export default function TestLayout({
                           </button>
                         );
                       })}
+                      {currentPage > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          aria-label="ชุดก่อนหน้า"
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-medium text-[#585E5F] hover:bg-slate-50"
+                        >
+                          <ChevronLeft className="h-4 w-4" /> ชุดก่อนหน้า
+                        </button>
+                      )}
+                      {currentPage + 1 < totalPages && (
+                        <button
+                          type="button"
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          aria-label="ชุดถัดไป"
+                          className="flex w-full items-center justify-end gap-2 rounded-lg px-2 py-1.5 text-right text-sm font-medium text-[#585E5F] hover:bg-slate-50"
+                        >
+                          ชุดถัดไป <ChevronRight className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

@@ -22,6 +22,8 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       intro: z.string().optional().nullable(),
       sections: z.array(z.unknown()).min(1),
       tip: z.string().optional().nullable(),
+      // ชุดข้อสอบที่ผูกเนื้อหานี้ไว้ (แสดง overlay อัตโนมัติเมื่อเริ่มทำชุด)
+      testSetIds: z.array(z.number().int().positive()).max(200).optional(),
       isPublished: z.boolean().optional(),
     }).safeParse(body);
     if (!parsed.success) return NextResponse.json({ success: false, error: 'กรุณาระบุ grammarTopic, title และ sections ให้ถูกต้อง' }, { status: 400 });
@@ -37,6 +39,8 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       intro: parsed.data.intro?.trim() || null,
       sections,
       tip: parsed.data.tip?.trim() || null,
+      // เก็บแบบ unique + sorted กันค่าซ้ำจาก UI
+      testSetIds: [...new Set(parsed.data.testSetIds ?? [])].sort((a, b) => a - b),
       isPublished: parsed.data.isPublished ?? false,
       updatedAt: new Date(),
     }).where(eq(testExplains.id, explainId)).returning();
