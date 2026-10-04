@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -10,7 +11,6 @@ import {
   CheckCircle,
   Circle,
   X,
-  ChevronDown,
   PenTool,
   LogOut,
   RotateCcw,
@@ -198,7 +198,8 @@ export default function TestLayout({
     const isActive = index === currentQuestion;
 
     // Figma spec: boxes 38x41 (w-[2.375rem] h-[2.5625rem]), radius 8px, gap 14px.
-    let baseClass = 'w-[2.375rem] h-[2.5625rem] rounded-lg font-semibold text-[0.8125rem] flex items-center justify-center transition-all duration-200 ';
+    // Figma 60:3867 — 5 คอลัมน์ gap 14px ในพื้นที่ 244px → เซลล์ยืดเต็มคอลัมน์ (~37.6px) แทนความกว้างคงที่
+    let baseClass = 'w-full min-w-0 h-[2.5625rem] rounded-lg font-semibold text-[0.8125rem] flex items-center justify-center transition-all duration-200 ';
 
     const isReviewItem = reviewSegmentStart !== undefined && index >= reviewSegmentStart;
 
@@ -438,21 +439,22 @@ export default function TestLayout({
                     </div>
                   </div>,
                   document.body
-                )}      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 w-full mt-[30px] pb-44">
+                )}      {/* Figma 60:3842 — เนื้อหากว้าง 1154px (x191–1345) เริ่มที่ y17 */}
+      <div className="max-w-[1154px] mx-auto px-4 lg:px-0 w-full mt-[17px] pb-44">
         {/* Quiz controls row — set dropdown (left) + progress pill + exit ✕ (right) */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-[15px]">
           <div className="flex items-center gap-[15px] min-w-0 flex-1">
             <button
               type="button"
               onClick={() => availableSets?.length ? setIsSetMenuOpen(v => !v) : undefined}
-              className="shrink-0 w-full max-w-[18.4375rem] h-[2.8125rem] bg-white border border-[#EAEAEA] shadow-[3px_3px_0_0_#D5D3D3] rounded-xl px-4 flex items-center justify-between gap-2 disabled:opacity-70"
+              className="shrink-0 w-full max-w-[18.4375rem] h-[2.8125rem] bg-white border border-[#EAEAEA] shadow-[3px_3px_0_0_#D5D3D3] rounded-xl px-[12.5px] flex items-center justify-between gap-2 disabled:opacity-70"
               aria-expanded={isSetMenuOpen}
               aria-label="เลือกชุดข้อสอบ"
               disabled={!availableSets?.length}
             >
               <span className="truncate text-[1rem] font-bold text-[#6387A5]">{currentSetLabel}</span>
               {availableSets?.length ? (
-                <ChevronDown className="w-3.5 h-3.5 shrink-0 text-[#6387A5]" />
+                <Image src="/icon_svg/caret-down.svg" alt="" width={14} height={14} className="w-3.5 h-3.5 shrink-0" />
               ) : null}
             </button>
 
@@ -476,29 +478,30 @@ export default function TestLayout({
 
           <button
             onClick={() => setShowExitConfirm(true)}
-            className="shrink-0 bg-white border-b-2 border-r-2 border-[#C0BFB7] rounded-lg shadow-[0_0_0.6px_0_rgba(0,0,0,0.25)] w-[2.7rem] h-[2.4rem] grid place-items-center hover:bg-slate-50 transition-colors"
+            className="shrink-0 bg-white border-b-2 border-r-2 border-[#C0BFB7] rounded-lg shadow-[0_0_0.3px_0_rgba(0,0,0,0.25)] w-[2.7rem] h-[2.4rem] grid place-items-center hover:bg-slate-50 transition-colors"
             aria-label="จบการสอบ"
           >
-            <X className="w-6 h-6 text-slate-600" />
+            <Image src="/icon_svg/close.svg" alt="" width={24} height={24} className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="flex gap-6 mt-[1.1875rem] flex-start">
+        <div className="flex gap-[15px] mt-[15px] flex-start">
           {/* Desktop Navigation Panel */}
           {showNavPanel && showQuestionNav && (
             <div className="hidden md:flex w-[18.4375rem] flex-col gap-[0.9375rem]">
               <div className="rounded-2xl shadow-sm sticky h-fit overflow-hidden w-full bg-white">
 
                 {/* Question Grid/List */}
-                <div className="h-auto overflow-y-auto p-[1.625rem] py-[1.1875rem]">
+                {/* Figma 60:3867 — padding 26/25 ข้าง, 24 บน, 22 ล่าง (รวม 147px) */}
+                <div className="h-auto overflow-y-auto pl-[26px] pr-[25px] pt-6 pb-[22px]">
                   {viewMode === 'grid' ? (
-                    <div className="grid grid-cols-5 gap-[19px]">
+                    <div className="grid grid-cols-5 gap-x-[14px] gap-y-[19px]">
                       {currentPage > 0 && (
                         <button
                           type="button"
                           onClick={() => handlePageChange(currentPage - 1)}
                           aria-label="ชุดก่อนหน้า"
-                          className="flex h-[2.5625rem] w-[2.375rem] items-center justify-center rounded-lg bg-[#F8F8F8] text-[#585E5F] transition-all duration-200 hover:bg-[#ECECEC]"
+                          className="flex h-[2.5625rem] w-full items-center justify-center rounded-lg bg-[#F8F8F8] text-[#585E5F] transition-all duration-200 hover:bg-[#ECECEC]"
                         >
                           <ChevronLeft className="h-5 w-5" />
                         </button>
@@ -518,9 +521,9 @@ export default function TestLayout({
                           type="button"
                           onClick={() => handlePageChange(currentPage + 1)}
                           aria-label="ชุดถัดไป"
-                          className="flex h-[2.5625rem] w-[2.375rem] items-center justify-center rounded-lg bg-[#F8F8F8] text-[#585E5F] transition-all duration-200 hover:bg-[#ECECEC]"
+                          className="flex h-[2.5625rem] w-full items-center justify-center rounded-lg bg-[#F8F8F8] text-[#585E5F] transition-all duration-200 hover:bg-[#ECECEC]"
                         >
-                          <ChevronRight className="h-5 w-5" />
+                          <Image src="/icon_svg/arrow-forward.svg" alt="" width={16} height={16} className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -585,8 +588,8 @@ export default function TestLayout({
             </button>
           )}
 
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
+          {/* Main Content — Figma 60:3935 กว้าง 840px */}
+          <div className="flex-1 min-w-0 max-w-[840px]">
             {/* Question Content */}
             <div className="mb-6">
               {children}
@@ -634,15 +637,19 @@ export default function TestLayout({
         </div>
       )}
 
-     {/* Universal Bottom Bar — Figma: white bar, yellow action button right */}
-<div className="fixed bottom-0 left-0 w-full bg-white z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_6.6px_0_rgba(172,172,172,0.25)]">
-  <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-4 md:py-3 md:min-h-[6rem] flex items-center justify-end gap-2 sm:gap-3 w-full">
+     {/* Universal Bottom Bar — Figma 60:3843: 1536×97, drop-shadow 3.3px, เนื้อหากว้าง 1144px, pt16/pb32 */}
+<div className="fixed bottom-0 left-0 w-full bg-white z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_3.3px_0_rgba(172,172,172,0.25)]">
+  <div className="max-w-[1144px] mx-auto px-4 lg:px-0 pt-4 pb-8 flex items-end gap-[15px] w-full">
+
+    {/* Figma 60:3845 — ช่องว่าง 40×40 ทางซ้ายของปุ่ม action */}
+    <div className="hidden lg:block w-10 h-10 shrink-0" aria-hidden="true" />
 
     {/* Next / Submit / Retry */}
     {!isSubmitted && (
       (() => { const isLastQuestion = currentQuestion >= totalQuestions - 1;
                const isAnswered = answers[currentQuestion] != null && answers[currentQuestion] !== ''; return (
-      <div className="w-full flex items-center gap-2 md:gap-3 md:w-auto justify-center">
+      // Figma 60:3848 — ปุ่ม 216×49 ชิดขวาของเนื้อหา 1144px เว้นขวา 53px
+      <div className="flex-1 flex items-center justify-center lg:justify-end gap-2 lg:gap-[15px] lg:mr-[53px]">
         {reviewAction && (
           <button
             type="button"
@@ -656,20 +663,18 @@ export default function TestLayout({
         {currentQuestion < totalQuestions - 1 ? (
           <button
             onClick={onNext}
-            className={`flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] rounded-[14px] flex items-center justify-center space-x-1 text-[1rem] text-[#524924] transition-colors ${
-              isAnswered ? 'bg-[#FFF0AE] border-b-[3px] border-r-[4px] border-[#FFDB40] hover:bg-[#FFEA8F]' : 'bg-[#FFF0AE]/60 border-b-[3px] border-r-[4px] border-[#FFDB40]/50 hover:bg-[#FFF0AE]'
+            className={`flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] rounded-[14px] flex items-center justify-center text-[1rem] text-[#524924] transition-colors ${
+              isAnswered ? 'bg-[#FFF0AE] border-b-4 border-r-[3px] border-[#FFDB40] hover:bg-[#FFEA8F]' : 'bg-[#FFF0AE]/60 border-b-4 border-r-[3px] border-[#FFDB40]/50 hover:bg-[#FFF0AE]'
             }`}
           >
-            <span className='text-base md:text-[1rem] text-center font-semibold whitespace-nowrap'>ข้อถัดไป</span>
-            <ArrowRight className='size-[1.125rem] shrink-0' />
+            <span className='text-base md:text-[1rem] text-center font-semibold whitespace-nowrap'>ข้อต่อไป</span>
           </button>
         ) : (
           <button
             onClick={onSubmit}
-            className="flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] bg-[#FFF0AE] border-b-[3px] border-r-[4px] border-[#FFDB40] hover:bg-[#FFEA8F] rounded-[14px] flex items-center space-x-1 justify-center text-[#524924] transition-colors"
+            className="flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] bg-[#FFF0AE] border-b-4 border-r-[3px] border-[#FFDB40] hover:bg-[#FFEA8F] rounded-[14px] flex items-center justify-center text-[#524924] transition-colors"
           >
             <span className='text-base md:text-[1rem] text-center font-semibold whitespace-nowrap'>ตรวจคำตอบ</span>
-            <CheckCircle className='size-[1.125rem] shrink-0' />
           </button>
         )}
       </div>
@@ -680,7 +685,7 @@ export default function TestLayout({
     {isSubmitted && currentSetIndex >= 0 && availableSets && currentSetIndex < availableSets.length - 1 && onSetSelect && (
       <button
         onClick={() => onSetSelect(availableSets[currentSetIndex + 1].id)}
-        className="w-full md:max-w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors"
+        className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors lg:mr-[53px]"
       >
         <span className='text-base md:text-[1.125rem] text-center font-bold'>ทำชุด {currentSetIndex + 2}</span>
         <ArrowRight className='size-[1.125rem]' />
