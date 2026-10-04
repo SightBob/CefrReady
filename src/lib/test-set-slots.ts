@@ -125,6 +125,30 @@ export function getOriginalChoiceAnswer(displayedKey: string, options: ShuffledC
   return options.find(option => option.key === displayedKey)?.answerKey ?? displayedKey;
 }
 
+/**
+ * แปลง answer key ที่บันทึกไว้ (A/B/C/D ต้นฉบับในฐานข้อมูล) กลับเป็นข้อความคำตอบจริง
+ * ใช้ในหน้า result เพื่อแสดง “คำตอบที่เลือก” เป็นข้อความ ไม่ใช่ตัวอักษร A–D
+ */
+export function getChoiceOptionText(
+  question: {
+    optionA?: string | null;
+    optionB?: string | null;
+    optionC?: string | null;
+    optionD?: string | null;
+  },
+  key: string | null | undefined
+): string | null {
+  if (!key) return null;
+  const text: Record<string, string | null | undefined> = {
+    A: question.optionA,
+    B: question.optionB,
+    C: question.optionC,
+    D: question.optionD,
+  };
+  if (!(key in text)) return key;
+  return text[key] ?? key;
+}
+
 /** Preserve set order while expanding each Tap item or form-meaning blank into a question slot. */
 export function expandTestSetSlots(questions: TestSetQuestionLike[]): TestSetSlot[] {
   return questions.flatMap<TestSetSlot>((question, questionIndex) => {

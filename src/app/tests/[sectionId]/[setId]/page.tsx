@@ -19,6 +19,7 @@ import {
   countTestSetItems,
   createQuestionChoiceOptions,
   expandTestSetSlots,
+  getChoiceOptionText,
   getDisplayedChoiceAnswer,
   getOriginalChoiceAnswer,
   getOriginalTapChoiceAnswer,
@@ -190,9 +191,8 @@ export default function SetQuizPage() {
         const result = payload?.success && payload.data ? payload.data as import('@/components/TestExplainOverlay').TestExplainContent : null;
         explainCache.current.set(explainTopic, result);
         setTestExplain(result);
-        // Explain ที่ผูกกับชุดนี้ไว้ (testSetIds) เปิด overlay ให้อัตโนมัติทันที
-        // ที่เข้าชุด — ผู้เรียนกดปิดได้ และเปิดใหม่ผ่านปุ่มโหมดทบทวนได้เสมอ
-        if (result && payload.auto) setShowTestExplain(true);
+        // ไม่เปิดอัตโนมัติ — ผู้เรียนต้องกดปุ่ม “โหมดทบทวน” เองจึงจะเห็นเนื้อหาอธิบาย
+        // (payload.auto จึงไม่ถูกใช้แล้ว แต่ API ยังส่งกลับมาไว้เผื่อหน้าอื่น)
       })
       .catch(() => {
         if (requestId === explainRequestId.current) setTestExplain(null);
@@ -639,15 +639,23 @@ export default function SetQuizPage() {
   }
 
   const currentSetIndex = availableSets.findIndex((s) => s.id === setId);
-  const nextSet = currentSetIndex >= 0 && currentSetIndex < availableSets.length - 1
-    ? availableSets[currentSetIndex + 1]
-    : null;
-  const nextSetProps = nextSet
-    ? {
-        nextSetLabel: `ทำชุด ${currentSetIndex + 2}`,
-        onNextSet: () => router.push(`/tests/${sectionId}/${nextSet.id}`),
-      }
-    : {};
+
+  // รายการเฉลยรายข้อสำหรับหน้า result (Figma 75:70717) — ข้ามคำตอบที่เข้ารหัสเป็น
+  // JSON (Tap & Select / ช่องเติมคำในบทความ) เพราะรูปแบบ chip แสดงคำตอบสั้น ๆ ไม่ได้
+  const reviewItems = results
+    .filter((result) => !result.userAnswer.trim().startsWith('{'))
+    .map((result, rowIndex) => {
+      const question = setData.questions.find((item) => item.id === result.questionId);
+      if (!question) return null;
+      return {
+        index: rowIndex + 1,
+        questionText: question.questionText,
+        userAnswer: getChoiceOptionText(question, result.userAnswer),
+        correctAnswer: getChoiceOptionText(question, result.correctAnswer),
+        isCorrect: result.isCorrect,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 
   const handleRestartTest = () => {
     const restartedAt = new Date().toISOString();
@@ -687,7 +695,7 @@ export default function SetQuizPage() {
           headerTitle={setData.name}
           durationMinutes={setData.duration ?? undefined}
           setNumber={currentSetIndex >= 0 ? currentSetIndex + 1 : 1}
-          {...nextSetProps}
+          sectionId={sectionId}
         />
       );
     }
@@ -722,7 +730,8 @@ export default function SetQuizPage() {
         headerTitle={setData.name}
         durationMinutes={setData.duration ?? undefined}
         setNumber={currentSetIndex >= 0 ? currentSetIndex + 1 : 1}
-        {...nextSetProps}
+        sectionId={sectionId}
+        reviewItems={reviewItems}
       />
     );
   }
@@ -936,8 +945,6 @@ export default function SetQuizPage() {
           onAnswerSelect={handleAnswer}
           disabled={submitting}
           accent="emerald"
-          headerIcon={BookOpen}
-          headerLabel="Conversation"
         />
         {modalsFragment}
       </TestLayout>

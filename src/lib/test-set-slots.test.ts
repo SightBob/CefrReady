@@ -5,6 +5,7 @@ import {
   findIncorrectTestSetSlots,
   getDisplayedChoiceAnswer,
   getOriginalChoiceAnswer,
+  getChoiceOptionText,
   getDisplayedTapChoiceAnswer,
   getOriginalTapChoiceAnswer,
   shuffleChoiceOptions,
@@ -126,5 +127,24 @@ describe('buildTestSubmissionAnswers', () => {
     } }];
     expect(buildTestSubmissionAnswers(articleQuestion, expandTestSetSlots(articleQuestion), ['went', 'home']))
       .toEqual([{ questionId: 8, selectedAnswer: '{"2":"home","4":"went"}' }]);
+  });
+});
+
+describe('getChoiceOptionText', () => {
+  const question = { optionA: 'is', optionB: 'are', optionC: 'was', optionD: 'were' };
+
+  it('maps a stored answer key back to the option text', () => {
+    expect(getChoiceOptionText(question, 'B')).toBe('are');
+    expect(getChoiceOptionText(question, 'A')).toBe('is');
+  });
+
+  it('returns null when nothing was answered and the key when it is not an option key', () => {
+    expect(getChoiceOptionText(question, null)).toBeNull();
+    expect(getChoiceOptionText(question, '')).toBeNull();
+    expect(getChoiceOptionText(question, 'running')).toBe('running');
+  });
+
+  it('falls back to the key when the matching option text is missing', () => {
+    expect(getChoiceOptionText({ optionA: 'is' }, 'C')).toBe('C');
   });
 });
