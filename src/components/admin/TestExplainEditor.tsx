@@ -236,7 +236,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const [isPublished, setIsPublished] = useState(false);
   // ชุดข้อสอบที่ผูกเนื้อหานี้ไว้ — เปิด overlay อัตโนมัติเมื่อเริ่มทำชุด
   const [testSetIds, setTestSetIds] = useState<number[]>([]);
-  const [availableTestSets, setAvailableTestSets] = useState<{ id: number; sectionId: string; name: string }[]>([]);
+  const [availableTestSets, setAvailableTestSets] = useState<{ id: number; sectionId: string; name: string; sectionName: string }[]>([]);
   const [selectedColor, setSelectedColor] = useState<SavedColor>({ hex: '#FEF08A', mode: 'background' });
   const [savedColors, setSavedColors] = useState<SavedColor[]>(DEFAULT_SAVED_COLORS);
   const [newColorHex, setNewColorHex] = useState('#FEF08A');
@@ -322,9 +322,13 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
       setTopics(topicRows);
       // /api/admin/test-sets คืนแบบ grouped by section — flatten ออกมาเป็นรายการชุด
       const groupedSets = Array.isArray(setsPayload.data)
-        ? (setsPayload.data as { testSets?: { id: number; sectionId: string; name: string }[] }[])
+        ? (setsPayload.data as { name: string; testSets?: { id: number; sectionId: string; name: string }[] }[])
         : [];
-      setAvailableTestSets(groupedSets.flatMap((group) => group.testSets ?? []));
+      setAvailableTestSets(
+        groupedSets.flatMap((group) =>
+          (group.testSets ?? []).map((set) => ({ ...set, sectionName: group.name })),
+        ),
+      );
       if (mode === 'edit' && explainId) {
         const selected = explainRows.find((row) => row.id === explainId);
         if (!selected) throw new Error('ไม่พบ explain ที่ต้องการแก้ไข');
@@ -520,6 +524,16 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
 
   if (loading) return <div className="flex min-h-80 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-sky-600" /></div>;
 
+  // จัดกลุ่มชุดข้อสอบตาม section ใช้ทั้งชิพเลือกในหน้าแก้ไข และตารางสรุปความผูก
+  const setsBySection = availableTestSets.reduce<
+    { sectionId: string; sectionName: string; testSets: typeof availableTestSets }[]
+  >((groups, set) => {
+    const existing = groups.find((group) => group.sectionId === set.sectionId);
+    if (existing) existing.testSets.push(set);
+    else groups.push({ sectionId: set.sectionId, sectionName: set.sectionName, testSets: [set] });
+    return groups;
+  }, []);
+
   if (mode === 'list') {
     return (
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
@@ -541,6 +555,46 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
             </div>)}
           </div>
         )}
+
+        {/* สรุปความผูก — ชุดข้อสอบไหนได้เนื้อหาอธิบายอันไหน */}
+        <section className="mt-6 rounded-[20px] border-[1.4px] border-[#DEEBF6] bg-white p-5 shadow-[2px_2px_0px_0px_#DEEBF6]">
+          <h2 className="text-[18px] font-semibold leading-[30px] text-[#334155]">ชุดข้อสอบ ↔ เนื้อหาอธิบาย</h2>
+          <p className="mt-[4px] text-[14px] font-medium leading-[17px] text-[#53657F]">ชุดที่ผูกไว้จะพาไปหน้าเนื้อหาอธิบายก่อนเข้าสอบ และมีปุ่ม โหมดทบทวน ให้เปิดดูระหว่างทำชุด — กดชื่อเนื้อหาเพื่อไปแก้ไข</p>
+          {availableTestSets.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-400">ยังไม่มีชุดข้อสอบในระบบ</p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {setsBySection.map((group) => (
+                <div key={group.sectionId}>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{group.sectionName}</p>
+                  <div className="mt-2 space-y-2">
+                    {group.testSets.map((set) => {
+                      const bound = rows.filter((row) => (row.testSetIds ?? []).includes(set.id));
+                      return (
+                        <div key={set.id} className="flex flex-wrap items-center gap-2 rounded-[12px] border-[1.4px] border-[#DEEBF6] px-3 py-2">
+                          <span className="text-[13px] font-semibold leading-[20px] text-[#334155]">{set.name || `ชุด #${set.id}`}</span>
+                          {bound.length === 0 ? (
+                            <span className="rounded-[8px] bg-[#F5F5F5] px-2 py-0.5 text-[11px] font-semibold text-[#6F7C8E]">ยังไม่ผูก</span>
+                          ) : (
+                            bound.map((row) => (
+                              <Link
+                                key={row.id}
+                                href={`/admin/test-explains/${row.id}`}
+                                className={`rounded-[8px] px-2 py-0.5 text-[11px] font-semibold hover:underline ${row.isPublished ? 'bg-[#FFF0AE] text-[#574E29]' : 'bg-[#F5F5F5] text-[#6F7C8E]'}`}
+                              >
+                                {row.title}
+                              </Link>
+                            ))
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {importOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !importBusy && setImportOpen(false)}>
@@ -705,38 +759,45 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
             </div>
           </label>
           <div className="sm:col-span-2">
-            <p className="text-sm font-bold text-slate-700">แสดงอัตโนมัติเมื่อเริ่มทำชุดข้อสอบ (ไม่บังคับ)</p>
-            <p className="mt-0.5 text-xs text-slate-500">เลือกชุดที่ต้องการให้เปิดเนื้อหานี้ขึ้นมาทันทีที่ผู้เรียนกดเข้าทำชุด — ไม่เลือก = แสดงผ่านปุ่ม โหมดทบทวน ตาม grammarTopic เหมือนเดิม</p>
+            <p className="text-sm font-bold text-slate-700">ผูกเนื้อหานี้กับชุดข้อสอบ (ไม่บังคับ)</p>
+            <p className="mt-0.5 text-xs text-slate-500">ชุดที่เลือกจะพาไปหน้าเนื้อหาอธิบายก่อนเข้าสอบ และมีปุ่ม โหมดทบทวน ให้เปิดดูระหว่างทำชุด — ไม่เลือก = เข้าสอบได้เลย และแสดงผ่านปุ่ม โหมดทบทวน ตาม grammarTopic เหมือนเดิม</p>
             {availableTestSets.length === 0 ? (
               <p className="mt-2 text-xs text-slate-400">ยังไม่มีชุดข้อสอบในระบบ</p>
             ) : (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {availableTestSets.map((set) => {
-                  const checked = testSetIds.includes(set.id);
-                  return (
-                    <label
-                      key={set.id}
-                      className={`inline-flex cursor-pointer items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs font-semibold transition-colors ${
-                        checked
-                          ? 'border-sky-500 bg-sky-50 text-sky-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={checked}
-                        onChange={() => setTestSetIds((current) =>
-                          current.includes(set.id)
-                            ? current.filter((id) => id !== set.id)
-                            : [...current, set.id],
-                        )}
-                      />
-                      {checked && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-                      {set.name || `ชุด #${set.id}`}
-                    </label>
-                  );
-                })}
+              <div className="mt-3 space-y-3">
+                {setsBySection.map((group) => (
+                  <div key={group.sectionId}>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{group.sectionName}</p>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {group.testSets.map((set) => {
+                        const checked = testSetIds.includes(set.id);
+                        return (
+                          <label
+                            key={set.id}
+                            className={`inline-flex cursor-pointer items-center gap-2 rounded-full border-[1.4px] px-3 py-1.5 text-xs font-semibold transition-colors ${
+                              checked
+                                ? 'border-[#FFDB40] bg-[#FFF0AE] text-[#574E29]'
+                                : 'border-[#DEEBF6] bg-white text-[#53657F] hover:border-[#FFDB40]'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={checked}
+                              onChange={() => setTestSetIds((current) =>
+                                current.includes(set.id)
+                                  ? current.filter((id) => id !== set.id)
+                                  : [...current, set.id],
+                              )}
+                            />
+                            {checked && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+                            {set.name || `ชุด #${set.id}`}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
