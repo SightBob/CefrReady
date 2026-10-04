@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Layers, LogOut, CheckCircle, ArrowRight } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import SelectableText from '@/components/SelectableText';
+import TestLayout from '@/components/TestLayout';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
 import type { Blank } from '@/types/test';
@@ -51,21 +52,8 @@ export default function FormMeaningQuiz({
   const [submitting, setSubmitting] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [testStartedAt] = useState(() => new Date().toISOString());
   const router = useRouter();
-  const setListRef = useRef<HTMLDivElement | null>(null);
-  const currentSetRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    const list = setListRef.current;
-    const current = currentSetRef.current;
-    if (list && current) {
-      const listRect = list.getBoundingClientRect();
-      const elRect = current.getBoundingClientRect();
-      list.scrollTop += elRect.top - listRect.top - list.clientHeight / 2 + elRect.height / 2;
-    }
-  }, [setId]);
 
   // Combine all articles into one, re-numbering blanks globally
   const combinedArticle = useMemo(() => {
@@ -203,10 +191,11 @@ export default function FormMeaningQuiz({
         const isWrong = isSubmitted && !isCorrect && answers[blank.id];
         const isEmpty = isSubmitted && !answers[blank.id];
         parts.push(
-          <span key={key++} className="inline-flex flex-col items-start mx-1">
+          // Figma 172:11412 — ช่องกรอก 128×40.45 r8 ขอบ 1.6px #BCD8F0 พื้นขาว ตัวอักษร 18px #9CA3AF กึ่งกลาง
+          <span key={key++} className="inline-flex flex-col items-start align-middle">
             <input
               type="text"
-              className={`w-32 px-2 py-1 rounded border-2 text-center ${isSubmitted
+              className={`h-[40.45px] w-32 shrink-0 rounded-lg border-[1.6px] bg-white px-2 py-1 text-center align-middle text-[1.125rem] leading-normal focus:outline-none ${isSubmitted
                 ? isCorrect
                   ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                   : isWrong
@@ -214,7 +203,7 @@ export default function FormMeaningQuiz({
                     : isEmpty
                       ? 'border-amber-400 bg-amber-50 text-amber-600'
                       : 'border-slate-300 bg-slate-50'
-                : 'border-purple-300 focus:border-purple-500 focus:outline-none'
+                : 'border-[#BCD8F0] text-[#9CA3AF] placeholder:text-[#9CA3AF] focus:border-[#BCD8F0]'
                 }`}
               placeholder={blank.hint?.split(' - ')[0] || 'Answer'}
               value={answers[blank.id] || ''}
@@ -250,203 +239,75 @@ export default function FormMeaningQuiz({
     return parts;
   };
 
+  // Figma 172:11322 — shell เดียวกับหน้า focus-meaning / listening
+  // (dropdown ชุด · progress pill · ปุ่มปิด · การ์ดเลขข้อ · คลังกริยา · แถบล่าง)
+  // ข้อความแถบล่างเป็น "ตรวจคำตอบ" ซึ่ง TestLayout เลือกเมื่อ currentQuestion อยู่ที่ข้อสุดท้าย
+  const layoutCurrentQuestion = Math.max(0, totalBlanks - 1);
+
   return (
-    <div className="min-h-[100dvh] bg-white">
-      {/* Top Progress Bar */}
-      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-200">
-        <div
-          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
-          style={{ width: `${totalBlanks > 0 ? (answeredCount / totalBlanks) * 100 : 0}%` }}
-        />
-      </div>
+    <>
+    <TestLayout
+      title={setName}
+      durationMinutes={durationMinutes}
+      totalQuestions={totalBlanks}
+      currentQuestion={layoutCurrentQuestion}
+      answers={combinedArticle.blanks.map((b) => answers[b.id] || null)}
+      availableSets={availableSets}
+      currentSetId={setId}
+      onSetSelect={(id) => { if (!isSubmitted) onSetSelect?.(id); }}
+      sectionIcon={Layers}
+      sectionColor="from-purple-500 to-pink-500"
+      onSubmit={handleSubmit}
+      isSubmitted={isSubmitted}
+      onExit={() => { if (onExit) onExit(); else router.push(`/tests/${sectionId}`); }}
+      reviewAction={reviewAction}
+      sequentialNav
+    >
+      {/* Figma 172:11331 — การ์ด 840×505 r20 พื้นขาว ไม่มีเงา/เส้นขอบ
+          · หัวข้อ 172:11404 x30 y25  ·  เนื้อหา 172:11407 x33 y62 w773 */}
+      <div className="w-full rounded-[20px] bg-white pt-[25px] pb-[35px]">
+        {/* 172:11404 — หัวบทความ 16px SemiBold #404040 uppercase tracking 0.35px leading 18px */}
+        <h2 className="px-[30px] text-[1rem] font-semibold uppercase leading-[18px] tracking-[0.35px] text-[#404040]">
+          <SelectableText text={combinedArticle.title} contextSentence={combinedArticle.title} inline />
+        </h2>
 
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 shadow-[0_1px_6.4px_0_rgba(221,221,221,0.25)] shrink-0 z-40 pt-1 sticky top-0">
-        <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-3 md:py-0 md:h-[6.6875rem] h-[90px]">
-            <div className="flex items-center gap-2 md:gap-4">
-              <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0">
-                <Layers className="w-5 h-5 md:w-6 md:h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="font-bold text-base sm:text-[1.375rem] text-[#5A6387] line-clamp-1">{setName}</h1>
-                <div className="flex items-center gap-2 text-xs sm:text-[1rem] text-[#5A6387] font-medium">
-                  <span>set 1 - {totalBlanks} ข้อ</span>
-                  <span>|</span>
-                  <span>{durationMinutes} min</span>
-                </div>
-              </div>
-            </div>
+        {/* 172:11407 — เส้นคั่น 1px #E9E9E9 · เนื้อหา · เส้นคั่น (gap 9px รอบแถว)
+            172:11409 — ช่องไฟข้าง 8px · แต่ละบรรทัดสูง 40.45px (ช่องกรอก) เว้นกัน 24px
+            → ใน flow ข้อความเดียว ใช้ line-height 64.45px = 40.45 + 24 และช่องกรอก align-middle */}
+        <div className="mt-[19px] px-[33px]">
+          <div className="h-px w-full rounded-[29px] bg-[#E9E9E9]" />
 
-            <button
-              onClick={() => setShowExitConfirm(true)}
-              className="text-[#616161] text-sm sm:text-[1.125rem] rounded-lg font-semibold flex items-center shrink-0"
-              aria-label="จบการสอบ"
-            >
-              <span className="hidden sm:inline">จบการสอบ</span>
-              <LogOut className="w-5 h-5 text-slate-600 sm:ms-2" />
-            </button>
+          <div className="mt-[9px] px-2 text-[1.125rem] font-medium leading-[64.45px] text-[#334155]">
+            {renderArticle()}
           </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-40 md:pb-6">
-        <div className="w-full flex items-center justify-between mb-[1.1875rem]">
-          <div className="w-72 max-w-full bg-[#F9F9F9] py-1 flex items-center space-x-3 rounded-full ps-4">
-            <FileText className="size-[1rem]" />
-            <p className="text-[0.9375rem] font-medium">Fill in the blanks</p>
-          </div>
+          <div className="mt-[9px] h-px w-full rounded-[29px] bg-[#E9E9E9]" />
         </div>
 
-        <div className="flex gap-6 items-start">
-        {/* Desktop Navigation Panel */}
-        {availableSets.length > 0 && (
-        <div className="hidden md:block max-w-72 w-full shrink-0">
-          <div className="rounded-2xl shadow-sm border border-slate-100 sticky top-36 overflow-hidden p-[1.1875rem] bg-[#F9F9F9]">
-            <p className="text-xs font-medium text-slate-500 px-1 pb-2">ชุดข้อสอบ</p>
-            <div ref={setListRef} className="max-h-[28rem] overflow-y-auto dot-map-scroll flex flex-col gap-2" style={{ scrollbarWidth: 'none' }}>
-              {availableSets.map((s, i) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  ref={s.id === setId ? currentSetRef : null}
-                  onClick={() => { if (s.id !== setId && !isSubmitted) onSetSelect?.(s.id); }}
-                  className={`text-left px-4 py-3 min-h-[5rem] rounded-xl border transition-colors ${
-                    s.id === setId
-                      ? 'bg-[#6D89EF] border-[#6D89EF] text-white'
-                      : 'bg-white border-[#BFDFEB] hover:border-[#3B82F6] text-slate-700'
-                  }`}
-                >
-                  <span className="block text-sm font-bold truncate">ข้อสอบ - {i + 1}</span>
-                  {s.id === setId && (
-                    <span className="text-xs font-medium opacity-80">ชุดปัจจุบัน</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        )}
-
-        <div className={`flex-1 min-w-0 max-w-4xl ${availableSets.length === 0 ? 'mx-auto' : ''}`}>
-
-
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-6">
-          <h2 className="text-xl font-bold text-slate-800 mb-6">
-            <SelectableText text={combinedArticle.title} contextSentence={combinedArticle.title} />
-          </h2>
-          <div className="text-lg text-slate-700 leading-relaxed">{renderArticle()}</div>
-        </div>
-
+        {/* หลังส่งคำตอบแล้ว TestLayout จะแสดงปุ่ม “ทำชุดถัดไป” แทน
+            ปุ่มดูผลการสอบจึงต้องอยู่ในการ์ดบทความตามเดิม */}
         {isSubmitted && (
-          <div className={`p-4 rounded-xl mb-6 ${correctCount === totalBlanks
-            ? 'bg-emerald-50 border border-emerald-200'
-            : correctCount >= totalBlanks * 0.7
-              ? 'bg-amber-50 border border-amber-200'
-              : 'bg-red-50 border border-red-200'
-            }`}>
-            <p className="font-medium text-slate-800 mb-1">
-              Score: {correctCount} out of {totalBlanks}
-            </p>
-            <p className="text-sm text-slate-600">
-              {correctCount === totalBlanks
-                ? 'Perfect! All blanks filled correctly.'
-                : 'Review your answers above — wrong blanks are highlighted in red with the correct answer shown below.'}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => onFinish(correctCount, totalBlanks)}
+            className="mt-6 flex h-[3.375rem] w-[13.875rem] items-center justify-center rounded-full bg-[#6D89EF] text-base font-bold text-white hover:bg-[#5A75E0]"
+          >
+            ดูผลการสอบ
+          </button>
         )}
-
-        </div>
-        </div>
       </div>
+    </TestLayout>
 
-      {/* Universal Bottom Bar */}
-      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)]">
-        <div className="max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-3 md:py-0 md:min-h-[8rem] flex flex-col md:flex-row items-center justify-between gap-3 w-full">
-          {/* Progress Ring */}
-          <div className="w-full md:w-auto p-2 md:p-0 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="relative w-12 h-12 scale-90 md:scale-100 origin-center shrink-0">
-                <svg className="w-12 h-12 transform -rotate-90">
-                  <circle cx="24" cy="24" r="20" stroke="#e2e8f0" strokeWidth="4" fill="none" />
-                  <circle
-                    cx="24" cy="24" r="20"
-                    stroke="#10b981"
-                    strokeWidth="4"
-                    fill="none"
-                    strokeDasharray={`${totalBlanks > 0 ? (answeredCount / totalBlanks) * 125.6 : 0} 125.6`}
-                    className="transition-all duration-500"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700">
-                  {totalBlanks > 0 ? Math.round((answeredCount / totalBlanks) * 100) : 0}%
-                </span>
-              </div>
-              <div className="text-sm hidden sm:block">
-                <p className="text-slate-900 font-medium">{answeredCount} answered</p>
-                <p className="text-slate-500">{totalBlanks - answeredCount} remaining</p>
-              </div>
-              <p className="text-sm font-medium text-slate-900 sm:hidden">
-                {answeredCount}/{totalBlanks}
-              </p>
-            </div>
-          </div>
+    {reviewOverlay}
 
-          {/* Submit / View Results */}
-          <div className="w-full flex items-center gap-2 md:gap-3 md:w-auto justify-center">
-            {!isSubmitted && reviewAction && (
-              <button
-                type="button"
-                onClick={reviewAction.onClick}
-                className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] rounded-full flex items-center justify-center border-2 border-[#6D89EF] text-[#516DD8] hover:bg-blue-50 transition-colors"
-              >
-                <span className="text-sm md:text-base text-center font-bold whitespace-nowrap">{reviewAction.label}</span>
-              </button>
-            )}
-            {!isSubmitted ? (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="w-full md:w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap">ส่งข้อสอบ</span>
-                <CheckCircle className="size-[1.125rem] shrink-0" />
-              </button>
-            ) : (
-              <button
-                onClick={() => onFinish(correctCount, totalBlanks)}
-                className="w-full md:w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors"
-              >
-                <span className="text-base md:text-[1.125rem] text-center font-bold whitespace-nowrap">ดูผลการสอบ</span>
-                <ArrowRight className="size-[1.125rem] shrink-0" />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {reviewOverlay}
-
-      <ConfirmModal
-        isOpen={showSubmitConfirm}
-        onCancel={() => setShowSubmitConfirm(false)}
-        onConfirm={executeSubmit}
-        title="ยืนยันการส่งคำตอบ"
-        description="คุณยังมีคำถามที่ยังไม่ได้ตอบ คุณแน่ใจหรือไม่ว่าต้องการส่งคำตอบ?"
-        confirmLabel="ส่งคำตอบ"
-      />
-
-      <ConfirmModal
-        isOpen={showExitConfirm}
-        title="ยกเลิกการสอบ"
-        description="คำตอบทั้งหมดจะไม่ถูกบันทึก ต้องการยกเลิกการสอบหรือไม่?"
-        confirmLabel="ยกเลิกการสอบ"
-        cancelLabel="ทำต่อ"
-        type="warning"
-        onConfirm={() => { if (onExit) onExit(); else router.push(`/tests/${sectionId}`); }}
-        onCancel={() => setShowExitConfirm(false)}
-      />
-    </div>
+    <ConfirmModal
+      isOpen={showSubmitConfirm}
+      onCancel={() => setShowSubmitConfirm(false)}
+      onConfirm={executeSubmit}
+      title="ยืนยันการส่งคำตอบ"
+      description="คุณยังมีคำถามที่ยังไม่ได้ตอบ คุณแน่ใจหรือไม่ว่าต้องการส่งคำตอบ?"
+      confirmLabel="ส่งคำตอบ"
+    />
+    </>
   );
 }
