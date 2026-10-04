@@ -119,6 +119,33 @@
   animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Announcement marquee — Figma 200:9343. The track holds two copies of the
+   message; translating it by -50% loops seamlessly. */
+@keyframes marqueeScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marqueeScroll 12s linear infinite;
+}
+
+.marquee-track:hover,
+.marquee-track:focus-within {
+  animation-play-state: paused;
+}
+
+/* Visitors who ask for reduced motion still get the announcement, just at a
+   gentler pace. `width` has to stay max-content here — the -50% loop only
+   lines up when the track is exactly two copies of the message. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation-duration: 40s;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .stagger-animate {
     opacity: 0;

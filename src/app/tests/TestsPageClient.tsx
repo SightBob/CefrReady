@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import SectionCard, { type SectionData } from '@/components/SectionCard';
-import FullTestCard from '@/components/FullTestCard';
 
 // FeedbackDiscoveryModal intentionally not rendered — feature disabled until
 // the feedback survey launches.
+
+const ANNOUNCEMENT =
+  'เนื่องจาก CEFR Ready กำลังพัฒนาข้อสอบให้แม่นยำขึ้น เราจึงขอเริ่มเก็บค่าบริการตั้งแต่วันที่ 1 พฤศจิกายน 2569 เป็นต้นไป เพื่อนๆสามารถใช้งานได้ “ ฟรี ” จนกว่าจะถึงกำหนดสิ้นสุด';
 
 interface TestsPageClientProps {
   sections: SectionData[];
@@ -38,17 +40,22 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
 
   return (
     <div className="min-h-svh pb-8">
-      {/* Announcement banner — Figma 60:957 */}
+      {/* Announcement banner — Figma desktop 60:957, mobile 200:9343 (390×37,
+          #8EBEE6, 12px medium, 10px padding, nowrap) — slides as a marquee. */}
       {showBanner && (
-        <div className="relative flex min-h-[51px] w-full items-center justify-center bg-[#8EBEE6] px-14 py-1.5 lg:h-[51px] lg:py-0">
-          <p className="text-center text-[14px] font-semibold leading-normal text-white">
-            เนื่องจาก CEFR Ready กำลังพัฒนาข้อสอบให้แม่นยำขึ้น เราจึงขอเริ่มเก็บค่าบริการตั้งแต่วันที่ 1 พฤษจิกายน 2569 เป็นต้นไป เพื่อนๆสามารถใช้งานได้ “ ฟรี ” จนกว่าจะถึงกำหนดสิ้นสุด
-          </p>
+        <div className="relative flex h-[37px] w-full items-center bg-[#8EBEE6] lg:h-[51px]">
+          <div className="w-full overflow-hidden px-[10px] lg:px-14">
+                <div className="marquee-track">
+                  <span className="whitespace-nowrap text-[12px] font-medium leading-normal text-white lg:text-[14px] lg:font-semibold">
+                    {ANNOUNCEMENT}
+                  </span>
+                </div>
+              </div>
           <button
             type="button"
             onClick={() => setShowBanner(false)}
             aria-label="ปิดประกาศ"
-            className="absolute right-[26px] top-1/2 flex h-[29.57px] w-[29.57px] -translate-y-1/2 items-center justify-center"
+            className="absolute right-0 top-1/2 flex h-[29.57px] w-[29.57px] -translate-y-1/2 items-center justify-center bg-[#8EBEE6]"
           >
             <svg width="29.57" height="29.57" viewBox="0 0 29.5654 29.5654" fill="none" aria-hidden="true">
               <path
@@ -60,24 +67,38 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
         </div>
       )}
 
-      <div className="mx-auto w-full max-w-[1040px] px-4 sm:px-6 xl:px-0">
-        {/* Hero — Figma 60:846/60:847/60:843 + otter 60:848 */}
-        <section className="relative">
-          <h1 className="pt-[38px] text-[26px] font-bold leading-[43px] text-[#334155]">
+      {/* 200:9227 — the 390px frame centres a 339px content column, i.e. ~26px
+          side margins on mobile; wider breakpoints keep their own padding. */}
+      <div className="mx-auto w-full max-w-[1040px] px-[26px] sm:px-6 xl:px-0">
+        {/* Hero — desktop 60:846/60:847/60:843, mobile 200:9228 (339×158) */}
+        <section className="relative pt-[14px] lg:pt-[38px]">
+          <h1 className="text-[16px] font-bold leading-[26px] text-[#334155] lg:text-[26px] lg:leading-[43px]">
             รวมข้อสอบเสมือนจริง “ ครอบคลุมเนื้อหาทั้งหมด ”
           </h1>
-          <p className="mt-[4px] text-[16px] font-medium leading-[26px] text-[#56606F]">
-            ระดับความยากง่ายที่มีตั้งแต่ A1 - B2 กับโจทย์ที่จำลองมาให้อย่าครบถ้วน
+          <p className="mt-[4px] text-[13px] font-medium leading-[21px] text-[#6f7c8e] lg:text-[16px] lg:leading-[26px] lg:text-[#56606F]">
+            ระดับความยากง่ายที่มีตั้งแต่ A1 - B2 กับโจทย์ที่จำลอง
+            <br className="lg:hidden" />
+            มาให้อย่างครบถ้วน
           </p>
           <Link
             href="/tests/full"
             onClick={handleHeroCta}
-            className="mt-[30px] flex h-[51px] w-[298px] items-center justify-center rounded-[14px] border-b-[5px] border-r-[4px] border-[#FFDB40] bg-[#FFF0AE] text-[16px] font-bold text-[#574E29]"
+            className="mt-[18px] flex h-[38px] w-[182px] items-center justify-center rounded-[10px] border-b-[3px] border-r-[2px] border-[#FFDB40] bg-[#FFF0AE] text-[14px] font-semibold text-[#574E29] lg:mt-[30px] lg:h-[51px] lg:w-[298px] lg:rounded-[14px] lg:border-b-[5px] lg:border-r-[4px] lg:text-[16px] lg:font-bold"
           >
-            ฝึกทำข้อสอบ
+            <span className="lg:hidden">เริ่มสอบเลย</span>
+            <span className="hidden lg:inline">ฝึกทำข้อสอบ</span>
           </Link>
 
-          {/* Otter with Exam sign */}
+          {/* Otter with exam sign — mobile 200:9237 (90×93 at the content's
+              right edge, 65px below the hero top) */}
+          <div className="absolute right-0 top-[79px] h-[93px] w-[90px] lg:hidden" aria-hidden="true">
+            <div className="absolute left-[15.12px] top-[66.13px] h-[26.866px] w-[57.348px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
+            <div className="absolute left-0 top-0 h-[76.449px] w-[89.985px] overflow-hidden">
+              <Image src="/tests/otter-exam-sign.png" alt="" width={90} height={90} unoptimized className="absolute left-0 top-0 max-w-none" />
+            </div>
+          </div>
+
+          {/* Otter with Exam sign — desktop 60:848 */}
           <div className="absolute right-0 top-[41px] hidden h-[190px] w-[174px] lg:block" aria-hidden="true">
             <div className="absolute left-[29px] top-[128px] h-[62px] w-[111px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
             <div className="absolute left-0 top-0 h-[148px] w-[174px] overflow-hidden">
@@ -86,14 +107,17 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
           </div>
         </section>
 
-        {/* Squiggle divider — Figma 60:845 */}
+        {/* Squiggle divider — desktop 60:845 (985px), mobile 200:9236 (339px) */}
         <div
           aria-hidden="true"
-          className="mt-[34px] h-[9px] w-[985px] max-w-full bg-[url('/bg/squiggle-line.svg')] bg-no-repeat"
+          className="mt-[26px] h-[9px] w-[339px] max-w-full bg-[url('/tests/squiggle-line.svg')] bg-no-repeat lg:mt-[34px] lg:w-[985px] lg:bg-[url('/bg/squiggle-line.svg')]"
           style={{ backgroundSize: '100% 100%' }}
         />
 
-        <h2 className="ml-[7px] mt-[21px] text-[18px] font-semibold leading-[30px] text-[#334155]">ฝึกทำข้อสอบตามหมวดหมู่</h2>
+        {/* 200:9241 — 339×26 at 16px semibold on mobile */}
+        <h2 className="mt-[11px] text-[16px] font-semibold leading-[26px] text-[#334155] lg:ml-[7px] lg:mt-[21px] lg:text-[18px] lg:leading-[30px]">
+          ฝึกทำข้อสอบตามหมวดหมู่
+        </h2>
 
         {sections.length === 0 ? (
           <div className="text-center py-16 text-slate-500">
@@ -101,7 +125,8 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
             <p className="text-sm mt-1">Please check back later.</p>
           </div>
         ) : (
-          <div className="mt-[14px] grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          /* 200:9242 — first card sits 8px down, cards are 14px apart */
+          <div className="mt-[4px] grid grid-cols-1 gap-[14px] py-2 sm:grid-cols-2 lg:mt-[14px] lg:grid-cols-4 lg:gap-5 lg:py-0">
             {sections.map((section) => (
               <SectionCard
                 key={section.id}
@@ -111,8 +136,6 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
             ))}
           </div>
         )}
-
-        <FullTestCard disabled={!isAuthenticated} />
       </div>
     </div>
   );
