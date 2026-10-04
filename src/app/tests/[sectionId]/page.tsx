@@ -61,24 +61,26 @@ export default async function SectionPage({
 
   return (
     <div className="relative min-h-svh bg-white pb-8">
-      {/* Otter illustration — Figma 60:178 (image 60:180 + sign 60:179) */}
+      {/* Otter illustration — เดสก์ท็อป: Figma 60:178 (image 60:180 + sign 60:179)
+          มือถือ: Figma 200:7267 — ย่อทั้งกลุ่มด้วยสเกล 0.3904 (141.271 → 55.153)
+          และย้ายมาชิดขวา 16px โดยยังคงระยะห่างจากหัวเรื่อง 110px */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-[calc(50%+434.81px)] top-[22px] hidden h-[146px] w-[141.27px] -translate-x-1/2 lg:block"
+        className="pointer-events-none absolute right-[16px] top-[166px] h-[57px] w-[55.15px] sm:left-[calc(50%+434.81px)] sm:right-auto sm:top-[22px] sm:h-[146px] sm:w-[141.27px] sm:-translate-x-1/2"
       >
-        <div className="absolute left-0 top-0 h-[120.018px] w-[141.271px] overflow-hidden">
+        <div className="absolute left-0 top-0 h-[46.86px] w-[55.15px] overflow-hidden sm:h-[120.018px] sm:w-[141.271px]">
           <Image
             src="/logo-otter/otter-exam.png"
             alt=""
             width={141}
             height={141}
-            className="absolute left-0 top-0 h-[141.27px] w-full max-w-none"
+            className="absolute left-0 top-0 h-[55.15px] w-full max-w-none sm:h-[141.27px]"
           />
         </div>
-        <div className="absolute left-[23.74px] top-[103.82px] h-[42.178px] w-[90.033px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
+        <div className="absolute left-[9.27px] top-[40.53px] h-[16.47px] w-[35.15px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0] sm:left-[23.74px] sm:top-[103.82px] sm:h-[42.178px] sm:w-[90.033px]" />
       </div>
 
-      <div className="mx-auto w-full max-w-[1044px] px-4 sm:px-6 xl:px-0">
+      <div className="mx-auto w-full max-w-[1044px] px-[27px] sm:px-6 xl:px-0">
         {/* Back button — Figma 60:181 */}
         <div className="pt-[16px]">
           <Link
@@ -90,39 +92,43 @@ export default async function SectionPage({
           </Link>
         </div>
 
-        {/* Title + badges — Figma 60:176 / 60:184 / 60:186 */}
-        <div className="mt-[14px] flex items-center">
-          <h1 className="shrink text-[26px] font-bold leading-[43px] text-[#334155]">
+        {/* Title + badges — เดสก์ท็อป Figma 60:176 / 60:184 / 60:186 (ป้ายอยู่ข้างหัวเรื่อง)
+            มือถือ Figma 200:7259 (20px, กล่องสูง 33px) + 200:7261 (ป้ายล่างหัวเรื่อง 8px, gap 12px) */}
+        <div className="mt-[14px] flex flex-col items-start gap-[8px] sm:flex-row sm:items-center sm:gap-0">
+          <h1 className="shrink text-[20px] font-bold leading-[33px] text-[#334155] sm:text-[26px] sm:leading-[43px]">
             {section.name}
           </h1>
-          <span className="ms-3 flex h-[24px] w-[132px] shrink-0 items-center justify-center whitespace-nowrap rounded-[30px] bg-[#FFF0AE] px-[17px] text-center text-[12px] font-semibold text-[#6C5F2D]">
-            มีเนื้อหาออกสอบบ่อย
-          </span>
-          <span className="ms-1.5 ml-[3px] flex h-[24px] w-[97px] shrink-0 items-center justify-center whitespace-nowrap rounded-[30px] bg-[#FFF0AE] px-[17px] text-center text-[12px] font-semibold text-[#6C5F2D]">
-            โหมดทบทวน
-          </span>
+          <div className="flex items-center gap-[12px] sm:gap-0">
+            <span className="flex h-[24px] w-[132px] shrink-0 items-center justify-center whitespace-nowrap rounded-[30px] bg-[#FFF0AE] px-[17px] text-center text-[11px] font-semibold text-[#6C5F2D] sm:ms-3 sm:text-[12px]">
+              มีเนื้อหาออกสอบบ่อย
+            </span>
+            <span className="flex h-[24px] w-[97px] shrink-0 items-center justify-center whitespace-nowrap rounded-[30px] bg-[#FFF0AE] px-[17px] text-center text-[11px] font-semibold text-[#6C5F2D] sm:ms-1.5 sm:ml-[3px] sm:text-[12px]">
+              โหมดทบทวน
+            </span>
+          </div>
         </div>
 
-        {/* Description — Figma 60:177 */}
-        <p className="mt-[7px] max-w-[752px] text-[13px] font-medium leading-[21px] text-[#6F7C8E]">
+        {/* Description — เดสก์ท็อป Figma 60:177 · มือถือ Figma 200:7260 (12px, บรรทัด 20px, 3 บรรทัด = 60px, เว้น 15px จากป้าย) */}
+        <p className="mt-[15px] max-w-full text-[12px] font-medium leading-[20px] text-[#6F7C8E] sm:mt-[7px] sm:max-w-[752px] sm:text-[13px] sm:leading-[21px]">
           {section.description ?? ''}
         </p>
 
-        {/* Squiggle divider — Figma 60:175 */}
+        {/* Squiggle divider — เดสก์ท็อป Figma 60:175 · มือถือ Figma 200:7266 (สูง 8.635px, เต็มความกว้าง, เว้น 23px) */}
         <div
           aria-hidden="true"
-          className="ml-[4px] mt-[20px] h-[9px] w-[985px] max-w-full bg-[url('/bg/squiggle-line.svg')] bg-no-repeat"
+          className="mt-[23px] h-[8.64px] w-full bg-[url('/bg/squiggle-line.svg')] bg-no-repeat sm:ml-[4px] sm:mt-[20px] sm:h-[9px] sm:w-[985px]"
           style={{ backgroundSize: '100% 100%' }}
         />
 
-        {/* Test sets — Figma 60:188 grid: 3 x 320 with 25px / 23px gaps */}
+        {/* Test sets — เดสก์ท็อป Figma 60:188 grid: 3 x 320 with 25px / 23px gaps
+            มือถือ Figma 200:7270 — การ์ด 320px จัดกึ่งกลางในคอลัมน์ 336px (ดีไซน์ x=34 / ขวา 36) ช่องไฟ 14px เว้นจากเส้นคั่น 16px */}
         {activeSets.length === 0 ? (
           <div className="mt-[14px] py-16 text-center text-slate-500">
             <p className="text-lg font-medium">No test sets available yet.</p>
             <p className="mt-1 text-sm">Please check back later.</p>
           </div>
         ) : (
-          <div className="mt-[14px] grid max-w-[1010px] grid-cols-1 gap-x-[20px] gap-y-[23px] sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-[25px]">
+          <div className="mx-auto mt-[16px] grid w-[320px] max-w-full grid-cols-1 gap-y-[14px] sm:mx-0 sm:mt-[14px] sm:w-auto sm:max-w-[1010px] sm:grid-cols-2 sm:gap-x-[20px] sm:gap-y-[23px] lg:grid-cols-3 lg:gap-x-[25px]">
             {activeSets.map((testSet) => (
               <SectionTestSetCard
                 key={testSet.id}
