@@ -1,25 +1,15 @@
 'use client';
 
-import { X, PenTool, BookOpen, Layers, Headphones, LayoutGrid } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import SectionCard, { type SectionData } from '@/components/SectionCard';
-import TestSetCard from '@/components/TestSetCard';
 import FullTestCard from '@/components/FullTestCard';
 
 // FeedbackDiscoveryModal intentionally not rendered — feature disabled until
 // the feedback survey launches.
-
-const SECTION_STYLE: Record<string, { name: string; color: string; bg: string; icon: React.ElementType }> = {
-  'focus-form': { name: 'Focus on Form', color: 'from-blue-500 to-cyan-500', bg: 'bg-blue-50', icon: PenTool },
-  'focus-meaning': { name: 'Focus on Meaning', color: 'from-emerald-500 to-teal-500', bg: 'bg-emerald-50', icon: BookOpen },
-  'form-meaning': { name: 'Form & Meaning', color: 'from-purple-500 to-pink-500', bg: 'bg-purple-50', icon: Layers },
-  'listening': { name: 'Listening', color: 'from-orange-500 to-amber-500', bg: 'bg-orange-50', icon: Headphones },
-};
-
-const FALLBACK_STYLE = { name: '', color: 'from-slate-500 to-slate-600', bg: 'bg-slate-50', icon: LayoutGrid };
 
 interface TestsPageClientProps {
   sections: SectionData[];
@@ -27,32 +17,16 @@ interface TestsPageClientProps {
 }
 
 export default function TestsPageClient({ sections, user }: TestsPageClientProps) {
+  const router = useRouter();
   const isAuthenticated = Boolean(user);
-  const [selectedSection, setSelectedSection] = useState<SectionData | null>(null);
   const [showBanner, setShowBanner] = useState(true);
-
-  // Close modal on Escape + lock body scroll while open
-  useEffect(() => {
-    if (!selectedSection) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedSection(null);
-    };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [selectedSection]);
-
-  const activeSets = selectedSection?.testSets.filter((ts) => ts.isActive) ?? [];
 
   const handleOpenSection = (section: SectionData) => {
     if (!isAuthenticated) {
       void signIn(undefined, { callbackUrl: '/tests' });
       return;
     }
-    setSelectedSection(section);
+    router.push(`/tests/${section.id}`);
   };
 
   const handleHeroCta = (e: React.MouseEvent) => {
@@ -140,71 +114,6 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
 
         <FullTestCard disabled={!isAuthenticated} />
       </div>
-
-      {/* Section modal */}
-      {selectedSection && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in"
-          onClick={() => setSelectedSection(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={selectedSection.name}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-[1330px] max-h-[85vh] flex flex-col animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal header */}
-            <div className="flex items-center gap-4 p-6 border-b border-slate-100">
-              {(() => {
-                const style = SECTION_STYLE[selectedSection.id] ?? FALLBACK_STYLE;
-                const Icon = style.icon;
-                return (
-                  <div className={`bg-gradient-to-br ${style.color} p-3 rounded-2xl flex-shrink-0`}>
-                    <Icon className="w-5 h-5 text-white" />
-                  </div>
-                );
-              })()}
-              <div className="flex-1 min-w-0">
-                <h2 className="text-[1.125rem] font-semibold text-[#525252]">{selectedSection.name}</h2>
-                {selectedSection.description && (
-                  <p className="text-sm font-medium mt-0.5 text-[#525252]">{selectedSection.description}</p>
-                )}
-
-              </div>
-              <button
-                onClick={() => setSelectedSection(null)}
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
-                aria-label="ปิด"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal body */}
-            <div className="overflow-y-auto p-6">
-              {activeSets.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <LayoutGrid className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">No test sets available yet.</p>
-                  <p className="text-sm mt-1">Please check back later.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {activeSets.map((ts, index) => (
-                    <TestSetCard
-                      key={ts.id}
-                      testSet={ts}
-                      sectionId={selectedSection.id}
-                      index={index}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
