@@ -327,7 +327,7 @@ export default function ListeningAudioPlayer({
         <div ref={explanationRef} className="w-full flex flex-col">
           {/* 60:4497 — ป้าย 252×35: รูปหมี 52×35 ทับซ้าย, แถบ #f7f5ed 242×24, หัวใจ 12px */}
           <div className="relative shrink-0 w-[252px] h-[35px] mb-[-2px]">
-            <div className="absolute left-0 top-0 w-[52px] h-[35px] overflow-hidden">
+            <div className="absolute left-0 top-0 z-20 w-[52px] h-[35px] overflow-hidden">
               <Image
                 src="/logo-otter/otter-flag.png"
                 alt=""
@@ -336,8 +336,8 @@ export default function ListeningAudioPlayer({
                 className="absolute max-w-none h-[154.24%] w-[101.11%] left-[-0.56%] top-[-30.51%]"
               />
             </div>
-            <div className="absolute left-[10px] top-2 h-6 w-[242px] rounded-[16px] bg-[#f7f5ed]" />
-            <div className="absolute left-[57px] top-[10px] flex gap-1.5 items-center">
+            <div className="absolute left-[10px] top-2 z-10 h-6 w-[242px] rounded-[16px] bg-[#f7f5ed]" />
+            <div className="absolute left-[57px] top-[10px] z-30 flex gap-1.5 items-center">
               <span className="text-[0.8125rem] font-semibold leading-5 text-[#6d5b16] whitespace-nowrap">
                 {isCorrect ? 'ตอบได้เป๊ะเลย! มาดูกันว่าทำไม' : 'แวะอ่านสักนิด ครั้งหน้าทำได้แน่'}
               </span>
