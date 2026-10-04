@@ -74,8 +74,11 @@ export const config = {
   // checks keep working while every other /api/* route flows through the
   // maintenance gate above.
   matcher: [
-    // Self-hosted fonts (public/fonts/*.woff2) are excluded alongside other
-    // static assets so they never hit the auth/maintenance gate.
-    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|fonts/|[^?]*\\.(?:html?|css|js|woff2?|png|jpg|jpeg|gif|svg|ico|webp)).*)',
+    // Self-hosted fonts (public/fonts/*.woff2) and media files
+    // (public/audio/*.mp3 etc.) are excluded alongside other static assets so
+    // they never hit the auth/maintenance gate. Without the media extensions
+    // an <audio> request for /audio/Q1.mp3 got a 307 to /maintenance, which
+    // the player reported as "Audio failed to load".
+    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|fonts/|[^?]*\\.(?:html?|css|js|woff2?|png|jpg|jpeg|gif|svg|ico|webp|mp3|m4a|aac|wav|ogg|oga|flac|mp4|webm|mov)).*)',
   ],
 };

@@ -76,16 +76,22 @@ export default function ListeningAudioPlayer({
     const audio = new Audio(audioUrl);
     audioRef.current = audio;
 
+    // ผูก listener ทั้งหมดด้วย AbortController: cleanup ต้องถอด listener ออกก่อนเสมอ
+    // ไม่เช่นนั้น StrictMode ที่ mount effect สองรอบใน dev จะทำให้ Audio ตัวแรก
+    // (ที่ถูกทิ้งแล้ว) ยิง error ตอน src ถูกเคลียร์ แล้วไปตั้ง state ทั้งที่ไฟล์เสียงโหลดได้
+    const ac = new AbortController();
+    const signal = ac.signal;
+
     audio.addEventListener('loadedmetadata', () => {
       setDuration(audio.duration);
-    });
+    }, { signal });
 
     audio.addEventListener('timeupdate', () => {
       setCurrentTime(audio.currentTime);
       if (audio.duration > 0) {
         setProgress((audio.currentTime / audio.duration) * 100);
       }
-    });
+    }, { signal });
 
     audio.addEventListener('ended', () => {
       setIsPlaying(false);
@@ -96,14 +102,15 @@ export default function ListeningAudioPlayer({
         playedCallbackRef.current = true;
         onAudioPlayed?.();
       }
-    });
+    }, { signal });
 
     audio.addEventListener('error', () => {
       setError('Audio failed to load. Please try again.');
       setIsPlaying(false);
-    });
+    }, { signal });
 
     return () => {
+      ac.abort();
       audio.pause();
       audio.src = '';
       audioRef.current = null;
