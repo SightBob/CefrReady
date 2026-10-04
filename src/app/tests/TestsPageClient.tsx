@@ -45,12 +45,22 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
       {showBanner && (
         <div className="relative flex h-[37px] w-full items-center bg-[#8EBEE6] lg:h-[51px]">
           <div className="w-full overflow-hidden px-[10px] lg:px-14">
-                <div className="marquee-track">
-                  <span className="whitespace-nowrap text-[12px] font-medium leading-normal text-white lg:text-[14px] lg:font-semibold">
-                    {ANNOUNCEMENT}
-                  </span>
-                </div>
-              </div>
+            {/* Two identical copies: the track slides -50%, i.e. exactly one
+                copy width, so the wrap-around is invisible. With a single copy
+                the text snapped ~440px backwards every cycle. The second copy
+                is aria-hidden so screen readers still hear it once. */}
+            <div className="marquee-track">
+              <span className="whitespace-nowrap text-[12px] font-medium leading-normal text-white lg:text-[14px] lg:font-semibold">
+                {ANNOUNCEMENT}
+              </span>
+              <span
+                aria-hidden="true"
+                className="whitespace-nowrap text-[12px] font-medium leading-normal text-white lg:text-[14px] lg:font-semibold"
+              >
+                {ANNOUNCEMENT}
+              </span>
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => setShowBanner(false)}
