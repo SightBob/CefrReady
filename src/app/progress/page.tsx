@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { userProgress, testAttempts, testTypes } from '@/db/schema';
+import { userProgress, testAttempts, testTypes, users } from '@/db/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import ProgressContent from './ProgressContent';
 
@@ -51,7 +51,7 @@ export default async function ProgressPage() {
   }
 
   // Fetch progress data server-side
-  const [progressByType, recentAttempts, allTestTypes, overallAgg] = await Promise.all([
+  const [progressByType, recentAttempts, allTestTypes, overallAgg, profileRow] = await Promise.all([
     db.select().from(userProgress).where(eq(userProgress.userId, session.user.id)),
     db
       .select({
@@ -65,7 +65,9 @@ export default async function ProgressPage() {
       .from(testAttempts)
       .where(and(eq(testAttempts.userId, session.user.id), eq(testAttempts.status, 'completed')))
       .orderBy(desc(testAttempts.completedAt))
-      .limit(10),
+      // Figma 172:497 — history panel is filtered by a day-range dropdown
+      // (7/30/90/total) in the client, so fetch enough rows to filter.
+      .limit(200),
     db.select().from(testTypes),
     db
       .select({
@@ -79,6 +81,16 @@ export default async function ProgressPage() {
       })
       .from(userProgress)
       .where(eq(userProgress.userId, session.user.id)),
+    db
+      .select({
+        name: users.name,
+        email: users.email,
+        image: users.image,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .limit(1),
   ]);
 
   // Build test type name map
@@ -113,11 +125,26 @@ export default async function ProgressPage() {
     completedAt: attempt.completedAt ? String(attempt.completedAt) : '',
   }));
 
+  const profile = profileRow?.[0];
+
   const progressData = {
     overall: { testsTaken: totalTests, averageScore: overallAverage },
     byCategory,
     recentAttempts: formattedAttempts,
+    // Every test type in the catalogue, so the mobile picker can offer all of
+    // them even when the user has never attempted one (they then show 0).
+    testTypes: allTestTypes.map((tt) => ({ id: tt.id, name: tt.name })),
   };
 
-  return <ProgressContent progress={progressData} />;
+  return (
+    <ProgressContent
+      progress={progressData}
+      user={{
+        name: profile?.name ?? session.user.name ?? session.user.email?.split('@')[0] ?? 'User',
+        email: profile?.email ?? session.user.email ?? null,
+        image: profile?.image ?? session.user.image ?? null,
+        joinedAt: profile?.createdAt ? profile.createdAt.toISOString() : null,
+      }}
+    />
+  );
 }

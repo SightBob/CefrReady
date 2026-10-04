@@ -1,55 +1,47 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+/**
+ * Progress page — two Figma frames, same DOM:
+ *   desktop  node 172:454 (1536×730) — 2 columns, left 447px / right 699px
+ *   mobile   node 172:7255 (390×850) — 1 column, order = profile → results → history
+ *
+ * Values below come from get_design_context on each node; nothing is invented.
+ * DOM order follows the mobile reading order (profile → results → history).
+ * From lg up, grid placement restores the desktop frame: 447px left column
+ * holding profile + history, 699px results panel spanning both rows.
+ */
+import { useState } from 'react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import React from 'react';
-import {
-  ArrowLeft,
-  Target,
-  TrendUp,
-  Trophy,
-  BookOpen,
-  ArrowRight,
-} from '@phosphor-icons/react';
-import {
-  estimateCefrLevel,
-  CEFR_DESCRIPTIONS,
-  SCORE_RANGES,
-} from '@/lib/cefr-estimator';
-import CefrLevelBanner from '@/components/CefrLevelBanner';
-import AnimatedCounter from '@/components/AnimatedCounter';
-import StatCard from '@/components/StatCard';
-import ProgressCard from '@/components/ProgressCard';
-import TestHistoryTable from '@/components/TestHistoryTable';
-import SmartInsights from '@/components/SmartInsights';
-
-const SkillRadarChart = dynamic(
-  () => import('@/components/ChartComponents').then((m) => m.SkillRadarChart),
-  { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
-);
-const HistoryLineChart = dynamic(
-  () => import('@/components/ChartComponents').then((m) => m.HistoryLineChart),
-  { ssr: false, loading: () => <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-2xl" /> }
-);
+import ProgressCategoryCard from '@/components/ProgressCategoryCard';
+import ProgressHistoryList, { type HistoryAttempt } from '@/components/ProgressHistoryList';
 
 const TEST_TYPE_NAMES: Record<string, string> = {
-  'focus-form': 'Grammar',
-  'focus-meaning': 'Vocabulary',
-  'form-meaning': 'Cloze',
-  'listening': 'Listening',
+  'focus-form': 'Focus on Form',
+  'focus-meaning': 'Focus on Meaning',
+  'form-meaning': 'Form & Meaning',
+  listening: 'Listening',
   'full-test': 'Full Mock Exam',
 };
 
-// ─── Types ──────────────────────────────────────────────────────────────────────
+function displayName(testTypeId: string): string {
+  return (
+    TEST_TYPE_NAMES[testTypeId] ||
+    testTypeId
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  );
+}
+
+interface CategoryRow {
+  testTypeId: string;
+  averageScore: number;
+  testsTaken: number;
+}
 
 interface ProgressData {
   overall: { testsTaken: number; averageScore: number };
-  byCategory: Array<{
-    testTypeId: string;
-    averageScore: number;
-    testsTaken: number;
-  }>;
+  byCategory: CategoryRow[];
   recentAttempts: Array<{
     id: number;
     testTypeId: string;
@@ -59,332 +51,311 @@ interface ProgressData {
     correctAnswers: number;
     completedAt: string;
   }>;
+  /** Every test type in the catalogue (id + name), whether attempted or not. */
+  testTypes: Array<{ id: string; name: string }>;
 }
 
-// ─── Improvement badge ─────────────────────────────────────────────────────────
+export interface ProgressUser {
+  name: string;
+  email: string | null;
+  image: string | null;
+  joinedAt: string | null;
+}
 
-function ImprovementBadge({ improvementText }: { improvementText: { label: string; positive: boolean } | null }) {
-  if (!improvementText) {
-    return <span className="text-[#AAAAAA] text-xs mt-0.5">คะแนนรวม</span>;
-  }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const THAI_MONTHS = [
+  'มกราคม',
+  'กุมภาพันธ์',
+  'มีนาคม',
+  'เมษายน',
+  'พฤษภาคม',
+  'มิถุนายน',
+  'กรกฎาคม',
+  'สิงหาคม',
+  'กันยายน',
+  'ตุลาคม',
+  'พฤศจิกายน',
+  'ธันวาคม',
+];
+
+/** "เข้าร่วมเมื่อ ธันวาคม 2024" — Figma 172:485 (desktop) / 172:7262 (mobile) */
+function formatJoined(iso: string | null): string {
+  if (!iso) return 'เข้าร่วมเมื่อ —';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'เข้าร่วมเมื่อ —';
+  return `เข้าร่วมเมื่อ ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// ─── Mobile test-type filter pill — Figma 172:7274 ────────────────────────────
+
+function TestTypeFilter({
+  options,
+  selected,
+  onChange,
+}: {
+  options: CategoryRow[];
+  selected: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = options.find((o) => o.testTypeId === selected) ?? options[0];
+  const label = active ? displayName(active.testTypeId) : 'ทั้งหมด';
+
   return (
-    <span
-      className={`text-xs mt-0.5 font-semibold ${
-        improvementText.positive ? 'text-emerald-600' : 'text-red-500'
-      }`}
-    >
-      {improvementText.label}
-    </span>
+    <div className="relative lg:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label="เลือกประเภทข้อสอบ"
+        className="bg-[#f8f7f2] h-[30px] w-[127px] rounded-[8px] pt-[6px] pb-[4px] pl-[9px] pr-[8px] flex flex-col text-left hover:bg-[#f2f1ec] transition-colors"
+      >
+        <span className="flex items-center gap-[9px] w-[110px]">
+          <span className="text-[#6b6b6b] text-[11px] font-medium leading-[normal] w-[87px] truncate">
+            {label}
+          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/progress/caret-down-grey.svg"
+            alt=""
+            width={14}
+            height={14}
+            className={`size-[14px] shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          />
+        </span>
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          aria-label="ประเภทข้อสอบ"
+          className="absolute right-0 top-[34px] z-30 w-[127px] bg-white rounded-[8px] border border-[#ededed] py-1 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)] max-h-[220px] overflow-y-auto"
+        >
+          {options.map((o) => (
+            <li key={o.testTypeId}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={o.testTypeId === selected}
+                onClick={() => {
+                  onChange(o.testTypeId);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-[9px] py-[6px] text-[11px] leading-[normal] transition-colors ${
+                  o.testTypeId === selected
+                    ? 'bg-[#e6f0f8] text-[#00608a] font-semibold'
+                    : 'text-[#6b6b6b] hover:bg-[#f8f7f2]'
+                }`}
+              >
+                {displayName(o.testTypeId)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
-// ─── Deferred Section (renders children after browser idle) ─────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
-function DeferredAnalytics({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
-  const mounted = useRef(false);
+export default function ProgressContent({
+  progress,
+  user,
+}: {
+  progress: ProgressData;
+  user: ProgressUser;
+}) {
+  // The mobile picker lists every test type in the catalogue, not only the ones
+  // with data, so a type the user has never attempted is still selectable and
+  // renders as 0 attempts / 0%. Types absent from the catalogue fall back to
+  // whatever `byCategory` has, so the page still works if the query fails.
+  const categories: CategoryRow[] = progress.testTypes?.length
+    ? progress.testTypes.map((tt) => {
+        const row = progress.byCategory.find((c) => c.testTypeId === tt.id);
+        return {
+          testTypeId: tt.id,
+          averageScore: row?.averageScore ?? 0,
+          testsTaken: row?.testsTaken ?? 0,
+        };
+      })
+    : progress.byCategory;
 
-  useEffect(() => {
-    if (mounted.current) return;
-    mounted.current = true;
+  // Mobile shows one category card at a time (Figma 172:7280); desktop shows
+  // the whole 2-column grid. Default to the first category, like the mock.
+  const [selectedType, setSelectedType] = useState<string>('');
+  const activeType = selectedType || categories[0]?.testTypeId || '';
+  const activeCategory = categories.find((c) => c.testTypeId === activeType);
 
-    const trigger = () => setReady(true);
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(trigger, { timeout: 1500 });
-    } else {
-      setTimeout(trigger, 300);
-    }
-  }, []);
+  const hasData = progress.overall.testsTaken > 0;
 
-  if (!ready) {
+  // ── Empty state (no attempts yet) ──
+  if (!hasData) {
     return (
-      <div className="space-y-5 mb-10">
-        <div className="h-64 animate-pulse bg-[#F7F6F3] rounded-[2rem]" />
-        <div className="h-80 animate-pulse bg-[#F7F6F3] rounded-[2rem]" />
+      <div className="bg-[#f7f7f7] min-h-full">
+        <div className="max-w-[1157px] mx-auto px-[17px] min-[992px]:px-0 py-[11px]">
+          <div className="bg-white border border-[#ededed] rounded-[16px] min-[992px]:rounded-[20px] p-10 sm:p-14 flex flex-col items-center text-center gap-5 stagger-animate">
+            <div className="w-16 h-16 bg-[#e6f0f8] rounded-[7px] flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/progress/pen.svg" alt="" width={24} height={24} />
+            </div>
+            <h2 className="text-xl font-bold text-[#334155] tracking-tight">ยังไม่มีข้อมูลพัฒนาการ</h2>
+            <p className="text-[#64748b] text-sm max-w-xs leading-relaxed">
+              เริ่มทำข้อสอบ CEFR วันนี้เพื่อดูระดับภาษาอังกฤษของคุณและติดตามพัฒนาการ
+            </p>
+            <div className="flex gap-3 flex-wrap justify-center mt-1">
+              <Link
+                href="/tests"
+                className="bg-[#fff0ae] border-[#ffdb40] border-b-[3px] border-r-[2px] text-[#524924] text-[15px] font-semibold rounded-[10px] px-[11px] py-[10px] hover:bg-[#ffe98f] transition-colors"
+              >
+                ทำข้อสอบ
+              </Link>
+              <Link
+                href="/demo"
+                className="bg-white border border-[#ededed] text-[#334155] text-sm font-semibold rounded-[10px] px-4 py-2.5 hover:bg-[#f8f7f2] transition-colors"
+              >
+                ลองทำ Demo ก่อน
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
-  return <>{children}</>;
-}
+  // Points badge — Figma 172:487 / 172:7264 ("260 คะแนน"). There is no points
+  // column in the schema yet; the value is a placeholder.
+  const POINTS_PLACEHOLDER = 260;
 
-// ─── Main Component ────────────────────────────────────────────────────────────
-
-export default function ProgressContent({ progress }: { progress: ProgressData }) {
-  const hasData = progress.overall.testsTaken > 0;
-  const level = hasData ? estimateCefrLevel(progress.overall.averageScore) : null;
-
-  const bestScore =
-    progress.recentAttempts.length > 0
-      ? Math.max(...progress.recentAttempts.map((a) => a.score))
-      : null;
-
-  const improvementText = (() => {
-    if (progress.recentAttempts.length < 2) return null;
-    const diff = Math.round(
-      (progress.recentAttempts[0].score - progress.recentAttempts[1].score) * 100
-    ) / 100;
-    if (diff > 0) return { label: `+${diff.toFixed(2)}% จากครั้งก่อน`, positive: true };
-    if (diff < 0) return { label: `${diff.toFixed(2)}% จากครั้งก่อน`, positive: false };
-    return null;
-  })();
+  const attempts: HistoryAttempt[] = progress.recentAttempts;
 
   return (
-    <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {/* ── Page Header (Asymmetric Left-Aligned) ──────────────────────────── */}
-      <header className="mb-10 stagger-animate">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-[#787774] hover:text-[#111] transition-colors mb-5"
-        >
-          <ArrowLeft size={16} weight="bold" />
-          กลับหน้าหลัก
-        </Link>
+    <div className="bg-[#f7f7f7] min-h-full">
+      <div className="max-w-[1157px] mx-auto px-[17px] min-[992px]:px-0 py-[11px]">
+        {/* DOM order follows the mobile reading order (profile → results →
+            history). From lg up, an explicit 2×2 grid restores the desktop
+            frame: profile (r1c1), results (r1c2), history (r2c1) — matching
+            172:454 where history sits directly under the profile card.
+            The results panel spans both rows so a 5th category card grows it
+            rather than overflowing; row 1 stays 164px because the profile card
+            is fixed at that height. */}
+        <div className="flex flex-col gap-[11px] min-[992px]:grid min-[992px]:grid-cols-[447px_699px] min-[992px]:grid-rows-[164px_419px] min-[992px]:items-start">
+          {/* ── Profile card ── Figma 172:479 (desktop) / 172:7256 (mobile) */}
+          <section className="bg-white rounded-[16px] min-[992px]:rounded-[20px] pl-[16px] pr-[16px] pt-[14px] pb-[17px] min-[992px]:pl-[24px] min-[992px]:pr-[25px] min-[992px]:pt-[21px] min-[992px]:h-[164px] flex flex-col shrink-0">
+              <div className="flex gap-[16px] min-[992px]:gap-[14px] items-center">
+                {/* Figma 172:7258 → 101×100 on mobile, 172:481 → 122×122 on
+                    desktop. Plain square, no radius: the bundled otter asset
+                    already carries its rounded alpha corners. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={user.image ?? '/progress/otter-avatar.png'}
+                  alt={user.name}
+                  width={101}
+                  height={100}
+                  className="w-[101px] h-[100px] min-[992px]:w-[122px] min-[992px]:h-[122px] shrink-0 object-cover bg-[#e6f0f8]"
+                />
 
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl md:text-5xl tracking-tighter leading-none font-bold text-[#111]">
-              พัฒนาการของคุณ
-            </h1>
-            <p className="text-[#787774] mt-2 text-sm leading-relaxed max-w-[42ch]">
-              ติดตามความก้าวหน้าและวิเคราะห์ทักษะภาษาอังกฤษ CEFR
-            </p>
-          </div>
+                <div className="flex flex-col gap-[17px] min-[992px]:gap-[14px] items-start w-full min-[992px]:w-[260px] min-w-0">
+                  <div className="flex flex-col items-start w-full min-[992px]:w-[243px] min-w-0">
+                    <p className="font-bold text-[16px] min-[992px]:text-[20px] text-[#334155] leading-[normal] w-full truncate">
+                      {user.name}
+                    </p>
+                    {/* 172:7262 → medium 12px #5a687b; 172:485 → semibold 14px #919191 */}
+                    <p className="font-medium text-[12px] text-[#5a687b] min-[992px]:font-semibold min-[992px]:text-[14px] min-[992px]:text-[#919191] leading-[normal] w-full">
+                      {formatJoined(user.joinedAt)}
+                    </p>
+                  </div>
 
-          <Link
-            href="/tests"
-            className="inline-flex items-center gap-2 bg-[#111] text-white text-sm font-semibold rounded-full px-5 py-2.5 hover:bg-[#2a2a2a] active:scale-[0.97] transition-all shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)]"
-          >
-            ทำข้อสอบ
-            <ArrowRight size={16} weight="bold" />
-          </Link>
-        </div>
-      </header>
-
-      {/* ── Empty State ────────────────────────────────────────────────────── */}
-      {!hasData && (
-        <div className="bg-[#F7F6F3] border border-[#EAEAEA] rounded-[2rem] p-10 sm:p-14 flex flex-col items-center text-center gap-5 stagger-animate" style={{ animationDelay: '100ms' }}>
-          <div className="w-16 h-16 bg-white rounded-2xl border border-[#EAEAEA] flex items-center justify-center shadow-sm">
-            <Target size={30} weight="duotone" className="text-[#AAA]" />
-          </div>
-          <h2 className="text-xl font-bold text-[#111] tracking-tight">
-            ยังไม่มีข้อมูลพัฒนาการ
-          </h2>
-          <p className="text-sm text-[#787774] max-w-xs leading-relaxed">
-            เริ่มทำข้อสอบ CEFR วันนี้เพื่อดูระดับภาษาอังกฤษของคุณและติดตามพัฒนาการ
-          </p>
-          <div className="flex gap-3 flex-wrap justify-center mt-1">
-            <Link
-              href="/tests"
-              className="bg-[#111] text-white text-sm font-semibold rounded-full px-5 py-2.5 hover:bg-[#2a2a2a] transition-colors"
-            >
-              เริ่มทำข้อสอบ
-            </Link>
-            <Link
-              href="/demo"
-              className="border border-[#EAEAEA] text-[#111] text-sm font-semibold rounded-full px-5 py-2.5 hover:bg-[#F0F0F0] transition-colors"
-            >
-              ลองทำ Demo ก่อน
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* ── CEFR Level Banner ──────────────────────────────────────────────── */}
-      {hasData && level && (
-        <div className="mb-8">
-          <CefrLevelBanner
-            level={level}
-            averageScore={progress.overall.averageScore}
-          />
-        </div>
-      )}
-
-      {/* ── Stat Cards ─────────────────────────────────────────────────────── */}
-      {hasData && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            icon={Target}
-            iconBg="bg-[#F7F6F3]"
-            label="ทำข้อสอบทั้งหมด"
-            index={0}
-            subtext="ครั้ง"
-          >
-            <AnimatedCounter value={progress.overall.testsTaken} />
-          </StatCard>
-
-          <StatCard
-            icon={TrendUp}
-            iconBg="bg-[#F7F6F3]"
-            label="คะแนนเฉลี่ย"
-            index={1}
-            subtext={<ImprovementBadge improvementText={improvementText} />}
-          >
-            <AnimatedCounter value={progress.overall.averageScore} suffix="%" decimals={2} />
-          </StatCard>
-
-          <StatCard
-            icon={Trophy}
-            iconBg="bg-[#F7F6F3]"
-            label="คะแนนสูงสุด"
-            index={2}
-            subtext="จากครั้งที่ผ่านมา"
-          >
-            {bestScore !== null ? (
-              <AnimatedCounter value={bestScore} suffix="%" decimals={2} />
-            ) : (
-              <span className="text-slate-400">&mdash;</span>
-            )}
-          </StatCard>
-
-          <StatCard
-            icon={BookOpen}
-            iconBg="bg-[#F7F6F3]"
-            label="ทักษะที่ฝึกแล้ว"
-            index={3}
-            subtext="ประเภทข้อสอบ"
-          >
-            <AnimatedCounter value={progress.byCategory.length} />
-            <span className="text-base font-normal text-[#AAAAAA]">/5</span>
-          </StatCard>
-        </div>
-      )}
-
-      {/* ── Bento Analytics Grid (deferred) ──────────────────────── */}
-      {hasData && (
-      <DeferredAnalytics>
-        <section className="mb-10 grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Left Column: Radar + Insights */}
-          <div className="lg:col-span-1 flex flex-col gap-5">
-            <div
-              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] stagger-animate"
-              style={{ animationDelay: '150ms' }}
-            >
-              <div className="flex items-center justify-between mb-0.5">
-                <h2 className="font-bold text-[#111] text-base tracking-tight">
-                  Skill Overview
-                </h2>
-                <span className="text-[10px] text-[#AAAAAA] font-semibold uppercase tracking-[0.15em]">
-                  Radar
-                </span>
-              </div>
-              <p className="text-[#AAAAAA] text-xs mb-5">
-                คะแนนเฉลี่ยแต่ละทักษะ
-              </p>
-              <SkillRadarChart data={progress.byCategory} />
-            </div>
-
-            <div
-              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] flex-1 stagger-animate"
-              style={{ animationDelay: '200ms' }}
-            >
-              <div className="flex items-center justify-between mb-0.5">
-                <h2 className="font-bold text-[#111] text-base tracking-tight">
-                  Smart Insights
-                </h2>
-                <span className="text-[10px] text-[#AAAAAA] font-semibold uppercase tracking-[0.15em]">
-                  AI
-                </span>
-              </div>
-              <p className="text-[#AAAAAA] text-xs mb-5">
-                จุดแข็ง-จุดอ่อนและคำแนะนำ
-              </p>
-              <SmartInsights data={progress.byCategory} />
-            </div>
-          </div>
-
-          {/* Right Column: Trend + Breakdown */}
-          <div className="lg:col-span-2 flex flex-col gap-5">
-            <div
-              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] stagger-animate"
-              style={{ animationDelay: '250ms' }}
-            >
-              <div className="flex items-center justify-between mb-0.5">
-                <h2 className="font-bold text-[#111] text-base tracking-tight">
-                  Performance Trend
-                </h2>
-                <span className="text-[10px] text-[#AAAAAA] font-semibold uppercase tracking-[0.15em]">
-                  Area
-                </span>
-              </div>
-              <p className="text-[#AAAAAA] text-xs mb-3">
-                แนวโน้มคะแนนจากการทำข้อสอบล่าสุด
-              </p>
-              <HistoryLineChart attempts={progress.recentAttempts} />
-            </div>
-
-            <div
-              className="bg-white border border-[#EAEAEA] rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] flex-1 stagger-animate"
-              style={{ animationDelay: '350ms' }}
-            >
-              <div className="flex items-center justify-between mb-0.5">
-                <h2 className="font-bold text-[#111] text-base tracking-tight">
-                  Category Breakdown
-                </h2>
-                <span className="text-[10px] text-[#AAAAAA] font-semibold uppercase tracking-[0.15em]">
-                  Cards
-                </span>
-              </div>
-              <p className="text-[#AAAAAA] text-xs mb-5">
-                ผลลัพธ์แบ่งตามประเภทข้อสอบ
-              </p>
-              {progress.byCategory.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {progress.byCategory.map((category) => (
-                    <ProgressCard
-                      key={category.testTypeId}
-                      testTypeId={category.testTypeId}
-                      testTypeName={TEST_TYPE_NAMES[category.testTypeId] || category.testTypeId
-                        .split('-')
-                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                        .join(' ')}
-                      averageScore={category.averageScore}
-                      testsTaken={category.testsTaken}
-                    />
-                  ))}
+                  {/* 172:7264 → 166×34 pill; desktop 172:487 → full-width 47px bar */}
+                  <div className="bg-[#e6f0f8] rounded-[7px] h-[34px] w-[166px] min-[992px]:h-[47px] min-[992px]:w-full px-[12px] flex items-center justify-center">
+                    <div className="flex gap-[5px] items-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/progress/points-icon.svg"
+                        alt=""
+                        width={11}
+                        height={10}
+                        className="w-[10.7px] h-[9.5px] min-[992px]:w-[13.4px] min-[992px]:h-[11.9px] shrink-0"
+                      />
+                      <span className="text-[#00608a] text-[12px] min-[992px]:text-[14px] font-bold leading-[22px] tracking-[0.16px] whitespace-nowrap">
+                        {POINTS_PLACEHOLDER} คะแนน
+                      </span>
+                    </div>
+                  </div>
                 </div>
+              </div>
+            </section>
+
+          {/* ── Results panel — Figma 172:566 (desktop) / 172:7270 (mobile) ── */}
+          <section className="bg-white rounded-[16px] min-[992px]:rounded-[20px] pb-[16px] pl-[17px] pr-[16px] pt-[15px] min-[992px]:pb-[14px] min-[992px]:pl-[19px] min-[992px]:pr-[22px] min-[992px]:pt-[16px] flex flex-col w-full shrink-0 min-[992px]:col-start-2 min-[992px]:row-start-1 min-[992px]:row-span-2 min-[992px]:h-full">
+            <div className="flex flex-col gap-[10px] min-[992px]:gap-[12px] items-start w-full max-w-[658px] mx-auto">
+              {/* Header row: 172:7272 adds the test-type pill next to the title */}
+              <div className="flex items-center justify-between w-full min-[992px]:justify-start min-[992px]:gap-[12px]">
+                {/* 172:7273 → "ผลลัพธ์ตามประเภทข้อสอบ" semibold 14px (mobile)
+                    172:567 → "ผลลัพธ์แบ่งตามประเภทข้อสอบ" bold 16px (desktop) */}
+                <h2 className="font-semibold text-[14px] text-[#334155] leading-[normal] whitespace-nowrap lg:hidden">
+                  ผลลัพธ์ตามประเภทข้อสอบ
+                </h2>
+                <h2 className="hidden lg:block font-bold text-[16px] text-[#334155] leading-[normal] whitespace-nowrap">
+                  ผลลัพธ์แบ่งตามประเภทข้อสอบ
+                </h2>
+
+                <TestTypeFilter
+                  options={categories}
+                  selected={activeType}
+                  onChange={setSelectedType}
+                />
+              </div>
+
+              {categories.length > 0 ? (
+                <>
+                  {/* Mobile: the single card the pill selects — 172:7280 */}
+                  <div className="lg:hidden w-full">
+                    {activeCategory && (
+                      <ProgressCategoryCard
+                        testTypeId={activeCategory.testTypeId}
+                        testTypeName={displayName(activeCategory.testTypeId)}
+                        averageScore={activeCategory.averageScore}
+                        testsTaken={activeCategory.testsTaken}
+                      />
+                    )}
+                  </div>
+
+                  {/* Desktop: 2-column grid, 322px cells — 172:566 */}
+                  <div className="hidden lg:grid lg:grid-cols-2 gap-x-[14px] gap-y-[14px] w-full">
+                    {categories.map((category) => (
+                      <ProgressCategoryCard
+                        key={category.testTypeId}
+                        testTypeId={category.testTypeId}
+                        testTypeName={displayName(category.testTypeId)}
+                        averageScore={category.averageScore}
+                        testsTaken={category.testsTaken}
+                      />
+                    ))}
+                  </div>
+                </>
               ) : (
-                <div className="bg-[#F7F6F3] rounded-2xl p-8 text-center border border-[#EAEAEA]">
-                  <p className="text-[#787774] text-sm">
-                    ยังไม่มีข้อมูลแยกตามประเภท
-                  </p>
+                <div className="bg-[#f3f5f7] rounded-[14px] p-8 text-center border border-[#ededed] w-full">
+                  <p className="text-[#64748b] text-sm">ยังไม่มีข้อมูลแยกตามประเภท</p>
                   <Link
                     href="/tests"
-                    className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold border border-[#111] text-[#111] rounded-full px-4 py-1.5 hover:bg-[#111] hover:text-white transition-colors"
+                    className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold border border-[#334155] text-[#334155] rounded-[8px] px-4 py-1.5 hover:bg-[#334155] hover:text-white transition-colors"
                   >
                     เริ่มทำข้อสอบ →
                   </Link>
                 </div>
               )}
             </div>
-          </div>
-        </section>
-      </DeferredAnalytics>
-      )}
+          </section>
 
-      {/* ── Test History ────────────────────────────────────────────────────── */}
-      {hasData && (
-        <section className="bg-white rounded-[2rem] border border-[#EAEAEA] shadow-[0_8px_24px_-8px_rgba(0,0,0,0.04)] overflow-hidden stagger-animate" style={{ animationDelay: '450ms' }}>
-          <div className="px-6 sm:px-8 py-5 border-b border-[#F0F0F0] flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-[#111] text-base tracking-tight">
-                ประวัติการทำข้อสอบ
-              </h2>
-              <p className="text-[#AAAAAA] text-xs mt-0.5">10 ครั้งล่าสุด</p>
-            </div>
-            <Link
-              href="/tests"
-              className="text-xs font-semibold text-[#787774] hover:text-[#111] transition-colors flex items-center gap-1"
-            >
-              ทำข้อสอบใหม่
-              <ArrowRight size={14} weight="bold" />
-            </Link>
-          </div>
-          <div className="p-6 sm:p-8">
-            <TestHistoryTable attempts={progress.recentAttempts} />
-          </div>
-        </section>
-      )}
+          {/* History panel — Figma 172:492 (desktop) / 172:7315 (mobile) */}
+          <section className="min-h-0 min-[992px]:h-[419px] shrink-0 min-[992px]:col-start-1 min-[992px]:row-start-2">
+            <ProgressHistoryList attempts={attempts} />
+          </section>
+        </div>
+      </div>
     </div>
   );
-}
+}
