@@ -59,18 +59,16 @@ export default function TestTapSelectCard({
             const isAnswer = key === correctAnswer;
             const verifiedAnswer = answerIsCorrect ?? (revealAnswer ? isCorrect : null);
             const stateClass = !answered
-              ? 'border-[#E2E8F0] bg-white'
+              ? 'ring-[#E2E8F0] bg-white'
               : revealAnswer
                 ? isAnswer
-                  ? 'border-[#D3D3D3] bg-[#ECFDF5]'
+                  ? 'ring-[#E2E8F0] bg-[#ECFDF5]'
                   : isSelected
-                    ? 'border-[#D3D3D3] bg-[#EEEEEE]'
-                    : 'border-transparent bg-[#F8F8F8] opacity-70'
-                : isSelected && verifiedAnswer !== null
-                  ? `border-[#D3D3D3] ${verifiedAnswer ? 'bg-[#ECFDF5]' : 'bg-[#EEEEEE]'}`
-                  : isSelected
-                    ? 'border-[#D3D3D3] bg-[#EEEEEE]'
-                    : 'border-transparent bg-[#F8F8F8] opacity-70';
+                    ? 'ring-[#E2E8F0] bg-[#EEEEEE]'
+                    : 'ring-transparent bg-[#F8F8F8] opacity-70'
+                : isSelected
+                  ? 'ring-[#E2E8F0] bg-[#EEEEEE]'
+                  : 'ring-[#E2E8F0] bg-white';
 
             return (
               <button
@@ -78,12 +76,11 @@ export default function TestTapSelectCard({
                 type="button"
                 disabled={answered || disabled}
                 onClick={() => onAnswer(key)}
-                className={`flex min-h-[4.75rem] w-full items-center gap-3 rounded-[14px] border-[1.6px] px-4 py-4 text-left transition-colors sm:px-6 ${stateClass}`}
+                className={`flex min-h-[4.75rem] w-full items-center gap-3 rounded-[14px] ring-[1.6px] ring-inset px-4 py-4 text-left transition-colors sm:px-6 ${stateClass}`}
               >
                 <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-[#F1F5F9] text-sm font-bold text-[#64748B]">{key}</span>
                 <span className="min-w-0 flex-1 text-base font-medium leading-[26px] text-[#1E293B]">{value}</span>
-                {answered && ((revealAnswer && correctAnswer && isAnswer) || (isSelected && verifiedAnswer === true)) && <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />}
-                {answered && isSelected && verifiedAnswer === false && <XCircle className="size-5 shrink-0 text-slate-500" />}
+
               </button>
             );
           })}

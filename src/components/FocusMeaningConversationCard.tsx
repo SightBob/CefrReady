@@ -39,10 +39,7 @@ export default function FocusMeaningConversationCard({
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
-      <div className="flex items-center gap-2 mb-4">
-        <MessageCircle className="w-5 h-5 text-emerald-600" />
-        <span className="text-sm font-medium text-emerald-600">Conversation</span>
-      </div>
+
 
       {/* Conversation Display */}
       <div className="bg-slate-50 rounded-xl p-4 mb-6 space-y-4">

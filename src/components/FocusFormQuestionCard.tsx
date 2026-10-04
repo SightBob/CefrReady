@@ -2,16 +2,17 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { HelpCircle } from 'lucide-react';
 import { Sparkle } from '@phosphor-icons/react';
 import SelectableText from './SelectableText';
 import ExplanationText from './ExplanationText';
 
-const OTTER_AVATAR = '/logo-otter/otter.png';
-const OTTER_CHEER = '/logo-otter/otter-chear1.png';
+const OTTER_AVATAR = '/logo-otter/otter-avatar.png';
+const OTTER_FLAG = '/logo-otter/otter-flag1.png';
 
 interface ConversationLine {
   speaker: string;
+  /** ชื่อผู้พูด เช่น Woman / Man / Father — ถ้าไม่มีจะแสดง speaker (A / B) แทน */
+  name?: string | null;
   text: string;
 }
 
@@ -53,7 +54,7 @@ const ACCENT: Record<string, {
   emerald: {
     selected: 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20',
     badge: 'bg-emerald-500 text-white',
-    hover: 'hover:border-emerald-400 hover:bg-emerald-50/50 hover:shadow-sm',
+    hover: 'hover:border-emerald-400 hover:bg-primary-50/50 hover:shadow-sm',
     speakerA: 'bg-[#FAE8FF] text-[#A21CAF]',
     speakerB: 'bg-[#FAE8FF] text-[#A21CAF]',
     headerText: 'text-emerald-600',
@@ -85,44 +86,53 @@ export default function FocusFormQuestionCard({
   // Figma-style chat bubble: 34px avatar, speaker #64748B SemiBold 14,
   // words #334155 Medium 15/lh26 gap 5px, ? icon 15px #334155
   const renderConversation = (lines: ConversationLine[]) => (
-    <div className="space-y-[0.9375rem]">
-      {lines.map((line, i) => (
+    /* Figma 60:3938 — ระยะห่างระหว่างฟองบทสนทนา 8px */
+    <div className="space-y-2">
+      {lines.map((line, i) => {
+        // focus-meaning เก็บ name ไว้ครบทุกบรรทัด — ใช้ชื่อจริงแทนรหัสผู้พูด (A / B)
+        const speakerLabel = line.name?.trim() || line.speaker;
+        return (
         <div key={i} className="flex items-center gap-[1.3125rem] bg-[#F6F6F6] rounded-[10px] ps-4 pe-6 py-2 min-h-[5.125rem]">
           <div
             className="w-[2.125rem] h-[2.125rem] rounded-full shrink-0 bg-cover bg-center"
             style={{
               // Figma: woman = #DDBABA, man = #A7C4DB — even line = first speaker
-              backgroundColor: i % 2 === 0 ? '#DDBABA' : '#A7C4DB',
+              backgroundColor: i % 2 === 0 ? '#A7C4DB' : '#DDBABA',
               backgroundImage: `url(${OTTER_AVATAR})`,
             }}
             role="img"
-            aria-label={line.speaker}
+            aria-label={speakerLabel}
           />
           <div className="min-w-0 flex-1">
-            <p className="h-6 text-sm font-semibold text-[#64748B] leading-5">{line.speaker}</p>
+            <p className="h-6 text-sm font-semibold text-[#64748B] leading-5">{speakerLabel}</p>
             <p className="flex flex-wrap items-center gap-x-[5px] text-[0.9375rem] font-medium leading-[1.625rem] text-[#334155]">
               {line.text.split(/(\s+)/).filter(Boolean).map((word, wi) =>
                 /^\s+$/.test(word)
                   ? null
-                  : <span key={wi}><SelectableText text={word} contextSentence={line.text} inline /></span>,
+                  // Figma 60:3962 — ช่องว่างเติมคำในบทสนทนาเป็นชิปขาว r6 h24 px8
+                  : /^_+$/.test(word)
+                    ? (
+                      <span
+                        key={wi}
+                        className="inline-flex h-6 items-center rounded-[6px] bg-white px-2 py-0.5 text-[0.9375rem] leading-[1.5rem] text-[#5F5F5F]"
+                      >
+                        <SelectableText text={word} contextSentence={line.text} inline />
+                      </span>
+                    )
+                    : <span key={wi}><SelectableText text={word} contextSentence={line.text} inline /></span>,
               )}
             </p>
           </div>
         </div>
-      ))}
+      );
+      })}
     </div>
   );
 
   const renderQuestion = () => {
+    // มี conversation → แสดงบทสนทนาอย่างเดียว ส่วนตัวโจทย์แสดงที่บล็อก HelpCircle ด้านล่างแทน
     if (conversation && conversation.length > 0) {
-      return (
-        <>
-          {renderConversation(conversation)}
-          <div className="text-[1.25rem] md:text-xl font-medium text-slate-800 leading-relaxed mt-6">
-            <SelectableText text={questionText} contextSentence={questionText} />
-          </div>
-        </>
-      );
+      return renderConversation(conversation);
     }
     if (!hasDialogue) {
       return (
@@ -145,7 +155,8 @@ export default function FocusFormQuestionCard({
   };
 
   return (
-    <div className="bg-white rounded-[20px] p-4 sm:p-6">
+    // Figma 60:3935 — 840×457 r20, padding 26 ข้าง / 24 บน / 23 ล่าง
+    <div className="bg-white rounded-[20px] p-4 sm:px-[26px] sm:pt-6 sm:pb-[23px]">
       {HeaderIcon && headerLabel && (
         <div className="flex items-center gap-2 mb-4">
           <HeaderIcon className={`w-5 h-5 ${theme.headerText}`} />
@@ -155,17 +166,21 @@ export default function FocusFormQuestionCard({
       {renderQuestion()}
 
       {conversation && conversation.length > 0 && (
+        // Figma 60:3970 — ไอคอน 15px + gap 10px + ข้อความ 16px SemiBold tracking 0.35px สูง 18px
         <div className="flex items-center gap-2.5 mt-[1.4375rem]">
-          <span className="shrink-0 text-[#334155]">
-            <HelpCircle className="w-[0.9375rem] h-[0.9375rem]" />
+          {/* span แบบ block กัน inline <img> ดัน baseline ทำให้แถวสูงเกิน 18px (ดีไซน์ 60:3971) */}
+          <span className="shrink-0 block text-[#334155]">
+            <Image src="/icon_svg/question.svg" alt="" width={15} height={15} className="block h-[15px] w-[15px]" aria-hidden="true" />
           </span>
-          <div className="text-base font-semibold text-[#334155] tracking-[0.0219em]">
-            <SelectableText text={questionText} contextSentence={questionText} />
+          <div className="text-base font-semibold capitalize leading-[1.125rem] text-[#334155] tracking-[0.0219em]">
+            {/* inline: ปล่อยให้ SelectableText ไม่ใส่ leading-relaxed ของตัวเอง (Figma 60:3973 = 18px) */}
+            <SelectableText text={questionText} contextSentence={questionText} inline />
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-7 gap-y-4 mt-6 sm:mt-[1.75rem]">
+      {/* Figma 60:3969 — ระยะห่างโจทย์→ตัวเลือก 23px, ตัวเลือก gap-x 28 / gap-y 16 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-7 gap-y-4 mt-6 sm:mt-[1.4375rem]">
         {options.map((opt) => {
           const isSelected = selectedAnswer === opt.key;
           const isCorrectOption = opt.key === correctAnswer;
@@ -173,20 +188,20 @@ export default function FocusFormQuestionCard({
 
           // Figma option card: 380x78, border #E2E8F0 1.6px, radius 16px,
           // badge 28px #F1F5F9 radius 8px, answer text 16px Medium #1E293B
-          let buttonClass = 'px-4 min-h-[4.875rem] rounded-2xl border-[0.1rem] text-left transition-all duration-200 flex items-center gap-3 ';
+          let buttonClass = 'px-4 min-h-[4.875rem] rounded-2xl ring-[1.6px] ring-inset text-left transition-all duration-200 flex items-center gap-3 ';
 
           if (!showFeedback) {
             if (isSelected) {
               buttonClass += theme.selected;
             } else {
-              buttonClass += `border-[#E2E8F0] bg-white ${theme.hover}`;
+              buttonClass += `ring-[#E2E8F0] bg-white ${theme.hover}`;
             }
           } else if (isCorrectOption) {
-            buttonClass += 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20';
+            buttonClass += 'ring-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20';
           } else if (isSelected) {
-            buttonClass += 'border-red-400 bg-red-50 ring-1 ring-red-400/20';
+            buttonClass += 'ring-red-400 bg-red-50 ring-1 ring-red-400/20';
           } else {
-            buttonClass += 'border-[#E2E8F0] bg-white opacity-40';
+            buttonClass += 'ring-[#E2E8F0] bg-white opacity-40';
           }
 
           return (
@@ -210,7 +225,7 @@ export default function FocusFormQuestionCard({
                   }`}>
                 {opt.key}
               </span>
-              <span className="text-base font-medium text-[#1E293B]">
+              <span className="text-base font-medium leading-[1.625rem] text-[#1E293B]">
                 <SelectableText text={opt.value} contextSentence={opt.value} inline />
               </span>
             </button>
@@ -219,48 +234,82 @@ export default function FocusFormQuestionCard({
       </div>
 
       {showExplanation && (
-        <div className="mt-6">
-          {/* แถว header — otter + แคปชันเฉลย + หัวใจ */}
-          <div className="relative inline-flex items-end gap-2 pl-[2.6rem]">
-            <Image
-              src={OTTER_CHEER}
-              alt=""
-              width={52}
-              height={52}
-              className="absolute left-0 bottom-0 w-[3.25rem] h-[3.25rem] object-contain object-bottom"
+  <div className="mt-6">
+    {/* Header — Otter + caption */}
+    <div className="relative z-20 inline-flex items-end gap-2 pl-[2.6rem]">
+      <Image
+        src={OTTER_FLAG}
+        alt=""
+        width={52}
+        height={52}
+        className="
+          absolute
+          bottom-[-2px]
+          left-0
+          z-30
+          h-[3.25rem]
+          w-[3.25rem]
+          object-contain
+          object-bottom
+        "
+      />
+
+    <span className="relative z-20 rounded-full rounded-bl-none bg-[#F5F0E8] px-3.5 py-1 text-sm font-semibold text-[#5C5142]">
+  {isCorrect ? (
+    <>
+      ตอบได้เป๊ะเลย! มาดูกันว่าทำไม&nbsp;
+      <span aria-hidden="true">💛</span>
+    </>
+  ) : (
+    <>
+      แวะอ่านสักนิด ครั้งหน้าทำได้แน่&nbsp;
+      <span aria-hidden="true">💛</span>
+    </>
+  )}
+</span>
+    </div>
+
+    {/* Explanation box */}
+    <div
+      className="
+        relative
+        z-10
+        rounded-2xl
+        px-4
+        py-4
+        sm:px-5
+      "
+      style={{
+        border: '1.6px solid #F5D963',
+        background: '#FFFFFF',
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="grid size-7 shrink-0 place-items-center rounded-[0.5rem] text-[#1DA1F2]"
+          style={{ background: '#DDF4FF' }}
+        >
+          <Sparkle className="size-4" weight="fill" />
+        </span>
+
+        <div className="min-w-0">
+      <p className="text-base font-extrabold text-[#5C4A1A]">
+        {isCorrect
+          ? 'คุณตอบได้ดีเลย!'
+          : 'คุณตอบได้ดีเลย ขอแนะนำอีกนิดเพื่อความแม่นยำคือ'}
+      </p>
+
+          {explanation && (
+            <ExplanationText
+              text={`“ ${explanation} ”`}
+              className="mt-1 text-sm font-semibold text-[#8A7A4E]"
             />
-            <span className="rounded-full rounded-bl-none bg-[#F5F0E8] px-3.5 py-2 text-sm font-semibold text-[#5C5142]">
-              เฉลยว่าทำไมถึงโดน&nbsp;
-              <span aria-hidden="true">💛</span>
-            </span>
-          </div>
-          {/* กล่องคำอธิบาย — ขอบเหลือง 2 ชั้น พื้นขาว */}
-          <div
-            className="mt-2 rounded-2xl px-4 py-4 sm:px-5"
-            style={{ border: '1.6px solid #F5D963', background: '#FFFFFF' }}
-          >
-            <div className="flex items-start gap-3">
-              <span
-                className="grid size-7 shrink-0 place-items-center rounded-[0.5rem] text-[#1DA1F2]"
-                style={{ background: '#DDF4FF' }}
-              >
-                <Sparkle className="size-4" weight="fill" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-extrabold text-[#5C4A1A]">
-                  คุณตอบ{isCorrect ? "ถูก" : "ผิด"}เลย งานนี้ใช้เหตุผลนี้อธิบาย
-                </p>
-                {explanation && (
-                  <ExplanationText
-                    text={`“ ${explanation} ”`}
-                    className="mt-1 text-sm font-semibold text-[#8A7A4E]"
-                  />
-                )}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
