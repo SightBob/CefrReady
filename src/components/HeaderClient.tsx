@@ -113,13 +113,14 @@ export default function HeaderClient() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E6F0F8]">
-      <div className="max-w-[1146px] mx-auto flex items-center justify-between min-[992px]:grid min-[992px]:grid-cols-[1fr_auto_1fr] h-[88px] px-4 sm:px-6">
-        {/* Logo: CEFR + READY! badge (Figma 1:1097) */}
+      {/* Height/padding: Figma 172:7380 (mobile, 64px) — desktop keeps 88px. */}
+      <div className="max-w-[1146px] mx-auto flex items-center justify-between min-[992px]:grid min-[992px]:grid-cols-[1fr_auto_1fr] h-[64px] min-[992px]:h-[88px] px-[24px] min-[992px]:px-6">
+        {/* Logo: CEFR + READY! badge (Figma 1:1097 desktop, 172:7382 mobile) */}
         <Link href="/" className="flex flex-col items-start group justify-self-start" aria-label="CEFR Ready หน้าหลัก">
-          <span className="font-['Momo_Trust_Display'] text-[26px] leading-[34px] tracking-[0.52px] text-[#5A95C6] [text-shadow:1px_1px_0_#F8E9A9]">
+          <span className="font-['Momo_Trust_Display'] text-[20px] leading-[26px] min-[992px]:text-[26px] min-[992px]:leading-[34px] tracking-[0.52px] text-[#5A95C6] [text-shadow:1px_1px_0_#F8E9A9]">
             CEFR
           </span>
-          <span className="font-caveat -mt-[3px] flex h-[23px] w-[78px] items-center justify-center rounded-[4px] bg-[#FFF0AE] text-[15px] font-bold tracking-[0.24px] text-[#524924] transition-transform duration-200 group-hover:-translate-y-0.5">
+          <span className="font-caveat min-[992px]:-mt-[3px] flex h-[19px] w-[60px] min-[992px]:h-[23px] min-[992px]:w-[78px] items-center justify-center rounded-[4px] bg-[#FFF0AE] text-[10px] min-[992px]:text-[15px] font-bold tracking-[0.24px] text-[#524924] transition-transform duration-200 group-hover:-translate-y-0.5">
             READY!
           </span>
         </Link>

@@ -36,7 +36,8 @@ export default function ChromeShell({
           <Header />
         </Suspense>
       )}
-      <main className={hideHeader ? 'flex-1' : 'flex-1 pt-[88px] bg-white'}>
+      {/* pt matches the header: 64px on mobile (Figma 172:7380), 88px from lg up. */}
+      <main className={hideHeader ? 'flex-1' : 'flex-1 pt-[64px] min-[992px]:pt-[88px] bg-white'}>
         <Suspense fallback={mainFallback}>{children}</Suspense>
       </main>
       {!isFullScreenPage && <Footer />}
