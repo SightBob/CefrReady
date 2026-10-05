@@ -24,7 +24,17 @@ export interface SectionData {
  *             39×30 #8EBEE6 tile with a 14px arrow
  * The desktop breakpoint keeps its own measured values, so both frames hold.
  */
-export default function SectionCard({ section, disabled = false, onOpen }: { section: SectionData; disabled?: boolean; onOpen?: (section: SectionData) => void }) {
+interface SectionCardProps {
+  section: SectionData;
+  disabled?: boolean;
+  onOpen?: (section: SectionData) => void;
+  /** ปลายทางแทน /tests/{id} — ใช้ตอนการ์ดอยู่ในหน้า demo */
+  href?: string;
+  /** ข้อความข้อเท็จจริงที่สอง (ค่าเริ่มต้นคือ "{n} เซ็ต") — ใช้ตอนเป็น demo ที่นับเป็นข้อ */
+  secondaryLabel?: string;
+}
+
+export default function SectionCard({ section, disabled = false, onOpen, href, secondaryLabel }: SectionCardProps) {
   const setCount = section.testSets.length;
 
   const inner = (
@@ -58,7 +68,7 @@ export default function SectionCard({ section, disabled = false, onOpen }: { sec
           <span className="flex items-center gap-1 whitespace-nowrap">
             <Image src="/tests/icon-count.svg" alt="" width={14} height={14} unoptimized className="h-[14px] w-[14px] shrink-0 lg:hidden" />
             <LayoutGrid className="hidden h-[14px] w-[14px] shrink-0 lg:block" strokeWidth={2.25} />
-            {setCount} เซ็ต
+            {secondaryLabel ?? `${setCount} เซ็ต`}
           </span>
         </div>
         <div className="flex h-[30px] w-[39px] shrink-0 items-center justify-center rounded-[12px] bg-[#8EBEE6] p-[8px]">
@@ -77,5 +87,5 @@ export default function SectionCard({ section, disabled = false, onOpen }: { sec
     );
   }
   if (disabled) return inner;
-  return <Link href={`/tests/${section.id}`}>{inner}</Link>;
+  return <Link href={href ?? `/tests/${section.id}`}>{inner}</Link>;
 }

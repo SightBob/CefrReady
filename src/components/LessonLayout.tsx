@@ -122,29 +122,37 @@ export default function LessonLayout({
       </div>
 
       {/* ===== Body — same container as TestLayout =====
-          Review mode narrows the outer container to 716px for reading. */}
-      <div className={`${reviewMode ? 'max-w-[820px]' : 'max-w-[1360px]'} mx-auto px-4 sm:px-6 lg:px-8 w-full mt-[30px] pb-44`}>
+          Review mode (หน้า Explain) ใช้ความกว้าง 735px + padding 11px ตาม design. */}
+      <div className={`${reviewMode ? 'max-w-[735px] px-[11px] pt-4 max-md:px-[17px]' : 'max-w-[1360px] px-4 sm:px-6 lg:px-8 mt-[30px]'} mx-auto w-full pb-44 max-md:pb-[101px]`}>
         {/* Label chip row — gap matches the sidebar/content gap below (gap-6).
             In review mode the row holds only the chip + exit button → push X right. */}
-        <div className={`w-full flex items-center gap-6 ${reviewMode ? 'justify-between' : ''}`}>
+        <div className={`w-full border flex items-center min-md:gap-6 max-md:gap-0 ${reviewMode ? 'justify-between' : ''}`}>
           <button
             type="button"
             onClick={() => setIsLessonMenuOpen(true)}
-            className="w-72 shrink-0 text-[#638AAA] bg-white shadow-[3px_3px_0_0_#D5D3D3] border border-slate-100 ps-2 pe-3 py-2 flex items-center gap-2.5 rounded-[12px] min-w-0 hover:bg-slate-50 transition-colors"
+            className={`shrink-0 text-[#638AAA] bg-white shadow-[3px_3px_0_0_#D5D3D3] border border-slate-100 flex items-center min-w-0 hover:bg-slate-50 transition-colors ${
+              reviewMode
+                ? 'w-[calc(100%_-_52px)] h-[45px] px-5 py-3 rounded-[12px] justify-between gap-[84px] max-md:h-[39px] max-md:px-[10px] max-md:py-[12px] max-md:rounded-[10px] max-md:gap-2'
+                : 'w-72 ps-2 pe-3 py-2 gap-2.5 rounded-[12px]'
+            }`}
             aria-haspopup="dialog"
             aria-expanded={isLessonMenuOpen}
           >
-            <span
-              className="shrink-0 text-[13px] font-semibold px-2.5 py-1 rounded-lg"
-              style={{ background: accent.light}}
-            >
-              {unitLabel ?? `Unit ${unitNumber}`}
-            </span>
-            <span className="flex-1 text-left text-[0.9375rem] font-semibold truncate">
-             : {title}
+            {/* ป้ายหน่วย (เช่น "Unit 1" / "TEST") แสดงเฉพาะโหมดบทเรียน —
+                โหมดทบทวน/หน้า Explain แสดงชื่อชุดข้อสอบอย่างเดียวตาม design */}
+            {!reviewMode && (
+              <span
+                className="shrink-0 text-[13px] font-semibold px-2.5 py-1 rounded-lg"
+                style={{ background: accent.light}}
+              >
+                {unitLabel ?? `Unit ${unitNumber}`}
+              </span>
+            )}
+            <span className="flex-1 text-left text-[15px] font-semibold leading-normal truncate max-md:text-[12px]">
+              {title}
             </span>
             <ChevronDown
-              className={`size-4 shrink-0 transition-transform ${isLessonMenuOpen ? 'rotate-180' : ''}`}
+              className={`size-[14px] shrink-0 transition-transform ${isLessonMenuOpen ? 'rotate-180' : ''}`}
               aria-hidden="true"
             />
           </button>
@@ -173,16 +181,18 @@ export default function LessonLayout({
           <button
             type="button"
             onClick={onExit}
-            className="shrink-0 p-[11px] bg-white rounded-[8px] shadow-[3px_3px_0_0_#D5D3D3] border border-slate-100 flex items-center justify-center text-[#616161] hover:bg-slate-50 transition-colors"
+            className={`shrink-0 bg-white rounded-[8px] shadow-[3px_3px_0_0_#D5D3D3] border border-slate-100 flex items-center justify-center text-[#616161] hover:bg-slate-50 transition-colors ${
+              reviewMode ? 'w-[46px] h-[41px] max-md:w-[38px] max-md:h-[38px]' : 'p-[11px]'
+            }`}
             aria-label="ออกจากบทเรียน กลับไปหน้าเส้นทางการเรียน"
           >
-            <X className="size-[24px] font-semibold text-[#7D7451]" aria-hidden="true" />
+            <X className="size-[24px] font-semibold text-[#7D7451] max-md:size-[20px]" aria-hidden="true" />
           </button>
         </div>
 
         {/* Sidebar + Main — same flex structure as TestLayout.
             Sidebar is hidden in review mode per UI reference. */}
-        <div className={`flex gap-6 mt-[1.1875rem] ${reviewMode ? '' : 'md:flex'}`}>
+        <div className={`flex gap-6 ${reviewMode ? 'mt-[14px] max-md:mt-[15px]' : 'mt-[1.1875rem] md:flex'}`}>
           {!reviewMode && (
           <aside className="hidden md:block w-72 shrink-0 space-y-4">
             {/* Numbered stop grid — its own box */}
@@ -232,7 +242,7 @@ export default function LessonLayout({
 
       {/* ===== Bottom Bar — same as TestLayout's universal bottom bar ===== */}
       <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)]">
-        <div className={`${reviewMode ? 'max-w-[816px]' : 'max-w-[1360px]'} px-4  mx-auto py-3 md:py-0 md:min-h-[8rem] flex items-center justify-end gap-3 w-full`}>
+        <div className={`${reviewMode ? 'max-w-[735px] px-[11px] pt-4 pb-8 md:min-h-[97px] max-md:py-[18px] max-md:pb-[max(18px,env(safe-area-inset-bottom))] max-md:px-[32px]' : 'max-w-[1360px] px-4 md:min-h-[8rem]'} mx-auto flex items-center justify-end gap-3 w-full`}>
           {/* Actions — same pill buttons as TestLayout, aligned right */}
           <div className="flex items-center gap-2 md:gap-3 justify-end">
             {secondaryAction && (
@@ -255,10 +265,10 @@ export default function LessonLayout({
               type="button"
               onClick={primaryAction.onClick}
               disabled={primaryAction.disabled}
-              className={`flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] rounded-[14px] flex items-center justify-center py-[14px] space-x-1 text-[1rem] text-[#524924] transition-colors bg-[#FFF0AE] border-b-[3px] border-r-[4px] border-[#FFDB40] hover:bg-[#FFEA8F]'
+              className={`flex-1 md:flex-none max-md:px-10 md:w-[216px] h-14 md:h-[49px] max-md:h-[44px] rounded-[14px] flex items-center justify-center py-[10px] space-x-1 text-[1rem] text-[#524924] transition-colors bg-[#FFF0AE] border-b-[4px] border-r-[4px] border-[#FFDB40] hover:bg-[#FFEA8F]'
             }`}
             >
-              <span className="text-[1rem] text-center font-semibold whitespace-nowrap">
+              <span className="text-[1rem] text-center font-semibold whitespace-nowrap max-md:text-[15px]">
                 {primaryAction.label}
               </span>
             </button>

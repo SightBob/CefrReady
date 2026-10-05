@@ -205,11 +205,22 @@
  */
 @font-face {
   font-family: 'Caveat';
-  src: url('/fonts/Caveat-VariableFont_wght.ttf') format('truetype-variations'),
+  src: url('/fonts/Caveat-VariableFont_wght.woff2') format('woff2'),
        url('/fonts/Caveat-VariableFont_wght.ttf') format('truetype');
   font-weight: 400 700;
   font-style: normal;
   font-display: swap;
+}
+
+/* The logo uses Latin characters. Keep the full face above for every other
+   character, but fetch the verified Latin subset for U+0000–00FF only. */
+@font-face {
+  font-family: 'Caveat';
+  src: url('/fonts/Caveat-latin.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF;
 }
 
 /* Consumed by tailwind.config.js (sans/serif/ibm/momo/caveat) — same variable
@@ -222,7 +233,8 @@
 
 @font-face {
   font-family: 'Momo Trust Display';
-  src: url('/fonts/MomoTrustDisplay-Regular.ttf') format('truetype');
+  src: url('/fonts/MomoTrustDisplay-Regular.woff2') format('woff2'),
+       url('/fonts/MomoTrustDisplay-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;

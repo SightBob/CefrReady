@@ -1,6 +1,7 @@
 import { db } from '@/db';
 import { testTypes, testSets, testSetQuestions } from '@/db/schema';
 import { eq, and, asc, ne, count as drizzleCount } from 'drizzle-orm';
+import { unstable_cache } from 'next/cache';
 
 export async function fetchSectionsFromDb() {
   const [sections, sets] = await Promise.all([
@@ -38,3 +39,11 @@ export async function fetchSectionsFromDb() {
 
   return result;
 }
+
+// All catalogue pages share the same public data and the same freshness policy.
+// Keep authentication outside this cache; no session or user-specific data is stored.
+export const getCachedSections = unstable_cache(
+  fetchSectionsFromDb,
+  ['sections-with-sets'],
+  { revalidate: 300, tags: ['sections'] }
+);

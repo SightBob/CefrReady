@@ -42,13 +42,13 @@ export default function FaqAccordion() {
         return (
           <div
             key={index}
-            className={`bg-white border rounded-2xl overflow-hidden transition-all duration-200 ${
+            className={`bg-white border rounded-2xl max-md:rounded-[14px] overflow-hidden transition-all duration-200 ${
               isOpen ? 'border-primary-200 shadow-md' : 'border-slate-200 shadow-sm'
             }`}
           >
             <button
               onClick={() => setOpenIndex(isOpen ? null : index)}
-              className="w-full px-5 py-4 md:px-6 md:py-5 text-left flex items-start justify-between gap-4"
+              className="w-full px-5 py-4 max-md:px-[24px] max-md:py-[20px] md:px-6 md:py-5 text-left flex items-start justify-between gap-4"
               aria-expanded={isOpen}
             >
               <span

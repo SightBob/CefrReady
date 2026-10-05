@@ -6,10 +6,13 @@ import { useState, useEffect, useRef } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 
+// Figma 249:3559-249:3566 — 4 ช่อง 114×46; ช่องที่ 3-4 ในดีไซน์เป็น "ข้อสอบ" ซ้ำกัน
+// จึงแก้ช่องที่ 4 เป็น "ติวต่อเรา" เพื่อไม่ให้เมนูซ้ำ
 const NAV_ITEMS = [
   { href: '/tests', label: 'ข้อสอบ CEFR' },
   { href: '/#levels', label: 'ระดับ A1-C2' },
   { href: '/#packages', label: 'แพ็กเกจ' },
+  { href: '/contact', label: 'ติวต่อเรา' },
 ];
 
 export default function HeaderClient() {
@@ -104,15 +107,14 @@ export default function HeaderClient() {
     scrollToTarget(target, id);
   };
 
+  // Figma 249:3559-249:3566 — 16px semibold #343434 บนช่องกว้าง 114 สูง 46
   const navLinkCls = (href: string) =>
-    `text-[15px] font-medium transition-colors ${
-      pathname === href
-        ? 'text-[#5A95C6] font-semibold'
-        : 'text-[#555] hover:text-[#5A95C6]'
+    `flex h-[46px] w-[114px] items-center justify-center px-[10px] text-center text-[16px] font-semibold tracking-[0.32px] transition-colors ${
+      pathname === href ? 'text-[#5A95C6]' : 'text-[#343434] hover:text-[#5A95C6]'
     }`;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E6F0F8]">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#FFFEF9] border-b border-[#E6F0F8]">
       {/* Height/padding: Figma 172:7380 (mobile, 64px) — desktop keeps 88px. */}
       <div className="max-w-[1146px] mx-auto flex items-center justify-between min-[992px]:grid min-[992px]:grid-cols-[1fr_auto_1fr] h-[64px] min-[992px]:h-[88px] px-[24px] min-[992px]:px-6">
         {/* Logo: CEFR + READY! badge (Figma 1:1097 desktop, 172:7382 mobile) */}
@@ -126,7 +128,8 @@ export default function HeaderClient() {
         </Link>
 
         {/* Center: nav links */}
-        <nav className="hidden min-[992px]:flex items-center gap-8" aria-label="เมนูหลัก">
+        {/* Figma 249:3558 — 4 ช่อง 114 ชิดกัน รวม 456px */}
+        <nav className="hidden min-[992px]:flex items-center" aria-label="เมนูหลัก">
           {navItems.map(({ href, label }) => (
             <Link
               key={label}
@@ -153,7 +156,7 @@ export default function HeaderClient() {
                   aria-haspopup="menu"
                   aria-label="เมนูบัญชี"
                 >
-                  <div className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-[#5A95C6] text-[16px] font-semibold text-white">
+                  <div className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-[#81B1C7] text-[16px] font-semibold text-white">
                     {userName.charAt(0).toUpperCase()}
                   </div>
                   <span className="max-w-[97px] truncate text-[16px] font-semibold text-[#555] hidden sm:block">
@@ -231,65 +234,86 @@ export default function HeaderClient() {
           aria-label="เมนูหลัก (มือถือ)"
         >
           <div className="flex flex-col gap-1">
-            {navItems.map(({ href, label }) => (
-              <Link
-                key={label}
-                href={href}
-                onClick={(e) => handleHashNav(e, href)}
-                className={`px-3 py-2.5 rounded-xl text-[15px] font-medium transition-colors ${
-                  pathname === href
-                    ? 'bg-[#DDF4FF] text-[#5A95C6] font-semibold'
-                    : 'text-[#555] hover:bg-[#F4F4F4]'
-                }`}
-              >
-                {label}
-              </Link>
-            ))}
+  {navItems.map(({ href, label }) => (
+    <Link
+      key={label}
+      href={href}
+      onClick={(e) => handleHashNav(e, href)}
+      className={`px-3 py-2.5 rounded-xl text-[15px] font-medium transition-colors ${
+        pathname === href
+          ? 'bg-[#DDF4FF] text-[#5A95C6] font-semibold'
+          : 'text-[#555] hover:bg-[#F4F4F4]'
+      }`}
+    >
+      {label}
+    </Link>
+  ))}
 
-            <div className="border-t border-[#E6F0F8] mt-2 pt-3">
-              {isLoadingSession ? (
-                <div className="h-10 rounded-xl bg-[#F4F4F4] animate-pulse" aria-hidden="true" />
-              ) : session?.user ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-[#5A95C6] text-[14px] font-semibold text-white">
-                      {userName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col leading-tight min-w-0">
-                      <span className="text-sm font-semibold text-[#555] truncate">{userName}</span>
-                      {session?.user?.email && (
-                        <span className="text-xs text-[#999] truncate max-w-[180px]">{session.user.email}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <Link
-                      href="/progress"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-1.5 text-sm text-[#555] hover:text-[#5A95C6] transition-colors"
-                    >
-                      <UserRound className="w-4 h-4" />
-                      โปรไฟล์
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-1.5 text-sm text-[#555] hover:text-[#5A95C6] transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      ออกจากระบบ
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => { handleLogin(); setIsMenuOpen(false); }}
-                  className="w-full h-[46px] rounded-full bg-[#5A95C6] text-white text-[16px] font-semibold hover:bg-[#4A85B6] transition-colors"
-                >
-                  เข้าสู่ระบบ
-                </button>
-              )}
-            </div>
+  {/* Profile — เป็นเมนูแยก */}
+  {session?.user && (
+    <Link
+      href="/progress"
+      onClick={() => setIsMenuOpen(false)}
+      className={`px-3 py-2.5 rounded-xl text-[15px] font-medium transition-colors ${
+        pathname === '/progress'
+          ? 'bg-[#DDF4FF] text-[#5A95C6] font-semibold'
+          : 'text-[#555] hover:bg-[#F4F4F4]'
+      }`}
+    >
+      โปรไฟล์
+    </Link>
+  )}
+
+  {/* เส้นคั่น + User / Logout */}
+  <div className="border-t border-[#E6F0F8] mt-2 pt-3">
+    {isLoadingSession ? (
+      <div
+        className="h-10 rounded-xl bg-[#F4F4F4] animate-pulse"
+        aria-hidden="true"
+      />
+    ) : session?.user ? (
+      <div className="flex items-center justify-between">
+        {/* User */}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-[#81B1C7] text-[14px] font-semibold text-white">
+            {userName.charAt(0).toUpperCase()}
           </div>
+
+          <div className="flex flex-col leading-tight min-w-0">
+            <span className="text-sm font-semibold text-[#555] truncate">
+              {userName}
+            </span>
+
+            {session?.user?.email && (
+              <span className="text-xs text-[#999] truncate max-w-[180px]">
+                {session.user.email}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 text-sm text-[#555] hover:text-[#5A95C6] transition-colors shrink-0"
+        >
+          <LogOut className="w-4 h-4" />
+          ออกจากระบบ
+        </button>
+      </div>
+    ) : (
+      <button
+        onClick={() => {
+          handleLogin();
+          setIsMenuOpen(false);
+        }}
+        className="w-full h-[46px] rounded-full bg-[#5A95C6] text-white text-[16px] font-semibold hover:bg-[#4A85B6] transition-colors"
+      >
+        เข้าสู่ระบบ
+      </button>
+    )}
+  </div>
+</div>
         </nav>
       )}
     </header>

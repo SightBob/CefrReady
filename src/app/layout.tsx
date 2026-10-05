@@ -5,7 +5,6 @@ import './globals.css';
 import './fonts.css';
 import ChromeShell from '@/components/ChromeShell';
 import { SessionProvider } from 'next-auth/react';
-import Script from 'next/script';
 import { Suspense } from 'react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import TopLoadingBar from '@/components/TopLoadingBar';
@@ -91,6 +90,7 @@ export const metadata: Metadata = {
 import ToasterWrapper from '@/components/ToasterWrapper';
 import { PostHogProvider, PHCapture } from '@/lib/posthog';
 import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 
 export default async function RootLayout({
   children,
@@ -100,7 +100,9 @@ export default async function RootLayout({
   // SECURITY: per-request CSP nonce issued by src/proxy.ts (report M1).
   // Reading headers() makes the layout dynamic — the standard trade-off of
   // nonce-based CSP.
-  const nonce = (await headers()).get('x-nonce') ?? undefined;
+  // Preserve per-request rendering for the CSP nonce and reuse the validated
+  // session on hydration instead of immediately fetching /api/auth/session.
+  const [, session] = await Promise.all([headers(), auth()]);
   return (
     <html lang="th">
       <head>
@@ -113,7 +115,7 @@ export default async function RootLayout({
         <Suspense fallback={null}>
           <TopLoadingBar />
         </Suspense>
-        <SessionProvider refetchOnWindowFocus={false}>
+        <SessionProvider session={session} refetchOnWindowFocus={false}>
           <PostHogProvider>
             <Suspense fallback={null}>
               <PHCapture />

@@ -1,19 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ArrowLeft, CheckCircle, XCircle, Trophy, Clock, RotateCcw, ChevronRight } from 'lucide-react';
+import { XCircle } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
 import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
-import FormMeaningReviewSection from '@/components/FormMeaningReviewSection';
 import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
 import TestTapSelectCard from '@/components/TestTapSelectCard';
 import type { TapExerciseData } from '@/lib/test-set-slots';
+import { buildReviewRailCells, sortReviewItemsByOrder } from '@/lib/review-rail';
 import { usePostHog } from '@/lib/posthog';
-import type { TestTypeId, Option, ConversationLine, Article, Blank } from '@/types/test';
+import type { TestTypeId, ConversationLine, Article } from '@/types/test';
 
 interface AttemptData {
   id: number;
@@ -60,18 +61,18 @@ interface ReviewResponse {
   };
 }
 
-type FilterMode = 'all' | 'correct' | 'incorrect';
-
 export default function ReviewPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const posthog = usePostHog();
   const [attempt, setAttempt] = useState<AttemptData | null>(null);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterMode>('all');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const skipScrollRef = useRef(true);
+  const mobileNavTrackRef = useRef<HTMLDivElement>(null);
 
   const fetchReviewData = useCallback(async () => {
     try {
@@ -84,7 +85,7 @@ export default function ReviewPage() {
       }
 
       setAttempt(data.data!.attempt);
-      setReviewItems(data.data!.reviewItems);
+      setReviewItems(sortReviewItemsByOrder(data.data!.reviewItems));
       posthog?.capture('test_result_reviewed', {
         attempt_id: params.attemptId,
       });
@@ -105,34 +106,68 @@ export default function ReviewPage() {
     }
   }, [status, params.attemptId, router, fetchReviewData]);
 
+  // เปลี่ยนข้อ = หน้าจอยาว ๆ เลื่อนกลับขึ้นบนสุดเสมอ (ข้ามรอบแรกตอน mount)
+  useEffect(() => {
+    if (skipScrollRef.current) {
+      skipScrollRef.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0 });
+  }, [currentIndex]);
+
+  // Figma 244:268 — ช่องข้อที่เลือกอยู่ต้องเลื่อนเข้ามาใน track เสมอบนมือถือ
+  // (track กว้าง 287px ที่ 390px จึงเห็นแค่ ~4 ช่อง) ใช้ getBoundingClientRect
+  // เพราะ offsetLeft ของลูกจะอ้างถึง offsetParent ซึ่งไม่ใช่ตัว track
+  const orderedItems = reviewItems;
+  const currentItem = orderedItems[currentIndex] ?? null;
+  // Figma 200:660 — เติมคอลัมน์แบบ column-major (1,3,5… | 2,4,6…) + ช่องลูกศรท้ายสุด
+  const railCells = useMemo(() => buildReviewRailCells(orderedItems.length), [orderedItems.length]);
+
+  useEffect(() => {
+    const track = mobileNavTrackRef.current;
+    if (!track) return;
+    const active = track.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!active) return;
+
+    const revealActive = () => {
+      const trackRect = track.getBoundingClientRect();
+      const activeRect = active.getBoundingClientRect();
+      const isFullyVisible =
+        activeRect.left >= trackRect.left - 1 && activeRect.right <= trackRect.right + 1;
+      if (isFullyVisible) return;
+      const delta =
+        activeRect.left - trackRect.left - (track.clientWidth - activeRect.width) / 2;
+      track.scrollLeft += delta;
+    };
+
+    revealActive();
+    window.addEventListener('resize', revealActive);
+    return () => window.removeEventListener('resize', revealActive);
+  }, [currentIndex, orderedItems.length]);
+
   // ─── Loading Skeleton ──────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-white p-4 sm:p-8">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-slate-200 rounded-lg animate-pulse" />
-            <div className="space-y-2">
-              <div className="h-5 w-40 bg-slate-200 rounded animate-pulse" />
-              <div className="h-4 w-60 bg-slate-100 rounded animate-pulse" />
-            </div>
-          </div>
-          <div className="grid grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="h-20 bg-white rounded-xl border border-slate-100 animate-pulse" />
-            ))}
-          </div>
-          {[1,2,3].map(i => (
-            <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 space-y-3 animate-pulse">
-              <div className="h-4 w-3/4 bg-slate-100 rounded" />
-              <div className="h-4 w-1/2 bg-slate-100 rounded" />
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                {[1,2,3,4].map(j => (
-                  <div key={j} className="h-12 bg-slate-50 rounded-xl" />
+      <div className="min-h-[100dvh] bg-[#f7f7f7]">        <div className="mx-auto w-full max-w-[1049px] px-[18px] min-[890px]:px-4 min-[1100px]:px-0 pt-[30px] pb-[123px] min-[890px]:pb-[129px]">
+          <div className="flex flex-col gap-5 min-[890px]:flex-row min-[890px]:items-start">
+            <div className="w-full min-[890px]:w-[189px] shrink-0 rounded-[16px] bg-white p-0 min-[890px]:px-[15px] min-[890px]:pt-6 min-[890px]:pb-[23px]">
+            <div className="h-[58px] min-[890px]:h-11 w-full rounded-[7px] bg-slate-100 animate-pulse" />
+            <div className="mt-[10px] hidden min-[890px]:grid grid-cols-2 gap-[10px]">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="h-[54px] rounded-[8px] bg-slate-100 animate-pulse" />
                 ))}
               </div>
             </div>
-          ))}
+            <div className="w-full max-w-[840px] mx-auto min-[890px]:mx-0 rounded-[20px] bg-white px-[26px] pt-6 pb-[23px]">
+              <div className="h-[87px] w-[87px] mx-auto rounded-full bg-slate-100 animate-pulse" />
+              <div className="mt-6 h-4 w-2/3 rounded bg-slate-100 animate-pulse" />
+              <div className="mt-6 grid grid-cols-1 min-[640px]:grid-cols-2 gap-x-7 gap-y-4">
+                {[0, 1, 2, 3].map(i => (
+                  <div key={i} className="h-[78px] rounded-2xl bg-slate-100 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -140,233 +175,187 @@ export default function ReviewPage() {
 
   if (error || !attempt) {
     return (
-      <div className="min-h-[100dvh] bg-white flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-[#f7f7f7] flex items-center justify-center p-4">
         <div className="text-center">
           <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <p className="text-slate-600">{error || 'Review not found'}</p>
           <Link href="/progress" className="text-primary-600 hover:underline mt-2 inline-block">
-            Back to Progress
+            กลับหน้าพัฒนาการ
           </Link>
         </div>
       </div>
     );
   }
 
-  const scoreColor = attempt.score >= 70
-    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    : attempt.score >= 50
-    ? 'text-amber-700 bg-amber-50 border-amber-200'
-    : 'text-red-700 bg-red-50 border-red-200';
-
-  const correctCount = reviewItems.filter(i => i.isCorrect).length;
-  const wrongCount = reviewItems.filter(i => !i.isCorrect).length;
-
-  // Time taken
-  const timeTaken = attempt.startedAt && attempt.completedAt
-    ? Math.round((new Date(attempt.completedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000)
-    : null;
-  const formatDuration = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return m > 0 ? `${m}m ${s}s` : `${s}s`;
-  };
-
-  // Filter
-  const filteredItems = filter === 'all'
-    ? reviewItems
-    : filter === 'correct'
-    ? reviewItems.filter(i => i.isCorrect)
-    : reviewItems.filter(i => !i.isCorrect);
-
   const noOp = () => {};
+  const hasNext = currentIndex < orderedItems.length - 1;
 
   return (
-    <div className="min-h-[100dvh] bg-[#FAFAFA]">
-      {/* ── Sticky Header ─────────────────────────────────────────── */}
-      <div className="bg-white border-b border-[#EAEAEA] sticky top-16 z-40">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-3">
-              <Link href="/progress" className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-[#F0F0F0] transition-colors">
-                <ArrowLeft className="w-4 h-4 text-[#111]" />
-              </Link>
-              <div>
-                <h1 className="font-bold text-[#111] text-sm">ดูเฉลยข้อสอบ</h1>
-                <div className="flex items-center gap-1.5 text-xs text-[#AAAAAA]">
-                  <span>{attempt.testTypeName}</span>
-                  <span>·</span>
-                  <Clock className="w-3 h-3" />
-                  <span>
-                    {attempt.completedAt
-                      ? new Date(attempt.completedAt).toLocaleDateString('th-TH', {
-                          day: 'numeric', month: 'short', year: 'numeric',
-                        })
-                      : '—'}
-                  </span>
-                  {timeTaken !== null && (
-                    <><span>·</span><span>ใช้เวลา {formatDuration(timeTaken)}</span></>
+    <div className="min-h-[100dvh] bg-[#f7f7f7]">
+      {/* Figma 200:587 — rail 189px + การ์ด 840px ชิดกัน 20px */}
+      {/* Figma 244:196 — การ์ดขอบจอ 18px บนมือถือ (x=18 กว้าง 355) */}
+      <div className="mx-auto w-full max-w-[1049px] px-[18px] min-[890px]:px-4 min-[1100px]:px-0 pt-[30px] pb-[123px] min-[890px]:pb-[129px]">
+        <div className="flex flex-col gap-5 min-[890px]:flex-row min-[890px]:items-start">
+          {/* Figma 244:338 + 244:341 — ปุ่มปิดวางข้างหัวการ์ดบนมือถือ ตั้งแต่ 890px
+              ขึ้นไป wrapper นี้กลายเป็น display:contents → nav กับการ์ดโจทย์ยังเป็นลูก
+              ของ flex row เดิมทุกประการ (desktop ไม่เปลี่ยนแม้แต่จุดเดียว) */}
+          <div className="flex w-full items-center gap-[10px] min-[890px]:contents">
+          <nav
+            aria-label="เลือกข้อเพื่อทบทวน"
+            className="w-full min-w-0 flex-1 min-[890px]:flex-none min-[890px]:w-[189px] shrink-0 flex flex-col gap-[10px] rounded-[16px] bg-white p-0 min-[890px]:px-[15px] min-[890px]:pt-6 min-[890px]:pb-[23px]"
+          >
+            {/* หัว rail: ชื่อประเภทข้อสอบ + คะแนน */}
+            <div className="flex min-h-[44px] w-full flex-col items-center justify-center gap-[2px] rounded-[7px] bg-[#f3f5f7] px-[10px] py-2">
+              <span className="text-center text-[13px] font-semibold leading-6 text-[#525c6c]">
+                {attempt.testTypeName}
+              </span>
+              <span className="text-center text-[11px] leading-4 text-[#8293a9]">
+                คะแนน {attempt.score}% · ถูก {attempt.correctAnswers}/{attempt.totalQuestions}
+              </span>
+            </div>
+
+            {/* มือถือย้ายแถบเลขข้อไปอยู่ในแถบล่างตาม Figma 244:265 แล้ว */}
+
+            {/* เดสก์ท็อป: 2 คอลัมน์ เติมลำดับจากบนลงล่าง (1,3,5… | 2,4,6…) */}
+            <div className="hidden w-full min-[890px]:flex gap-[10px] items-start max-h-[462px] overflow-y-auto pr-[2px]" style={{ scrollbarWidth: 'thin' }}>
+              {[0, 1].map((column) => (
+                <div key={column} className="flex flex-1 min-w-0 flex-col gap-[14px]">
+                  {railCells.filter((cell) => cell.column === column).map((cell) =>
+                    cell.itemIndex === null ? (
+                      <button
+                        key={`next-${column}`}
+                        type="button"
+                        onClick={() => hasNext && setCurrentIndex((i) => i + 1)}
+                        disabled={!hasNext}
+                        aria-label="ไปข้อถัดไป"
+                        className="flex h-[54px] w-full items-center justify-center rounded-[8px] bg-[#f8f8f8] transition-colors hover:bg-[#f0f0f0] disabled:cursor-default disabled:opacity-60"
+                      >
+                        <Image src="/icon_svg/arrow-forward.svg" alt="" width={16} height={16} className="size-4 shrink-0" />
+                      </button>
+                    ) : (
+                      <RailCell
+                        key={orderedItems[cell.itemIndex].questionId}
+                        index={cell.itemIndex}
+                        isCorrect={orderedItems[cell.itemIndex].isCorrect}
+                        isActive={cell.itemIndex === currentIndex}
+                        onSelect={() => setCurrentIndex(cell.itemIndex!)}
+                      />
+                    ),
                   )}
                 </div>
-              </div>
+              ))}
             </div>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border ${scoreColor}`}>
-              {attempt.score}%
-            </span>
+          </nav>
+
+          {/* Figma 244:341 — ปุ่มปิด 44×40 มุมขวาบน แทนปุ่มย้อนกลับเดิมบนมือถือ */}
+          <button
+            type="button"
+            onClick={() => router.push('/progress')}
+            aria-label="กลับหน้าพัฒนาการ"
+            className="flex h-10 w-11 shrink-0 items-center justify-center rounded-[10px] bg-white min-[890px]:hidden"
+          >
+            <Image src="/icon_svg/close.svg" alt="" width={20} height={20} className="size-5 shrink-0" />
+          </button>
+          </div>
+
+          {/* ── การ์ดโจทย์ 840px ─────────────────────────────────────── */}
+          <div className="w-full max-w-[840px] mx-auto min-[890px]:mx-0 min-w-0 min-[640px]:[&_.qc-options]:grid-cols-2">
+            {currentItem ? (
+              <ReviewQuestionCard item={currentItem} onAnswerSelect={noOp} />
+            ) : (
+              <div className="rounded-[20px] bg-white px-[26px] py-10 text-center text-sm text-slate-500">
+                ไม่มีข้อสอบในครั้งนี้
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* ── Score Summary Banner ───────────────────────────────── */}
-        <div className={`rounded-3xl p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-5 ${
-          attempt.score >= 70
-            ? 'bg-emerald-50 border border-emerald-200'
-            : 'bg-[#FFF8F0] border border-amber-200'
-        }`}>
-          {/* Score circle */}
-          <div className={`shrink-0 w-20 h-20 rounded-2xl flex flex-col items-center justify-center font-black ${
-            attempt.score >= 70 ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
-          }`}>
-            <span className="text-2xl leading-none">{attempt.score}%</span>
-            <span className="text-xs font-normal opacity-80 mt-0.5">{attempt.score >= 70 ? 'ผ่าน' : 'ไม่ผ่าน'}</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            {attempt.score >= 70 ? (
-              <>
-                <div className="flex items-center gap-2 mb-1">
-                  <Trophy className="w-5 h-5 text-emerald-600" />
-                  <p className="font-bold text-emerald-800 text-lg">ยอดเยี่ยม! ผ่านเกณฑ์แล้ว 🎉</p>
-                </div>
-                <p className="text-sm text-emerald-700">คะแนน {attempt.score}% ผ่านเกณฑ์ 70% — รักษามาตรฐานนี้ไว้ครับ</p>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-1">
-                  <RotateCcw className="w-5 h-5 text-amber-600" />
-                  <p className="font-bold text-amber-800 text-lg">ยังไม่ผ่านเกณฑ์</p>
-                </div>
-                <p className="text-sm text-amber-700">ต้องการ 70% ขึ้นไปจึงจะผ่าน — ทบทวนข้อที่ผิด แล้วลองใหม่ได้เลยครับ!</p>
-              </>
-            )}
-            <div className="flex gap-3 mt-4 flex-wrap">
-              <Link
-                href="/tests"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#111] text-white rounded-full px-4 py-2 hover:bg-[#333] transition-colors"
+      {/* ── Bottom bar ────────────────────────────────────────────────
+          มือถือ (<890px)  = Figma 244:265 แถบเลขข้อสูง 91px (6 + 65 + 20) + ลูกศร
+          เดสก์ท็อป = ปุ่มย้อนกลับ 97px (16 + 49 + 32) เหมือนเดิมทุกประการ */}
+      <div className="fixed bottom-0 left-0 w-full bg-white z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_3.3px_0_rgba(172,172,172,0.25)]">
+        {/* Figma 244:267 — track 287px ที่ 390px (ยืด/หดตามจอ) + เส้นคั่น + ช่องลูกศร */}
+        <nav aria-label="เลือกข้อเพื่อทบทวน (แถบล่าง)" className="flex flex-col items-center pt-[6px] pb-[20px] min-[890px]:hidden">
+          <div className="flex w-full items-center justify-center rounded-[10px] bg-white px-[15px] py-[7px]">
+            <div className="flex min-h-px w-full flex-1 items-center gap-[10px]">
+              <div
+                ref={mobileNavTrackRef}
+                className="dot-map-scroll flex h-[51px] min-w-0 flex-1 items-center gap-[10px] overflow-x-auto overflow-y-clip"
+                style={{ scrollbarWidth: 'none' }}
               >
-                ทำข้อสอบใหม่ <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
-              <Link
-                href="/progress"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold border border-[#EAEAEA] text-[#111] rounded-full px-4 py-2 hover:bg-[#F0F0F0] transition-colors"
-              >
-                ดูพัฒนาการ
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Stat Cards ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white rounded-2xl p-4 border border-[#EAEAEA] text-center">
-            <div className="text-2xl font-bold text-[#111]">{attempt.totalQuestions}</div>
-            <div className="text-xs text-[#AAAAAA] mt-0.5">ข้อทั้งหมด</div>
-          </div>
-          <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-200 text-center">
-            <div className="text-2xl font-bold text-emerald-700">{correctCount}</div>
-            <div className="text-xs text-emerald-600 mt-0.5">ตอบถูก ✓</div>
-          </div>
-          <div className="bg-red-50 rounded-2xl p-4 border border-red-200 text-center">
-            <div className="text-2xl font-bold text-red-600">{wrongCount}</div>
-            <div className="text-xs text-red-500 mt-0.5">ตอบผิด ✗</div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 border border-[#EAEAEA] text-center">
-            <div className="text-2xl font-bold text-[#111] tabular-nums">{timeTaken !== null ? formatDuration(timeTaken) : '—'}</div>
-            <div className="text-xs text-[#AAAAAA] mt-0.5">เวลาที่ใช้</div>
-          </div>
-        </div>
-
-        {/* ── Filter Tabs ───────────────────────────────────────────── */}
-        <div className="flex items-center gap-1 mb-6 bg-white rounded-2xl border border-[#EAEAEA] p-1">
-          {([
-            { key: 'all', label: `ทั้งหมด (${reviewItems.length})`, activeClass: 'bg-[#111] text-white', inactiveClass: 'text-[#787774] hover:bg-[#F7F6F3]' },
-            { key: 'correct', label: `ถูก (${correctCount})`, activeClass: 'bg-emerald-600 text-white', inactiveClass: 'text-emerald-600 hover:bg-emerald-50' },
-            { key: 'incorrect', label: `ผิด (${wrongCount})`, activeClass: 'bg-red-500 text-white', inactiveClass: 'text-red-500 hover:bg-red-50' },
-          ] as const).map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key as FilterMode)}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                filter === tab.key ? tab.activeClass : tab.inactiveClass
-              }`}
-            >
-              {tab.key === 'correct' && <CheckCircle className="w-3.5 h-3.5" />}
-              {tab.key === 'incorrect' && <XCircle className="w-3.5 h-3.5" />}
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Form-Meaning: combined article view ────────────────── */}
-        {attempt.testTypeId === 'form-meaning' && (
-          <div className="mb-8">
-            <FormMeaningReviewSection items={filteredItems} />
-          </div>
-        )}
-
-        {/* ── Question Review List (non form-meaning) ──────────────── */}
-        {attempt.testTypeId !== 'form-meaning' && (
-        <div className="space-y-5">
-          {filteredItems.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#EAEAEA] p-10 text-center">
-              <p className="text-[#AAAAAA] text-sm">ไม่มีข้อที่ตรงกับตัวกรองนี้</p>
-            </div>
-          ) : (
-            filteredItems.map((item, index) => (
-              <div key={item.questionId} className="flex gap-3">
-                {/* Numbered badge */}
-                <div className="flex flex-col items-center pt-3 shrink-0">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                    item.isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div className={`w-px flex-1 mt-2 ${
-                    item.isCorrect ? 'bg-emerald-100' : 'bg-red-100'
-                  }`} />
-                </div>
-
-                {/* Question card */}
-                <div className="flex-1 min-w-0 pb-2">
-                  <ReviewQuestionCard
-                    item={item}
-                    onAnswerSelect={noOp}
+                {orderedItems.map((item, index) => (
+                  <RailCell
+                    key={item.questionId}
+                    index={index}
+                    isCorrect={item.isCorrect}
+                    isActive={index === currentIndex}
+                    onSelect={() => setCurrentIndex(index)}
                   />
-                </div>
+                ))}
               </div>
-            ))
-          )}
-        </div>
-        )}
 
-        {/* ── Footer CTA ────────────────────────────────────────────── */}
-        <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">
-          <Link
-            href="/progress"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-2xl border border-[#EAEAEA] text-[#111] font-semibold text-sm hover:bg-[#F7F6F3] transition-colors"
+              {/* Figma 244:285 — เส้นคั่นแนวตั้ง 32px (asset เดียวกับหน้า exam) */}
+              <div className="flex h-[32px] w-0 shrink-0 items-center justify-center" aria-hidden="true">
+                <Image src="/tests/nav-divider.svg" alt="" width={32} height={1} className="shrink-0 !max-w-none h-[1px] w-[32px] rotate-90" />
+              </div>
+
+              {/* Figma 244:286 — ช่องท้ายพื้น #f3f3f3 ไปข้อถัดไป */}
+              <button
+                type="button"
+                onClick={() => hasNext && setCurrentIndex((i) => i + 1)}
+                disabled={!hasNext}
+                aria-label="ไปข้อถัดไป"
+                className="flex h-[51px] min-w-px w-[53px] shrink-0 items-center justify-center rounded-[8px] bg-[#f3f3f3] transition-colors hover:bg-[#e8e8e8] disabled:cursor-default disabled:opacity-60"
+              >
+                <Image src="/icon_svg/arrow-forward.svg" alt="" width={16} height={16} className="size-4 shrink-0" />
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <div className="mx-auto w-full max-w-[1049px] px-4 min-[1100px]:px-0 pt-4 pb-8 flex items-center justify-end hidden min-[890px]:flex">
+          <button
+            type="button"
+            onClick={() => router.push('/progress')}
+            className="flex-1 min-[890px]:flex-none min-[890px]:w-[216px] h-14 min-[890px]:h-[49px] rounded-[14px] flex items-center justify-center bg-[#FFF0AE] border-b-4 border-r-4 border-[#FFDB40] text-[16px] font-semibold text-[#524924] transition-colors hover:bg-[#FFEA8F]"
           >
-            <ArrowLeft className="w-4 h-4" />
-            กลับหน้าพัฒนาการ
-          </Link>
-          <Link
-            href="/tests"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#111] text-white rounded-2xl font-semibold text-sm hover:bg-[#333] transition-colors"
-          >
-            ทำข้อสอบใหม่
-            <ChevronRight className="w-4 h-4" />
-          </Link>
+            ย้อนกลับ
+          </button>
         </div>
       </div>
     </div>
+  );
+}
+
+/** ช่องเลขข้อบน rail — Figma 200:663-690 (active/done/wrong) */
+function RailCell({
+  index,
+  isCorrect,
+  isActive,
+  onSelect,
+}: {
+  index: number;
+  isCorrect: boolean;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const stateClass = isActive
+    ? 'bg-[#719cc0] text-white'
+    : isCorrect
+      ? 'bg-[#daf2e7] text-[#2a4246] hover:bg-[#c7ecd9]'
+      : 'bg-[#f6eaea] text-[#2a4246] hover:bg-[#f0dcdc]';
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={isActive ? 'true' : undefined}
+      aria-label={`ข้อ ${index + 1} — ${isCorrect ? 'ตอบถูก' : 'ตอบผิด'}`}
+      className={`flex h-[51px] w-[51.6px] min-[890px]:h-[54px] min-[890px]:w-full shrink-0 items-center justify-center rounded-[8px] px-4 py-2 text-[13px] font-semibold transition-colors ${stateClass}`}
+    >
+      {index + 1}
+    </button>
   );
 }
 
@@ -381,8 +370,8 @@ function ReviewQuestionCard({
   const q = item.question;
   if (!q) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-slate-500">
-        Question data unavailable
+      <div className="rounded-[20px] bg-white px-[26px] py-6 text-slate-500">
+        ไม่พบข้อมูลของข้อนี้
       </div>
     );
   }
@@ -391,7 +380,7 @@ function ReviewQuestionCard({
     let selected: Record<string, string> = {};
     try { selected = JSON.parse(item.userAnswer); } catch { /* older answer data */ }
     return (
-      <div className="space-y-8">
+      <div className="space-y-5">
         {q.tapExercise.items.map((tapItem, index) => (
           <TestTapSelectCard
             key={index}
@@ -481,7 +470,7 @@ function ReviewQuestionCard({
       }
 
       return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div className="rounded-[20px] bg-white px-[26px] py-6">
           <p className="text-slate-800">{q.questionText}</p>
           <div className="mt-4 flex items-center gap-3">
             <span className="text-sm text-slate-600">Your answer:</span>
@@ -533,8 +522,8 @@ function ReviewQuestionCard({
 
     default:
       return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-slate-500">
-          Unknown question type
+        <div className="rounded-[20px] bg-white px-[26px] py-6 text-slate-500">
+          ไม่รองรับประเภทข้อสอบนี้
         </div>
       );
   }

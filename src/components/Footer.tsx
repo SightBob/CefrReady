@@ -1,103 +1,154 @@
 import Link from 'next/link';
-import { GraduationCap } from 'lucide-react';
-import { FacebookLogo } from '@phosphor-icons/react/dist/ssr';
+
+/**
+ * Footer — design Figma 249:3228 (พื้น #FFFEF9) + 249:3229 (เนื้อหา 1250×266)
+ * หัวคอลัมน์ 17px bold #3E3E3E (ไม่ uppercase) · รายการ 16px #808080 · เส้นคั่น · © 15px #9B9B9B
+ * ช่องว่างระหว่างคอลัมน์ 170px · คอลัมน์นโยบาย gap 5px คอลัมน์อื่น gap 11px
+ */
+
+const BRAND_DESC = ['ฝึกทักษะภาษาอังกฤษตามมาตรฐาน CEFR', 'ครอบคลุมระดับ A1 ถึง C2'];
+
+// Figma 249:3246-249:3249 — คอลัมน์ "เมนูหลัก" ในดีไซน์ซ้ำกับคอลัมน์ "ประเภทข้อสอบ"
+// จึงแยกหน้าที่ให้ชัด: คอลัมน์นี้คงลิงก์จริงของเว็บไซต์ ส่วนคอลัมน์ถัดไปเป็นรายการชนิดข้อสอบ
+const PRIMARY_LINKS = [
+  { href: '/tests', label: 'ข้อสอบ' },
+  { href: '/progress', label: 'พัฒนาการ' },
+  { href: '/must-know', label: 'Must Know' },
+  { href: '/guide', label: 'CEFR Guide' },
+  { href: '/contact', label: 'ติดต่อเรา' },
+  { href: '/support', label: 'เลี้ยงค่ากาแฟ' },
+];
+
+const EXAM_TYPES = [
+  { href: '/tests', label: 'Focus on Form' },
+  { href: '/tests', label: 'Focus on Meaning' },
+  { href: '/tests', label: 'Form & Meaning' },
+  { href: '/tests', label: 'Listening' },
+];
+
+const LEGAL_LINKS = [
+  { href: '/terms', label: 'เงื่อนไขการให้บริการ' },
+  { href: '/privacy', label: 'ความเป็นส่วนตัว' },
+  { href: '/refund', label: 'การคืนเงิน' },
+];
+
+function FooterLogo() {
+  return (
+    <span className="flex flex-col items-start">
+      <span className="font-['Momo_Trust_Display'] text-[26px] leading-[34px] tracking-[0.52px] text-[#5A95C6] [text-shadow:1px_1px_0_#F8E9A9]">
+        CEFR
+      </span>
+      <span className="-mt-[3px] flex h-[23px] w-[78px] items-center justify-center rounded-[4px] bg-[#FFF0AE] font-caveat text-[15px] font-bold tracking-[0.24px] text-[#524924]">
+        READY!
+      </span>
+    </span>
+  );
+}
 
 export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-white border-t border-[#EAEAEA] mt-auto">
-      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div>
-            <Link href="/" className="flex items-center gap-2 mb-3">
-              <div className="bg-gradient-to-br from-primary-500 to-accent-500 p-1.5 rounded-lg">
-                <GraduationCap className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-bold text-[#111]">CEFR Ready</span>
+    <footer className="mt-auto border-t border-[#EAEAEA] bg-[#FFFEF9]">
+      <div className="mx-auto max-w-[1250px] px-4 py-[57px] sm:px-6 lg:px-0">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[183px_132px_132px_134px] lg:justify-between">
+          {/* Brand — Figma 249:3232 */}
+          <div className="flex flex-col gap-[10px]">
+            <Link href="/" aria-label="CEFR Ready หน้าหลัก">
+              <FooterLogo />
             </Link>
-            <p className="text-[1rem] text-[#808080] leading-relaxed font-medium">
-              ฝึกทักษะภาษาอังกฤษตามมาตรฐาน CEFR<br />
-              ครอบคลุมระดับ A1 ถึง C2
+            <p className="text-[16px] font-medium leading-normal text-[#808080]">
+              {BRAND_DESC.map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
             </p>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="text-[1.0625rem] text-[#3E3E3E] font-bold uppercase tracking-widest mb-3">เมนูหลัก</h3>
-            <ul className="space-y-2">
-              {[
-                { href: '/tests', label: 'ข้อสอบ' },
-                { href: '/progress', label: 'พัฒนาการ' },
-                { href: '/must-know', label: 'Must Know' },
-                { href: '/guide', label: 'CEFR Guide' },
-                { href: '/contact', label: 'ความคิดเห็น' },
-                { href: '/support', label: 'เลี้ยงค่ากาแฟ' },
-              ].map(({ href, label }) => (
-                <li key={href}>
-                  <Link href={href} className="text-[1rem] font-medium text-[#787774] hover:text-[#111] transition-colors">
+          {/* เมนูหลัก — Figma 249:3244 */}
+          <nav aria-labelledby="footer-primary">
+            <h2
+              id="footer-primary"
+              className="mb-[11px] text-[17px] font-bold text-[#3E3E3E]"
+            >
+              เมนูหลัก
+            </h2>
+            <ul className="space-y-[11px]">
+              {PRIMARY_LINKS.map(({ href, label }) => (
+                <li key={label}>
+                  <Link
+                    href={href}
+                    className="inline-block py-[10px] text-[16px] font-medium text-[#808080] transition-colors hover:text-[#111] md:py-0"
+                  >
                     {label}
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          {/* Exam Types */}
-          <div>
-            <h3 className="text-[1.0625rem] text-[#3E3E3E] font-bold uppercase tracking-widest mb-3">ประเภทข้อสอบ</h3>
-            <ul className="space-y-2">
-              {[
-                'Focus on Form',
-                'Focus on Meaning',
-                'Form & Meaning',
-                'Listening',
-              ].map((label) => (
-                <li key={label} className="text-[1rem] font-medium text-[#787774]">{label}</li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Legal */}
-          <div>
-            <h3 className="text-[1.0625rem] text-[#3E3E3E] font-bold uppercase tracking-widest mb-3">นโยบาย</h3>
-            <ul className="space-y-2">
-              {[
-                { href: '/terms', label: 'เงื่อนไขการให้บริการ' },
-                { href: '/privacy', label: 'ความเป็นส่วนตัว' },
-                { href: '/refund', label: 'การคืนเงิน' },
-              ].map(({ href, label }) => (
-                <li key={href}>
-                  <Link href={href} className="text-[1rem] font-medium text-[#787774] hover:text-[#111] transition-colors">
+          {/* ประเภทข้อสอบ — Figma 249:3250 */}
+          <nav aria-labelledby="footer-exams">
+            <h2
+              id="footer-exams"
+              className="mb-[11px] text-[17px] font-bold text-[#3E3E3E]"
+            >
+              ประเภทข้อสอบ
+            </h2>
+            <ul className="space-y-[11px]">
+              {EXAM_TYPES.map(({ href, label }) => (
+                <li key={label}>
+                  <Link
+                    href={href}
+                    className="inline-block py-[10px] text-[16px] font-medium text-[#808080] transition-colors hover:text-[#111] md:py-0"
+                  >
                     {label}
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
+
+          {/* นโยบาย — Figma 249:3256 */}
+          <nav aria-labelledby="footer-legal">
+            <h2
+              id="footer-legal"
+              className="mb-[5px] text-[17px] font-bold text-[#3E3E3E]"
+            >
+              นโยบาย
+            </h2>
+            <ul className="space-y-[5px]">
+              {LEGAL_LINKS.map(({ href, label }) => (
+                <li key={label}>
+                  <Link
+                    href={href}
+                    className="inline-block py-[12px] text-[16px] font-medium text-[#808080] transition-colors hover:text-[#111] md:py-0"
+                  >
+                    {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
 
-        <div className="border-t border-[#EAEAEA] mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-[#AAAAAA]">
-            © {year} CEFR Ready. สงวนลิขสิทธิ์.
+        {/* เส้นคั่น — Figma 249:3261 */}
+        <div className="mt-[36px] h-px w-full bg-[#E2E8F0]" />
+
+        {/* © — Figma 249:3262-249:3266 */}
+        <div className="mt-[28px] flex flex-wrap items-center gap-[7px]">
+          <span aria-hidden="true" className="flex items-end gap-[2px]">
+            <span className="size-[14px] rounded-full bg-[#5A95C6]" />
+            <span className="text-[16px] font-medium leading-none text-[#9B9B9B]">
+              c
+            </span>
+          </span>
+          <p className="text-[15px] font-medium text-[#9B9B9B]">
+            {year} CEFR Ready. สงวนลิขสิทธิ์.
           </p>
-          <div className="flex items-center gap-4">
-            <p className="text-xs text-[#AAAAAA]">
-              พัฒนาเพื่อนักศึกษาไทย
-            </p>
-            <a
-              href="https://www.facebook.com/profile.php?id=61590152890102"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#787774] hover:text-[#1877F2] transition-colors"
-              aria-label="CEFR Ready Facebook"
-            >
-              <FacebookLogo className="w-4 h-4" weight="fill" />
-            </a>
-          </div>
         </div>
       </div>
     </footer>
   );
-}
+}

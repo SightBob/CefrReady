@@ -23,24 +23,25 @@ export async function GET(request: NextRequest) {
     ]);
 
     // --- Average score overall ---
-    const [overallAvg] = await db
+    const [[overallAvg], attemptsByType, attemptsOverTime, scoreDistribution, topPerformers] = await Promise.all([
+      db
       .select({
         avg: sql<number>`ROUND(AVG(CAST(${testAttempts.score} AS NUMERIC)), 1)`,
       })
-      .from(testAttempts);
+      .from(testAttempts),
 
     // --- Attempts per test type ---
-    const attemptsByType = await db
+    db
       .select({
         testTypeId: testAttempts.testTypeId,
         attempts: count(),
         avgScore: sql<number>`ROUND(AVG(CAST(${testAttempts.score} AS NUMERIC)), 1)`,
       })
       .from(testAttempts)
-      .groupBy(testAttempts.testTypeId);
+      .groupBy(testAttempts.testTypeId),
 
     // --- Attempts per day (last 30 days) ---
-    const attemptsOverTime = await db
+    db
       .select({
         date: sql<string>`DATE(${testAttempts.completedAt})`,
         attempts: count(),
@@ -49,10 +50,10 @@ export async function GET(request: NextRequest) {
       .from(testAttempts)
       .where(sql`${testAttempts.completedAt} >= NOW() - INTERVAL '30 days'`)
       .groupBy(sql`DATE(${testAttempts.completedAt})`)
-      .orderBy(sql`DATE(${testAttempts.completedAt})`);
+      .orderBy(sql`DATE(${testAttempts.completedAt})`),
 
     // --- Score distribution (buckets: <50, 50-69, 70-89, 90-100) ---
-    const scoreDistribution = await db
+    db
       .select({
         bucket: sql<string>`
           CASE
@@ -73,10 +74,10 @@ export async function GET(request: NextRequest) {
           WHEN CAST(${testAttempts.score} AS NUMERIC) < 90 THEN '70–89%'
           ELSE '90–100%'
         END
-      `);
+      `),
 
     // --- Top performers (users with highest avg score, min 3 attempts) ---
-    const topPerformers = await db
+    db
       .select({
         userId: testAttempts.userId,
         attempts: count(),
@@ -86,7 +87,8 @@ export async function GET(request: NextRequest) {
       .groupBy(testAttempts.userId)
       .having(sql`COUNT(*) >= 3`)
       .orderBy(sql`AVG(CAST(${testAttempts.score} AS NUMERIC)) DESC`)
-      .limit(5);
+      .limit(5),
+    ]);
 
     // Hydrate top performers with user info
     const userIds = topPerformers.map((p) => p.userId);
@@ -114,7 +116,8 @@ export async function GET(request: NextRequest) {
     // ─── New analytics queries (run in parallel where possible) ───────────────
 
     // 1. Question Analytics — correct rate by test type
-    const correctRateByType = await db
+    const [correctRateByType, hardestQuestionsRaw] = await Promise.all([
+      db
       .select({
         testTypeId: questions.testTypeId,
         totalAnswers: count(),
@@ -122,18 +125,10 @@ export async function GET(request: NextRequest) {
       })
       .from(userAnswers)
       .innerJoin(questions, sql`${userAnswers.questionId} = ${questions.id}`)
-      .groupBy(questions.testTypeId);
-
-    const correctRateByTypeNamed = correctRateByType.map((r) => ({
-      ...r,
-      testTypeName: testTypeMap.get(r.testTypeId) ?? r.testTypeId,
-      correctRate: r.totalAnswers > 0
-        ? Math.round((Number(r.correctAnswers) / r.totalAnswers) * 1000) / 10
-        : 0,
-    }));
+      .groupBy(questions.testTypeId),
 
     // 2. Hardest questions — top 5 questions with most wrong answers
-    const hardestQuestionsRaw = await db
+    db
       .select({
         questionId: userAnswers.questionId,
         questionText: questions.questionText,
@@ -145,7 +140,16 @@ export async function GET(request: NextRequest) {
       .innerJoin(questions, sql`${userAnswers.questionId} = ${questions.id}`)
       .groupBy(userAnswers.questionId, questions.questionText, questions.testTypeId)
       .orderBy(sql`SUM(CASE WHEN NOT ${userAnswers.isCorrect} THEN 1 ELSE 0 END) DESC`)
-      .limit(5);
+      .limit(5),
+    ]);
+
+    const correctRateByTypeNamed = correctRateByType.map((r) => ({
+      ...r,
+      testTypeName: testTypeMap.get(r.testTypeId) ?? r.testTypeId,
+      correctRate: r.totalAnswers > 0
+        ? Math.round((Number(r.correctAnswers) / r.totalAnswers) * 1000) / 10
+        : 0,
+    }));
 
     const hardestQuestions = hardestQuestionsRaw.map((q) => {
       const total = Number(q.totalAnswers);
@@ -166,14 +170,15 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
 
-    const [userRetention] = await db
+    const [[userRetention], [activeUsers]] = await Promise.all([
+      db
       .select({
         newUsersThisMonth: count(),
       })
       .from(users)
-      .where(sql`${users.createdAt} >= ${firstOfMonth}::date`);
+      .where(sql`${users.createdAt} >= ${firstOfMonth}::date`),
 
-    const [activeUsers] = await db
+    db
       .select({
         activeUserCount: sql<number>`
           COUNT(DISTINCT ${testAttempts.userId})
@@ -181,27 +186,27 @@ export async function GET(request: NextRequest) {
         totalSessions: count(),
       })
       .from(testAttempts)
-      .where(sql`${testAttempts.completedAt} >= NOW() - INTERVAL '30 days'`);
-
-    // Total registered users (for active %)
-    const [[totalRegUsers]] = await Promise.all([
-      db.select({ count: count() }).from(users),
+      .where(sql`${testAttempts.completedAt} >= NOW() - INTERVAL '30 days'`),
     ]);
+
+    // The overview already fetched this count; do not scan users again.
+    const totalRegUsers = totalUsers;
 
     const avgSessionsPerActiveUser = activeUsers && Number(activeUsers.activeUserCount) > 0
       ? Math.round((Number(activeUsers.totalSessions) / Number(activeUsers.activeUserCount)) * 10) / 10
       : 0;
 
     // 5. Question reports summary
-    const reportSummary = await db
+    const [reportSummary, reportTrend] = await Promise.all([
+      db
       .select({
         status: questionReports.status,
         count: count(),
       })
       .from(questionReports)
-      .groupBy(questionReports.status);
+      .groupBy(questionReports.status),
 
-    const reportTrend = await db
+    db
       .select({
         week: sql<string>`TO_CHAR(${questionReports.createdAt}, 'YYYY-IW')`,
         count: count(),
@@ -209,7 +214,8 @@ export async function GET(request: NextRequest) {
       .from(questionReports)
       .where(sql`${questionReports.createdAt} >= NOW() - INTERVAL '30 days'`)
       .groupBy(sql`TO_CHAR(${questionReports.createdAt}, 'YYYY-IW')`)
-      .orderBy(sql`TO_CHAR(${questionReports.createdAt}, 'YYYY-IW')`);
+      .orderBy(sql`TO_CHAR(${questionReports.createdAt}, 'YYYY-IW')`),
+    ]);
 
     const reportsByStatus = {
       pending: 0,

@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unstable_cache } from 'next/cache';
-import { fetchSectionsFromDb } from '@/lib/sections';
+import { getCachedSections } from '@/lib/sections';
 import { checkIpThrottle } from '@/lib/api-security';
 
 // IP throttling reads request headers, so this route is always dynamic;
 // response caching happens inside unstable_cache below.
 export const dynamic = 'force-dynamic';
-
-const getCachedSections = unstable_cache(
-  async () => fetchSectionsFromDb(),
-  ['sections-with-sets'],
-  { revalidate: 300, tags: ['sections'] }
-);
 
 /**
  * GET /api/sections

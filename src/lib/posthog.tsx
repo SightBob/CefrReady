@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import type { PostHog } from 'posthog-js';
@@ -35,8 +35,12 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    let disposed = false;
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const init = async () => {
       const { default: posthog } = await import('posthog-js');
+      if (disposed) return;
       posthog.init(key, {
         api_host: host || 'https://us.i.posthog.com',
         defaults: '2026-01-30',
@@ -71,16 +75,16 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           return event;
         },
         loaded: (ph) => {
-          setPosthogInstance(ph as PostHog);
+          if (!disposed) setPosthogInstance(ph as PostHog);
         },
       });
     };
 
     const schedule = () => {
       if ('requestIdleCallback' in window) {
-        requestIdleCallback(init, { timeout: 3000 });
+        idleId = requestIdleCallback(init, { timeout: 3000 });
       } else {
-        setTimeout(init, 0);
+        timeoutId = setTimeout(init, 0);
       }
     };
     if (document.readyState === 'complete') {
@@ -88,6 +92,12 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     } else {
       window.addEventListener('load', schedule, { once: true });
     }
+    return () => {
+      disposed = true;
+      window.removeEventListener('load', schedule);
+      if (idleId !== undefined) window.cancelIdleCallback(idleId);
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    };
   }, []);
 
   // Auth tracking: identify users and track sign-in/out events
@@ -114,8 +124,10 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     previousSessionRef.current = isCurrentlyLoggedIn;
   }, [session, posthogInstance]);
 
+  const contextValue = useMemo(() => ({ posthog: posthogInstance }), [posthogInstance]);
+
   return (
-    <PostHogContext.Provider value={{ posthog: posthogInstance }}>
+    <PostHogContext.Provider value={contextValue}>
       {children}
     </PostHogContext.Provider>
   );

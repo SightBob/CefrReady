@@ -1,20 +1,10 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { unstable_cache } from 'next/cache';
-import { fetchSectionsFromDb } from '@/lib/sections';
+import { getCachedSections } from '@/lib/sections';
 import { getCachedExplainForSet } from '@/lib/test-explains';
-import type { SectionData } from '@/components/SectionCard';
 import TestSetExplainView from '@/components/TestSetExplainView';
 
 export const revalidate = 300;
-
-const getCachedSections = unstable_cache(
-  async (): Promise<SectionData[]> => {
-    return await fetchSectionsFromDb();
-  },
-  ['tests-section-page-sections'],
-  { revalidate: 300, tags: ['sections'] }
-);
 
 async function getSections() {
   try {

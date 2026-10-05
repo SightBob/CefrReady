@@ -120,7 +120,7 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
         {/* Squiggle divider — desktop 60:845 (985px), mobile 200:9236 (339px) */}
         <div
           aria-hidden="true"
-          className="mt-[26px] h-[9px] w-[339px] max-w-full bg-[url('/tests/squiggle-line.svg')] bg-no-repeat lg:mt-[34px] lg:w-[985px] lg:bg-[url('/bg/squiggle-line.svg')]"
+          className="mt-[26px] h-[9px] bg-[url('/tests/squiggle-line.svg')] bg-no-repeat lg:mt-[34px] max-w-[985px] lg:bg-[url('/bg/squiggle-line.svg')]"
           style={{ backgroundSize: '100% 100%' }}
         />
 

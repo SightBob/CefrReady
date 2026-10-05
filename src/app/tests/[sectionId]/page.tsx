@@ -2,20 +2,10 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { unstable_cache } from 'next/cache';
-import { fetchSectionsFromDb } from '@/lib/sections';
-import type { SectionData } from '@/components/SectionCard';
+import { getCachedSections } from '@/lib/sections';
 import SectionTestSetCard from '@/components/SectionTestSetCard';
 
 export const revalidate = 300;
-
-const getCachedSections = unstable_cache(
-  async (): Promise<SectionData[]> => {
-    return await fetchSectionsFromDb();
-  },
-  ['tests-section-page-sections'],
-  { revalidate: 300, tags: ['sections'] }
-);
 
 async function getSections() {
   try {
@@ -66,18 +56,18 @@ export default async function SectionPage({
           และย้ายมาชิดขวา 16px โดยยังคงระยะห่างจากหัวเรื่อง 110px */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute right-[16px] top-[166px] h-[57px] w-[55.15px] sm:left-[calc(50%+434.81px)] sm:right-auto sm:top-[22px] sm:h-[146px] sm:w-[141.27px] sm:-translate-x-1/2"
+        className="pointer-events-none absolute max-[629px]:top-[166px] max-[760px]:top-[112px] h-[57px] w-[55.15px] max-[1050px]:right-0 min-[1050px]:left-[calc(50%+434.81px)] min-[760px]:top-[22px] min-[760px]:h-[146px] min-[760px]:w-[141.27px] min-[1050px]:-translate-x-1/2 "
       >
-        <div className="absolute left-0 top-0 h-[46.86px] w-[55.15px] overflow-hidden sm:h-[120.018px] sm:w-[141.271px]">
+        <div className="absolute left-0 top-0 h-[46.86px] w-[55.15px] overflow-hidden min-[760px]:h-[120.018px] min-[760px]:w-[141.271px]">
           <Image
             src="/logo-otter/otter-exam.png"
             alt=""
             width={141}
             height={141}
-            className="absolute left-0 top-0 h-[55.15px] w-full max-w-none sm:h-[141.27px]"
+            className="absolute left-0 top-0 h-[55.15px] w-full max-w-none min-[760px]:h-[141.27px]"
           />
         </div>
-        <div className="absolute left-[9.27px] top-[40.53px] h-[16.47px] w-[35.15px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0] sm:left-[23.74px] sm:top-[103.82px] sm:h-[42.178px] sm:w-[90.033px]" />
+        <div className="absolute left-[9.27px] top-[40.53px] h-[16.47px] w-[35.15px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0] min-[760px]:left-[23.74px] min-[760px]:top-[103.82px] min-[760px]:h-[42.178px] min-[760px]:w-[90.033px]" />
       </div>
 
       <div className="mx-auto w-full max-w-[1044px] px-[27px] sm:px-6 xl:px-0">
@@ -116,7 +106,7 @@ export default async function SectionPage({
         {/* Squiggle divider — เดสก์ท็อป Figma 60:175 · มือถือ Figma 200:7266 (สูง 8.635px, เต็มความกว้าง, เว้น 23px) */}
         <div
           aria-hidden="true"
-          className="mt-[23px] h-[8.64px] w-full bg-[url('/bg/squiggle-line.svg')] bg-no-repeat sm:ml-[4px] sm:mt-[20px] sm:h-[9px] sm:w-[985px]"
+          className="mt-[23px] min-[482px]:mt-[44px] h-[8.64px] w-full bg-[url('/bg/squiggle-line.svg')] bg-no-repeat sm:ml-[4px] sm:mt-[20px] sm:h-[9px] sm:max-w-[985px]"
           style={{ backgroundSize: '100% 100%' }}
         />
 
@@ -128,7 +118,7 @@ export default async function SectionPage({
             <p className="mt-1 text-sm">Please check back later.</p>
           </div>
         ) : (
-          <div className="mx-auto mt-[16px] grid w-[320px] max-w-full grid-cols-1 gap-y-[14px] sm:mx-0 sm:mt-[14px] sm:w-auto sm:max-w-[1010px] sm:grid-cols-2 sm:gap-x-[20px] sm:gap-y-[23px] lg:grid-cols-3 lg:gap-x-[25px]">
+          <div className="mx-auto mt-[16px] grid max-w-full grid-cols-1 gap-y-[14px] sm:mx-0 sm:mt-[14px] sm:w-auto sm:max-w-[1010px] sm:grid-cols-2 sm:gap-x-[20px] sm:gap-y-[23px] lg:grid-cols-3 lg:gap-x-[25px]">
             {activeSets.map((testSet) => (
               <SectionTestSetCard
                 key={testSet.id}

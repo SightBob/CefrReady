@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import type { SectionData } from '@/components/SectionCard';
-import { unstable_cache } from 'next/cache';
-import { fetchSectionsFromDb } from '@/lib/sections';
+import { getCachedSections } from '@/lib/sections';
 import { auth } from '@/lib/auth';
 import TestsPageClient from './TestsPageClient';
 
@@ -22,14 +20,6 @@ export const metadata: Metadata = {
     description: 'เลือกทำข้อสอบ CEFR ครอบคลุม Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2',
   },
 };
-
-const getCachedSections = unstable_cache(
-  async (): Promise<SectionData[]> => {
-    return await fetchSectionsFromDb();
-  },
-  ['tests-page-sections'],
-  { revalidate: 300, tags: ['sections'] }
-);
 
 async function getSections() {
   try {

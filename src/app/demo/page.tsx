@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import DemoTestsSection from '@/components/DemoTestsSection';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import DemoTestsSection, { DemoInfoNote } from '@/components/DemoTestsSection';
+import TestsLandingShell from '@/components/TestsLandingShell';
 
 export const metadata: Metadata = {
   title: 'ทดลองทำข้อสอบ CEFR ฟรี — Demo Tests',
@@ -15,22 +14,36 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'ทดลองทำข้อสอบ CEFR ฟรี | CEFR Ready',
-    description: 'ลองทำข้อสอบ CEFR ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ระดับ A1-C2',
+    description: 'ลองทำข้อสอบ CEFR ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ครอบคลุม Focus on Form, Meaning, Listening ระดับ A1-C2',
   },
 };
+
+/**
+ * หน้า /demo ใช้โครงหน้าเดียวกับ /tests (ประกาศ + hero + เส้นคลื่น + หัวข้อหมวดหมู่)
+ * แต่ flow เดิมของ demo ไว้ครบ: ไม่ต้อง login, ลิงก์ไป 4 หน้าเดิม, 5 ข้อต่อชุด
+ */
 export default function DemoTestsPage() {
   return (
-    <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <Link href="/" className="inline-flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors mb-4">
-          <ArrowLeft className="w-5 h-5" />
-          Back to Home
-        </Link>
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Demo Tests</h1>
-        <p className="text-slate-600 mt-2">Try our sample tests - no login required!</p>
+    <TestsLandingShell
+      hero={{
+        title: 'ทดลองทำข้อสอบฟรี “ ไม่ต้องสมัครสมาชิก ”',
+        subtitle: (
+          <>
+            ลองทำข้อสอบตัวอย่างจริง ชุดละ 5 ข้อ
+            <br className="lg:hidden" />
+            ครบทุกทักษะ ตั้งแต่ระดับ A1 ถึง C2
+          </>
+        ),
+        cta: { href: '/demo/focus-form', labelMobile: 'เริ่มทดลองเลย', labelDesktop: 'ทดลองทำข้อสอบ' },
+      }}
+      sectionTitle="เลือกทดลองตามทักษะ"
+    >
+      {/* 200:9242 — การ์ดแรกขยับลง 8px ระยะห่างการ์ด 14px (ค่าเดียวกับหน้า /tests) */}
+      <div className="mt-[4px] grid grid-cols-1 gap-[14px] py-2 sm:grid-cols-2 lg:mt-[14px] lg:grid-cols-4 lg:gap-5 lg:py-0">
+        <DemoTestsSection />
       </div>
 
-      <DemoTestsSection />
-    </div>
+      <DemoInfoNote />
+    </TestsLandingShell>
   );
 }

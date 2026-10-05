@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -17,13 +17,6 @@ import {
   ArrowRight
 } from 'lucide-react';
 import VerbBankPanel from './VerbBankPanel';
-
-/** ตัวอย่างคลังกริยา 3 ช่อง (Figma node 2654:1249) — จะแทนที่ด้วยข้อมูลจริงภายหลัง */
-const VERB_BANK = [
-  { v1: 'go', v2: 'went', v3: 'gone' },
-  { v1: 'eat', v2: 'ate', v3: 'eaten' },
-  { v1: 'see', v2: 'saw', v3: 'seen' },
-];
 
 interface Section {
   id: string;
@@ -114,11 +107,13 @@ export default function TestLayout({
   const router = useRouter();
   const [showNavPanel, setShowNavPanel] = useState(true);
   const [showMobileNav, setShowMobileNav] = useState(false);
+  const mobileNavTrackRef = useRef<HTMLDivElement>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [jumpToQuestion, setJumpToQuestion] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isSetMenuOpen, setIsSetMenuOpen] = useState(false);
+  const [isVerbBankOpen, setIsVerbBankOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'unanswered'>('all');
   const [mounted, setMounted] = useState(false);
@@ -140,6 +135,21 @@ export default function TestLayout({
       document.body.style.overflow = '';
     };
   }, [isSetMenuOpen]);
+
+  // Verb bank modal (opened from the trail button in the mobile nav) — Escape
+  // closes it and the page behind it must not scroll while it is open.
+  useEffect(() => {
+    if (!isVerbBankOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsVerbBankOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [isVerbBankOpen]);
 
   const currentSetIndex = availableSets?.findIndex(s => s.id === currentSetId) ?? -1;
   const currentSetLabel = `set - ${currentSetIndex >= 0 ? currentSetIndex + 1 : 1}`;
@@ -186,6 +196,29 @@ export default function TestLayout({
   useEffect(() => {
     setCurrentPage(currentNavSet);
   }, [currentNavSet]);
+
+  // Mobile nav strip (Figma 200:8492) scrolls horizontally — nudge the active
+  // cell back into view so jumping between questions never hides the marker.
+  // The track is fluid, so rotating the phone also has to re-run this.
+  useEffect(() => {
+    const scrollActiveIntoView = () => {
+      const track = mobileNavTrackRef.current;
+      if (!track) return;
+      const active = track.children[currentQuestion] as HTMLElement | undefined;
+      if (!active) return;
+      const trackLeft = track.scrollLeft;
+      const trackRight = trackLeft + track.clientWidth;
+      if (active.offsetLeft < trackLeft) {
+        track.scrollLeft = active.offsetLeft;
+      } else if (active.offsetLeft + active.offsetWidth > trackRight) {
+        track.scrollLeft = active.offsetLeft + active.offsetWidth - track.clientWidth;
+      }
+    };
+
+    scrollActiveIntoView();
+    window.addEventListener('resize', scrollActiveIntoView);
+    return () => window.removeEventListener('resize', scrollActiveIntoView);
+  }, [currentQuestion, totalQuestions]);
 
   const getQuestionStatus = (index: number) => {
     if (isSubmitted) return 'answered';
@@ -240,47 +273,9 @@ export default function TestLayout({
 
   return (
     <div className="flex flex-col bg-[#F7F7F7] min-h-svh relative">
-      {/* Mobile Dot Map - below header (scrolls away with it) */}
-      {showQuestionNav && (
-      <div className="md:hidden bg-white border-b border-slate-200 shadow-sm">
-        <div className="overflow-x-auto dot-map-scroll" style={{ scrollbarWidth: 'none' }}>
-          <div className="flex items-center gap-2 px-3 py-4 min-w-max">
-            {Array.from({ length: totalQuestions }, (_, i) => {
-              const status = getQuestionStatus(i);
-              const isActive = i === currentQuestion;
-              let dotClass = 'w-7 h-7 rounded-full text-[10px] font-semibold flex items-center justify-center transition-all duration-200 shrink-0 ';
-              if (isActive) {
-                dotClass += 'ring-2 ring-primary-500 ring-offset-1 scale-110 ';
-              }
-              const isReviewDot = reviewSegmentStart !== undefined && i >= reviewSegmentStart;
-              switch (status) {
-                case 'answered':
-                  dotClass += isReviewDot ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white';
-                  break;
-                default:
-                  dotClass += isReviewDot ? 'bg-amber-200 text-amber-700' : 'bg-slate-200 text-slate-500';
-                  break;
-              }
-              return (
-                <button
-                  key={i}
-                  onClick={() => onQuestionSelect(i)}
-                  disabled={sequentialNav}
-                  className={`${dotClass}${sequentialNav ? ' cursor-default' : ''}`}
-                  aria-label={`ข้อ ${i + 1}: ${status === 'answered' ? 'ตอบแล้ว' : 'ยังไม่ได้ตอบ'}`}
-                >
-                  {i + 1}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      )}
-
       {/* Mobile Navigation Panel */}
       {showMobileNav && (
-        <div className="md:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileNav(false)}>
+        <div className="min-[890px]:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileNav(false)}>
           <div
             className="absolute right-0 top-0 h-full w-72 bg-white shadow-xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
@@ -439,20 +434,52 @@ export default function TestLayout({
                     </div>
                   </div>,
                   document.body
-                )}      {/* Figma 60:3842 — เนื้อหากว้าง 1154px (x191–1345) เริ่มที่ y17 */}
-      <div className="max-w-[1154px] mx-auto px-4 lg:px-0 w-full mt-[17px] pb-44">
+                )}
+
+      {/* Verb bank modal (Figma 249:8290) — การ์ด 334×337 r19 px21 py15
+          เปิดจากปุ่มรูป nav-trail-100.png ในแถบนำทางมือถือ */}
+      {isVerbBankOpen && mounted && createPortal(
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setIsVerbBankOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="คลังกริยา 3 ช่องจากข้อสอบจริง"
+        >
+          {/* ห่อการ์ดด้วย div ที่ไม่ scroll เลย — ถ้าให้ wrapper เป็น scroll
+              container ปุ่ม X ที่ยื่น -right-3 จะถูกตัดและ CSS จะเปิด
+              overflow-x อัตโนมัติจาก overflow-y (กฎของ CSS) เกิด scroll x
+              การเลื่อนแนวตั้งจึงอยู่ที่รายการกริยาใน VerbBankPanel แทน */}
+          <div
+            className="relative w-full max-w-[334px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsVerbBankOpen(false)}
+              aria-label="ปิด"
+              className="absolute -top-3 -right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#585E5F] shadow-[0_2px_8px_0_rgba(0,0,0,0.18)] transition-colors hover:text-[#2A4246]"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <VerbBankPanel variant="modal" />
+          </div>
+        </div>,
+        document.body
+      )}      {/* Figma 60:3842 — เนื้อหากว้าง 1154px (x191–1345) เริ่มที่ y17 */}
+      <div className={`max-w-[1154px] mx-auto px-4 lg:px-0 w-full mt-[17px] ${showQuestionNav && !isSubmitted ? 'pb-[13.5rem] min-[890px]:pb-44' : 'pb-44'}`}>
         {/* Quiz controls row — set dropdown (left) + progress pill + exit ✕ (right) */}
         <div className="flex items-center justify-between gap-[15px]">
           <div className="flex items-center gap-[15px] min-w-0 flex-1">
             <button
               type="button"
               onClick={() => availableSets?.length ? setIsSetMenuOpen(v => !v) : undefined}
-              className="shrink-0 w-full max-w-[18.4375rem] h-[2.8125rem] bg-white border border-[#EAEAEA] shadow-[3px_3px_0_0_#D5D3D3] rounded-xl px-[12.5px] flex items-center justify-between gap-2 disabled:opacity-70"
+              className="shrink-0 w-full max-[768px]:w-auto max-[768px]:h-auto max-[768px]:px-[12px] max-[768px]:py-[10px] max-w-[18.4375rem] h-[2.8125rem] bg-white border border-[#EAEAEA] shadow-[3px_3px_0_0_#D5D3D3] rounded-xl px-[12.5px] flex items-center justify-between gap-2 disabled:opacity-70"
               aria-expanded={isSetMenuOpen}
               aria-label="เลือกชุดข้อสอบ"
               disabled={!availableSets?.length}
             >
-              <span className="truncate text-[1rem] font-bold text-[#6387A5]">{currentSetLabel}</span>
+              <span className="truncate text-[1rem] max-[640px]:text-[0.75rem] font-bold text-[#6387A5]">{currentSetLabel}</span>
               {availableSets?.length ? (
                 <Image src="/icon_svg/caret-down.svg" alt="" width={14} height={14} className="w-3.5 h-3.5 shrink-0" />
               ) : null}
@@ -460,8 +487,8 @@ export default function TestLayout({
 
 
             {/* Progress pill — Figma: white card h45 radius 13, bar h14 #E3E2E2, fill #58CC02, label 11px Bold #3F4A36 */}
-            <div className="hidden sm:flex flex-1 max-w-full items-center gap-3 bg-white rounded-[13px] px-5 h-[2.8125rem]">
-              <div className="flex-1 h-[0.875rem] bg-[#E3E2E2] rounded-full shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.05)] overflow-hidden">
+            <div className="flex flex-1 max-w-full items-center gap-3 bg-white rounded-[13px] px-5 h-[2.8125rem]">
+              <div className="flex-1 max-[640px]:h-[6px] h-[0.875rem] bg-[#E3E2E2] rounded-full shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.05)] overflow-hidden">
                 <div
                   className="relative h-full bg-[#58CC02] rounded-full transition-all duration-500"
                   style={{ width: totalQuestions > 0 ? `${(answeredCount / totalQuestions) * 100}%` : '0%' }}
@@ -469,7 +496,7 @@ export default function TestLayout({
                   <div className="absolute inset-x-0 top-0 h-1 rounded-full bg-white/40" />
                 </div>
               </div>
-              <span className="shrink-0 text-[0.6875rem] font-bold tracking-[0.06em] text-[#3F4A36]">
+              <span className="shrink-0 text-[0.6875rem] font-bold tracking-[0.06em] text-[#3F4A36] max-[644px]:hidden">
                 ทั้งหมด {totalQuestions} ข้อ
               </span>
             </div>
@@ -488,7 +515,7 @@ export default function TestLayout({
         <div className="flex gap-[15px] mt-[15px] flex-start">
           {/* Desktop Navigation Panel */}
           {showNavPanel && showQuestionNav && (
-            <div className="hidden md:flex w-[18.4375rem] flex-col gap-[0.9375rem]">
+            <div className="hidden min-[890px]:flex w-[18.4375rem] flex-col gap-[0.9375rem]">
               <div className="rounded-2xl shadow-sm sticky h-fit overflow-hidden w-full bg-white">
 
                 {/* Question Grid/List */}
@@ -576,14 +603,14 @@ export default function TestLayout({
               </div>
 
               {/* Verb bank — คลังกริยา 3 ช่อง (Figma node 2654:1249) — กล่องแยกใต้กล่อง navigation */}
-              <VerbBankPanel verbs={VERB_BANK} />
+              <VerbBankPanel />
             </div>
             
           )}
 
           {/* Toggle Nav Button */}
           {!showNavPanel && showQuestionNav && (
-            <button onClick={() => setShowNavPanel(true)} aria-label="�Դἧ��ùӷҧ">
+            <button onClick={() => setShowNavPanel(true)} className="hidden min-[890px]:block" aria-label="�Դἧ��ùӷҧ">
               <ChevronRight className="w-5 h-5 text-slate-600" />
             </button>
           )}
@@ -639,6 +666,62 @@ export default function TestLayout({
 
      {/* Universal Bottom Bar — Figma 60:3843: 1536×97, drop-shadow 3.3px, เนื้อหากว้าง 1144px, pt16/pb32 */}
 <div className="fixed bottom-0 left-0 w-full bg-white z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_3.3px_0_rgba(172,172,172,0.25)]">
+  {/* Mobile question-order nav — Figma 200:8492: sits directly above the action
+      bar, so both live in this one fixed stack and can never overlap. Cell
+      colours reuse getQuestionButtonClass, so mobile and the sidebar share a
+      single palette instead of drifting apart. */}
+  {showQuestionNav && !isSubmitted && (
+  <div className="quiz-nav-fluid flex flex-col items-center border-t border-[#F7F7F7] pt-[6px] pb-[20px] min-[890px]:hidden">
+    <div className="flex w-full items-center justify-center rounded-[10px] bg-white px-[15px] py-[7px]">
+      <div className="flex min-h-px w-full flex-1 items-center gap-[10px]">
+        <div
+          ref={mobileNavTrackRef}
+          className="dot-map-scroll flex h-[51px] min-w-0 flex-1 items-center gap-[10px] overflow-x-auto overflow-y-clip"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {Array.from({ length: totalQuestions }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onQuestionSelect(i)}
+              disabled={sequentialNav}
+              aria-current={i === currentQuestion ? 'true' : undefined}
+              aria-label={`ข้อ ${i + 1}: ${getQuestionStatus(i) === 'answered' ? 'ตอบแล้ว' : 'ยังไม่ได้ตอบ'}`}
+              className={`${getQuestionButtonClass(i)} !h-[46px] !w-[46px] !shrink-0 !rounded-[8px] !text-[13px]${sequentialNav ? ' cursor-default' : ''}`}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+
+        {/* Figma 200:8512 — 1px divider 32px สูง (ดึงจาก Figma: nav-divider.svg) */}
+        <div className="flex h-[32px] w-0 shrink-0 items-center justify-center" aria-hidden="true">
+          <Image src="/tests/nav-divider.svg" alt="" width={32} height={1} className="shrink-0 !max-w-none h-[1px] w-[32px] rotate-90" />
+        </div>
+
+        {/* Figma 200:8513 — ช่องท้าย 53×51 รูป 50×50 (ดึงจาก Figma: nav-trail-100.png)
+            Figma ระบุ px-22 py-8 บนกล่อง 53×51 ซึ่งบีบรูป 50px ให้เหลือ 9px —
+            ตัวเลข padding ข้างในไม่ได้วัดจากไฟล์จริง จึงยึดผลลัพธ์ที่เห็นในเฟรม: รูป 50×50 กึ่งกลาง */}
+        <button
+          type="button"
+          onClick={() => setIsVerbBankOpen(true)}
+          aria-label="เปิดคลังกริยา 3 ช่อง"
+          aria-expanded={isVerbBankOpen}
+          className="flex h-[51px] min-w-px w-[53px] shrink-0 items-center justify-center rounded-[8px] bg-[#F8F8F8]"
+        >
+          <Image
+            src="/tests/nav-trail-100.png"
+            alt=""
+            width={50}
+            height={50}
+            className="h-[50px] w-[50px] shrink-0 rounded-[8px] object-cover"
+          />
+        </button>
+      </div>
+    </div>
+  </div>
+  )}
+
   <div className="max-w-[1144px] mx-auto px-4 lg:px-0 pt-4 pb-8 flex items-end gap-[15px] w-full">
 
     {/* Figma 60:3845 — ช่องว่าง 40×40 ทางซ้ายของปุ่ม action */}
@@ -649,32 +732,32 @@ export default function TestLayout({
       (() => { const isLastQuestion = currentQuestion >= totalQuestions - 1;
                const isAnswered = answers[currentQuestion] != null && answers[currentQuestion] !== ''; return (
       // Figma 60:3848 — ปุ่ม 216×49 ชิดขวาของเนื้อหา 1144px เว้นขวา 53px
-      <div className="flex-1 flex items-center justify-center lg:justify-end gap-2 lg:gap-[15px] lg:mr-[53px]">
+      <div className="flex-1 flex items-center justify-center sm:justify-end gap-2 lg:gap-[15px]">
         {reviewAction && (
           <button
             type="button"
             onClick={reviewAction.onClick}
-            className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] rounded-[7px] flex items-center justify-center gap-2 border-2 text-[1rem] font-semibold text-[#524924] shadow-[3px_3px_0_0_#D5D3D3] hover:bg-blue-50 transition-colors"
+            className="flex-1 min-[890px]:flex-none min-[890px]:w-[13.875rem] h-14 min-[890px]:h-[3.375rem] rounded-[7px] flex items-center justify-center gap-2 border-2 text-[1rem] font-semibold text-[#524924] shadow-[3px_3px_0_0_#D5D3D3] hover:bg-blue-50 transition-colors"
           >
             <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
-            <span className="text-sm md:text-base text-center font-bold whitespace-nowrap">{reviewAction.label}</span>
+            <span className="text-sm min-[890px]:text-base text-center font-bold whitespace-nowrap">{reviewAction.label}</span>
           </button>
         )}
         {currentQuestion < totalQuestions - 1 ? (
           <button
             onClick={onNext}
-            className={`flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] rounded-[14px] flex items-center justify-center text-[1rem] text-[#524924] transition-colors ${
+            className={`flex-1 min-[890px]:flex-none min-[890px]:w-[13.5rem] h-14 min-[890px]:h-[3.0625rem] rounded-[14px] flex items-center justify-center text-[1rem] text-[#524924] transition-colors ${
               isAnswered ? 'bg-[#FFF0AE] border-b-4 border-r-[3px] border-[#FFDB40] hover:bg-[#FFEA8F]' : 'bg-[#FFF0AE]/60 border-b-4 border-r-[3px] border-[#FFDB40]/50 hover:bg-[#FFF0AE]'
             }`}
           >
-            <span className='text-base md:text-[1rem] text-center font-semibold whitespace-nowrap'>ข้อต่อไป</span>
+            <span className='text-base min-[890px]:text-[1rem] text-center font-semibold whitespace-nowrap'>ข้อต่อไป</span>
           </button>
         ) : (
           <button
             onClick={onSubmit}
-            className="flex-1 md:flex-none md:w-[13.5rem] h-14 md:h-[3.0625rem] bg-[#FFF0AE] border-b-4 border-r-[3px] border-[#FFDB40] hover:bg-[#FFEA8F] rounded-[14px] flex items-center justify-center text-[#524924] transition-colors"
+            className="flex-1 min-[890px]:flex-none min-[890px]:w-[13.5rem] h-14 min-[890px]:h-[3.0625rem] bg-[#FFF0AE] border-b-4 border-r-[3px] border-[#FFDB40] hover:bg-[#FFEA8F] rounded-[14px] flex items-center justify-center text-[#524924] transition-colors"
           >
-            <span className='text-base md:text-[1rem] text-center font-semibold whitespace-nowrap'>ตรวจคำตอบ</span>
+            <span className='text-base min-[890px]:text-[1rem] text-center font-semibold whitespace-nowrap'>ตรวจคำตอบ</span>
           </button>
         )}
       </div>
@@ -685,9 +768,9 @@ export default function TestLayout({
     {isSubmitted && currentSetIndex >= 0 && availableSets && currentSetIndex < availableSets.length - 1 && onSetSelect && (
       <button
         onClick={() => onSetSelect(availableSets[currentSetIndex + 1].id)}
-        className="flex-1 md:flex-none md:w-[13.875rem] h-14 md:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors lg:mr-[53px]"
+        className="flex-1 min-[890px]:flex-none min-[890px]:w-[13.875rem] h-14 min-[890px]:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors lg:mr-[53px]"
       >
-        <span className='text-base md:text-[1.125rem] text-center font-bold'>ทำชุด {currentSetIndex + 2}</span>
+        <span className='text-base min-[890px]:text-[1.125rem] text-center font-bold'>ทำชุด {currentSetIndex + 2}</span>
         <ArrowRight className='size-[1.125rem]' />
       </button>
     )}

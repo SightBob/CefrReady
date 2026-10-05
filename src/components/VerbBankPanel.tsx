@@ -1,18 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import { Loader2 } from 'lucide-react';
+import { filterVerbEntries, type VerbEntry } from '@/lib/verb-bank';
 
-interface VerbEntry {
-  v1: string;
-  v2: string;
-  v3: string;
-}
-
-interface VerbBankPanelProps {
-  verbs: VerbEntry[];
-}
-
-type Column = keyof VerbEntry;
+type Column = 'v1' | 'v2' | 'v3';
 
 const COLUMNS: { key: Column; label: string }[] = [
   { key: 'v1', label: 'V.1' },
@@ -20,33 +13,81 @@ const COLUMNS: { key: Column; label: string }[] = [
   { key: 'v3', label: 'V.3' },
 ];
 
-/** คลังกริยา 3 ช่องจากข้อสอบจริง — sidebar panel (Figma node 2654:1249) */
-export default function VerbBankPanel({ verbs }: VerbBankPanelProps) {
+/**
+ * คลังกริยา 3 ช่องจากข้อสอบจริง — ดึงข้อมูลจาก /api/verb-banks
+ *
+ * variant="sidebar" — กล่องใน sidebar (Figma node 2654:1249) ค่าเดิมทั้งหมด
+ * variant="modal"   — การ์ดใน modal (Figma node 249:8290) การ์ด 334px r19 p15/21
+ *                     + ไอคอน 24px หน้าหัวข้อตามดีไซน์
+ */
+export default function VerbBankPanel({ variant = 'sidebar' }: { variant?: 'sidebar' | 'modal' }) {
+  const isModal = variant === 'modal';
+  const [verbs, setVerbs] = useState<VerbEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [activeCol, setActiveCol] = useState<Column | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return verbs;
-    return verbs.filter(v =>
-      activeCol
-        ? v[activeCol].toLowerCase().includes(q)
-        : v.v1.toLowerCase().includes(q) || v.v2.toLowerCase().includes(q) || v.v3.toLowerCase().includes(q)
-    );
-  }, [verbs, query, activeCol]);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadVerbs() {
+      try {
+        const response = await fetch('/api/verb-banks');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const body = await response.json();
+        if (cancelled) return;
+        setVerbs(Array.isArray(body?.data) ? (body.data as VerbEntry[]) : []);
+        setError(null);
+      } catch {
+        if (cancelled) return;
+        setVerbs([]);
+        setError('โหลดคลังกริยาไม่สำเร็จ');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadVerbs();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = useMemo(
+    () => filterVerbEntries(verbs, query, activeCol),
+    [verbs, query, activeCol],
+  );
 
   return (
     // Figma 60:3892 — การ์ด 295×343 r16, padding ข้าง 17, บน 16, ล่าง 22
-    <div className="bg-white rounded-2xl px-[17px] pt-4 pb-[22px]">
-      <h3 className="pl-[2px] text-[0.875rem] font-semibold leading-[17px] text-[#454545]">คลังกริยา 3 ช่องจากข้อสอบจริง</h3>
+    // Figma 249:8290 — modal: การ์ด 334×337 r19, px21 py15, เงา 0 0 4.95px rgba(0,0,0,.09)
+    <div className={isModal
+      ? 'w-full rounded-[19px] bg-white px-[21px] pt-[15px] pb-[15px] shadow-[0_0_4.95px_0_rgba(0,0,0,0.09)]'
+      : 'bg-white rounded-2xl px-[17px] pt-4 pb-[22px]'}>
+      {isModal ? (
+        // Figma 249:8293 — ไอคอน 24×24 + หัวข้อ 14px semibold #454545, gap 8
+        <div className="flex items-center gap-2">
+          <Image
+            src="/tests/verb-bank-icon.png"
+            alt=""
+            width={24}
+            height={24}
+            className="h-6 w-6 shrink-0 object-contain"
+          />
+          <h3 className="text-[0.875rem] font-semibold leading-[17px] text-[#454545]">คลังกริยา 3 ช่องจากข้อสอบจริง</h3>
+        </div>
+      ) : (
+        <h3 className="pl-[2px] text-[0.875rem] font-semibold leading-[17px] text-[#454545]">คลังกริยา 3 ช่องจากข้อสอบจริง</h3>
+      )}
 
-      {/* Search — bg transparent, border #D3DEE7 radius 11, placeholder #868686 Medium 13 */}
+      {/* Search — bg transparent, border #D3DEE7 radius 11, placeholder #868686 Medium 13
+          Figma 249:8296 — หัวข้อสูง 24 → ช่องค้นหาเริ่มที่ +32 = gap 8 */}
       <input
         type="text"
         value={query}
         onChange={e => setQuery(e.target.value)}
         placeholder="ค้นหาคำศัพท์"
-        className="mt-[15px] w-full h-[2.5rem] bg-transparent border border-[#D3DEE7] rounded-[11px] pl-4 pr-[30px] text-[0.8125rem] font-medium text-slate-700 placeholder:text-[#868686] focus:outline-none focus:border-[#6387A5]"
+        aria-label="ค้นหาคำศัพท์ในคลังกริยา"
+        className={`w-full h-[2.5rem] bg-transparent border border-[#D3DEE7] rounded-[11px] pl-4 pr-[30px] text-[0.8125rem] font-medium text-slate-700 placeholder:text-[#868686] focus:outline-none focus:border-[#6387A5] ${isModal ? 'mt-2' : 'mt-[15px]'}`}
       />
 
       {/* V.1 / V.2 / V.3 filter chips — bg #F7F1DC, text #2A4246 SemiBold 11 */}
@@ -69,28 +110,36 @@ export default function VerbBankPanel({ verbs }: VerbBankPanelProps) {
 </div>
 
       {/* Verb rows — pills bg #F5F5F5 radius 7, text #3C3C3C Medium 13, divider line between rows */}
-      {/* Figma 60:3898 — แถวแรก top 159.12, gap ระหว่างแถว 18.57, pill 41.5px, gap ระหว่าง pill 15px */}
-      <div className="mt-[15.12px] flex flex-col gap-[18.57px]">
-        {filtered.length === 0 ? (
+      {/* Figma 60:3898 — แถวแรก top 159.12, gap ระหว่างแถว 18.57, pill 41.5px, gap ระหว่าง pill 15px
+          Figma 249:8298 — gap 17px ระหว่างแถว, pill 43px */}
+      <div className={`flex flex-col ${isModal ? 'mt-[17px] max-h-[min(58vh,420px)] gap-[17px] overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'mt-[15.12px] gap-[18.57px]'}`}>
+        {loading ? (
+          <p className="flex items-center justify-center gap-2 py-4 text-[0.8125rem] font-medium text-[#868686]">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            กำลังโหลดคลังกริยา…
+          </p>
+        ) : error ? (
+          <p className="py-4 text-center text-[0.8125rem] font-medium text-[#868686]">{error}</p>
+        ) : filtered.length === 0 ? (
           <p className="py-4 text-center text-[0.8125rem] font-medium text-[#868686]">ไม่พบคำศัพท์</p>
         ) : (
-          filtered.map((v, idx) => (
+  filtered.map((v, idx) => (
   <div
-    key={`${v.v1}-${idx}`}
+    key={v.id ?? idx}
     className="relative grid grid-cols-3 gap-[15px]"
   >
     {/* V.1 */}
-    <div className="h-[41.5px] rounded-[7px] bg-[#F5F5F5] grid place-items-center text-[0.8125rem] font-medium text-[#3C3C3C] truncate px-2">
+    <div className={`${isModal ? 'h-[43px]' : 'h-[41.5px]'} rounded-[7px] bg-[#F5F5F5] grid place-items-center text-[0.8125rem] font-medium text-[#3C3C3C] truncate px-2`}>
       {v.v1}
     </div>
 
     {/* V.2 */}
-    <div className="h-[41.5px] rounded-[7px] bg-[#F5F5F5] grid place-items-center text-[0.8125rem] font-medium text-[#3C3C3C] truncate px-2">
+    <div className={`${isModal ? 'h-[43px]' : 'h-[41.5px]'} rounded-[7px] bg-[#F5F5F5] grid place-items-center text-[0.8125rem] font-medium text-[#3C3C3C] truncate px-2`}>
       {v.v2}
     </div>
 
     {/* V.3 */}
-    <div className="h-[41.5px] rounded-[7px] bg-[#F5F5F5] grid place-items-center text-[0.8125rem] font-medium text-[#3C3C3C] truncate px-2">
+    <div className={`${isModal ? 'h-[43px]' : 'h-[41.5px]'} rounded-[7px] bg-[#F5F5F5] grid place-items-center text-[0.8125rem] font-medium text-[#3C3C3C] truncate px-2`}>
       {v.v3}
     </div>
 

@@ -176,7 +176,7 @@ export default function ProgressHistoryList({ attempts }: { attempts: HistoryAtt
                           </div>
                         </div>
                         {/* 172:513 / 172:7334: 26px tile, 14px icon inset 6px */}
-                        <div className="bg-[#8ebee6] size-[26px] shrink-0 rounded-[7px] p-[6px] flex items-center justify-center transition-colors group-hover:bg-[#7ab3de]">
+                        <div className="ms-auto bg-[#8ebee6] size-[26px] shrink-0 rounded-[7px] p-[6px] flex items-center justify-center transition-colors group-hover:bg-[#7ab3de]">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src="/progress/arrow-right-circle.svg"

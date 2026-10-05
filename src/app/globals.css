@@ -146,6 +146,170 @@
   }
 }
 
+/* Test-set intro — tablet fluid scale.
+   Figma ships two approved frames for this page and no tablet frame:
+   mobile 390px (node 200:7663) and desktop 1536px (node 75:68795).
+   Every value below is the straight line between those two measured
+   endpoints, so 390px stays pixel-exact and 1536px stays pixel-exact, and
+   everything in between (tablet) is a blend of the two — no invented values.
+   slope  = (desktop - mobile) / 1146      offset = mobile - slope x 390       */
+.intro-fluid {
+  --intro-card-w: clamp(355px, calc(61.6058vw + 114.7374px), 1061px);
+  --intro-card-h: clamp(494px, calc(4.5375vw + 476.3038px), 546px);
+  --intro-card-mt: clamp(23px, calc(24.3405px - 0.0873vw), 24px);
+
+  --intro-close-w: clamp(35px, calc(0.9597vw + 31.2572px), 46px);
+  --intro-close-h: clamp(30px, calc(0.9597vw + 26.2572px), 41px);
+  --intro-close-right: clamp(17px, calc(0.6107vw + 14.6183px), 24px);
+  --intro-close-top: clamp(16px, calc(0.5236vw + 13.958px), 22px);
+  --intro-close-border: clamp(1px, calc(1px - 0.0873vw), 2px);
+  --intro-close-icon: clamp(20px, calc(0.349vw + 18.6389px), 24px);
+
+  --intro-otter-w: clamp(157.668px, calc(1.4399vw + 152.0524px), 174.169px);
+  --intro-otter-inner-h: clamp(133.949px, calc(1.2231vw + 129.1789px), 147.967px);
+  --intro-otter-top: clamp(23px, calc(1.7452vw + 16.1937px), 43px);
+  --intro-sign-w: clamp(100.484px, calc(0.9176vw + 96.9054px), 111px);
+  --intro-sign-h: clamp(56.126px, calc(0.5126vw + 54.1269px), 62px);
+  --intro-sign-left: clamp(26.5px, calc(0.2417vw + 25.5574px), 29.27px);
+  --intro-sign-top: clamp(115.87px, calc(1.0585vw + 111.7419px), 128px);
+
+  --intro-text-top: clamp(215px, calc(3.4904vw + 201.3875px), 255px);
+  --intro-title-size: clamp(20px, calc(0.5236vw + 17.958px), 26px);
+  --intro-title-lh: clamp(33px, calc(0.8726vw + 29.5969px), 43px);
+  --intro-desc-size: clamp(15px, calc(0.2618vw + 13.9791px), 18px);
+  --intro-desc-lh: clamp(25px, calc(0.4363vw + 23.2984px), 30px);
+  --intro-desc-width: clamp(285px, calc(13.9616vw + 230.5497px), 445px);
+  --intro-desc-gap: clamp(7px, calc(16.3815px - 0.6107vw), 14px);
+  --intro-stats-gap: clamp(22px, calc(26.0209px - 0.2618vw), 25px);
+  --intro-bubble-size: clamp(14px, calc(0.1745vw + 13.3194px), 16px);
+
+  --intro-bar-h: clamp(94px, calc(0.2618vw + 92.9791px), 97px);
+  --intro-bar-pr: clamp(0px, calc(21.0296vw - 82.0154px), 241px);
+  --intro-cta-w: clamp(216px, calc(363.4346px - 9.5986vw), 326px);
+  --intro-cta-h: clamp(44px, calc(0.4363vw + 42.2984px), 49px);
+  --intro-cta-size: clamp(15px, calc(0.0873vw + 14.6597px), 16px);
+  --intro-cta-border-b: clamp(3px, calc(2.6597px + 0.0873vw), 4px);
+  --intro-cta-border-r: clamp(2px, calc(1.6597px + 0.0873vw), 3px);
+}
+
+/* Question card (Focus on Form / on Meaning) — mobile fluid scale.
+   Same rule as .intro-fluid: the Figma mobile frame is 390px wide
+   (node 200:8360 → card 200:8361) and the shipped desktop build is the other
+   approved endpoint. Each token is the straight line from the value measured
+   on the 390px frame to the value the desktop Tailwind classes already apply
+   once the viewport reaches 890px, so 390px is pixel-exact, 890px hands back
+   the untouched desktop values, and 390–890 blends the two with no invented
+   steps. The overrides live inside a `max-width: 890px` block, so above 890px
+   the component keeps its own classes with no interference at all.
+
+   slope = (desktop - mobile) / 500, written as a unitless number because
+   Chromium rejects a length multiplied by a parenthesised calc and then
+   divided again (CSS.supports fails on `calc(18px * (100vw - 390px) / 500)`). */
+.quiz-card-fluid {
+  --qc-radius: clamp(16px, calc(16px + 0.008 * (100vw - 390px)), 20px);
+  --qc-pad-top: clamp(16px, calc(16px + 0.016 * (100vw - 390px)), 24px);
+  --qc-pad-right: clamp(14px, calc(14px + 0.024 * (100vw - 390px)), 26px);
+  --qc-pad-bottom: clamp(22px, calc(22px + 0.002 * (100vw - 390px)), 23px);
+  --qc-pad-left: clamp(15px, calc(15px + 0.022 * (100vw - 390px)), 26px);
+
+  --qc-bubble-min-h: clamp(0px, calc(0.164 * (100vw - 390px)), 82px);
+  --qc-avatar-size: clamp(30px, calc(30px + 0.008 * (100vw - 390px)), 34px);
+  --qc-speaker-size: clamp(13px, calc(13px + 0.002 * (100vw - 390px)), 14px);
+  --qc-dialogue-size: clamp(14px, calc(14px + 0.002 * (100vw - 390px)), 15px);
+
+  --qc-prompt-mt: clamp(23px, calc(33px - 0.02 * (100vw - 390px)), 33px);
+  --qc-prompt-icon: clamp(13px, calc(13px + 0.004 * (100vw - 390px)), 15px);
+  --qc-prompt-size: clamp(14px, calc(14px + 0.004 * (100vw - 390px)), 16px);
+
+  --qc-options-mt: clamp(14px, calc(14px + 0.018 * (100vw - 390px)), 23px);
+  --qc-options-gap-y: clamp(8px, calc(8px + 0.016 * (100vw - 390px)), 16px);
+  --qc-option-min-h: clamp(60px, calc(60px + 0.036 * (100vw - 390px)), 78px);
+  --qc-option-radius: clamp(14px, calc(14px + 0.004 * (100vw - 390px)), 16px);
+  --qc-badge-size: clamp(12px, calc(12px + 0.004 * (100vw - 390px)), 14px);
+  --qc-option-size: clamp(14px, calc(14px + 0.004 * (100vw - 390px)), 16px);
+}
+
+@media (max-width: 890px) {
+  /* .qc-card IS the token host, so this needs a compound selector. */
+  .quiz-card-fluid.qc-card {
+    border-radius: var(--qc-radius);
+    padding: var(--qc-pad-top) var(--qc-pad-right) var(--qc-pad-bottom) var(--qc-pad-left);
+  }
+
+  .quiz-card-fluid .qc-bubble {
+    min-height: var(--qc-bubble-min-h);
+  }
+
+  .quiz-card-fluid .qc-avatar {
+    width: var(--qc-avatar-size);
+    height: var(--qc-avatar-size);
+  }
+
+  .quiz-card-fluid .qc-speaker {
+    font-size: var(--qc-speaker-size);
+  }
+
+  .quiz-card-fluid .qc-dialogue,
+  .quiz-card-fluid .qc-blank {
+    font-size: var(--qc-dialogue-size);
+  }
+
+  .quiz-card-fluid .qc-prompt {
+    margin-top: var(--qc-prompt-mt);
+  }
+
+  .quiz-card-fluid .qc-prompt-icon {
+    width: var(--qc-prompt-icon);
+    height: var(--qc-prompt-icon);
+  }
+
+  .quiz-card-fluid .qc-prompt-text {
+    font-size: var(--qc-prompt-size);
+    /* Figma 200:8402 measures tracking in absolute 0.35px at both sizes. */
+    letter-spacing: 0.35px;
+  }
+
+  .quiz-card-fluid .qc-options {
+    margin-top: var(--qc-options-mt);
+    row-gap: var(--qc-options-gap-y);
+  }
+
+  .quiz-card-fluid .qc-option {
+    min-height: var(--qc-option-min-h);
+    border-radius: var(--qc-option-radius);
+  }
+
+  .quiz-card-fluid .qc-badge {
+    font-size: var(--qc-badge-size);
+  }
+
+  .quiz-card-fluid .qc-option-text {
+    font-size: var(--qc-option-size);
+  }
+}
+
+/* Question-order nav — mobile fluid scale.
+   Figma mobile frame (node 200:8360 → nav strip 200:8492) is the only approved
+   frame for this piece; the 890px endpoint is the sidebar layout that already
+   ships. Same straight-line rule as .quiz-card-fluid, same max-width: 890px
+   guard, so the sidebar and `getQuestionButtonClass` stay untouched.
+
+   NB: the desktop end is an exact repeat of the 390px values, so these clamps
+   read as constants. They are kept as tokens anyway so the strip can be tuned
+   against the Figma frame without touching the JSX class list. */
+.quiz-nav-fluid {
+  --qn-bar-px: 15px;
+  --qn-bar-py: 7px;
+  --qn-cell: 46px;
+  --qn-cell-radius: 8px;
+  --qn-cell-font: 13px;
+  --qn-gap: 10px;
+  --qn-track-width: 287px;
+  --qn-divider-h: 32px;
+  --qn-trail: 53px;
+  --qn-trail-img: 50px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .stagger-animate {
     opacity: 0;

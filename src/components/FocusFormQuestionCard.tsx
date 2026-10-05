@@ -92,9 +92,9 @@ export default function FocusFormQuestionCard({
         // focus-meaning เก็บ name ไว้ครบทุกบรรทัด — ใช้ชื่อจริงแทนรหัสผู้พูด (A / B)
         const speakerLabel = line.name?.trim() || line.speaker;
         return (
-        <div key={i} className="flex items-center gap-[1.3125rem] bg-[#F6F6F6] rounded-[10px] ps-4 pe-6 py-2 min-h-[5.125rem]">
+        <div key={i} className="qc-bubble flex items-center gap-[1.3125rem] bg-[#F6F6F6] rounded-[10px] ps-4 pe-6 py-2 min-h-[5.125rem]">
           <div
-            className="w-[2.125rem] h-[2.125rem] rounded-full shrink-0 bg-cover bg-center"
+            className="qc-avatar w-[2.125rem] h-[2.125rem] rounded-full shrink-0 bg-cover bg-center"
             style={{
               // Figma: woman = #DDBABA, man = #A7C4DB — even line = first speaker
               backgroundColor: i % 2 === 0 ? '#A7C4DB' : '#DDBABA',
@@ -104,8 +104,8 @@ export default function FocusFormQuestionCard({
             aria-label={speakerLabel}
           />
           <div className="min-w-0 flex-1">
-            <p className="h-6 text-sm font-semibold text-[#64748B] leading-5">{speakerLabel}</p>
-            <p className="flex flex-wrap items-center gap-x-[5px] text-[0.9375rem] font-medium leading-[1.625rem] text-[#334155]">
+            <p className="qc-speaker h-6 text-sm font-semibold text-[#64748B] leading-5">{speakerLabel}</p>
+            <p className="qc-dialogue flex flex-wrap items-center gap-x-[5px] text-[0.9375rem] font-medium leading-[1.625rem] text-[#334155]">
               {line.text.split(/(\s+)/).filter(Boolean).map((word, wi) =>
                 /^\s+$/.test(word)
                   ? null
@@ -114,7 +114,7 @@ export default function FocusFormQuestionCard({
                     ? (
                       <span
                         key={wi}
-                        className="inline-flex h-6 items-center rounded-[6px] bg-white px-2 py-0.5 text-[0.9375rem] leading-[1.5rem] text-[#5F5F5F]"
+                        className="qc-blank inline-flex h-6 items-center rounded-[6px] bg-white px-2 py-0.5 text-[0.9375rem] leading-[1.5rem] text-[#5F5F5F]"
                       >
                         <SelectableText text={word} contextSentence={line.text} inline />
                       </span>
@@ -137,7 +137,7 @@ export default function FocusFormQuestionCard({
     if (!hasDialogue) {
       return (
         <div className="bg-[#F6F6F6] rounded-[10px] px-6 py-10">
-          <div className="text-[1.25rem] md:text-xl text-[#334155] leading-relaxed">
+          <div className="text-[1.25rem] min-[890px]:text-xl text-[#334155] leading-relaxed">
             <SelectableText text={questionText} contextSentence={questionText} />
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function FocusFormQuestionCard({
 
   return (
     // Figma 60:3935 — 840×457 r20, padding 26 ข้าง / 24 บน / 23 ล่าง
-    <div className="bg-white rounded-[20px] p-4 sm:px-[26px] sm:pt-6 sm:pb-[23px]">
+    <div className="quiz-card-fluid qc-card bg-white rounded-[20px] p-4 min-[890px]:px-[26px] min-[890px]:pt-6 min-[890px]:pb-[23px]">
       {HeaderIcon && headerLabel && (
         <div className="flex items-center gap-2 mb-4">
           <HeaderIcon className={`w-5 h-5 ${theme.headerText}`} />
@@ -167,12 +167,12 @@ export default function FocusFormQuestionCard({
 
       {conversation && conversation.length > 0 && (
         // Figma 60:3970 — ไอคอน 15px + gap 10px + ข้อความ 16px SemiBold tracking 0.35px สูง 18px
-        <div className="flex items-center gap-2.5 mt-[1.4375rem]">
+        <div className="qc-prompt flex items-center gap-2.5 mt-[1.4375rem]">
           {/* span แบบ block กัน inline <img> ดัน baseline ทำให้แถวสูงเกิน 18px (ดีไซน์ 60:3971) */}
           <span className="shrink-0 block text-[#334155]">
-            <Image src="/icon_svg/question.svg" alt="" width={15} height={15} className="block h-[15px] w-[15px]" aria-hidden="true" />
+            <Image src="/icon_svg/question.svg" alt="" width={15} height={15} className="qc-prompt-icon block h-[15px] w-[15px]" aria-hidden="true" />
           </span>
-          <div className="text-base font-semibold capitalize leading-[1.125rem] text-[#334155] tracking-[0.0219em]">
+          <div className="qc-prompt-text text-base font-semibold capitalize leading-[1.125rem] text-[#334155] tracking-[0.0219em]">
             {/* inline: ปล่อยให้ SelectableText ไม่ใส่ leading-relaxed ของตัวเอง (Figma 60:3973 = 18px) */}
             <SelectableText text={questionText} contextSentence={questionText} inline />
           </div>
@@ -180,7 +180,7 @@ export default function FocusFormQuestionCard({
       )}
 
       {/* Figma 60:3969 — ระยะห่างโจทย์→ตัวเลือก 23px, ตัวเลือก gap-x 28 / gap-y 16 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-7 gap-y-4 mt-6 sm:mt-[1.4375rem]">
+      <div className="qc-options grid grid-cols-1 min-[890px]:grid-cols-2 gap-x-7 gap-y-4 mt-6 min-[890px]:mt-[1.4375rem]">
         {options.map((opt) => {
           const isSelected = selectedAnswer === opt.key;
           const isCorrectOption = opt.key === correctAnswer;
@@ -210,9 +210,9 @@ export default function FocusFormQuestionCard({
               type="button"
               onClick={() => onAnswerSelect(opt.key)}
               disabled={showFeedback || disabled}
-              className={buttonClass}
+              className={`qc-option ${buttonClass}`}
             >
-              <span className={`shrink-0 w-7 h-7 rounded-lg grid place-items-center text-sm font-bold ${
+              <span className={`qc-badge shrink-0 w-7 h-7 rounded-lg grid place-items-center text-sm font-bold ${
                     !showFeedback
                       ? isSelected
                         ? theme.badge
@@ -225,7 +225,7 @@ export default function FocusFormQuestionCard({
                   }`}>
                 {opt.key}
               </span>
-              <span className="text-base font-medium leading-[1.625rem] text-[#1E293B]">
+              <span className="qc-option-text text-base font-medium leading-[1.625rem] text-[#1E293B]">
                 <SelectableText text={opt.value} contextSentence={opt.value} inline />
               </span>
             </button>
@@ -277,7 +277,7 @@ export default function FocusFormQuestionCard({
         rounded-2xl
         px-4
         py-4
-        sm:px-5
+        min-[890px]:px-5
       "
       style={{
         border: '1.6px solid #F5D963',

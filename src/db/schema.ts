@@ -451,3 +451,23 @@ export const questionSelectionLogs = pgTable('question_selection_logs', {
 export type DbQuestionSelectionLog = typeof questionSelectionLogs.$inferSelect;
 export type NewQuestionSelectionLog = typeof questionSelectionLogs.$inferInsert;
 
+// ============================================================
+// Verb Bank (คลังกริยา 3 ช่อง — sidebar ในหน้าสอบ)
+// Figma node 2654:1249 · เดิมเป็นข้อมูลตัวอย่าง hardcode ใน TestLayout
+// ============================================================
+
+export const verbBanks = pgTable('verb_banks', {
+  id: serial('id').primaryKey(),
+  v1: varchar('v1', { length: 100 }).notNull(),
+  v2: varchar('v2', { length: 100 }).notNull(),
+  v3: varchar('v3', { length: 100 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  v1Idx: index('verb_banks_v1_idx').on(table.v1),
+  tripleUniq: uniqueIndex('verb_banks_v1_v2_v3_uniq').on(table.v1, table.v2, table.v3),
+}));
+
+export type DbVerbBank = typeof verbBanks.$inferSelect;
+export type NewVerbBank = typeof verbBanks.$inferInsert;
+

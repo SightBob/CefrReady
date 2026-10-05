@@ -15,6 +15,7 @@ import {
   Languages,
   Database,
   Highlighter,
+  BookMarked,
 } from 'lucide-react';
 import MaintenanceToggle from '@/components/admin/MaintenanceToggle';
 
@@ -132,6 +133,15 @@ export default function AdminDashboard() {
       href: '/admin/test-feedback',
       color: 'from-amber-500 to-yellow-500',
       bgColor: 'bg-amber-50',
+      count: 0,
+    },
+    {
+      title: 'คลังกริยา 3 ช่อง',
+      description: 'เพิ่ม แก้ไข ลบคลังกริยาในหน้าสอบ',
+      icon: BookMarked,
+      href: '/admin/verb-banks',
+      color: 'from-emerald-500 to-teal-500',
+      bgColor: 'bg-emerald-50',
       count: 0,
     },
     {
