@@ -1,5 +1,24 @@
 # Admin Panel Setup Guide
 
+## OpenRouter — ตรวจเหตุผล Tap & Select
+
+1. สร้าง OpenRouter API key แล้วตั้ง `OPENROUTER_API_KEY` ใน environment **ฝั่ง server เท่านั้น** (local ใช้ `.env.local`) ห้ามใช้ prefix `NEXT_PUBLIC_` และห้าม commit key
+2. Restart server หลังตั้ง key; ระบบตั้งค่าใช้ Upstash credentials เดิม ไม่ต้อง migrate database
+3. เข้าด้วยบัญชี admin → **จัดการ AI** (`/admin/ai-settings`)
+4. ระบุ OpenRouter model ID ที่รองรับ **structured outputs / JSON Schema**, แนวทาง feedback และ output token limit (300–2000)
+5. กด **ทดสอบการเชื่อมต่อ** ด้วยโจทย์ตัวอย่าง: ใช้ค่าบนฟอร์มและอาจใช้เครดิต แต่ไม่บันทึกหรือเปิด AI อัตโนมัติ
+6. เปิด **AI ตรวจเหตุผล** แล้วกด **บันทึกการตั้งค่า** (ค่าเริ่มต้นปิด)
+
+Flow เฉพาะ Tap & Select: เลือกตัวเลือก → เขียนเหตุผล → ตรวจคำตอบ → feedback ภาษาไทย → ข้อต่อไป; ข้อสุดท้ายเปลี่ยนเป็น **ส่งคำตอบ** หลังตรวจ ระบบตรวจตัวเลือกจากเฉลยในฐานข้อมูล ส่วน AI ประเมินความเข้าใจแยกเป็น ถูกต้อง / ถูกบางส่วน / คลาดเคลื่อน / ไม่ชัดเจน โดยไม่เปลี่ยนคะแนนสอบหรือให้ +50
+
+- ตั้งค่าที่ Redis key `ai:tap-select:settings` เท่านั้น **ไม่เกี่ยวกับ `maintenance:mode` และห้ามปิด maintenance เพื่อทดสอบ**
+- API key ไม่บันทึกใน Redis และ API ส่งกลับเฉพาะสถานะว่าตั้ง key แล้วหรือไม่
+- ส่งโจทย์ ตัวเลือก เฉลย และเหตุผลไป OpenRouter ไม่ส่งชื่อ อีเมล หรือ user ID; เหตุผล/feedback เก็บใน state ของหน้าเท่านั้น รีโหลดแล้วหาย
+- จำกัดเหตุผล 1,500 ตัวอักษร, ผู้เรียน 6 ครั้ง/นาที, admin test 3 ครั้ง/นาที และ provider timeout 25 วินาที
+- ถ้า AI ปิด แสดงผลตัวเลือกพร้อมข้อความว่าไม่ได้ตรวจเหตุผล; หาก provider ล้มเหลว ผู้เรียนลองใหม่หรือข้ามการตรวจได้
+- ถ้าทดสอบไม่สำเร็จ ตรวจ key, เครดิต, model ID และการรองรับ JSON Schema; ห้ามนำข้อความลับจาก provider ไปแสดง browser
+
+
 ## ✨ สิ่งที่สร้างเสร็จแล้ว
 
 ### 1. Database Schema

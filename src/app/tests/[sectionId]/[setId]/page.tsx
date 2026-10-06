@@ -9,6 +9,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
+import { MAX_TAP_REASON_LENGTH, tapAiFeedbackSchema, type TapReasonResult } from '@/lib/tap-ai';
 
 import type { QuestionResult, Option, Blank } from '@/types/test';
 import { usePostHog } from '@/lib/posthog';
@@ -25,8 +26,10 @@ import {
   getOriginalTapChoiceAnswer,
   shuffleTapExerciseChoices,
   type ShuffledChoiceOption,
+  type TapChoiceKey,
   type TestSetSlot,
   type TapExerciseData,
+  type TapExerciseItem,
 } from '@/lib/test-set-slots';
 import type { PublicTapExerciseData } from '@/lib/test-set-slots';
 import dynamic from 'next/dynamic';
@@ -85,6 +88,14 @@ interface RawQuestion {
   orderIndex: number;
 }
 
+/** คืนคีย์คำตอบถูกจากเฉลยที่ติดมากับ payload (ไม่มีในข้อมูลชนิด Public ที่ถูกถอดเฉลย) */
+function tapCorrectChoice(
+  item: TapExerciseItem | Omit<TapExerciseItem, 'correct'> | undefined,
+): TapChoiceKey | null {
+  if (!item || !('correct' in item)) return null;
+  return item.correct === 0 ? 'A' : item.correct === 1 ? 'B' : null;
+}
+
 interface SetData {
   id: number;
   sectionId: string;
@@ -122,7 +133,11 @@ export default function SetQuizPage() {
   // Standard quiz state (MCQ types)
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [tapAnswerCorrectness, setTapAnswerCorrectness] = useState<Record<number, boolean>>({});
+  const [tapReasons, setTapReasons] = useState<Record<string, string>>({});
+  const [tapReasonResults, setTapReasonResults] = useState<Record<string, TapReasonResult>>({});
+  const [tapReasonErrors, setTapReasonErrors] = useState<Record<string, string>>({});
+  const [tapChecking, setTapChecking] = useState<Record<string, boolean>>({});
+  const tapRequestVersions = useRef<Record<string, number>>({});
   const [answers, setAnswers] = useState<(string | null)[]>([]);
   const [scoredTotal, setScoredTotal] = useState<number | null>(null);
   const [results, setResults] = useState<QuestionResult[]>([]);
@@ -339,36 +354,56 @@ export default function SetQuizPage() {
       setAnswers(next);
     }
     setSelectedAnswer(answer);
+  };
 
-    const slot = mainSlots[answerSlotIndex];
+  const tapStateKey = (slotIndex: number) => `${setId}-${phase}-${slotIndex}`;
+  const clearTapFeedback = (key: string) => {
+    tapRequestVersions.current[key] = (tapRequestVersions.current[key] ?? 0) + 1;
+    setTapReasonResults(current => { const next = { ...current }; delete next[key]; return next; });
+    setTapReasonErrors(current => { const next = { ...current }; delete next[key]; return next; });
+    setTapChecking(current => ({ ...current, [key]: false }));
+  };
+
+  const checkTapReason = async () => {
+    if (!setData || selectedAnswer === null) return;
+    const slotIndex = isReviewPhase ? reviewQueue[reviewIndex] : currentQuestion;
+    const slot = mainSlots[slotIndex];
     if (slot?.kind !== 'tap') return;
+    const key = tapStateKey(slotIndex);
+    if (tapChecking[key]) return;
+    const reason = (tapReasons[key] ?? '').trim();
+    if (!reason || reason.length > MAX_TAP_REASON_LENGTH) return;
     const question = setData.questions[slot.questionIndex];
-    const item = question.tapExercise?.items[slot.itemIndex];
-    if (!item) return;
-
-    const { answerKeys } = shuffleTapExerciseChoices(
-      item,
-      `${choiceShuffleSeed}-${question.id}-tap-${slot.itemIndex}`,
-    );
-    void apiFetch('/api/tests/tap-answer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        testSetId: setId,
-        questionId: question.id,
-        itemIndex: slot.itemIndex,
-        selectedAnswer: getOriginalTapChoiceAnswer(answer, answerKeys),
-      }),
-    })
-      .then(response => response.json())
-      .then(result => {
-        if (result.success && typeof result.data?.isCorrect === 'boolean') {
-          setTapAnswerCorrectness(current => ({ ...current, [answerSlotIndex]: result.data.isCorrect }));
-        }
-      })
-      .catch(() => {
-        // Keep the selected option neutral if server-side answer checking fails.
+    const version = (tapRequestVersions.current[key] ?? 0) + 1;
+    tapRequestVersions.current[key] = version;
+    setTapChecking(current => ({ ...current, [key]: true }));
+    setTapReasonErrors(current => { const next = { ...current }; delete next[key]; return next; });
+    try {
+      const response = await fetch('/api/tests/tap-reason', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testSetId: setId, questionId: question.id, itemIndex: slot.itemIndex,
+          selectedAnswer: toStoredAnswer(question, slot, selectedAnswer), reason,
+        }),
+        signal: AbortSignal.timeout(30_000),
       });
+      const body = await response.json();
+      if (!response.ok || !body.success) throw new Error(body.error || 'ตรวจเหตุผลไม่สำเร็จ กรุณาลองอีกครั้ง');
+      if (typeof body.data?.isCorrect !== 'boolean') throw new Error('ผลตรวจไม่สมบูรณ์ กรุณาลองอีกครั้ง');
+      const result: TapReasonResult = {
+        isCorrect: body.data.isCorrect,
+        ai: body.data.ai === null ? null : tapAiFeedbackSchema.parse(body.data.ai),
+        message: typeof body.data.message === 'string' ? body.data.message : undefined,
+      };
+      if (tapRequestVersions.current[key] === version) setTapReasonResults(current => ({ ...current, [key]: result }));
+    } catch (error) {
+      if (tapRequestVersions.current[key] === version) setTapReasonErrors(current => ({
+        ...current, [key]: error instanceof Error && error.name !== 'TimeoutError' ? error.message : 'ตรวจเหตุผลใช้เวลานาน กรุณาลองอีกครั้ง',
+      }));
+    } finally {
+      if (tapRequestVersions.current[key] === version) setTapChecking(current => ({ ...current, [key]: false }));
+    }
   };
 
   // Layout index → phase-correct slot. In review phase, layout indices are
@@ -390,11 +425,9 @@ export default function SetQuizPage() {
       reviewNext[rIdx] = null;
       setReviewAnswers(reviewNext);
       const slotIndex = reviewQueue[rIdx];
-      setTapAnswerCorrectness(current => {
-        const next = { ...current };
-        delete next[slotIndex];
-        return next;
-      });
+      const key = tapStateKey(slotIndex);
+      clearTapFeedback(key);
+      setTapReasons(current => ({ ...current, [key]: '' }));
       if (rIdx === reviewIndex) setSelectedAnswer(null);
       return;
     }
@@ -402,11 +435,9 @@ export default function SetQuizPage() {
     newAnswers[index] = null;
     setAnswers(newAnswers);
     setSelectedAnswer(null);
-    setTapAnswerCorrectness(current => {
-      const next = { ...current };
-      delete next[index];
-      return next;
-    });
+    const key = tapStateKey(index);
+    clearTapFeedback(key);
+    setTapReasons(current => ({ ...current, [key]: '' }));
   };
 
   const handleQuestionSelect = (index: number) => {
@@ -677,7 +708,11 @@ export default function SetQuizPage() {
     setReviewableWrongSlots([]);
     setShowReviewIntro(false);
     setRetryResults(null);
-    setTapAnswerCorrectness({});
+    Object.keys(tapRequestVersions.current).forEach(key => { tapRequestVersions.current[key] += 1; });
+    setTapReasons({});
+    setTapReasonResults({});
+    setTapReasonErrors({});
+    setTapChecking({});
   };
 
   // form-meaning uses its own special renderer when all entries are articles.
@@ -831,6 +866,16 @@ export default function SetQuizPage() {
 
   // ─── Tap & Select item ───────────────────────────────────────────
   if (tapItem) {
+    const key = tapStateKey(activeSlotIndex);
+    const reason = tapReasons[key] ?? '';
+    const result = tapReasonResults[key];
+    const checking = tapChecking[key] ?? false;
+    const continueAfterFeedback = () => layoutCurrent < layoutTotal - 1 ? handleNext() : void handleSubmit();
+    // เฉลยมาพร้อม payload → ขึ้นสีถูก/ผิดทันทีที่ผู้เรียนเลือก ไม่ต้องรอเรียกเซิร์ฟเวอร์
+    const slotItem = activeSlot && activeSlot.kind === 'tap' ? question.tapExercise?.items[activeSlot.itemIndex] : undefined;
+    const correctChoice = tapCorrectChoice(slotItem);
+    const storedChoice = selectedAnswer === null ? null : toStoredAnswer(question, activeSlot!, selectedAnswer);
+    const choiceIsCorrect = storedChoice !== null && correctChoice !== null ? storedChoice === correctChoice : null;
     return (
       <>
         <TestLayout
@@ -847,6 +892,14 @@ export default function SetQuizPage() {
           onTimeUp={handleTimeUp}
           currentQuestionId={question.id}
           onResetAnswer={handleResetAnswer}
+          primaryAction={selectedAnswer !== null && !result ? {
+            label: checking ? 'กำลังตรวจ…' : 'ตรวจคำตอบ',
+            onClick: () => void checkTapReason(),
+            disabled: submitting || checking || !reason.trim(),
+          } : result && layoutCurrent >= layoutTotal - 1 ? {
+            label: 'ส่งคำตอบ', onClick: () => void handleSubmit(), disabled: submitting,
+          } : undefined}
+          reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
         >
           <TestTapSelectCard
             key={`${question.id}-${activeSlot.kind === 'tap' ? activeSlot.itemIndex : ''}`}
@@ -856,11 +909,18 @@ export default function SetQuizPage() {
             itemIndex={activeSlot.kind === 'tap' ? activeSlot.itemIndex : 0}
             selectedAnswer={selectedAnswer}
             onAnswer={handleAnswer}
-            answerIsCorrect={tapAnswerCorrectness[activeSlotIndex] ?? null}
+            answerIsCorrect={result?.isCorrect ?? choiceIsCorrect}
+            note={reason}
+            onNoteChange={value => { clearTapFeedback(key); setTapReasons(current => ({ ...current, [key]: value })); }}
+            feedback={result}
+            checking={checking}
+            error={tapReasonErrors[key]}
+            onSkipFeedback={tapReasonErrors[key] ? continueAfterFeedback : undefined}
             disabled={submitting}
           />
           {modalsFragment}
         </TestLayout>
+        <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
       </>
     );
   }

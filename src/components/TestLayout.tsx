@@ -63,6 +63,8 @@ interface TestLayoutProps {
   reviewSegmentStart?: number;
   /** Open the current question's linked explain content. */
   reviewAction?: { label: string; onClick: () => void };
+  /** Optional teaching action; ordinary question navigation remains unchanged. */
+  primaryAction?: { label: string; onClick: () => void; disabled?: boolean };
 }
 
 /**
@@ -103,6 +105,7 @@ export default function TestLayout({
   phaseLabel,
   reviewSegmentStart,
   reviewAction,
+  primaryAction,
 }: TestLayoutProps) {
   const router = useRouter();
   const [showNavPanel, setShowNavPanel] = useState(true);
@@ -743,14 +746,16 @@ export default function TestLayout({
             <span className="text-sm min-[890px]:text-base text-center font-bold whitespace-nowrap">{reviewAction.label}</span>
           </button>
         )}
-        {currentQuestion < totalQuestions - 1 ? (
+        {currentQuestion < totalQuestions - 1 || primaryAction ? (
           <button
-            onClick={onNext}
-            className={`flex-1 min-[890px]:flex-none min-[890px]:w-[13.5rem] h-14 min-[890px]:h-[3.0625rem] rounded-[14px] flex items-center justify-center text-[1rem] text-[#524924] transition-colors ${
+            type="button"
+            onClick={primaryAction?.onClick ?? onNext}
+            disabled={primaryAction?.disabled}
+            className={`flex-1 min-[890px]:flex-none min-[890px]:w-[13.5rem] h-14 min-[890px]:h-[3.0625rem] rounded-[14px] flex items-center justify-center text-[1rem] text-[#524924] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               isAnswered ? 'bg-[#FFF0AE] border-b-4 border-r-[3px] border-[#FFDB40] hover:bg-[#FFEA8F]' : 'bg-[#FFF0AE]/60 border-b-4 border-r-[3px] border-[#FFDB40]/50 hover:bg-[#FFF0AE]'
             }`}
           >
-            <span className='text-base min-[890px]:text-[1rem] text-center font-semibold whitespace-nowrap'>ข้อต่อไป</span>
+            <span className='text-base min-[890px]:text-[1rem] text-center font-semibold whitespace-nowrap'>{primaryAction?.label ?? 'ข้อต่อไป'}</span>
           </button>
         ) : (
           <button
