@@ -4,9 +4,10 @@ import './globals.css';
 // fonts.googleapis.com on networks that block Google (see fonts.css).
 import './fonts.css';
 import ChromeShell from '@/components/ChromeShell';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { SessionProvider } from 'next-auth/react';
 import { Suspense } from 'react';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 import TopLoadingBar from '@/components/TopLoadingBar';
 
 const BASE_URL = 'https://cefr-ready.site';
@@ -121,6 +122,8 @@ export default async function RootLayout({
               <PHCapture />
             </Suspense>
             <ChromeShell
+              header={<Header />}
+              footer={<Footer />}
               headerFallback={<div className="h-16 bg-white border-b border-slate-100" aria-hidden="true" />}
               mainFallback={
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -141,8 +144,8 @@ export default async function RootLayout({
           </PostHogProvider>
         </SessionProvider>
         {/* PostHog (idle-initialized) is the single analytics provider now;
-            GA and Vercel Analytics were removed to cut duplicate tracking JS. */}
-        <SpeedInsights />
+            GA, Vercel Analytics and Speed Insights were removed to cut
+            duplicate/non-functional tracking JS. PostHog collects web vitals. */}
         <ToasterWrapper />
       </body>
     </html>

@@ -138,7 +138,6 @@ export default async function Home() {
       src="/bg/bg-main1.png"
       alt=""
       fill
-      priority
       sizes="100vw"
       className="object-cover object-center"
     />
