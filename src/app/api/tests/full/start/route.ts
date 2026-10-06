@@ -12,12 +12,8 @@ import {
 import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
+import { getCachedQuestionPool } from '@/lib/full-test/question-pool';
 import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
-
-// Adaptive selection only needs id/type/level metadata; heavy columns
-// (article jsonb, transcript, explanation) are fetched for the single
-// selected question instead of the whole pool.
-const poolSelection = { id: questions.id, testTypeId: questions.testTypeId, cefrLevel: questions.cefrLevel };
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +28,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  const firstPart = FULL_TEST_PART_DISTRIBUTION[0];
+
+  // The progress read and the (cached) question pool are read-only and are
+  // independent of the Redis throttle, so start them before awaiting it and
+  // overlap one round trip. Cancelling stale attempts is a WRITE that must not
+  // happen for a throttled caller, so it stays behind the throttle check.
+  const readsPromise = Promise.all([
+    db
+      .select({ averageScore: userProgress.averageScore })
+      .from(userProgress)
+      .where(and(eq(userProgress.userId, userId), eq(userProgress.testTypeId, 'full-test'))),
+    getCachedQuestionPool(firstPart),
+  ]);
+
   const [ipThrottleError, rateLimitError] = await Promise.all([
     checkIpThrottle(request, { keySuffix: 'full-start' }),
     checkUserRateLimit(userId, { windowMs: 60_000, maxRequests: 10, keySuffix: 'start' }),
@@ -39,11 +49,8 @@ export async function POST(request: Request) {
   if (ipThrottleError) return ipThrottleError;
   if (rateLimitError) return rateLimitError;
 
-  const firstPart = FULL_TEST_PART_DISTRIBUTION[0];
-
-  // Cancel stale attempts, read starting level, and load the selection pool
-  // concurrently — none depends on another.
-  const [, progressRows, pool] = await Promise.all([
+  // Cancel stale attempts and collect the reads started above concurrently.
+  const [, [progressRows, pool]] = await Promise.all([
     db
       .update(testAttempts)
       .set({ status: 'cancelled' })
@@ -52,14 +59,7 @@ export async function POST(request: Request) {
         eq(testAttempts.status, 'in_progress'),
         eq(testAttempts.testTypeId, 'full-test')
       )),
-    db
-      .select()
-      .from(userProgress)
-      .where(and(eq(userProgress.userId, userId), eq(userProgress.testTypeId, 'full-test'))),
-    db
-      .select(poolSelection)
-      .from(questions)
-      .where(and(eq(questions.testTypeId, firstPart), eq(questions.active, 'true'))),
+    readsPromise,
   ]);
 
   const overallScore = progressRows[0]?.averageScore
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         lastActivityAt: new Date(),
         adaptivePath: [],
       })
-      .returning(),
+      .returning({ id: testAttempts.id }),
     db.select().from(questions).where(eq(questions.id, firstResult.question.id)),
   ]);
 

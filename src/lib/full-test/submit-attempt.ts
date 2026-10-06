@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { testAttempts, userAnswers, userProgress, questions, type DbTestAttempt } from '@/db/schema';
+import { testAttempts, userAnswers, userProgress, questions } from '@/db/schema';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import { type CefrLevel } from './constants';
 import {
@@ -41,16 +41,27 @@ function expandPathForScoring(
 }
 
 export async function submitAttempt(attemptId: number, userId: string) {
-  // Attempt + progress reads are independent — fetch in parallel.
+  // Attempt + progress reads are independent — fetch in parallel. Only the
+  // columns used below are selected: `SELECT *` pulled currentLevels and the
+  // full attempt row for nothing.
   const [[attempt], progressRows] = await Promise.all([
     db
-      .select()
+      .select({
+        id: testAttempts.id,
+        status: testAttempts.status,
+        score: testAttempts.score,
+        correctAnswers: testAttempts.correctAnswers,
+        totalQuestions: testAttempts.totalQuestions,
+        adaptivePath: testAttempts.adaptivePath,
+      })
       .from(testAttempts)
-      .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId))),
+      .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId)))
+      .limit(1),
     db
-      .select()
+      .select({ id: userProgress.id })
       .from(userProgress)
-      .where(and(eq(userProgress.userId, userId), eq(userProgress.testTypeId, 'full-test'))),
+      .where(and(eq(userProgress.userId, userId), eq(userProgress.testTypeId, 'full-test')))
+      .limit(1),
   ]);
 
   if (!attempt) throw new Error('Attempt not found');
@@ -136,7 +147,13 @@ export async function submitAttempt(attemptId: number, userId: string) {
       completedAt: now,
     })
     .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.status, 'in_progress')))
-    .returning();
+    .returning({
+      id: testAttempts.id,
+      score: testAttempts.score,
+      correctAnswers: testAttempts.correctAnswers,
+      totalQuestions: testAttempts.totalQuestions,
+      adaptivePath: testAttempts.adaptivePath,
+    });
 
   if (!updated) {
     throw new Error('Attempt already submitted or cancelled by another request');
@@ -165,8 +182,17 @@ export async function submitAttempt(attemptId: number, userId: string) {
   return buildResult(updated, percentageScore, cefrLevel, normalizedScore, expandedCorrect, expandedTotal, confidence, reusedCount);
 }
 
+/** The subset of a test_attempts row that buildResult reads back. */
+type AttemptResultSource = {
+  id: number;
+  score: string | null;
+  correctAnswers: number | null;
+  totalQuestions: number | null;
+  adaptivePath: unknown;
+};
+
 function buildResult(
-  attempt: DbTestAttempt,
+  attempt: AttemptResultSource,
   score?: number,
   cefrLevel?: CefrLevel,
   normalizedScore?: number,
@@ -192,7 +218,7 @@ async function updateUserProgress(
   userId: string,
   testTypeId: string,
   score: number,
-  existing: (typeof userProgress.$inferSelect)[]
+  existing: Array<{ id: number }>
 ) {
   if (existing.length > 0) {
     const p = existing[0];

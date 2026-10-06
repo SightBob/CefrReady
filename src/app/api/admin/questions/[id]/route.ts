@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { eq, sql, asc } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -131,6 +132,9 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
 
+    // cefrLevel / active / testTypeId ที่แก้ อาจเปลี่ยนว่าโจทย์อยู่ในคลัง full-test ไหม
+    revalidateQuestionPool();
+
     return NextResponse.json(updatedQuestion);
   } catch (error) {
     console.error('Error updating question:', error);
@@ -153,6 +157,8 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
     if (!deletedQuestion) {
       return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
+
+    revalidateQuestionPool();
 
     return NextResponse.json({ message: 'Question deleted successfully' });
   } catch (error) {

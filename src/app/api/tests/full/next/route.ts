@@ -16,6 +16,7 @@ import {
 } from '@/lib/full-test/constants';
 import { getNextLevel, selectQuestion, getPerTypeAnswerHistory, getInitialLevels } from '@/lib/full-test/algorithm';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
+import { getCachedQuestionPool } from '@/lib/full-test/question-pool';
 import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
 
 const bodySchema = z.object({
@@ -24,11 +25,6 @@ const bodySchema = z.object({
   selectedAnswer: z.string(),
   timeRemaining: z.number().int().min(0).max(FULL_TEST_TOTAL_SECONDS),
 });
-
-// Adaptive selection only needs id/type/level metadata — avoids transferring
-// the whole pool's heavy columns (article jsonb, transcript, explanation) on
-// every question. The selected question is hydrated separately.
-const poolSelection = { id: questions.id, testTypeId: questions.testTypeId, cefrLevel: questions.cefrLevel };
 
 interface PathEntry {
   questionId: number;
@@ -107,13 +103,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [ipThrottleError, rateLimitError] = await Promise.all([
-    checkIpThrottle(request, { keySuffix: 'full-next' }),
-    checkUserRateLimit(userId, { windowMs: 60_000, maxRequests: 30, keySuffix: 'next' }),
-  ]);
-  if (ipThrottleError) return ipThrottleError;
-  if (rateLimitError) return rateLimitError;
-
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 400 });
@@ -121,10 +110,28 @@ export async function POST(request: NextRequest) {
 
   const { attemptId, questionId, selectedAnswer, timeRemaining } = parsed.data;
 
-  const [attempt] = await db
-    .select()
+  // Reading the attempt does not depend on the Redis throttle, so start it
+  // before awaiting the throttle: the two then share one round-trip window
+  // (~110ms redis) instead of running back to back.
+  const attemptPromise = db
+    .select({
+      id: testAttempts.id,
+      status: testAttempts.status,
+      adaptivePath: testAttempts.adaptivePath,
+      currentLevels: testAttempts.currentLevels,
+    })
     .from(testAttempts)
-    .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId)));
+    .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId)))
+    .limit(1);
+
+  const [ipThrottleError, rateLimitError] = await Promise.all([
+    checkIpThrottle(request, { keySuffix: 'full-next' }),
+    checkUserRateLimit(userId, { windowMs: 60_000, maxRequests: 30, keySuffix: 'next' }),
+  ]);
+  if (ipThrottleError) return ipThrottleError;
+  if (rateLimitError) return rateLimitError;
+
+  const [attempt] = await attemptPromise;
 
   if (!attempt || attempt.status !== 'in_progress') {
     return NextResponse.json({ success: false, error: 'Attempt not found' }, { status: 404 });
@@ -143,12 +150,7 @@ export async function POST(request: NextRequest) {
   // so the pool and grade queries share one round-trip window.
   const isFinishing = nextIndex >= FULL_TEST_TOTAL_QUESTIONS;
   const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
-  const poolPromise = isFinishing
-    ? null
-    : db
-        .select(poolSelection)
-        .from(questions)
-        .where(and(eq(questions.testTypeId, nextPart), eq(questions.active, 'true')));
+  const poolPromise = isFinishing ? null : getCachedQuestionPool(nextPart);
   const gradePromise = isDuplicate
     ? null
     : db

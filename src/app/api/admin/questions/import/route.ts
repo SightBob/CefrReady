@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { eq, count as drizzleCount, and, sql, inArray } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 
 export const dynamic = 'force-dynamic';
 
@@ -620,6 +621,9 @@ export async function POST(request: NextRequest) {
       await db.insert(testSetQuestions).values(assignments);
       assignedCount = assignments.length;
     }
+
+    // มีข้อใหม่เข้าคลังจริงเท่านั้นจึงล้าง cache (mirror ของ verb-banks import)
+    if (inserted.length > 0) revalidateQuestionPool();
 
     return NextResponse.json({
       success: true,

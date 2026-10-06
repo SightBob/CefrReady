@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { questions, testTypes, testSetQuestions, testSets } from '@/db/schema';
 import { eq, asc, desc, inArray, notInArray, and, sql, count as drizzleCount, ilike, ne } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 
 const PAGE_SIZE = 20;
 
@@ -210,6 +211,9 @@ export async function POST(request: NextRequest) {
       ...(audioUrl ? { audioUrl } : {}),
       ...(transcript ? { transcript } : {}),
     }).returning();
+
+    // ข้อสอบใหม่อาจเข้าคลังของ Full Test → ล้าง cache pool ให้ผู้เรียนเห็นทันที
+    revalidateQuestionPool();
 
     return NextResponse.json(newQuestion, { status: 201 });
   } catch (error) {

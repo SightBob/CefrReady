@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { questions, testSetQuestions, testSets, testTypes } from '@/db/schema';
 import { eq, count as drizzleCount } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,6 +131,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
         orderIndex: nextOrder,
       })
       .returning();
+
+    // ข้อใหม่ถูกสร้างเป็น active + cefrLevel จริง → อาจเข้าคลัง full-test
+    revalidateQuestionPool();
 
     return NextResponse.json(
       { success: true, data: { question: newQuestion, assignment } },

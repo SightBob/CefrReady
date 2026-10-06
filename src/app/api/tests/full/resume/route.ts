@@ -8,11 +8,8 @@ import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL
 import { selectQuestion, getInitialLevels } from '@/lib/full-test/algorithm';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
+import { getCachedQuestionPool } from '@/lib/full-test/question-pool';
 import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
-
-// Adaptive selection only needs id/type/level metadata; heavy columns are
-// fetched for the single selected question instead of the whole pool.
-const poolSelection = { id: questions.id, testTypeId: questions.testTypeId, cefrLevel: questions.cefrLevel };
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +28,14 @@ export async function GET(request: Request) {
   if (rateLimitError) return rateLimitError;
 
   const [attempt] = await db
-    .select()
+    .select({
+      id: testAttempts.id,
+      adaptivePath: testAttempts.adaptivePath,
+      currentLevels: testAttempts.currentLevels,
+      timeRemainingSeconds: testAttempts.timeRemainingSeconds,
+      lastActivityAt: testAttempts.lastActivityAt,
+      startedAt: testAttempts.startedAt,
+    })
     .from(testAttempts)
     .where(and(
       eq(testAttempts.userId, userId),
@@ -72,10 +76,7 @@ export async function GET(request: Request) {
   const nextTypeLevel = (currentLevels[nextPart] as CefrLevel) ?? 'B1';
 
   const seenIds = new Set(path.map((p) => p.questionId));
-  const pool = await db
-    .select(poolSelection)
-    .from(questions)
-    .where(and(eq(questions.testTypeId, nextPart), eq(questions.active, 'true')));
+  const pool = await getCachedQuestionPool(nextPart);
 
   const selection = selectQuestion({
     questions: pool,
