@@ -84,6 +84,12 @@ const JSON_OBJECT_FORMAT = {
 // recover by retrying, and hiding them behind "try again" wastes the user's time.
 const RETRYABLE_STATUSES = new Set([400, 404, 408, 422, 425, 429, 500, 502, 503, 504]);
 
+// ข้อความที่บอกว่า "คำขอถูกต้อง แต่ผู้ให้บริการยังไม่ว่าง" — ต่างจาก schema/คำขอผิด
+// จึงคุ้มที่จะลองซ้ำมากกว่าปล่อยให้ผู้เรียนเจอ error
+const PROVIDER_BUSY_PATTERN = /overload|unavailable|temporarily|try again|rate limit|timed? ?out|429|50[234]/i;
+const isProviderBusy = (message: string) => PROVIDER_BUSY_PATTERN.test(message);
+const MAX_OVERLOAD_RETRIES = 2;
+
 // The admin route runs with maxDuration = 30s, so the whole chain has to stay inside it.
 const TOTAL_BUDGET_MS = 22_000;
 const MIN_RETRY_WINDOW_MS = 4_000;
@@ -96,7 +102,43 @@ type Attempt = {
   /** Some reasoning endpoints reject reasoning:false, so this is only used as a fallback. */
   reasoning?: { enabled: boolean };
   maxTokens?: number;
+  /**
+   * `provider.require_parameters` ทำให้ OpenRouter ตัด endpoint ที่ไม่ประกาศว่ารองรับ
+   * `response_format` ออกทั้งหมด แล้วตอบ **404 "No endpoints found that can handle the
+   * requested parameters"** (verified 2026-10-06 กับ nvidia/nemotron-3-ultra-550b-a55b:free
+   * ซึ่งมี endpoint เดียวและไม่รองรับ response_format — curl ธรรมดาได้ 200 แต่คำขอที่มี
+   * require_parameters:true ได้ 404 ทุก attempt) จึงเปิดใช้เฉพาะ attempt ที่ต้องการ
+   * ความแม่นของ schema สูงสุด แล้วปล่อย attempt สำรองให้ route แบบผ่อนปรนได้
+   */
+  requireParameters?: boolean;
 };
+
+/**
+ * ค่าที่โมเดลมักตอบแทน enum ภาษาอังกฤษ — normalize ก่อนตรวจ เพื่อไม่ให้ผู้เรียน
+ * เห็น error ทั้งที่เนื้อหาถูก (verified: โมเดลตอบUnderstanding เป็นภาษาไทย/คำพ้อง
+ * หรือพิมพ์ตัวใหญ่ได้ เมื่อใช้ json_object ซึ่งผู้ให้บริการไม่ได้บังคับ schema ให้)
+ */
+const UNDERSTANDING_ALIASES: Record<string, TapAiFeedback['understanding']> = {
+  correct: 'correct', right: 'correct', true: 'correct', ถูกต้อง: 'correct', เข้าใจถูก: 'correct', เข้าใจถูกต้อง: 'correct',
+  partial: 'partial', partly: 'partial', 'partially correct': 'partial', ถูกบางส่วน: 'partial', บางส่วน: 'partial',
+  incorrect: 'incorrect', wrong: 'incorrect', false: 'incorrect', ผิด: 'incorrect', ไม่ถูกต้อง: 'incorrect', เข้าใจผิด: 'incorrect',
+  unclear: 'unclear', ambiguous: 'unclear', ไม่ชัดเจน: 'unclear', ไม่แน่ชัด: 'unclear',
+};
+
+/**
+ * ดึง JSON object ออกจากข้อความที่โมเดลตอบ — บางครั้งโมเดลห่อ JSON ด้วยคำอธิบาย
+ * หรือ code fence ที่รูปแบบไม่ตรงกับ parser แบบเดิม (json_object ไม่ได้บังคับ schema
+ * เมื่อ endpoint ไม่รองรับ response_format) ทำให้ผู้เรียนเห็น "AI ส่งผลตรวจไม่สมบูรณ์"
+ * ทั้งที่คำตอบใช้ได้
+ */
+function extractJsonObject(text: string): string | null {
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed;
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+  return trimmed.slice(start, end + 1);
+}
 
 function parseTapFeedback(payload: unknown): TapAiFeedback {
   try {
@@ -111,7 +153,48 @@ function parseTapFeedback(payload: unknown): TapAiFeedback {
     if (!content) throw new TapAiError(502, 'AI ไม่ได้ส่งผลตอบกลับมา กรุณาลองตรวจอีกครั้ง');
     // Strip markdown code fences that some models wrap around JSON when using json_object mode
     const rawContent = content.replace(/^```(?:[\w\-.]+)?\s*\n/, '').replace(/```\s*$/, '').trim();
-    return tapAiFeedbackSchema.parse(JSON.parse(rawContent));
+    const jsonText = extractJsonObject(rawContent);
+    if (!jsonText) {
+      console.warn('[openrouter] feedback parse failed:', JSON.stringify({ finishReason: choice.finish_reason, reason: 'no JSON object in content', raw: rawContent.slice(0, 400) }));
+      throw new TapAiError(502, 'AI ตอบเป็นข้อความที่อ่านไม่ได้ กรุณาลองตรวจอีกครั้งหรือเปลี่ยนโมเดล');
+    }
+    let json: unknown;
+    try {
+      json = JSON.parse(jsonText);
+    } catch (jsonError) {
+      console.warn('[openrouter] feedback parse failed:', JSON.stringify({
+        finishReason: choice.finish_reason,
+        reason: jsonError instanceof Error ? jsonError.message : String(jsonError),
+        raw: rawContent.slice(0, 400),
+      }));
+      throw new TapAiError(502, 'AI ส่ง JSON ที่ไม่สมบูรณ์ กรุณาลองตรวจอีกครั้ง');
+    }
+    // เลือกเฉพาะสองฟิลด์ที่ใช้จริง — key เกินอื่นๆ (score, isCorrect, ฯลฯ) ไม่กระทบ
+    // เพราะโหมด json_object ไม่ได้บังคับ schema กับผู้ให้บริการที่รองรับ
+    const record = (json && typeof json === 'object' ? json : {}) as Record<string, unknown>;
+    const understandingKey = typeof record.understanding === 'string' ? record.understanding.trim().toLowerCase() : '';
+    const understanding = UNDERSTANDING_ALIASES[understandingKey];
+    const feedback = typeof record.feedback === 'string' ? record.feedback.trim() : '';
+    if (!understanding) {
+      console.warn('[openrouter] feedback parse failed:', JSON.stringify({
+        finishReason: choice.finish_reason,
+        reason: `unknown understanding: ${JSON.stringify(record.understanding)}`,
+        raw: rawContent.slice(0, 400),
+      }));
+      throw new TapAiError(502, 'AI ระบุระดับความเข้าใจไม่ตรงรูปแบบ กรุณาลองตรวจอีกครั้ง');
+    }
+    try {
+      return tapAiFeedbackSchema.parse({ understanding, feedback });
+    } catch (parseError) {
+      // Observability: "AI ส่งผลตรวจไม่สมบูรณ์" ไม่บอกอะไรเลยตอนผู้ดูแลต้อง diagnose
+      // จึงบันทึกคำตอบดิบ (ตัด 400 ตัวอักษรแรก) ไว้ดูใน server log
+      console.warn('[openrouter] feedback parse failed:', JSON.stringify({
+        finishReason: choice.finish_reason,
+        reason: parseError instanceof Error ? parseError.message : String(parseError),
+        raw: rawContent.slice(0, 400),
+      }));
+      throw parseError;
+    }
   } catch (error) {
     if (error instanceof TapAiError) throw error;
     throw new TapAiError(502, 'AI ส่งผลตรวจไม่สมบูรณ์ กรุณาลองตรวจอีกครั้ง');
@@ -136,13 +219,13 @@ export async function evaluateTapReason(
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) throw new TapAiError(503, 'ยังไม่ได้ตั้งค่า OpenRouter API key กรุณาแจ้งผู้ดูแล');
 
-  const buildRequestBody = ({ format, reasoning, maxTokens }: Attempt) => ({
+  const buildRequestBody = ({ format, reasoning, maxTokens, requireParameters }: Attempt) => ({
     model: settings.model,
     stream: false,
     temperature: 0.2,
     max_tokens: maxTokens ?? settings.maxTokens,
     response_format: format,
-    provider: { require_parameters: true },
+    ...(requireParameters ? { provider: { require_parameters: true } } : {}),
     ...(reasoning ? { reasoning } : {}),
     messages: [
       {
@@ -175,13 +258,16 @@ export async function evaluateTapReason(
   };
 
   // Attempts are tried in order and stop as soon as one is accepted by the provider:
-  //  1. json_schema - strict structured outputs, best quality where supported.
-  //  2. json_object + reasoning off - reasoning models otherwise burn the whole token
-  //     budget thinking and return content: null (verified with apodex/apodex-1.1-mini:free).
-  //  3. json_object + a larger budget - for endpoints that reject reasoning:false
-  //     (verified: liquid/lfm-2.5-2.6b:free returns 400 "Reasoning is mandatory").
+  //  1. json_schema + require_parameters - strict structured outputs, best quality where
+  //     the provider advertises support for it.
+  //  2. json_object + reasoning off, without require_parameters - reasoning models otherwise
+  //     burn the whole token budget thinking and return content: null (verified with
+  //     apodex/apodex-1.1-mini:free); dropping require_parameters is what saves models whose
+  //     only endpoint does not declare response_format support (404 fix above).
+  //  3. json_object + a larger budget, without require_parameters - for endpoints that reject
+  //     reasoning:false (verified: liquid/lfm-2.5-2.6b:free returns 400 "Reasoning is mandatory").
   const attempts: Attempt[] = [
-    { format: JSON_SCHEMA_FORMAT },
+    { format: JSON_SCHEMA_FORMAT, requireParameters: true },
     { format: JSON_OBJECT_FORMAT, reasoning: { enabled: false } },
     { format: JSON_OBJECT_FORMAT, maxTokens: Math.min(settings.maxTokens * 2, 8000) },
   ];
@@ -197,11 +283,31 @@ export async function evaluateTapReason(
       body: JSON.stringify(buildRequestBody(attempt)),
     });
 
-  const describeStatus = (status: number) => {
-    if (status === 429) return 'OpenRouter จำกัดอัตราการเรียกชั่วคราว (429) กรุณารอสักครู่แล้วลองใหม่';
+  // OpenRouter อธิบายสาเหตุจริงมาใน body (เช่น "No endpoints found that can handle the
+  // requested parameters", "is not a valid model ID", "Insufficient credits") — เดิมโค้ด
+  // ทิ้งข้อความนี้แล้วโชว์แค่ status ทำให้ผู้ดูแล diagnose ไม่ได้ ต้องเก็บมาแสดงแต่
+  // เฉพาะกรณีที่เป็น JSON error object (ไม่ echo body อื่นๆ ดิบๆ เพื่อไม่ให้มีข้อมูลลับหลุด)
+  const upstreamDetail = (value: unknown): string | null => {
+    const message = (value as { error?: { message?: unknown } } | null)?.error?.message;
+    return typeof message === 'string' && message.trim() ? message.trim().slice(0, 300) : null;
+  };
+
+  const readFailureDetail = async (response: Response): Promise<string | null> => {
+    try {
+      const text = await response.text();
+      return text ? upstreamDetail(JSON.parse(text)) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const describeStatus = (status: number, detail?: string | null) => {
+    const suffix = detail ? ` — ${detail}` : '';
+    if (status === 429) return `OpenRouter จำกัดอัตราการเรียกชั่วคราว (429) กรุณารอสักครู่แล้วลองใหม่${suffix}`;
     if (status === 402) return 'เครดิต OpenRouter ไม่พอ (402) กรุณาเติมเครดิต';
     if (status === 401 || status === 403) return `OpenRouter ไม่ยอมรับ key (${status}) กรุณาตรวจ key และสิทธิ์ใช้งาน`;
-    return `OpenRouter ตรวจไม่สำเร็จ (${status}) กรุณาลองอีกครั้งหรือแจ้งผู้ดูแลตรวจ key, เครดิต และโมเดล`;
+    if (status === 404) return `OpenRouter หา endpoint ของโมเดลนี้ไม่เจอ (404)${suffix} — ตรวจ model ID ในหน้าตั้งค่า AI ว่าถูกต้องและยังมีอยู่จริง`;
+    return `OpenRouter ตรวจไม่สำเร็จ (${status})${suffix} กรุณาลองอีกครั้งหรือแจ้งผู้ดูแลตรวจ key, เครดิต และโมเดล`;
   };
 
   const waitForRetry = async (response: Response) => {
@@ -213,13 +319,17 @@ export async function evaluateTapReason(
   };
 
   let failureMessage = 'AI ส่งผลตรวจไม่สมบูรณ์ กรุณาลองตรวจอีกครั้ง';
+  let overloadRetries = 0;
   try {
-    for (const attempt of attempts) {
+    for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+      const attempt = attempts[attemptIndex];
       // Never start an attempt that cannot finish inside the route budget.
       if (Date.now() + MIN_RETRY_WINDOW_MS > deadline) break;
       const current = await sendRequest(attempt);
       if (!current.ok) {
-        failureMessage = describeStatus(current.status);
+        // อ่าน body ก่อนตัดสินใจ retry เพื่อให้ข้อความสุดท้ายบอกสาเหตุจริงจาก OpenRouter
+        const detail = await readFailureDetail(current);
+        failureMessage = describeStatus(current.status, detail);
         if (!RETRYABLE_STATUSES.has(current.status)) throw new TapAiError(502, failureMessage);
         await waitForRetry(current);
         continue;
@@ -229,6 +339,23 @@ export async function evaluateTapReason(
         // Capture usage from every successful HTTP response so even a parse failure
         // (truncated/invalid JSON) still reports the tokens the provider charged for.
         lastUsage = extractUsage(payload, settings.model, startedAt) ?? lastUsage;
+        // OpenRouter ส่ง HTTP 200 พร้อม error object ใน body เมื่อ upstream ล้ม (verified:
+        // {"error":{"message":"Upstream error from Nvidia: Service temporarily overloaded",
+        // "code":503}}) — ต้องแยกออกจาก "คำตอบไม่ถูก schema" เพื่อให้ retry ได้และ
+        // รายงานสาเหตุจริงว่าปัญหาอยู่ที่ผู้ให้บริการโมเดล ไม่ใช่ที่คำตอบของผู้เรียน
+        const upstreamError = upstreamDetail(payload);
+        if (upstreamError) {
+          failureMessage = `โมเดลนี้ตอบกลับข้อผิดพลาดจากผู้ให้บริการ: ${upstreamError} กรุณาลองอีกครั้งหรือเปลี่ยนโมเดล`;
+          // endpoint ฟรีมักล่มเป็นช่วงๆ (verified: "Service temporarily overloaded" ประมาณ
+          // ครึ่งหนึ่งของการเรียกในชั่วโมงเดียว) คำขอถูกต้องแล้วจึงลองซ้ำได้อีกสูงสุด 2 ครั้ง
+          // ภายในงบเวลาของ route — ไม่เพิ่ม attempt นี้กับกรณีที่รูปคำขอผิด
+          if (overloadRetries < MAX_OVERLOAD_RETRIES && isProviderBusy(upstreamError)) {
+            overloadRetries += 1;
+            attempts.push(attempt);
+          }
+          await waitForRetry(current);
+          continue;
+        }
         const feedback = parseTapFeedback(payload);
         onUsage?.(lastUsage);
         return feedback;

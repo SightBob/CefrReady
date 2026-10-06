@@ -15,12 +15,6 @@ const submitBodySchema = z.object({
     questionId: z.number().int().positive(),
     selectedAnswer: z.string(),
   })).min(1),
-  // Review Round: one optional retry per wrong question. Score is computed
-  // from `answers` ONLY — retries never affect the official score.
-  retries: z.array(z.object({
-    questionId: z.number().int().positive(),
-    selectedAnswer: z.string(),
-  })).optional().default([]),
   isDemo: z.boolean().optional().default(false),
   startedAt: z.string().datetime().optional(),
 });
@@ -66,7 +60,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { testTypeId, testSetId, answers, retries, isDemo, startedAt: clientStartedAt } = parsedBody.data;
+  const { testTypeId, testSetId, answers, isDemo, startedAt: clientStartedAt } = parsedBody.data;
   if (testTypeId === 'tap-select') {
     return NextResponse.json({ success: false, error: 'Tap & Select must be submitted as part of its parent test set' }, { status: 400 });
   }
@@ -79,47 +73,6 @@ export async function POST(request: NextRequest) {
     .where(and(eq(questions.testTypeId, testTypeId), inArray(questions.id, questionIds)));
 
   const { results, correctCount, totalQuestions, score } = calculateScore(answers, dbQuestions);
-
-  // Review Round: compute retry outcomes against the DB answer key. The
-  // official score comes from `answers` alone (calculateScore untouched);
-  // this summary is display/analytics data only.
-  const retryResults = retries.flatMap((retry) => {
-    const q = dbQuestions.find((dq) => dq.id === retry.questionId);
-    if (!q) return []; // drop unknown questionIds defensively
-    const firstAnswer = answers.find((a) => a.questionId === retry.questionId)?.selectedAnswer ?? '';
-    let recovered = false;
-
-    if (q.tapExercise?.items?.length) {
-      try {
-        const retryAnswer = JSON.parse(retry.selectedAnswer) as Record<string, string>;
-        const entries = Object.entries(retryAnswer);
-        const validEntries = entries.filter(([index]) => Number.isInteger(Number(index)) && Number(index) >= 0 && Number(index) < q.tapExercise!.items.length);
-        recovered = validEntries.length > 0
-          && validEntries.length === entries.length
-          && new Set(validEntries.map(([index]) => Number(index))).size === validEntries.length
-          && validEntries.every(([index, value]) => {
-            const item = q.tapExercise!.items[Number(index)];
-            return value.trim().toUpperCase() === (item.correct === 0 ? 'A' : 'B');
-          });
-      } catch { /* invalid retry payload is not recovered */ }
-    } else if (q.testTypeId === 'form-meaning' && q.article) {
-      try {
-        const retryAnswer = JSON.parse(retry.selectedAnswer) as Record<string, string>;
-        const article = q.article as { blanks?: Array<{ id: number; correctAnswer: string }> };
-        const entries = Object.entries(retryAnswer);
-        recovered = Boolean(article.blanks?.length)
-          && entries.length === article.blanks!.length
-          && entries.every(([id, value]) => {
-            const blank = article.blanks?.find((entry) => entry.id === Number(id));
-            return Boolean(blank) && value.trim().toLowerCase() === blank!.correctAnswer.trim().toLowerCase();
-          });
-      } catch { /* invalid retry payload is not recovered */ }
-    } else {
-      recovered = retry.selectedAnswer.trim().toUpperCase() === (q.correctAnswer ?? '').trim().toUpperCase();
-    }
-
-    return [{ questionId: retry.questionId, firstAnswer, retryAnswer: retry.selectedAnswer, recovered }];
-  });
 
   // For demo mode, skip authentication and database storage
   if (isDemo) {
@@ -213,8 +166,6 @@ export async function POST(request: NextRequest) {
         completedAt: now,
         // status column defaults to 'in_progress' — must set explicitly or the
         // attempt is invisible to /progress, which filters status='completed'
-        // Review Round summary — first-attempt score above stays untouched.
-        retrySummary: retryResults,
         status: 'completed',
       })
       .returning();
@@ -257,17 +208,14 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[submit] Failed to update userProgress:', error);
     // Non-fatal — results still returned
-  }
-
-  return NextResponse.json({
-    success: true,
-    data: {
-      score: Math.round(score),
-      totalQuestions,
-      correctAnswers: correctCount,
-      results,
-      retryResults,
-      attemptId: newAttempt.id,
-    },
-  });
+  }    return NextResponse.json({
+      success: true,
+      data: {
+        score: Math.round(score),
+        totalQuestions,
+        correctAnswers: correctCount,
+        results,
+        attemptId: newAttempt.id,
+      },
+    });
 }

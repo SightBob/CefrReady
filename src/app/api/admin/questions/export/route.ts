@@ -23,6 +23,7 @@ const COLUMNS = [
   'testSetId',
   'conversation',
   'article',
+  'tapExercise',
 ] as const;
 
 interface CsvRow {
@@ -40,6 +41,7 @@ interface CsvRow {
   testSetId: string;
   conversation: string;
   article: string;
+  tapExercise: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -128,6 +130,7 @@ export async function GET(request: NextRequest) {
       testSetId: String(numericSetFilter ?? firstSetByQuestion.get(q.id) ?? ''),
       conversation: q.conversation ? JSON.stringify(q.conversation) : '',
       article: q.article ? JSON.stringify(q.article) : '',
+      tapExercise: q.tapExercise ? JSON.stringify(q.tapExercise) : '',
     }));
 
     // Generate CSV with PapaParse — handles quoting/escaping automatically

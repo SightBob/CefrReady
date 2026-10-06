@@ -6,7 +6,7 @@ vi.mock('next/link', () => ({
 }));
 vi.mock('lucide-react', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('lucide-react');
-  return { ...actual, Loader2: () => null, Search: () => null };
+  return { ...actual, Loader2: () => null, Search: () => null, Download: () => null, Upload: () => null };
 });
 
 import AdminVerbBankPage from './page';
@@ -28,5 +28,13 @@ describe('admin /admin/verb-banks (server render)', () => {
     expect(html).toContain('จัดการ');
     expect(html).toContain('กำลังโหลดคลังกริยา');
     expect(html).toContain('ค้นหาจาก V.1 / V.2 / V.3');
+  });
+
+  it('renders export and import buttons with a hidden csv file input', () => {
+    const html = renderToStaticMarkup(<AdminVerbBankPage />);
+    expect(html).toContain('ส่งออก CSV');
+    expect(html).toContain('นำเข้า CSV');
+    expect(html).toContain('accept=".csv,text/csv"');
+    expect(html).toContain('class="hidden"');
   });
 });

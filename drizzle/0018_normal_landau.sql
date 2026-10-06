@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "test_attempts_user_status_completed_idx" ON "test_attempts" USING btree ("user_id","status","completed_at");

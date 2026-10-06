@@ -18,6 +18,7 @@ import {
   BookMarked,
 } from 'lucide-react';
 import MaintenanceToggle from '@/components/admin/MaintenanceToggle';
+import TestSectionMaintenanceToggle from '@/components/admin/TestSectionMaintenanceToggle';
 
 interface Stats {
   totalQuestions: number;
@@ -196,6 +197,8 @@ export default function AdminDashboard() {
         </div>
 
         <MaintenanceToggle />
+
+        <TestSectionMaintenanceToggle />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {[

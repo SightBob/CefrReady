@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { isSectionInMaintenance } from '@/lib/test-section-maintenance';
 import Link from 'next/link';
 import { ArrowLeft, Play, Clock, ListChecks, Brain } from 'lucide-react';
 
@@ -19,6 +21,9 @@ const CEFR_TABLE = [
 
 export default async function FullTestIntroPage() {
   const session = await auth();
+
+  // Admin ปิดปรับปรุง Full Test → หน้าแจ้งเฉพาะพาร์ท
+  if (await isSectionInMaintenance('full')) redirect('/tests/full/maintenance');
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

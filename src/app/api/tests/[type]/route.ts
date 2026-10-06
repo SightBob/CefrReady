@@ -4,6 +4,7 @@ import { questions, testTypes } from '@/db/schema';
 import { eq, sql, and, asc } from 'drizzle-orm';
 import { checkIpThrottle } from '@/lib/api-security';
 import { sanitizeArticleForClient, sanitizeTapExerciseForClient } from '@/lib/sanitize-question';
+import { isSectionInMaintenance } from '@/lib/test-section-maintenance';
 
 /**
  * GET /api/tests/[type]
@@ -28,6 +29,11 @@ export async function GET(request: NextRequest, props: { params: Promise<{ type:
     const testTypeName = params.type;
     if (testTypeName === 'tap-select') {
       return NextResponse.json({ success: false, error: 'Tap & Select is an exercise inside a test set, not a test type' }, { status: 404 });
+    }
+
+    // Admin ปิดปรับปรุงพาร์ทนี้ → ไม่มีข้อมูลข้อสอบออกจาก API
+    if (await isSectionInMaintenance(testTypeName)) {
+      return NextResponse.json({ success: false, error: 'พาร์ทนี้ปิดปรับปรุงชั่วคราว' }, { status: 503 });
     }
     const searchParams = request.nextUrl.searchParams;
     const cefrLevel = searchParams.get('cefrLevel');

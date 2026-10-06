@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePostHog } from '@/lib/posthog';
 import { apiFetch } from '@/lib/api-fetch';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
-import TestResultsDemo, { type RetryResultSummary } from './TestResultsDemo';
+import TestResultsDemo from './TestResultsDemo';
 
 /** หนึ่งแถวในรายการ "เฉลยและทบทวนข้อสอบ" (Figma 75:70726) */
 export interface ReviewItem {
@@ -55,8 +54,6 @@ interface TestResultsProps {
   headerTitle?: string;
   durationMinutes?: number;
   setNumber?: number;
-  /** Review Round outcomes — section hidden when absent (backward compatible). */
-  retryResults?: RetryResultSummary[];
   /** ใช้เลือกคำอธิบายทักษะในการ์ดคะแนน */
   sectionId?: string;
   /** รายการเฉลยรายข้อ — การ์ดเฉลยจะไม่แสดงเมื่อไม่มีข้อมูล */
@@ -80,7 +77,6 @@ export default function TestResults({
   headerTitle,
   durationMinutes,
   setNumber,
-  retryResults,
   sectionId,
   reviewItems,
 }: TestResultsProps) {
@@ -112,8 +108,6 @@ export default function TestResults({
     : totalQuestions;
   const answeredTotal = hasReviewList ? reviewItems!.length : totalQuestions;
   const answeredPercent = answeredTotal > 0 ? (answeredCount / answeredTotal) * 100 : 0;
-  const recoveredCount = retryResults?.filter((r) => r.recovered).length ?? 0;
-  const stillWrongCount = (retryResults?.length ?? 0) - recoveredCount;
 
   useEffect(() => {
     posthog?.capture('test_result_viewed', {
@@ -134,7 +128,6 @@ export default function TestResults({
         headerTitle={headerTitle}
         durationMinutes={durationMinutes}
         setNumber={setNumber}
-        retryResults={retryResults}
       />
     );
   }
@@ -387,26 +380,6 @@ export default function TestResults({
           </div>
         )}
 
-        {/* Review Round summary — คงเดิมไว้ ดีไซน์ยังไม่ได้ออกแบบส่วนนี้ */}
-        {retryResults && retryResults.length > 0 && (
-          <div className="w-full rounded-3xl bg-white p-6 shadow-[0_0_31px_-1px_rgba(172,172,172,0.25)] sm:p-7">
-            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
-              <RotateCcw className="w-5 h-5 text-amber-500" />
-              รอบทบทวน
-            </h3>
-            <p className="text-sm text-slate-500">
-              คะแนนของคุณนับจากรอบแรกเท่านั้น — นี่คือผลจากการทบทวนข้อที่ผิด
-            </p>
-            <div className="flex items-center gap-4 mt-4">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
-                ✅ แก้ได้ {recoveredCount}
-              </span>
-              <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600">
-                ⚠️ ยังไม่เข้าใจ {stillWrongCount}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* แถบล่าง — 75:70789 (97px) */}

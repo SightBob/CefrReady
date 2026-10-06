@@ -293,11 +293,6 @@ export default function FocusFormQuestionCard({
         </span>
 
         <div className="min-w-0">
-      <p className="text-base font-extrabold text-[#5C4A1A]">
-        {isCorrect
-          ? 'คุณตอบได้ดีเลย!'
-          : 'คุณตอบได้ดีเลย ขอแนะนำอีกนิดเพื่อความแม่นยำคือ'}
-      </p>
 
           {explanation && (
             <ExplanationText

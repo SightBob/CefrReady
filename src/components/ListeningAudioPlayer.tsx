@@ -354,7 +354,7 @@ export default function ListeningAudioPlayer({
               {/* 60:4510 — ข้อความสองระดับในบรรทัดเดียว: Medium ตามด้วย Bold ในเครื่องหมายคำพูด */}
               <div className="text-sm font-medium text-[#76641c]">
                 <span className="leading-[1.3125rem]">
-                  {isCorrect ? 'คุณตอบได้ดีเลย!' : 'คุณตอบได้ดีเลย ขอแนะนำอีกนิดเพื่อความแม่นยำคือ '}
+                  {isCorrect ? 'คุณตอบได้ดีเลย!' : 'แวะอ่านสักนิด ครั้งหน้าทำได้แน่'}
                 </span>
                 <span className="font-bold leading-[1.3125rem]">“ {explanation} ”</span>
               </div>

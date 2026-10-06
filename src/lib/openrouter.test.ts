@@ -73,11 +73,44 @@ describe('OpenRouter Tap reason feedback', () => {
   it.each([
     [{ understanding: 'correct', feedback: '' }, 'stop'],
     [{ understanding: 'unknown', feedback: 'text' }, 'stop'],
-    [{ understanding: 'correct', feedback: 'text', score: 50 }, 'stop'],
     [{ understanding: 'correct', feedback: 'text' }, 'length'],
   ])('rejects invalid or incomplete feedback %#', async (content, finish) => {
     fetchMock.mockResolvedValue(completion(content, finish as string));
     await expect(evaluateTapReason(settings, context)).rejects.toMatchObject({ status: 502 });
+  });
+
+  // json_object mode carries no schema, so providers that do not support response_format
+  // let the model add keys and wrap its JSON. Rejecting that drift is what made learners see
+  // "AI ส่งผลตรวจไม่สมบูรณ์" for answers that were actually fine.
+  it('ignores extra keys the model adds alongside the two contract fields', async () => {
+    fetchMock.mockResolvedValue(completion({ understanding: 'correct', feedback: 'ถูกต้อง', score: 50, isCorrect: true, confidence: 0.9 }));
+    expect(await evaluateTapReason(settings, context)).toEqual({ understanding: 'correct', feedback: 'ถูกต้อง' });
+  });
+
+  it('parses the JSON object when the model wraps it in prose', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: 'นี่คือผลการตรวจครับ:\n{"understanding":"partial","feedback":"บางส่วน"}\nหวังว่าจะเป็นประโยชน์' } }] })),
+    );
+    expect(await evaluateTapReason(settings, context)).toEqual({ understanding: 'partial', feedback: 'บางส่วน' });
+  });
+
+  it.each([
+    ['ถูกต้อง', 'correct'],
+    ['ถูกบางส่วน', 'partial'],
+    ['INCORRECT', 'incorrect'],
+    ['ไม่ชัดเจน', 'unclear'],
+  ])('normalizes understanding %s into %s', async (answer, expected) => {
+    fetchMock.mockResolvedValue(completion({ understanding: answer, feedback: 'ข้อความ' }));
+    expect(await evaluateTapReason(settings, context)).toEqual({ understanding: expected, feedback: 'ข้อความ' });
+  });
+
+  it('names an unreadable answer instead of claiming the shape is merely incomplete', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: 'ตอบข้อ B ถูกต้องแล้วครับ' } }] })),
+    );
+    const error = await settleError(() => evaluateTapReason(settings, context));
+    expect(error).toMatchObject({ status: 502 });
+    expect(error.message).toContain('อ่านไม่ได้');
   });
 
   describe('response_format fallback chain', () => {
@@ -116,6 +149,73 @@ describe('OpenRouter Tap reason feedback', () => {
       expect(body.response_format).toEqual({ type: 'json_object' });
       expect(body.reasoning).toBeUndefined();
       expect(body.max_tokens).toBe(2000);
+    });
+
+    // Regression (verified live 2026-10-06): nvidia/nemotron-3-ultra-550b-a55b:free has a
+    // single endpoint that does not declare response_format support, so requiring parameters
+    // made OpenRouter answer 404 "No endpoints found that can handle the requested parameters"
+    // on every attempt and the admin saw only a generic message. The retries must relax the
+    // routing constraint instead of repeating the same rejected request.
+    it('drops provider.require_parameters on retry so a 404 from strict routing can recover', async () => {
+      fetchMock
+        .mockResolvedValueOnce(new Response(JSON.stringify({
+          error: { message: 'No endpoints found that can handle the requested parameters.', code: 404 },
+        }), { status: 404 }))
+        .mockResolvedValueOnce(completion({ understanding: 'correct', feedback: 'สำเร็จหลังผ่อน routing' }));
+      expect(await settle(() => evaluateTapReason(settings, context))).toEqual({ understanding: 'correct', feedback: 'สำเร็จหลังผ่อน routing' });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [, retryInit] = fetchMock.mock.calls[1];
+      const retryBody = JSON.parse(retryInit.body);
+      expect(retryBody.provider).toBeUndefined();
+      expect(retryBody.response_format).toEqual({ type: 'json_object' });
+    });
+
+    it('surfaces the real reason from OpenRouter on a 404 instead of a generic message', async () => {
+      // a fresh Response per call — one shared instance would have an already-read body
+      fetchMock.mockImplementation(async () => new Response(JSON.stringify({
+        error: { message: 'No endpoints found for model: typo/model-name', code: 404 },
+      }), { status: 404 }));
+      const error = await settleError(() => evaluateTapReason(settings, context));
+      expect(error).toMatchObject({ status: 502 });
+      expect(error.message).toContain('404');
+      expect(error.message).toContain('No endpoints found for model: typo/model-name');
+      expect(error.message).toContain('model ID');
+    });
+
+    // Live payload shape: HTTP 200 with an error object in the body (provider overloaded).
+    it('retries and reports the provider message when upstream returns 200 with an error body', async () => {
+      fetchMock
+        .mockResolvedValueOnce(new Response(JSON.stringify({
+          id: 'gen-1',
+          error: { message: 'Upstream error from Nvidia: Service temporarily overloaded', code: 503 },
+        })))
+        .mockResolvedValueOnce(completion({ understanding: 'partial', feedback: 'สำเร็จหลัง provider หายไม่ว่าง' }));
+      expect(await settle(() => evaluateTapReason(settings, context))).toEqual({ understanding: 'partial', feedback: 'สำเร็จหลัง provider หายไม่ว่าง' });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports the provider overload message when every attempt hits it', async () => {
+      fetchMock.mockImplementation(async () => new Response(JSON.stringify({
+        error: { message: 'Upstream error from Nvidia: Service temporarily overloaded', code: 503 },
+      })));
+      const error = await settleError(() => evaluateTapReason(settings, context));
+      expect(error).toMatchObject({ status: 502 });
+      expect(error.message).toContain('Service temporarily overloaded');
+    });
+
+    // Free endpoints are busy roughly half the time (verified live), so a provider-busy
+    // answer deserves an extra try instead of surfacing an error to the learner.
+    it('keeps retrying while the provider is merely busy', async () => {
+      for (let i = 0; i < 3; i += 1) {
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+          error: { message: 'Upstream error from Nvidia: Service temporarily overloaded', code: 503 },
+        })));
+      }
+      fetchMock.mockResolvedValueOnce(completion({ understanding: 'correct', feedback: 'สำเร็จหลังลองซ้ำเพราะ provider ไม่ว่าง' }));
+      expect(await settle(() => evaluateTapReason(settings, context))).toEqual({ understanding: 'correct', feedback: 'สำเร็จหลังลองซ้ำเพราะ provider ไม่ว่าง' });
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+      // the extra attempt repeats the shape that got a busy answer — the request was never the problem
+      expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toEqual(JSON.parse(fetchMock.mock.calls[0][1].body));
     });
 
     it('does not send reasoning off on the first attempt', async () => {

@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Plus, BookMarked, Pencil, Trash2, Loader2, Search, X, Save,
+  ArrowLeft, Plus, BookMarked, Pencil, Trash2, Loader2, Search, X, Save, Download, Upload,
 } from 'lucide-react';
 import {
   MAX_VERB_FORM_LENGTH,
@@ -12,6 +12,7 @@ import {
   type VerbEntry,
   type VerbFormKey,
 } from '@/lib/verb-bank';
+import { parseVerbCsv, verbEntriesToCsv } from '@/lib/verb-bank-io';
 
 import { notifyVerbEntriesChanged } from '@/lib/verb-bank-client';
 
@@ -35,6 +36,10 @@ export default function AdminVerbBankPage() {
   const [editErrors, setEditErrors] = useState<Partial<Record<VerbFormKey, string>>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // import/export
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const readError = async (response: Response, fallback: string) => {
     try {
@@ -153,6 +158,94 @@ export default function AdminVerbBankPage() {
       invalid ? 'border-red-400 bg-red-50' : 'border-slate-300 bg-white'
     }`;
 
+  /** ดาวน์โหลดคลังทั้งหมดเป็น CSV (ไม่ยึดตามคำค้นหาปัจจุบัน) */
+  const handleExport = async () => {
+    setNotice(null);
+    try {
+      const response = await fetch('/api/admin/verb-banks');
+      if (!response.ok) throw new Error(await readError(response, 'ดาวน์โหลดคลังกริยาไม่สำเร็จ'));
+      const body = await response.json();
+      const all: VerbEntry[] = Array.isArray(body.data) ? body.data : [];
+      if (all.length === 0) {
+        setNotice({ tone: 'error', text: 'คลังยังว่าง — ไม่มีอะไรให้ส่งออก' });
+        return;
+      }
+      const csv = verbEntriesToCsv(all);
+      // \uFEFF (BOM) ให้ Excel เปิดไฟล์ UTF-8 ภาษาไทยได้ถูกต้อง
+      const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const stamp = new Date().toISOString().slice(0, 10);
+      anchor.download = `verb-bank-${stamp}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setNotice({ tone: 'ok', text: `ส่งออก ${all.length} รายการเป็นไฟล์ CSV แล้ว` });
+    } catch (err) {
+      setNotice({ tone: 'error', text: err instanceof Error ? err.message : 'ส่งออกไม่สำเร็จ' });
+    }
+  };
+
+  /** อ่านไฟล์ CSV ที่เลือก ตรวจความถูกต้อง แล้วส่งให้ API นำเข้าแบบ merge */
+  const handleImportFile = async (file: File) => {
+    setNotice(null);
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const parsed = parseVerbCsv(text);
+
+      const rowErrors = parsed.rows.map((row) => {
+        const { errors } = validateVerbEntry({ v1: row.v1, v2: row.v2, v3: row.v3 });
+        const message = errors.v1 ?? errors.v2 ?? errors.v3;
+        return message ? { line: row.line, message } : null;
+      }).filter((item): item is { line: number; message: string } => item !== null);
+
+      const allErrors = [...parsed.errors, ...rowErrors];
+      const validRows = parsed.rows.filter(
+        (row) => !allErrors.some((error) => error.line === row.line),
+      );
+
+      if (validRows.length === 0) {
+        const detail = allErrors
+          .slice(0, 5)
+          .map((error) => `บรรทัด ${error.line}: ${error.message}`)
+          .join(' · ');
+        setNotice({
+          tone: 'error',
+          text: allErrors.length > 0
+            ? `ไม่มีแถวไหนนำเข้าได้ — ${detail}${allErrors.length > 5 ? ' …' : ''}`
+            : 'ไฟล์ไม่มีข้อมูลให้นำเข้า',
+        });
+        return;
+      }
+
+      const response = await fetch('/api/admin/verb-banks/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: validRows }),
+      });
+      if (!response.ok) throw new Error(await readError(response, 'นำเข้าไม่สำเร็จ'));
+      const body = await response.json();
+      const summary = body?.summary;
+      const invalidCount = summary?.invalid?.length ?? 0;
+      notifyVerbEntriesChanged();
+      setNotice({
+        tone: invalidCount > 0 ? 'error' : 'ok',
+        text: `นำเข้าสำเร็จ ${summary?.inserted ?? 0} รายการ`
+          + (summary?.duplicates ? ` · ข้ามที่ซ้ำ ${summary.duplicates}` : '')
+          + (invalidCount > 0 ? ` · แถวที่ผิด ${invalidCount} (เช่น บรรทัด ${summary.invalid[0].line}: ${summary.invalid[0].message})` : ''),
+      });
+      await load(search.trim());
+    } catch (err) {
+      setNotice({ tone: 'error', text: err instanceof Error ? err.message : 'นำเข้าไม่สำเร็จ' });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const renderCells = (
     draft: Draft,
     setDraft: (next: Draft) => void,
@@ -193,6 +286,36 @@ export default function AdminVerbBankPage() {
                 แสดงใน sidebar หน้าสอบ · ตอนนี้มี {entries.length} รายการ
               </p>
             </div>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              <Download className="h-4 w-4" />
+              ส่งออก CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-50"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {importing ? 'กำลังนำเข้า…' : 'นำเข้า CSV'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void handleImportFile(file);
+              }}
+            />
           </div>
         </div>
 

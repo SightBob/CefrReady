@@ -43,6 +43,7 @@ interface ExamState {
 export default function FullTestExamPage() {
   const { status } = useSession();
   const router = useRouter();
+  const [maintenanceBlocked, setMaintenanceBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -66,6 +67,19 @@ export default function FullTestExamPage() {
   useEffect(() => {
     attemptIdRef.current = attemptId;
   }, [attemptId]);
+
+  // Gate: Full Test ถูกปิดปรับปรุง (เช่น พิมพ์ URL ตรง) → หน้าแจ้งเฉพาะพาร์ท
+  useEffect(() => {
+    fetch('/api/tests-maintenance')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { sections?: Record<string, boolean> } | null) => {
+        if (data?.sections?.full) {
+          setMaintenanceBlocked(true);
+          router.replace('/tests/full/maintenance');
+        }
+      })
+      .catch(() => undefined); // fail-open
+  }, [router]);
 
   const setSelectedAnswerSynced = useCallback((answer: string | null) => {
     selectedAnswerRef.current = answer;
@@ -378,6 +392,11 @@ export default function FullTestExamPage() {
   const handleClozeChange = (answersMap: Record<number, string>) => {
     setSelectedAnswerSynced(JSON.stringify(answersMap));
   };
+
+  if (maintenanceBlocked) {
+    // กำลัง redirect ไป /tests/full/maintenance — กันแฟลชหน้าสอบชั่วขณะ
+    return <div className="min-h-screen flex items-center justify-center">กำลังโหลด...</div>;
+  }
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">กำลังโหลด...</div>;

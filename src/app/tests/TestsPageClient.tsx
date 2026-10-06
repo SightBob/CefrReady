@@ -16,14 +16,21 @@ const ANNOUNCEMENT =
 interface TestsPageClientProps {
   sections: SectionData[];
   user: { name: string | null; email: string | null } | null;
+  /** พาร์ทที่ admin ปิดปรับปรุงอยู่ (id → true) — การ์ดพาไปหน้าแจ้งแทนหน้าสอบ */
+  maintenanceSections?: Record<string, boolean>;
 }
 
-export default function TestsPageClient({ sections, user }: TestsPageClientProps) {
+export default function TestsPageClient({ sections, user, maintenanceSections = {} }: TestsPageClientProps) {
   const router = useRouter();
   const isAuthenticated = Boolean(user);
   const [showBanner, setShowBanner] = useState(true);
 
   const handleOpenSection = (section: SectionData) => {
+    // พาร์ทปิดปรับปรุง → หน้าแจ้งเฉพาะพาร์ท (ไม่ต้องล็อกอินก่อน)
+    if (maintenanceSections[section.id]) {
+      router.push(`/tests/${section.id}/maintenance`);
+      return;
+    }
     if (!isAuthenticated) {
       void signIn(undefined, { callbackUrl: '/tests' });
       return;
@@ -32,6 +39,11 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
   };
 
   const handleHeroCta = (e: React.MouseEvent) => {
+    if (maintenanceSections['full']) {
+      e.preventDefault();
+      router.push('/tests/full/maintenance');
+      return;
+    }
     if (!isAuthenticated) {
       e.preventDefault();
       void signIn(undefined, { callbackUrl: '/tests' });
@@ -95,7 +107,7 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
         {/* Hero — desktop 60:846/60:847/60:843, mobile 200:9228 (339×158) */}
         <section className="relative pt-[14px] lg:pt-[38px]">
           <h1 className="text-[16px] font-bold leading-[26px] text-[#334155] lg:text-[26px] lg:leading-[43px]">
-            รวมข้อสอบเสมือนจริง “ ครอบคลุมเนื้อหาทั้งหมด ”
+            จำลองการสอบจริง “ ครอบคลุมเนื้อหาทั้งหมด ”
           </h1>
           <p className="mt-[4px] text-[13px] font-medium leading-[21px] text-[#6f7c8e] lg:text-[16px] lg:leading-[26px] lg:text-[#56606F]">
             ระดับความยากง่ายที่มีตั้งแต่ A1 - B2 กับโจทย์ที่จำลอง

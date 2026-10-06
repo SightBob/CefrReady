@@ -57,10 +57,6 @@ interface TestLayoutProps {
   showQuestionNav?: boolean;
   timerSeconds?: number;
   sequentialNav?: boolean;
-  /** Review Round: badge shown in the header when in the review phase. */
-  phaseLabel?: string;
-  /** Review Round: question indices >= this render with review styling. */
-  reviewSegmentStart?: number;
   /** Open the current question's linked explain content. */
   reviewAction?: { label: string; onClick: () => void };
   /** Optional teaching action; ordinary question navigation remains unchanged. */
@@ -102,8 +98,6 @@ export default function TestLayout({
   showQuestionNav = true,
   timerSeconds,
   sequentialNav = false,
-  phaseLabel,
-  reviewSegmentStart,
   reviewAction,
   primaryAction,
 }: TestLayoutProps) {
@@ -167,6 +161,22 @@ export default function TestLayout({
 
   const answeredCount = answers.filter(a => a !== null).length;
   const unansweredCount = totalQuestions - answeredCount;
+
+  // กติกา navigation (ทุกโหมด): คลิกได้เฉพาะข้อที่ "ไปถึง" แล้ว — คือข้อ
+  // ปัจจุบันหรือข้อใดๆ ก่อนหน้า (ตอบแล้วหรือข้ามไปก็ตาม) ห้ามกระโดดข้ามข้อ
+  // ที่ยังไม่ทำไปข้างหน้า (เช่น ทำถึงข้อ 3 → กลับไปดูข้อ 1-2 ได้ แต่คลิกข้อ 4
+  // ไม่ได้) ใช้กับ grid, list และแถบเลื่อนบนมือถือให้เหมือนกันทุกจุด
+  // (sequentialNav ของ full test จึงเหลือความต่างแค่ห้าม auto-select ตอนเปลี่ยนชุด)
+  const maxReachedQuestion = useMemo(() => {
+    let last = currentQuestion;
+    for (let i = answers.length - 1; i >= 0; i--) {
+      if (answers[i] !== null) { last = Math.max(last, i); break; }
+    }
+    return last;
+  }, [answers, currentQuestion]);
+
+  const canSelectQuestion = (index: number) =>
+    isSubmitted ? true : index <= maxReachedQuestion;
 
   // Get questions for current page
   const pageQuestions = useMemo(() => {
@@ -237,8 +247,6 @@ export default function TestLayout({
     // Figma 60:3867 — 5 คอลัมน์ gap 14px ในพื้นที่ 244px → เซลล์ยืดเต็มคอลัมน์ (~37.6px) แทนความกว้างคงที่
     let baseClass = 'w-full min-w-0 h-[2.5625rem] rounded-lg font-semibold text-[0.8125rem] flex items-center justify-center transition-all duration-200 ';
 
-    const isReviewItem = reviewSegmentStart !== undefined && index >= reviewSegmentStart;
-
     // Figma: current question = #719CC0 bg + white text
     if (isActive) {
       return baseClass + 'bg-[#719CC0] text-white hover:bg-[#5F8BAC]';
@@ -247,20 +255,17 @@ export default function TestLayout({
     switch (status) {
       case 'answered':
         // Figma answered: light blue #DCEFFF with dark blue text #2A4246
-        return isReviewItem
-          ? baseClass + 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-          : baseClass + 'bg-[#DCEFFF] text-[#2A4246] hover:bg-[#C7E5FB]';
+        return baseClass + 'bg-[#DCEFFF] text-[#2A4246] hover:bg-[#C7E5FB]';
       default:
         // Figma unanswered: #F8F8F8 with gray text #585E5F
-        return isReviewItem
-          ? baseClass + 'bg-amber-500 text-white'
-          : baseClass + 'bg-[#F8F8F8] text-[#585E5F] hover:bg-[#ECECEC]';
+        return baseClass + 'bg-[#F8F8F8] text-[#585E5F] hover:bg-[#ECECEC]';
     }
   };
 
   const handleJumpToQuestion = () => {
     const questionNum = parseInt(jumpToQuestion);
-    if (questionNum >= 1 && questionNum <= totalQuestions) {
+    // Sequential exams: ห้ามพิมพ์เลขข้ามข้อที่ยังไม่ไปถึง (เช่น ทำถึงข้อ 3 → พิมพ์ 5 ไม่ได้)
+    if (questionNum >= 1 && questionNum <= totalQuestions && canSelectQuestion(questionNum - 1)) {
       onQuestionSelect(questionNum - 1);
       setCurrentPage(navSetOf(questionNum - 1));
       setJumpToQuestion('');
@@ -269,7 +274,8 @@ export default function TestLayout({
     setCurrentPage(page);
     // Select first question of the new set (sequential exams are view-only)
     const firstQuestion = navSetStart(page);
-    if (!sequentialNav && firstQuestion < totalQuestions) {
+    // ห้าม auto-select ข้อแรกของชุดที่ยังไปไม่ถึง — ดูได้อย่างเดียว
+    if (firstQuestion < totalQuestions && canSelectQuestion(firstQuestion)) {
       onQuestionSelect(firstQuestion);
     }
   };
@@ -500,7 +506,7 @@ export default function TestLayout({
                 </div>
               </div>
               <span className="shrink-0 text-[0.6875rem] font-bold tracking-[0.06em] text-[#3F4A36] max-[644px]:hidden">
-                ทั้งหมด {totalQuestions} ข้อ
+                {answeredCount}/{totalQuestions}
               </span>
             </div>
           </div>
@@ -540,8 +546,8 @@ export default function TestLayout({
                         <button
                           key={i}
                           onClick={() => onQuestionSelect(i)}
-                          disabled={sequentialNav}
-                          className={`${getQuestionButtonClass(i)}${sequentialNav ? ' cursor-default' : ''}`}
+                          disabled={!canSelectQuestion(i)}
+                          className={`${getQuestionButtonClass(i)}${!canSelectQuestion(i) ? ' cursor-not-allowed opacity-50' : ''}`}
                         >
                           {i + 1}
                         </button>
@@ -565,9 +571,9 @@ export default function TestLayout({
                           <button
                             key={i}
                             onClick={() => onQuestionSelect(i)}
-                            disabled={sequentialNav}
+                            disabled={!canSelectQuestion(i)}
                             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm ${i === currentQuestion ? 'bg-primary-50 ring-1 ring-primary-500' : 'hover:bg-slate-50'
-                              }${sequentialNav ? ' cursor-default' : ''}`}
+                              }${!canSelectQuestion(i) ? ' cursor-not-allowed opacity-50' : ''}`}
                           >
                             <span className="w-6 text-slate-500 font-medium">{i + 1}</span>
                             {status === 'answered' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
@@ -687,10 +693,10 @@ export default function TestLayout({
               key={i}
               type="button"
               onClick={() => onQuestionSelect(i)}
-              disabled={sequentialNav}
+              disabled={!canSelectQuestion(i)}
               aria-current={i === currentQuestion ? 'true' : undefined}
-              aria-label={`ข้อ ${i + 1}: ${getQuestionStatus(i) === 'answered' ? 'ตอบแล้ว' : 'ยังไม่ได้ตอบ'}`}
-              className={`${getQuestionButtonClass(i)} !h-[46px] !w-[46px] !shrink-0 !rounded-[8px] !text-[13px]${sequentialNav ? ' cursor-default' : ''}`}
+              aria-label={`ข้อ ${i + 1}: ${getQuestionStatus(i) === 'answered' ? 'ตอบแล้ว' : 'ยังไม่ได้ตอบ'}${!canSelectQuestion(i) ? ' (ยังไปไม่ถึง)' : ''}`}
+              className={`${getQuestionButtonClass(i)} !h-[46px] !w-[46px] !shrink-0 !rounded-[8px] !text-[13px]${!canSelectQuestion(i) ? ' cursor-not-allowed opacity-50' : ''}`}
             >
               {i + 1}
             </button>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getCachedSections } from '@/lib/sections';
 import { auth } from '@/lib/auth';
+import { getSectionMaintenanceMap } from '@/lib/test-section-maintenance';
 import TestsPageClient from './TestsPageClient';
 
 export const revalidate = 300;
@@ -31,9 +32,13 @@ async function getSections() {
 }
 
 export default async function TestsPage() {
-  const [sections, session] = await Promise.all([getSections(), auth()]);
+  const [sections, session, maintenance] = await Promise.all([
+    getSections(),
+    auth(),
+    getSectionMaintenanceMap(),
+  ]);
   const user = session?.user
     ? { name: session.user.name ?? null, email: session.user.email ?? null }
     : null;
-  return <TestsPageClient sections={sections} user={user} />;
+  return <TestsPageClient sections={sections} user={user} maintenanceSections={maintenance} />;
 }

@@ -248,7 +248,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const [importBusy, setImportBusy] = useState(false);
   const [importResult, setImportResult] = useState<null | {
     success: boolean; message?: string; created: number; updated: number; failed: number;
-    results: Array<{ grammarTopic: string; status: string; message?: string }>;
+    results: Array<{ grammarTopic: string; status: string; message?: string; warnings?: string[] }>;
     error?: string;
   }>(null);
   const pendingImportFile = useRef<File | null>(null);
@@ -426,6 +426,11 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
     window.location.href = '/api/admin/test-explains/export';
   };
 
+  // ส่งออกเฉพาะบทเดียว (ไฟล์รูปแบบเดียวกับ export ทั้งหมด — นำเข้ากลับได้ทันที)
+  const exportOne = (row: ExplainRow) => {
+    window.location.href = `/api/admin/test-explains/export?id=${row.id}`;
+  };
+
   const openImport = () => {
     pendingImportFile.current = null;
     setImportResult(null);
@@ -551,6 +556,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
             {rows.map((row) => <div key={row.id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4 last:border-0">
               <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold text-slate-800">{row.title}</h2><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${row.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{row.isPublished ? 'เผยแพร่' : 'ฉบับร่าง'}</span></div><p className="mt-1 text-sm text-slate-500">{row.grammarTopic} · {row.questionCount} ข้อสอบ · อัปเดต {new Date(row.updatedAt).toLocaleDateString('th-TH')}</p></div>
               <Link href={`/admin/test-explains/${row.id}`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50">แก้ไข</Link>
+              <button type="button" onClick={() => exportOne(row)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" aria-label={`ส่งออก ${row.title}`}><Download className="h-4 w-4" /></button>
               <button type="button" onClick={() => removeExplain(row.id)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`ลบ ${row.title}`}><Trash2 className="h-4 w-4" /></button>
             </div>)}
           </div>
@@ -646,6 +652,11 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                         <li><code className="rounded bg-slate-200 px-1 font-mono">practice</code> — Mini Quiz: practice.questions[] = {'{ sentence, options[], answerIndex, explanation }'} (ต้องมีตัวเลือก ≥ 2 ข้อและ answerIndex ชี้ตัวเลือกที่มีข้อความ ถ้าจะเผยแพร่)</li>
                       </ul>
                     </div>
+                    <div className="rounded-lg border border-sky-200 bg-sky-50 p-2.5 text-sky-800">
+                      <p className="font-bold">ระบบตรวจโครงสร้างอัตโนมัติก่อนนำเข้าทุกครั้ง</p>
+                      <p className="mt-0.5">ถ้าพบผิด เช่น rows/examples/practice มีฟิลด์ผิดประเภท, answerIndex เกินจำนวนตัวเลือก — รายการนั้นจะ<b>ไม่ถูกนำเข้า</b> และระบบจะบอกตำแหน่งที่ผิดทุกจุด เช่น <code className="rounded bg-white/70 px-1 font-mono">sections[2].practice.questions[1].answerIndex=5 เกินช่วงของ options</code> นำไปแก้ไฟล์แล้ว import ซ้ำได้เลย</p>
+                      <p className="mt-1">ส่วนคำเตือน (⚠) หมายถึง import สำเร็จ แต่บางส่วนอาจถูกลบออกตอนเผยแพร่ เช่น โจทย์ Mini Quiz ที่ตัวเลือกใช้ได้ไม่ถึง 2 ข้อ</p>
+                    </div>
                     <div>
                       <p className="font-bold text-slate-700">ตัวอย่างเต็ม 1 รายการ</p>
                       <pre className="mt-1 overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] leading-5 text-emerald-100">{JSON_EXAMPLE}</pre>
@@ -684,13 +695,21 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                 {importResult && (
                   <div className={`rounded-xl border p-3 text-sm ${importResult.success ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>
                     <p className="font-bold">{importResult.error ?? importResult.message ?? (importResult.success ? 'ตรวจสอบผ่าน' : 'มีข้อผิดพลาด')}</p>
+                    {importResult.success && importResult.results.some((result) => result.warnings?.length) && (
+                      <p className="mt-1 text-xs text-amber-700">⚠ มีจุดที่ควรตรวจสอบ — ดูรายละเอียดคำเตือนใต้แต่ละรายการด้านล่าง (import สำเร็จ แต่บางส่วนของเนื้อหาอาจถูกลบออกอัตโนมัติ)</p>
+                    )}
                     {importResult.results?.length > 0 && (
                       <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs">
                         {importResult.results.map((result, index) => (
-                          <li key={index} className="flex flex-wrap items-center gap-1.5">
+                          <li key={index} className="flex flex-wrap items-start gap-1.5">
                             <span className={`rounded px-1.5 py-0.5 text-[10px] font-black ${result.status === 'created' ? 'bg-emerald-100 text-emerald-700' : result.status === 'updated' ? 'bg-sky-100 text-sky-700' : 'bg-rose-100 text-rose-700'}`}>{result.status === 'created' ? 'สร้างใหม่' : result.status === 'updated' ? 'อัปเดต' : 'ผิดพลาด'}</span>
                             <span className="font-semibold">{result.grammarTopic}</span>
                             {result.message && <span className="text-slate-500">— {result.message}</span>}
+                            {result.warnings && result.warnings.length > 0 && (
+                              <ul className="mt-1 w-full space-y-0.5 pl-1 text-[11px] text-amber-700">
+                                {result.warnings.map((warning, wi) => <li key={wi}>⚠ {warning}</li>)}
+                              </ul>
+                            )}
                           </li>
                         ))}
                       </ul>

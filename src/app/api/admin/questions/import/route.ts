@@ -22,6 +22,7 @@ interface ImportQuestion {
   article?: string;
   audioUrl?: string;
   transcript?: string;
+  tapExercise?: string;
 }
 
 interface ValidationResult {
@@ -33,7 +34,7 @@ interface ValidationResult {
 const CSV_COLUMNS = [
   'testTypeId','questionText','optionA','optionB','optionC','optionD',
   'correctAnswer','explanation','cefrLevel','difficulty','grammarTopic','testSetId',
-  'conversation','article','audioUrl','transcript',
+  'conversation','article','audioUrl','transcript','tapExercise',
 ] as const;
 
 const MAX_ERROR_MESSAGES = 100;
@@ -59,20 +60,23 @@ function makeRowNumberer(hadHeader: boolean): (idx: number) => number {
   return (idx: number) => idx + offset;
 }
 
-function validateQuestion(row: Record<string, string>, rowNum: number): ValidationResult {
+// Exported for unit tests (import/route.test.ts) — pure logic, no db access
+export function validateQuestion(row: Record<string, string>, rowNum: number): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Validate testTypeId first
-  const validTestTypes = ['focus-form', 'focus-meaning', 'form-meaning', 'listening'];
+  // Validate testTypeId first — tap-select is the CSV representation of a
+  // Tap & Select exercise stored in the tapExercise JSONB column
+  const validTestTypes = ['focus-form', 'focus-meaning', 'form-meaning', 'listening', 'tap-select'];
   if (!row.testTypeId?.trim()) {
     errors.push(`Row ${rowNum}: Missing required field "testTypeId"`);
   } else if (!validTestTypes.includes(row.testTypeId)) {
     errors.push(`Row ${rowNum}: Invalid testTypeId "${row.testTypeId}". Must be one of: ${validTestTypes.join(', ')}`);
   }
 
-  // Common required fields
-  if (!row.questionText?.trim()) {
+  // Common required fields — questionText is optional for tap-select
+  // (falls back to tapExercise.title at insert time)
+  if (!row.questionText?.trim() && row.testTypeId !== 'tap-select') {
     errors.push(`Row ${rowNum}: Missing required field "questionText"`);
   }
 
@@ -105,6 +109,59 @@ function validateQuestion(row: Record<string, string>, rowNum: number): Validati
 
   // Type-specific validation
   const testType = row.testTypeId?.trim();
+
+  if (testType === 'tap-select') {
+    // Tap & Select: requires tapExercise JSON, NOT options/correctAnswer.
+    // questionText is optional — falls back to tapExercise.title at insert time.
+    if (!row.tapExercise?.trim()) {
+      errors.push(`Row ${rowNum}: tap-select requires "tapExercise" column (JSON with title + items)`);
+    } else {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(row.tapExercise);
+      } catch (err) {
+        errors.push(`Row ${rowNum}: "tapExercise" is not valid JSON — ${jsonErrorDetail(err)} (ข้อมูลที่ได้รับ: "${snippet(row.tapExercise)}")`);
+        return { valid: false, errors, warnings };
+      }
+      const tap = parsed as { title?: unknown; hint?: unknown; items?: unknown } | null;
+      if (!tap || typeof tap !== 'object' || Array.isArray(tap)) {
+        errors.push(`Row ${rowNum}: "tapExercise" must be a JSON object { title, hint?, items[] }`);
+      } else {
+        if (typeof tap.title !== 'string' || !tap.title.trim()) {
+          errors.push(`Row ${rowNum}: "tapExercise.title" must be a non-empty string`);
+        }
+        if (tap.hint !== undefined && tap.hint !== null && typeof tap.hint !== 'string') {
+          errors.push(`Row ${rowNum}: "tapExercise.hint" must be a string if provided`);
+        }
+        if (!Array.isArray(tap.items) || tap.items.length === 0) {
+          errors.push(`Row ${rowNum}: "tapExercise.items" must be an array with at least 1 item`);
+        } else {
+          tap.items.forEach((item, ii) => {
+            const it = item as { prompt?: unknown; choiceA?: unknown; choiceB?: unknown; correct?: unknown } | null;
+            if (!it || typeof it !== 'object') {
+              errors.push(`Row ${rowNum}: "tapExercise.items[${ii}]" must be an object { prompt, choiceA, choiceB, correct }`);
+              return;
+            }
+            for (const field of ['prompt', 'choiceA', 'choiceB'] as const) {
+              if (typeof it[field] !== 'string' || !(it[field] as string).trim()) {
+                errors.push(`Row ${rowNum}: "tapExercise.items[${ii}].${field}" must be a non-empty string`);
+              }
+            }
+            if (it.correct !== 0 && it.correct !== 1) {
+              errors.push(`Row ${rowNum}: "tapExercise.items[${ii}].correct" must be 0 (choiceA) or 1 (choiceB) — ได้รับ: ${JSON.stringify(it.correct)}`);
+            }
+          });
+        }
+      }
+      // Options/correctAnswer are not part of Tap & Select
+      for (const field of ['optionA', 'optionB', 'optionC', 'optionD', 'correctAnswer'] as const) {
+        if (row[field]?.trim()) {
+          warnings.push(`Row ${rowNum}: "${field}" ไม่ได้ใช้กับ tap-select — ระบบจะละเว้นค่านี้`);
+        }
+      }
+    }
+    return { valid: errors.length === 0, errors, warnings };
+  }
 
   if (testType === 'form-meaning') {
     // form-meaning: requires article JSON, NOT optionA-D
@@ -379,6 +436,25 @@ function buildDedupKey(
   ].join('::');
 }
 
+/** Tap & Select dedup: title + items (prompt/choices/correct) — ไม่สน options เพราะ tap ไม่ใช้ */
+// Exported for unit tests
+export function normalizeTap(raw: unknown): string {
+  if (!raw) return '';
+  let tap = raw;
+  if (typeof raw === 'string') {
+    try { tap = JSON.parse(raw); } catch { return normalizeText(raw); }
+  }
+  const t = tap as { title?: unknown; items?: unknown } | null;
+  if (!t || typeof t !== 'object' || !Array.isArray(t.items)) return normalizeText(String(raw));
+  return [
+    normalizeText(typeof t.title === 'string' ? t.title : ''),
+    t.items.map((item) => {
+      const it = item as { prompt?: unknown; choiceA?: unknown; choiceB?: unknown; correct?: unknown } | null;
+      return [normalizeText(it?.prompt as string), normalizeText(it?.choiceA as string), normalizeText(it?.choiceB as string), String(it?.correct ?? '')].join('|');
+    }).join(';;'),
+  ].join('::');
+}
+
 export async function POST(request: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
@@ -429,9 +505,11 @@ export async function POST(request: NextRequest) {
     const seenInFile = new Map<string, number>();
     const inFileDuplicateRows = new Set<number>();
     rows.forEach((row, idx) => {
-      const key = buildDedupKey(row.testTypeId, row.questionText, row.conversation, [
-        row.optionA, row.optionB, row.optionC, row.optionD,
-      ]);
+      const key = row.testTypeId === 'tap-select'
+        ? buildDedupKey(row.testTypeId, row.tapExercise ?? '', normalizeTap(row.tapExercise), [])
+        : buildDedupKey(row.testTypeId, row.questionText, row.conversation, [
+            row.optionA, row.optionB, row.optionC, row.optionD,
+          ]);
       if (seenInFile.has(key)) {
         inFileDuplicateRows.add(idx);
         allWarnings.push(`Row ${rowNo(idx)}: ข้อสอบซ้ำกับ Row ${rowNo(seenInFile.get(key)!)} ในไฟล์ CSV เดียวกัน — ข้ามแถวนี้`);
@@ -453,21 +531,26 @@ export async function POST(request: NextRequest) {
           optionC: questions.optionC,
           optionD: questions.optionD,
           conversation: questions.conversation,
+          tapExercise: questions.tapExercise,
         })
         .from(questions)
         .where(inArray(questions.testTypeId, uniqueTestTypeIds));
       existingNormalized = new Set(
-        existingRows.map(q => buildDedupKey(q.testTypeId, q.questionText, q.conversation, [
-          q.optionA, q.optionB, q.optionC, q.optionD,
-        ]))
+        existingRows.map(q => q.testTypeId === 'tap-select'
+          ? buildDedupKey(q.testTypeId, q.tapExercise ? JSON.stringify(q.tapExercise) : '', normalizeTap(q.tapExercise), [])
+          : buildDedupKey(q.testTypeId, q.questionText, q.conversation, [
+              q.optionA, q.optionB, q.optionC, q.optionD,
+            ]))
       );
     }
 
     const inDbDuplicateRows = new Set<number>();
     rows.forEach((row, idx) => {
-      const key = buildDedupKey(row.testTypeId, row.questionText, row.conversation, [
-        row.optionA, row.optionB, row.optionC, row.optionD,
-      ]);
+      const key = row.testTypeId === 'tap-select'
+        ? buildDedupKey(row.testTypeId, row.tapExercise ?? '', normalizeTap(row.tapExercise), [])
+        : buildDedupKey(row.testTypeId, row.questionText, row.conversation, [
+            row.optionA, row.optionB, row.optionC, row.optionD,
+          ]);
       if (existingNormalized.has(key)) {
         inDbDuplicateRows.add(idx);
         allWarnings.push(`Row ${rowNo(idx)}: ข้อสอบซ้ำกับที่มีอยู่ในระบบแล้ว — ข้ามแถวนี้`);
@@ -497,10 +580,22 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Tap & Select: questionText falls back to the exercise title,
+        // options/correctAnswer stay null (validated + warned in validateQuestion)
+        let tapData = null;
+        if (row.tapExercise) {
+          try { tapData = JSON.parse(row.tapExercise); }
+          catch (err) {
+            allWarnings.push(`Row ${rowNo(idx)}: "tapExercise" JSON parse failed (${jsonErrorDetail(err)}) — จะนำเข้าโดยไม่มี tapExercise`);
+          }
+        }
+
         return {
           _originalIndex: idx,
           testTypeId: row.testTypeId,
-          questionText: row.questionText,
+          questionText: row.testTypeId === 'tap-select' && !row.questionText?.trim() && tapData?.title
+            ? String(tapData.title).trim()
+            : row.questionText,
           optionA: row.optionA || null,
           optionB: row.optionB || null,
           optionC: row.optionC || null,
@@ -514,6 +609,7 @@ export async function POST(request: NextRequest) {
           article: articleData,
           audioUrl: row.audioUrl || null,
           transcript: row.transcript || null,
+          tapExercise: tapData,
         };
       })
       .filter((q): q is NonNullable<typeof q> => q !== null);
@@ -721,6 +817,32 @@ export async function GET() {
       article: '',
       audioUrl: 'https://example.com/audio/meeting-starts-at-9.mp3',
       transcript: 'The meeting starts at 9.',
+    },
+    {
+      testTypeId: 'tap-select',
+      questionText: '',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctAnswer: '',
+      explanation: 'Tap & Select exercise (questionText falls back to tapExercise.title)',
+      cefrLevel: 'B1',
+      difficulty: 'easy',
+      grammarTopic: 'Present Simple',
+      testSetId: '',
+      conversation: '',
+      article: '',
+      audioUrl: '',
+      transcript: '',
+      tapExercise: JSON.stringify({
+        title: 'Present Simple — ใช่หรือไม่',
+        hint: 'แตะคำที่ถูกต้อง',
+        items: [
+          { prompt: 'She ___ to school every day.', choiceA: 'go', choiceB: 'goes', correct: 1 },
+          { prompt: 'I ___ TV last night.', choiceA: 'watched', choiceB: 'watch', correct: 0 },
+        ],
+      }),
     },
   ];
 

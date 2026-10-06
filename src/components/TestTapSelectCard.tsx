@@ -178,26 +178,13 @@ export default function TestTapSelectCard({
                 <Image src="/icon_svg/spark.svg" alt="" width={16} height={16} className="h-[15.8px] w-[15.8px]" />
               </span>
               <div className="min-w-0 flex-1 space-y-1">
-                {feedback.ai ? <>
-                  <p className="text-sm font-medium leading-[21px] text-[#76641C]">
-                    {feedback.isCorrect ? AI_PRAISE : UNDERSTANDING_LABELS[feedback.ai.understanding]}
+                {feedback.ai?.feedback && (
+                  <p className="whitespace-pre-line break-words text-sm font-medium leading-[21px] text-[#76641C]">
+                    {feedback.ai.feedback}
                   </p>
-                  <p className="text-[0.8125rem] leading-[19px] text-[#76641C]/75">
-                    ตัวเลือก: {feedback.isCorrect ? 'ถูกต้อง' : 'ยังไม่ถูกต้อง'}
-                  </p>
-                  {feedback.isCorrect && (
-                    <p className="text-[0.8125rem] leading-[19px] text-[#76641C]/75">
-                      {UNDERSTANDING_LABELS[feedback.ai.understanding]}
-                    </p>
-                  )}
-                  <p className="whitespace-pre-line break-words text-sm font-medium leading-[21px] text-[#76641C]">{feedback.ai.feedback}</p>
-                  <p className="text-xs leading-[18px] text-[#76641C]/60">AI อาจคลาดเคลื่อนได้ ใช้ประกอบการเรียนรู้และโหมดทบทวน</p>
-                </> : <p className="text-sm font-medium leading-[21px] text-[#76641C]">{feedback.message}</p>}
+                )}
               </div>
             </div>
-            {feedback.isCorrect && (
-              <Image src="/icon_svg/heart.svg" alt="" width={20} height={20} className="size-5 shrink-0" />
-            )}
           </div>
         </div>}
       </section>

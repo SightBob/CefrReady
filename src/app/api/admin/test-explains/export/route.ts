@@ -1,20 +1,46 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { asc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
 import { normalizeLessonSections } from '@/lib/lesson-sections';
 import { requireAdmin } from '@/lib/admin-auth';
+import { collectItemIssues } from '@/lib/test-explain-validation';
 
-export const dynamic = 'force-dynamic';
-
-// Export every test explain as structured JSON. The payload is also the exact
+// Export test explains as structured JSON. The payload is also the exact
 // shape the import endpoint accepts (round-trip safe), so admins can download,
 // edit offline (or with an AI assistant), and re-import.
-export async function GET() {
+// - GET              → every explain
+// - GET ?id=<number> → a single explain (ทีละบท) wrapped in the same explains array
+//   so the per-lesson file can go straight back through the same import endpoint.
+export async function GET(request: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
   try {
-    const rows = await db.select().from(testExplains).orderBy(asc(testExplains.id));
+    const idParam = new URL(request.url).searchParams.get('id');
+    let rows;
+    let filename = `test-explains-${new Date().toISOString().slice(0, 10)}.json`;
+
+    if (idParam !== null) {
+      const id = Number(idParam);
+      if (!Number.isInteger(id) || id <= 0) {
+        return NextResponse.json({ success: false, error: 'id ต้องเป็นเลขจำนวนเต็มบวก' }, { status: 400 });
+      }
+      const [single] = await db.select().from(testExplains).where(eq(testExplains.id, id)).limit(1);
+      if (!single) {
+        return NextResponse.json({ success: false, error: 'ไม่พบ explain ที่ต้องการส่งออก' }, { status: 404 });
+      }
+      rows = [single];
+      // ตั้งชื่อไฟล์จาก grammarTopic ให้เดาง่ายว่าไฟล์นี้คือบทไหน
+      const safeTopic = String(single.grammarTopic)
+        .normalize('NFKD')
+        .replace(/[^\w.-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60) || `explain-${id}`;
+      filename = `test-explain-${safeTopic}.json`;
+    } else {
+      rows = await db.select().from(testExplains).orderBy(asc(testExplains.id));
+    }
+
     return NextResponse.json(
       {
         format: 'cefr-ready/test-explains@1',
@@ -24,7 +50,7 @@ export async function GET() {
       },
       {
         headers: {
-          'Content-Disposition': `attachment; filename="test-explains-${new Date().toISOString().slice(0, 10)}.json"`,
+          'Content-Disposition': `attachment; filename="${filename}"`,
         },
       },
     );
@@ -53,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     const upsert = body.mode === 'upsert';
-    const results: Array<{ grammarTopic: string; status: 'created' | 'updated' | 'error'; message?: string }> = [];
+    const results: Array<{ grammarTopic: string; status: 'created' | 'updated' | 'error'; message?: string; warnings?: string[] }> = [];
     const seen = new Set<string>();
 
     for (let index = 0; index < items.length; index++) {
@@ -69,6 +95,10 @@ export async function POST(request: Request) {
         const duplicate = seen.has(grammarTopic);
         if (duplicate) throw new Error('grammarTopic ซ้ำภายในไฟล์เดียวกัน');
         seen.add(grammarTopic);
+
+        // ตรวจโครงสร้างละเอียดก่อน normalize — พบ error ให้ข้ามรายการนี้พร้อมบอกตำแหน่งที่ผิดทุกจุด
+        const issues = collectItemIssues(raw);
+        if (issues.errors.length) throw new Error(issues.errors.join(' · '));
 
         const sections = normalizeLessonSections(raw.sections);
         const hasContent = sections.some(
@@ -96,10 +126,10 @@ export async function POST(request: Request) {
         }
         if (existing) {
           await db.update(testExplains).set({ ...values, updatedAt: new Date() }).where(eq(testExplains.id, existing.id));
-          results.push({ grammarTopic, status: 'updated' });
+          results.push({ grammarTopic, status: 'updated', warnings: issues.warnings });
         } else {
           await db.insert(testExplains).values(values);
-          results.push({ grammarTopic, status: 'created' });
+          results.push({ grammarTopic, status: 'created', warnings: issues.warnings });
         }
       } catch (itemError) {
         results.push({ grammarTopic: label, status: 'error', message: itemError instanceof Error ? itemError.message : 'ข้อมูลไม่ถูกต้อง' });
@@ -109,9 +139,10 @@ export async function POST(request: Request) {
     const created = results.filter((r) => r.status === 'created').length;
     const updated = results.filter((r) => r.status === 'updated').length;
     const failed = results.filter((r) => r.status === 'error');
+    const warningCount = results.reduce((sum, r) => sum + (r.warnings?.length ?? 0), 0);
     return NextResponse.json({
       success: failed.length === 0,
-      message: `นำเข้าสำเร็จ: สร้างใหม่ ${created} · อัปเดต ${updated} · ผิดพลาด ${failed.length}`,
+      message: `นำเข้าสำเร็จ: สร้างใหม่ ${created} · อัปเดต ${updated} · ผิดพลาด ${failed.length}${warningCount ? ` · คำเตือน ${warningCount}` : ''}`,
       created,
       updated,
       failed: failed.length,

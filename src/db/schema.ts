@@ -201,14 +201,6 @@ export const testAttempts = pgTable('test_attempts', {
     orderIndex: number;
     reused?: boolean;
   }>>().default([]),
-  // Review Round: per-question retry outcomes (first attempt is what counts
-  // toward score; this records the single allowed retry per wrong question).
-  retrySummary: jsonb('retry_summary').$type<Array<{
-    questionId: number;
-    firstAnswer: string;
-    retryAnswer: string;
-    recovered: boolean;
-  }>>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({

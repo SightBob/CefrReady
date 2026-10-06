@@ -35,6 +35,11 @@ local_db_dump.sql
 # Vercel
 .vercel
 
+# Lighthouse site audit (local tool, not committed)
+.unlighthouse/
+unlighthouse.config.ts
+public/unlighthouse-urls-*.txt
+
 # Internal tools
 .omc/
 .opencode/

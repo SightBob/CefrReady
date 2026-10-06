@@ -129,7 +129,7 @@ export default function HeaderClient() {
 
         {/* Center: nav links */}
         {/* Figma 249:3558 — 4 ช่อง 114 ชิดกัน รวม 456px */}
-        <nav className="hidden min-[992px]:flex items-center" aria-label="เมนูหลัก">
+        <nav className="hidden min-[992px]:flex items-center gap-[40px]" aria-label="เมนูหลัก">
           {navItems.map(({ href, label }) => (
             <Link
               key={label}

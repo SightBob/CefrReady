@@ -80,8 +80,8 @@ export default function VerbBankPanel({ variant = 'sidebar' }: { variant?: 'side
     // Figma 60:3892 — การ์ด 295×343 r16, padding ข้าง 17, บน 16, ล่าง 22
     // Figma 249:8290 — modal: การ์ด 334×337 r19, px21 py15, เงา 0 0 4.95px rgba(0,0,0,.09)
     <div className={isModal
-      ? 'w-full rounded-[19px] bg-white px-[21px] pt-[15px] pb-[15px] shadow-[0_0_4.95px_0_rgba(0,0,0,0.09)]'
-      : 'bg-white rounded-2xl px-[17px] pt-4 pb-[22px]'}>
+      ? 'w-full rounded-[19px] bg-white px-[21px] pt-[15px] pb-[15px] shadow-[0_0_4.95px_0_rgba(0,0,0,0.09)]  overflow-y-scroll [scrollbar-width:none] h-[343px] [&::-webkit-scrollbar]:hidden overflow-hidden'
+      : 'bg-white rounded-2xl px-[17px] pt-4 pb-[22px] overflow-y-scroll [scrollbar-width:none] [&::-webkit-scrollbar]:hidden overflow-hidden h-[343px]'}>
       {isModal ? (
         // Figma 249:8293 — ไอคอน 24×24 + หัวข้อ 14px semibold #454545, gap 8
         <div className="flex items-center gap-2">

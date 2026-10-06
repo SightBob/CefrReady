@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCachedSections } from '@/lib/sections';
+import { isSectionInMaintenance } from '@/lib/test-section-maintenance';
 import SectionTestSetCard from '@/components/SectionTestSetCard';
 
 export const revalidate = 300;
@@ -46,6 +47,9 @@ export default async function SectionPage({
 
   // Preserve the previous stub behaviour: unknown sections go back to /tests.
   if (!section) redirect('/tests');
+
+  // Admin ปิดปรับปรุงพาร์ทนี้ → พาไปหน้าแจ้งเฉพาะพาร์ท (ธีมเว็บ)
+  if (await isSectionInMaintenance(sectionId)) redirect(`/tests/${sectionId}/maintenance`);
 
   const activeSets = section.testSets.filter((testSet) => testSet.isActive);
 

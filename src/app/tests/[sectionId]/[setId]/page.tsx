@@ -14,7 +14,6 @@ import { MAX_TAP_REASON_LENGTH, tapAiFeedbackSchema, type TapReasonResult } from
 import type { QuestionResult, Option, Blank } from '@/types/test';
 import { usePostHog } from '@/lib/posthog';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
-import { shuffleQueue } from '@/lib/review-round';
 import {
   buildTestSubmissionAnswers,
   countTestSetItems,
@@ -129,6 +128,20 @@ export default function SetQuizPage() {
   const [setData, setSetData] = useState<SetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [maintenanceBlocked, setMaintenanceBlocked] = useState(false);
+
+  // Gate: พาร์ทนี้ถูก admin ปิดปรับปรุง → หน้าแจ้งเฉพาะพาร์ท (เช่น เข้าทาง URL ตรง)
+  useEffect(() => {
+    fetch('/api/tests-maintenance')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { sections?: Record<string, boolean> } | null) => {
+        if (data?.sections?.[sectionId]) {
+          setMaintenanceBlocked(true);
+          router.replace(`/tests/${sectionId}/maintenance`);
+        }
+      })
+      .catch(() => undefined); // fail-open
+  }, [router, sectionId]);
 
   // Standard quiz state (MCQ types)
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -157,25 +170,12 @@ export default function SetQuizPage() {
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
 
-  // Review Round: two-phase quiz (main → optional review of wrong answers)
-  const [phase, setPhase] = useState<'main' | 'review'>('main');
-  const [reviewQueue, setReviewQueue] = useState<number[]>([]);
-  const [reviewIndex, setReviewIndex] = useState(0);
-  const [reviewAnswers, setReviewAnswers] = useState<(string | null)[]>([]);
-  const [showReviewIntro, setShowReviewIntro] = useState(false);
-  const [introWrongCount, setIntroWrongCount] = useState(0);
-  const [checkingReview, setCheckingReview] = useState(false);
-  const [reviewableWrongSlots, setReviewableWrongSlots] = useState<number[]>([]);
-  const [retryResults, setRetryResults] = useState<Array<{ questionId: number; recovered: boolean }> | null>(null);
-
   // Set selector dropdown
   const [availableSets, setAvailableSets] = useState<{ id: number; name: string; description?: string | null }[]>([]);
   const mainSlots = useMemo(() => setData ? expandTestSetSlots(setData.questions) : [], [setData]);
   const choiceShuffleSeed = `${setId}-${testStartedAt}`;
   const mainSlot = mainSlots[currentQuestion];
-  const explainQuestionIndex = phase === 'review'
-    ? (mainSlots[reviewQueue[reviewIndex] ?? 0]?.questionIndex ?? 0)
-    : (mainSlot?.questionIndex ?? currentQuestion);
+  const explainQuestionIndex = (mainSlot?.questionIndex ?? currentQuestion);
   const explainTopic = setData?.questions[explainQuestionIndex]?.grammarTopic?.trim() ?? '';
 
   useEffect(() => {
@@ -285,8 +285,6 @@ export default function SetQuizPage() {
     }
   }, [setData, posthog, sectionId, setId]);
 
-  const isReviewPhase = phase === 'review';
-
   const getQuestionChoices = useCallback((question: RawQuestion, salt: string): ShuffledChoiceOption[] => createQuestionChoiceOptions(
     [
       { key: 'A', value: question.optionA },
@@ -311,52 +309,18 @@ export default function SetQuizPage() {
     return answer;
   }, [choiceShuffleSeed, getQuestionChoices]);
 
-  const checkReviewableWrongSlots = useCallback(async () => {
-    if (!setData) return [];
-    try {
-      const response = await apiFetch('/api/tests/review-wrong-slots', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          testTypeId: sectionId,
-          testSetId: setId,
-          answers: buildTestSubmissionAnswers(setData.questions, mainSlots, answers, toStoredAnswer),
-        }),
-      });
-      const data = await response.json();
-      return data.success && Array.isArray(data.data?.wrongSlots)
-        ? data.data.wrongSlots as number[]
-        : [];
-    } catch {
-      // Submission still works if the optional review check is unavailable.
-      return [];
-    }
-  }, [setData, sectionId, setId, mainSlots, answers, toStoredAnswer]);
+  // ─── Answer + navigation handlers ────────────────────────────────
 
-  // ─── Answer + navigation handlers (phase-aware) ──────────────────
-
-  // Store the picked option for the ACTIVE phase: main round writes into
-  // `answers`, review round writes into `reviewAnswers`.
   const handleAnswer = (answer: string) => {
     if (!setData) return;
-    const answerSlotIndex = isReviewPhase ? (reviewQueue[reviewIndex] ?? -1) : currentQuestion;
-    if (answerSlotIndex < 0) return;
-
-    if (isReviewPhase) {
-      if (reviewAnswers[reviewIndex] !== null) return;
-      const next = [...reviewAnswers];
-      next[reviewIndex] = answer;
-      setReviewAnswers(next);
-    } else {
-      if (selectedAnswer !== null) return;
-      const next = [...answers];
-      next[currentQuestion] = answer;
-      setAnswers(next);
-    }
+    if (selectedAnswer !== null) return;
+    const next = [...answers];
+    next[currentQuestion] = answer;
+    setAnswers(next);
     setSelectedAnswer(answer);
   };
 
-  const tapStateKey = (slotIndex: number) => `${setId}-${phase}-${slotIndex}`;
+  const tapStateKey = (slotIndex: number) => `${setId}-main-${slotIndex}`;
   const clearTapFeedback = (key: string) => {
     tapRequestVersions.current[key] = (tapRequestVersions.current[key] ?? 0) + 1;
     setTapReasonResults(current => { const next = { ...current }; delete next[key]; return next; });
@@ -366,7 +330,7 @@ export default function SetQuizPage() {
 
   const checkTapReason = async () => {
     if (!setData || selectedAnswer === null) return;
-    const slotIndex = isReviewPhase ? reviewQueue[reviewIndex] : currentQuestion;
+    const slotIndex = currentQuestion;
     const slot = mainSlots[slotIndex];
     if (slot?.kind !== 'tap') return;
     const key = tapStateKey(slotIndex);
@@ -406,31 +370,12 @@ export default function SetQuizPage() {
     }
   };
 
-  // Layout index → phase-correct slot. In review phase, layout indices are
-  // offset by the main round length.
   const handleFreeTextAnswer = (answer: string) => {
     setSelectedAnswer(answer);
-    if (isReviewPhase) {
-      setReviewAnswers(previous => previous.map((value, index) => index === reviewIndex ? answer : value));
-      return;
-    }
     setAnswers(previous => previous.map((value, index) => index === currentQuestion ? answer : value));
   };
 
   const handleResetAnswer = (index: number) => {
-    if (isReviewPhase) {
-      const rIdx = index - answers.length;
-      if (rIdx < 0 || rIdx >= reviewQueue.length) return;
-      const reviewNext = [...reviewAnswers];
-      reviewNext[rIdx] = null;
-      setReviewAnswers(reviewNext);
-      const slotIndex = reviewQueue[rIdx];
-      const key = tapStateKey(slotIndex);
-      clearTapFeedback(key);
-      setTapReasons(current => ({ ...current, [key]: '' }));
-      if (rIdx === reviewIndex) setSelectedAnswer(null);
-      return;
-    }
     const newAnswers = [...answers];
     newAnswers[index] = null;
     setAnswers(newAnswers);
@@ -441,14 +386,6 @@ export default function SetQuizPage() {
   };
 
   const handleQuestionSelect = (index: number) => {
-    if (isReviewPhase) {
-      if (index < answers.length) return;
-      const rIdx = index - answers.length;
-      if (rIdx >= reviewQueue.length) return;
-      setReviewIndex(rIdx);
-      setSelectedAnswer(reviewAnswers[rIdx]);
-      return;
-    }
     setCurrentQuestion(index);
     setSelectedAnswer(answers[index]);
     if (answers[index] !== null && !audioPlayedMap[index]) {
@@ -457,13 +394,6 @@ export default function SetQuizPage() {
   };
 
   const handlePrevious = () => {
-    if (isReviewPhase) {
-      if (reviewIndex > 0) {
-        setReviewIndex(reviewIndex - 1);
-        setSelectedAnswer(reviewAnswers[reviewIndex - 1]);
-      }
-      return;
-    }
     if (currentQuestion > 0) {
       const prev = currentQuestion - 1;
       setCurrentQuestion(prev);
@@ -476,13 +406,6 @@ export default function SetQuizPage() {
 
   const handleNext = () => {
     if (!setData) return;
-    if (isReviewPhase) {
-      if (reviewIndex < reviewQueue.length - 1) {
-        setReviewIndex(reviewIndex + 1);
-        setSelectedAnswer(reviewAnswers[reviewIndex + 1]);
-      }
-      return;
-    }
     if (currentQuestion < mainSlots.length - 1) {
       const next = currentQuestion + 1;
       setCurrentQuestion(next);
@@ -493,31 +416,7 @@ export default function SetQuizPage() {
     }
   };
 
-  type RetryPayload = { questionId: number; selectedAnswer: string };
-
-  // Collect review-round answers as the submit payload. Unanswered retries
-  // are dropped (treated as "did not retry").
-  const buildRetriesPayload = (): RetryPayload[] => {
-    if (!setData) return [];
-    return reviewQueue
-      .map((slotIndex, rIdx) => {
-        const slot = mainSlots[slotIndex];
-        const answer = reviewAnswers[rIdx] ?? '';
-        const question = setData.questions[slot.questionIndex];
-        const storedAnswer = toStoredAnswer(question, slot, answer);
-        return {
-          questionId: question.id,
-          selectedAnswer: slot.kind === 'tap'
-            ? JSON.stringify({ [slot.itemIndex]: storedAnswer })
-            : slot.kind === 'article'
-              ? JSON.stringify({ [slot.blankId]: storedAnswer })
-              : storedAnswer,
-        };
-      })
-      .filter((r): r is RetryPayload => r.selectedAnswer !== null);
-  };
-
-  const executeSubmit = async (retriesPayload: RetryPayload[] = []) => {
+  const executeSubmit = async () => {
     if (!setData || submitting) return; // Guard: prevent double submit
     setSubmitting(true);
     setShowSubmitConfirm(false);
@@ -530,7 +429,6 @@ export default function SetQuizPage() {
           testSetId: setId,
           startedAt: testStartedAt,
           answers: buildTestSubmissionAnswers(setData.questions, mainSlots, answers, toStoredAnswer),
-          retries: retriesPayload,
         }),
       });
       const data = await res.json();
@@ -539,7 +437,6 @@ export default function SetQuizPage() {
         setScoredTotal(data.data.totalQuestions ?? setData.questions.length);
         setResults(data.data.results ?? []);
         setAttemptId(data.data.attemptId ?? null);
-        setRetryResults(data.data.retryResults ?? null);
         setIsFinished(true);
         // Track test_submitted
         if (posthog && testStartedAtRef.current > 0) {
@@ -547,8 +444,6 @@ export default function SetQuizPage() {
           const wrongIds = (data.data.results ?? [])
             .filter((r: { isCorrect: boolean }) => !r.isCorrect)
             .map((r: { questionId: number }) => r.questionId);
-          const retryList = (data.data.retryResults ?? []) as Array<{ recovered: boolean }>;
-          const recoveredCount = retryList.filter((r) => r.recovered).length;
           const scorePct = Math.round((data.data.correctAnswers / totalQuestions) * 100);
           posthog.capture('test_submitted', {
             section_id: sectionId,
@@ -557,8 +452,6 @@ export default function SetQuizPage() {
             total_questions: totalQuestions,
             time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
             wrong_question_ids: wrongIds,
-            review_round_count: retryList.length,
-            recovered_count: recoveredCount,
             score_percentage: scorePct,
           });
           fetch('/api/progress')
@@ -587,67 +480,29 @@ export default function SetQuizPage() {
     }
   };
 
-  // Submit entry point for BOTH phases:
-  // - main + force (timer) → submit immediately, review round skipped
-  // - main + has wrong answers → offer the review round first
-  // - main + no wrong answers → submit as before
-  // - review → confirm then submit with collected retries
+  // Submit entry point:
+  // - has unanswered questions → confirm modal first (unless force, e.g. timer)
+  // - otherwise submit immediately
   const handleSubmit = async (force = false) => {
-    if (!setData || submitting || checkingReview) return;
-
-    if (phase === 'review') {
-      const unansweredRetries = reviewAnswers.filter((a) => a === null).length;
-      if (!force && unansweredRetries > 0) {
-        setUnansweredCount(unansweredRetries);
-        setShowSubmitConfirm(true);
-        return;
-      }
-      executeSubmit(buildRetriesPayload());
-      return;
-    }
+    if (!setData || submitting) return;
 
     const unanswered = answers.filter((a) => a === null).length;
 
     if (!force && unanswered > 0) {
       setUnansweredCount(unanswered);
       setShowSubmitConfirm(true);
-    } else if (force) {
-      executeSubmit();
-    } else {
-      setCheckingReview(true);
-      try {
-        const wrongSet = await checkReviewableWrongSlots();
-        setReviewableWrongSlots(wrongSet);
-        if (wrongSet.length > 0) {
-          setIntroWrongCount(wrongSet.length);
-          setShowReviewIntro(true);
-          return;
-        }
-        executeSubmit();
-      } finally {
-        setCheckingReview(false);
-      }
+      return;
     }
+    executeSubmit();
   };
 
   const handleTimeUp = () => {
     void handleSubmit(true);
   };
 
-  // Leave the main round behind and start the shuffled retry queue.
-  const enterReviewRound = () => {
-    if (!setData) return;
-    const wrongSet = shuffleQueue(reviewableWrongSlots);
-    setReviewQueue(wrongSet);
-    setReviewAnswers(Array(wrongSet.length).fill(null));
-    setReviewIndex(0);
-    setSelectedAnswer(null);
-    setShowReviewIntro(false);
-    setPhase('review');
-  };
-
   // ─── Render guards ────────────────────────────────────────────────
 
+  if (maintenanceBlocked) return <Spinner />; // กำลัง redirect ไปหน้า maintenance
   if (loading || status === 'loading') return <Spinner />;
 
   if (submitting && !isFinished) {
@@ -700,14 +555,6 @@ export default function SetQuizPage() {
     setFormMeaningTotalBlanks(0);
     setAudioPlayedMap({});
     setIsFinished(false);
-    // Review Round state reset
-    setPhase('main');
-    setReviewQueue([]);
-    setReviewIndex(0);
-    setReviewAnswers([]);
-    setReviewableWrongSlots([]);
-    setShowReviewIntro(false);
-    setRetryResults(null);
     Object.keys(tapRequestVersions.current).forEach(key => { tapRequestVersions.current[key] += 1; });
     setTapReasons({});
     setTapReasonResults({});
@@ -759,7 +606,6 @@ export default function SetQuizPage() {
         totalQuestions={scoredTotal ?? mainSlots.length}
         attemptId={attemptId}
         onRestart={handleRestartTest}
-        retryResults={retryResults ?? undefined}
         sectionIcon={(SECTION_HEADER[sectionId] ?? SECTION_HEADER['focus-form']).icon}
         sectionColor={(SECTION_HEADER[sectionId] ?? SECTION_HEADER['focus-form']).color}
         headerTitle={setData.name}
@@ -773,7 +619,7 @@ export default function SetQuizPage() {
 
   // Layout positions are virtual item slots. Tap & Select groups expand to
   // one slot per item, so navigation and answer progress stay item-granular.
-  const activeSlotIndex = isReviewPhase ? (reviewQueue[reviewIndex] ?? 0) : currentQuestion;
+  const activeSlotIndex = currentQuestion;
   const activeSlot: TestSetSlot | undefined = mainSlots[activeSlotIndex];
   const question = setData.questions[activeSlot?.questionIndex ?? 0];
   if (!question || !activeSlot) return <Spinner />;
@@ -787,9 +633,9 @@ export default function SetQuizPage() {
   const displayedCorrectAnswer = getDisplayedChoiceAnswer(question.correctAnswer ?? null, questionChoices);
   const articleBlank = activeSlot.kind === 'article' ? question.article?.blanks.find(blank => blank.id === activeSlot.blankId) : undefined;
 
-  const layoutTotal = isReviewPhase ? answers.length + reviewQueue.length : mainSlots.length;
-  const layoutCurrent = isReviewPhase ? answers.length + reviewIndex : currentQuestion;
-  const layoutAnswers = isReviewPhase ? [...answers, ...reviewAnswers] : answers;
+  const layoutTotal = mainSlots.length;
+  const layoutCurrent = currentQuestion;
+  const layoutAnswers = answers;
 
   // Shared modals — hoisted so every section branch renders them.
   const modalsFragment = (
@@ -803,19 +649,6 @@ export default function SetQuizPage() {
         type="warning"
         onConfirm={() => handleSubmit(true)}
         onCancel={() => setShowSubmitConfirm(false)}
-      />
-      <ConfirmModal
-        isOpen={showReviewIntro}
-        title="จบรอบแรก!"
-        description={`คุณตอบผิด ${introWrongCount} ข้อ — เข้ารอบทบทวนเพื่อลองทำใหม่ไหม? (คะแนนนับรอบแรกเท่านั้น)`}
-        confirmLabel="เข้ารอบทบทวน"
-        cancelLabel="ส่งคำตอบเลย"
-        type="info"
-        onConfirm={enterReviewRound}
-        onCancel={() => {
-          setShowReviewIntro(false);
-          executeSubmit();
-        }}
       />
     </>
   );
@@ -842,8 +675,6 @@ export default function SetQuizPage() {
         onTimeUp={handleTimeUp}
         currentQuestionId={question.id}
         onResetAnswer={handleResetAnswer}
-        phaseLabel={isReviewPhase ? 'รอบทบทวน' : undefined}
-        reviewSegmentStart={isReviewPhase ? answers.length : undefined}
       >
         <div className="space-y-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm md:p-8">
           <h2 className="text-xl font-bold text-slate-800">{question.article?.title || question.questionText}</h2>
@@ -941,8 +772,6 @@ export default function SetQuizPage() {
         onNext={handleNext}
         onSubmit={() => handleSubmit()}
         onTimeUp={handleTimeUp}
-        phaseLabel={isReviewPhase ? 'รอบทบทวน' : undefined}
-        reviewSegmentStart={isReviewPhase ? answers.length : undefined}
         currentQuestionId={question.id}
         sectionIcon={Headphones}
         sectionColor="from-orange-500 to-amber-500"
@@ -951,7 +780,7 @@ export default function SetQuizPage() {
         reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
       >
         <ListeningAudioPlayer
-          key={isReviewPhase ? `${question.id}-review` : question.id}
+          key={question.id}
           audioUrl={question.audioUrl ?? undefined}
           transcript={question.transcript ?? question.questionText}
           questionText={question.questionText}
@@ -986,8 +815,6 @@ export default function SetQuizPage() {
         onNext={handleNext}
         onSubmit={() => handleSubmit()}
         onTimeUp={handleTimeUp}
-        phaseLabel={isReviewPhase ? 'รอบทบทวน' : undefined}
-        reviewSegmentStart={isReviewPhase ? answers.length : undefined}
         currentQuestionId={question.id}
         sectionIcon={BookOpen}
         sectionColor="from-emerald-500 to-teal-500"
@@ -995,7 +822,7 @@ export default function SetQuizPage() {
         reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
       >
       <FocusFormQuestionCard
-          key={isReviewPhase ? `${question.id}-review` : question.id}
+          key={question.id}
           questionText={question.questionText}
           options={questionChoices}
           selectedAnswer={selectedAnswer}
@@ -1032,14 +859,12 @@ export default function SetQuizPage() {
       onNext={handleNext}
       onSubmit={() => handleSubmit()}
       onTimeUp={handleTimeUp}
-      phaseLabel={isReviewPhase ? 'รอบทบทวน' : undefined}
-      reviewSegmentStart={isReviewPhase ? answers.length : undefined}
       currentQuestionId={question.id}
       onResetAnswer={handleResetAnswer}
       reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
     >
       <FocusFormQuestionCard
-        key={isReviewPhase ? `${question.id}-review` : question.id}
+        key={question.id}
         questionText={question.questionText}
         options={options}
         selectedAnswer={selectedAnswer}

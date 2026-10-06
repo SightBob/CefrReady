@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { testSets } from '@/db/schema';
 import { eq, asc, and } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
+import { isSectionInMaintenance } from '@/lib/test-section-maintenance';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,11 @@ export async function GET(req: NextRequest) {
   }
   if (!sectionId) {
     return NextResponse.json({ success: false, error: 'Missing sectionId' }, { status: 400 });
+  }
+
+  // Admin ปิดปรับปรุงพาร์ทนี้ → ไม่คืนรายชื่อชุดข้อสอบ
+  if (await isSectionInMaintenance(sectionId)) {
+    return NextResponse.json({ success: false, error: 'พาร์ทนี้ปิดปรับปรุงชั่วคราว' }, { status: 503 });
   }
 
   try {

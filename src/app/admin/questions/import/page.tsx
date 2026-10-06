@@ -380,6 +380,12 @@ export default function ImportQuestionsPage() {
                   <td className="px-3 py-2 text-slate-600">JSON object — สำหรับ form-meaning (†จำเป็นสำหรับ form-meaning)</td>
                   <td className="px-3 py-2 text-xs font-mono">{'{"title":"...","text":"...","blanks":[...]}'}</td>
                 </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono text-amber-600">tapExercise</td>
+                  <td className="px-3 py-2 text-amber-600">✓‡</td>
+                  <td className="px-3 py-2 text-slate-600">JSON object — สำหรับ tap-select / Tap &amp; Select (‡จำเป็นสำหรับ tap-select)</td>
+                  <td className="px-3 py-2 text-xs font-mono">{'{"title":"...","items":[{"prompt":"...","choiceA":"...","choiceB":"...","correct":0}]}'}</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -399,9 +405,19 @@ export default function ImportQuestionsPage() {
               <p className="text-xs text-blue-600 mt-2">speaker: A/B/C/D, name: ชื่อผู้พูด (ไม่จำเป็น), text: ข้อความ</p>
             </div>
 
+            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+              <p className="text-sm font-medium text-amber-700 mb-2">tap-select (Tap &amp; Select) — column &quot;tapExercise&quot;</p>
+              <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto">{`{"title":"เลือกคำที่ถูกต้อง","hint":"แตะคำที่ถูกต้องจากสองตัวเลือก","items":[{"prompt":"She ___ to school.","choiceA":"go","choiceB":"goes","correct":1},{"prompt":"I ___ TV last night.","choiceA":"watched","choiceB":"watch","correct":0}]}`}</pre>
+              <ul className="text-xs text-amber-700 mt-2 space-y-0.5 list-disc list-inside">
+                <li>title: ชื่อแบบฝึกหัด (ใช้เป็น questionText อัตโนมัติถ้าไม่กรอก questionText)</li>
+                <li>items[] แต่ละข้อย่อย: prompt (โจทย์), choiceA/choiceB (สองตัวเลือก), correct: 0 = choiceA ถูก, 1 = choiceB ถูก</li>
+                <li>optionA-D และ correctAnswer <b>ไม่ใช้</b>กับ tap-select — ถ้าใส่มาระบบจะเตือนและละเว้น</li>
+              </ul>
+            </div>
+
             <div className="mt-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
               <p className="text-sm font-semibold text-slate-700 mb-2">ตัวอย่าง CSV สำเร็จรูป — copy แล้ววางในกล่องด้านบน</p>
-              <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto select-all">{`testTypeId,questionText,optionA,optionB,optionC,optionD,correctAnswer,explanation,cefrLevel,difficulty,testSetId,conversation,article form-meaning,Read the article and fill in the blanks.,,,,,,Fill in the blanks,B1,medium,,,"{""title"":""Daily Routine"",""text"":""She {{1}} her teeth every morning and then {{2}} breakfast."",""blanks"":[{""id"":1,""correctAnswer"":""brushes"",""hint"":""present simple""},{""id"":2,""correctAnswer"":""eats""}]}" focus-meaning,What time is it?,It is morning.,It is 3 o'clock.,,,B,Asking about time,A1,easy,,"[{""speaker"":""A"",""name"":""Tom"",""text"":""What time is it?""},{""speaker"":""B"",""name"":""Jane"",""text"":""It is 3 o'clock.""}]", focus-form,Choose the correct form: She ___ to school every day.,go,goes,going,gone,B,Present simple with third person singular,B1,medium,,,`}</pre>
+              <pre className="text-xs font-mono text-slate-700 bg-white rounded p-3 overflow-x-auto select-all">{`testTypeId,questionText,optionA,optionB,optionC,optionD,correctAnswer,explanation,cefrLevel,difficulty,testSetId,conversation,article,tapExercise form-meaning,Read the article and fill in the blanks.,,,,,,Fill in the blanks,B1,medium,,,"{""title"":""Daily Routine"",""text"":""She {{1}} her teeth every morning and then {{2}} breakfast."",""blanks"":[{""id"":1,""correctAnswer"":""brushes"",""hint"":""present simple""},{""id"":2,""correctAnswer"":""eats""}]}",, focus-meaning,What time is it?,It is morning.,It is 3 o'clock.,,,B,Asking about time,A1,easy,,"[{""speaker"":""A"",""name"":""Tom"",""text"":""What time is it?""},{""speaker"":""B"",""name"":""Jane"",""text"":""It is 3 o'clock.""}]",,, focus-form,Choose the correct form: She ___ to school every day.,go,goes,going,gone,B,Present simple with third person singular,B1,medium,,,, tap-select,"เลือกคำที่ถูกต้อง",,,,,,เลือกคำ,B1,easy,,,,,"{""title"":""Present Simple"",""hint"":""แตะคำที่ถูก"",""items"":[{""prompt"":""She ___ to school."",""choiceA"":""go"",""choiceB"":""goes"",""correct"":1},{""prompt"":""I ___ TV last night."",""choiceA"":""watched"",""choiceB"":""watch"",""correct"":0}]"}`}</pre>
             </div>
           </div>
         </div>

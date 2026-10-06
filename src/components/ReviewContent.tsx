@@ -76,12 +76,15 @@ function SentenceBlank({ sentence }: { sentence: string }) {
 function MiniQuiz({
   questions,
   title,
+  /** ใช้ตอน render แบบ static/demo เพื่อลองสถานะ “ตอบแล้ว” ได้ (ปกติเริ่มว่าง) */
+  initialAnswers = {},
 }: {
   questions: LessonPracticeQuestion[];
   title: string;
+  initialAnswers?: Record<number, number>;
 }) {
   const [active, setActive] = React.useState(0);
-  const [answers, setAnswers] = React.useState<Record<number, number>>({});
+  const [answers, setAnswers] = React.useState<Record<number, number>>(initialAnswers);
   const question = questions[active];
   if (!question) return null;
   const selected = answers[active];
@@ -186,6 +189,11 @@ function MiniQuiz({
             );
           })}
         </div>
+
+        {/* เฉลย — โผล่หลังตอบ (ถูก/ผิด) ตาม design 249:1099 */}
+        {selected !== undefined && question.explanation?.trim() && (
+          <ExplanationBar explanation={question.explanation.trim()} />
+        )}
       </div>
     </section>
   );
@@ -213,6 +221,32 @@ function ExampleCard({
           <RichText text={th} highlightColor="#FFFFFF" highlightTextColor={C.body} as="span" />
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * แถบเฉลยหลังตอบข้อสอบ Mini Quiz — ตาม Figma node 337:11 (design 249:1099):
+ * พื้น #FFFEFA border #E9CD62 มุมโค้ง 15px, badge ไอคอนพื้น #C8E6FF ขนาด 23px,
+ * ข้อความเฉลยสี #76641C ขนาด 14px (SemiBold ตาม design)
+ */
+function ExplanationBar({ explanation }: { explanation: string }) {
+  return (
+    <div
+      className="flex min-h-[59px] w-full items-center rounded-[15px] border border-[#E9CD62] bg-[#FFFEFA] px-5 py-4 max-md:px-4 max-md:py-3"
+      aria-label="เฉลยลองทำโจทย์"
+    >
+      <div className="flex items-start gap-2.5">
+        <span
+          aria-hidden="true"
+          className="grid size-[23px] shrink-0 place-items-center rounded-[6px] bg-[#C8E6FF]"
+        >
+          <Image src="/logo-otter/explain-spark.svg" alt="" width={15.8} height={15.8} />
+        </span>
+        <p className="text-[14px] font-semibold leading-[21px] text-[#76641C] max-md:text-[13px]">
+          {explanation}
+        </p>
+      </div>
     </div>
   );
 }
@@ -251,11 +285,14 @@ export default function ReviewContent({
   topics,
   intro,
   tip: _tip,
+  initialPracticeAnswers,
 }: {
   title?: string;
   topics: ReviewTopic[];
   intro?: string;
   tip?: string;
+  /** สถานะเริ่มต้นของ Mini Quiz (static/demo render) — ปกติไม่ส่ง = ยังไม่ตอบ */
+  initialPracticeAnswers?: Record<number, number>;
 }) {
   // ลำดับการแสดงผลถูกจัดการใน groupSections(): การ์ด “ลองทำโจทย์เพื่อทบทวน
   // ความเข้าใจ” บนสุด → การ์ดกฎ (ตามด้วยกล่องทริกของการ์ดนั้น) → กล่องทริกที่ไม่ผูกกับกฎ
@@ -278,6 +315,7 @@ export default function ReviewContent({
               key={groupIndex}
               questions={questions}
               title={section.heading?.trim() || "ลองทำโจทย์เพื่อทบทวนความเข้าใจ"}
+              initialAnswers={initialPracticeAnswers}
             />
           );
         }
