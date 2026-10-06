@@ -13,6 +13,8 @@ import {
   type VerbFormKey,
 } from '@/lib/verb-bank';
 
+import { notifyVerbEntriesChanged } from '@/lib/verb-bank-client';
+
 const EMPTY_DRAFT = { v1: '', v2: '', v3: '' };
 type Draft = typeof EMPTY_DRAFT;
 
@@ -79,6 +81,7 @@ export default function AdminVerbBankPage() {
         body: JSON.stringify(values),
       });
       if (!response.ok) throw new Error(await readError(response, 'เพิ่มกริยาไม่สำเร็จ'));
+      notifyVerbEntriesChanged();
       setNewDraft(EMPTY_DRAFT);
       setNotice({ tone: 'ok', text: `เพิ่ม "${values.v1} / ${values.v2} / ${values.v3}" แล้ว` });
       await load(search.trim());
@@ -114,6 +117,7 @@ export default function AdminVerbBankPage() {
         body: JSON.stringify(values),
       });
       if (!response.ok) throw new Error(await readError(response, 'บันทึกไม่สำเร็จ'));
+      notifyVerbEntriesChanged();
       cancelEdit();
       setNotice({ tone: 'ok', text: `แก้ไข "${values.v1} / ${values.v2} / ${values.v3}" แล้ว` });
       await load(search.trim());
@@ -133,6 +137,7 @@ export default function AdminVerbBankPage() {
     try {
       const response = await fetch(`/api/admin/verb-banks/${entry.id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error(await readError(response, 'ลบไม่สำเร็จ'));
+      notifyVerbEntriesChanged();
       if (editingId === entry.id) cancelEdit();
       setNotice({ tone: 'ok', text: `ลบ "${entry.v1}" แล้ว` });
       await load(search.trim());

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
+  revalidateTag: vi.fn(),
   select: vi.fn(),
   insert: vi.fn(),
   update: vi.fn(),
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   dbError: null as unknown,
 }));
 
+vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock('@/db', () => ({
   db: {
@@ -42,6 +44,7 @@ const jsonRequest = (body: unknown) =>
 
 beforeEach(() => {
   mocks.dbError = null;
+  mocks.revalidateTag.mockReset();
   mocks.requireAdmin.mockReset().mockResolvedValue({ error: null });
   mocks.select.mockReset().mockReturnValue(builder([]));
   mocks.insert.mockReset().mockReturnValue(builder([]));
@@ -55,6 +58,7 @@ describe('POST /api/admin/verb-banks — auth', () => {
     mocks.requireAdmin.mockResolvedValue({ error });
     expect(await POST(jsonRequest({ v1: 'go', v2: 'went', v3: 'gone' }))).toBe(error);
     expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.revalidateTag).not.toHaveBeenCalled();
   });
 });
 
@@ -91,6 +95,7 @@ describe('POST /api/admin/verb-banks — write', () => {
     mocks.insert.mockReturnValue(builder([{ id: 7, v1: 'write', v2: 'wrote', v3: 'written' }]));
     const response = await POST(jsonRequest({ v1: ' write ', v2: 'wrote', v3: 'written' }));
     expect(response.status).toBe(201);
+    expect(mocks.revalidateTag).toHaveBeenCalledExactlyOnceWith('verb-banks', { expire: 0 });
     expect(await response.json()).toMatchObject({
       success: true,
       data: { id: 7, v1: 'write', v2: 'wrote', v3: 'written' },
@@ -101,6 +106,7 @@ describe('POST /api/admin/verb-banks — write', () => {
     mocks.insert.mockReturnValue(builder([])); // onConflictDoNothing ไม่คืนแถว
     const response = await POST(jsonRequest({ v1: 'go', v2: 'went', v3: 'gone' }));
     expect(response.status).toBe(409);
+    expect(mocks.revalidateTag).not.toHaveBeenCalled();
     expect((await response.json()).error).toContain('อยู่ในคลังแล้ว');
   });
 

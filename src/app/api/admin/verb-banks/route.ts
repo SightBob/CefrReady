@@ -4,6 +4,7 @@ import { verbBanks } from '@/db/schema';
 import { asc, ilike, or } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { firstVerbError, validateVerbEntry } from '@/lib/verb-bank';
+import { revalidateTag } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    revalidateTag('verb-banks', { expire: 0 });
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (err) {
     console.error('[admin/verb-banks] POST error:', err);

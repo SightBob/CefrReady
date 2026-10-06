@@ -2,8 +2,6 @@
 
 import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
-import Header from './Header';
-import Footer from './Footer';
 
 // Exam pages render their own chrome — no site header/footer
 // Covers section sets (/tests/[sectionId]/[setId]), full mock exam + results
@@ -18,8 +16,12 @@ export default function ChromeShell({
   children,
   headerFallback,
   mainFallback,
+  header,
+  footer,
 }: {
   children: React.ReactNode;
+  header: React.ReactNode;
+  footer: React.ReactNode;
   headerFallback: React.ReactNode;
   mainFallback: React.ReactNode;
 }) {
@@ -33,14 +35,14 @@ export default function ChromeShell({
     <div className="min-h-screen flex flex-col font-sans">
       {!hideHeader && (
         <Suspense fallback={headerFallback}>
-          <Header />
+          {header}
         </Suspense>
       )}
       {/* pt matches the header: 64px on mobile (Figma 172:7380), 88px from lg up. */}
       <main className={hideHeader ? 'flex-1' : 'flex-1 pt-[64px] min-[992px]:pt-[88px] bg-white'}>
         <Suspense fallback={mainFallback}>{children}</Suspense>
       </main>
-      {!isFullScreenPage && <Footer />}
+      {!isFullScreenPage && footer}
     </div>
   );
 }

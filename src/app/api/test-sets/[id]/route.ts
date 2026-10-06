@@ -3,7 +3,6 @@ import { db } from '@/db';
 import { testSets, testSetQuestions, questions, testTypes } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
-import { sanitizeTapExerciseForClient } from '@/lib/sanitize-question';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +24,10 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   }
 
   try {
-    const [set] = await db
+    // Both queries depend only on setId. Drizzle starts them together when
+    // Promise.all awaits the builders; authentication still runs before any I/O.
+    const [[set], setQuestions] = await Promise.all([
+      db
       .select({
         id: testSets.id,
         sectionId: testSets.sectionId,
@@ -37,13 +39,8 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
       .from(testSets)
       .innerJoin(testTypes, eq(testTypes.id, testSets.sectionId))
       .where(eq(testSets.id, setId))
-      .limit(1);
-
-    if (!set || !set.isActive) {
-      return NextResponse.json({ success: false, error: 'Test set not found' }, { status: 404 });
-    }
-
-    const setQuestions = await db
+      .limit(1),
+      db
       .select({
         orderIndex: testSetQuestions.orderIndex,
         id: questions.id,
@@ -67,12 +64,19 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
       .from(testSetQuestions)
       .innerJoin(questions, eq(questions.id, testSetQuestions.questionId))
       .where(eq(testSetQuestions.testSetId, setId))
-      .orderBy(asc(testSetQuestions.orderIndex));
+      .orderBy(asc(testSetQuestions.orderIndex)),
+    ]);
 
-    const publicQuestions = setQuestions.map((question) => ({
-      ...question,
-      tapExercise: sanitizeTapExerciseForClient(question.tapExercise),
-    }));
+    if (!set || !set.isActive) {
+      return NextResponse.json({ success: false, error: 'Test set not found' }, { status: 404 });
+    }
+
+    // PRODUCT DECISION (owner-approved): Tap & Select ใช้ flow
+    // เลือกคำตอบ → เฉลยคำตอบ → พิมพ์เหตุผล → กดตรวจคำตอบ → เหตุผลจาก AI
+    // จึงต้องส่ง item.correct มาพร้อม payload เพื่อให้หน้าเว็บขึ้นสีถูก/ผิดได้ทันทีโดยไม่รอ
+    // เซิร์ฟเวอร์ (ไม่มี request เพิ่ม) — endpoint นี้ถูกส่ง correctAnswer/explanation
+    // ของข้อปกติอยู่แล้ว จึงสอดคล้องกัน
+    const publicQuestions = setQuestions;
 
     return NextResponse.json({
       success: true,

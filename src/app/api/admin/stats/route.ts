@@ -1,34 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, users, userAnswers } from '@/db/schema';
-import { eq, count, desc } from 'drizzle-orm';
+import { eq, count, desc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { unstable_cache } from 'next/cache';
 
 const getCachedStats = unstable_cache(
   async () => {
-    const [questionStats] = await db
-      .select({ count: count() })
-      .from(questions);
-
-    const [testTypeStats] = await db
-      .select({ count: count() })
-      .from(testTypes);
-
-    const [userStats] = await db
-      .select({ count: count() })
-      .from(users);
-
-    let activeQuestionStats = { count: 0 };
-    try {
-      [activeQuestionStats] = await db
-        .select({ count: count() })
-        .from(questions)
-        .where(eq(questions.active, 'true'));
-    } catch (error) {
-      console.warn('[admin-stats] Active question stats query failed (table may not exist):', error);
-      activeQuestionStats = questionStats;
-    }
+    // One scan for both question counts, with at most three concurrent DB
+    // queries (matching the configured pool); no auth or cache policy change.
+    const [[questionStats], [testTypeStats], [userStats]] = await Promise.all([
+      db.select({
+        count: count(),
+        activeCount: sql<number>`count(*) filter (where ${questions.active} = 'true')::int`,
+      }).from(questions),
+      db.select({ count: count() }).from(testTypes),
+      db.select({ count: count() }).from(users),
+    ]);
 
     let hardestQuestions: Array<{ questionId: number; questionText: string; wrongCount: number }> = [];
     try {
@@ -55,7 +43,7 @@ const getCachedStats = unstable_cache(
 
     return {
       totalQuestions: questionStats?.count || 0,
-      activeQuestions: activeQuestionStats?.count || 0,
+      activeQuestions: Number(questionStats?.activeCount) || 0,
       totalTests: testTypeStats?.count || 0,
       totalUsers: userStats?.count || 0,
       hardestQuestions,

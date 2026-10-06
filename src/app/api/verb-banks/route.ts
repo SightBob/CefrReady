@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { verbBanks } from '@/db/schema';
-import { asc } from 'drizzle-orm';
+import { getCachedVerbEntries } from '@/lib/verb-bank-data';
 import { checkIpThrottle } from '@/lib/api-security';
 
 export const dynamic = 'force-dynamic';
@@ -18,10 +16,7 @@ export async function GET(request: NextRequest) {
     });
     if (ipThrottleError) return ipThrottleError;
 
-    const data = await db
-      .select({ id: verbBanks.id, v1: verbBanks.v1, v2: verbBanks.v2, v3: verbBanks.v3 })
-      .from(verbBanks)
-      .orderBy(asc(verbBanks.id));
+    const data = await getCachedVerbEntries();
 
     return NextResponse.json({ success: true, data, total: data.length });
   } catch (err) {

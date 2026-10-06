@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   dbError: null as unknown,
 }));
 
+vi.mock('next/cache', () => ({ unstable_cache: (fn: unknown) => fn }));
 vi.mock('@/lib/api-security', () => ({ checkIpThrottle: mocks.checkIpThrottle }));
 vi.mock('@/db', () => ({ db: { select: (...args: unknown[]) => mocks.select(...args) } }));
 

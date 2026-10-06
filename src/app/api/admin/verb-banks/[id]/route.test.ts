@@ -3,11 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
+  revalidateTag: vi.fn(),
   update: vi.fn(),
   del: vi.fn(),
   dbError: null as unknown,
 }));
 
+vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock('@/db', () => ({
   db: {
@@ -40,6 +42,7 @@ const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
 beforeEach(() => {
   mocks.dbError = null;
+  mocks.revalidateTag.mockReset();
   mocks.requireAdmin.mockReset().mockResolvedValue({ error: null });
   mocks.update.mockReset().mockReturnValue(builder([]));
   mocks.del.mockReset().mockReturnValue(builder([]));
@@ -74,6 +77,7 @@ describe('PUT /api/admin/verb-banks/[id]', () => {
     mocks.update.mockReturnValue(builder([{ id: 3, v1: 'see', v2: 'saw', v3: 'seen' }]));
     const response = await PUT(jsonRequest('3', { v1: 'see', v2: 'saw', v3: 'seen' }), params('3'));
     expect(response.status).toBe(200);
+    expect(mocks.revalidateTag).toHaveBeenCalledExactlyOnceWith('verb-banks', { expire: 0 });
     expect(await response.json()).toMatchObject({ success: true, data: { id: 3 } });
   });
 
@@ -81,6 +85,7 @@ describe('PUT /api/admin/verb-banks/[id]', () => {
     mocks.update.mockReturnValue(builder([]));
     const response = await PUT(jsonRequest('999', { v1: 'go', v2: 'went', v3: 'gone' }), params('999'));
     expect(response.status).toBe(404);
+    expect(mocks.revalidateTag).not.toHaveBeenCalled();
     expect((await response.json()).error).toBe('ไม่พบรายการนี้');
   });
 
@@ -115,6 +120,7 @@ describe('DELETE /api/admin/verb-banks/[id]', () => {
     mocks.del.mockReturnValue(builder([{ id: 2, v1: 'eat', v2: 'ate', v3: 'eaten' }]));
     const response = await DELETE(delRequest('2'), params('2'));
     expect(response.status).toBe(200);
+    expect(mocks.revalidateTag).toHaveBeenCalledExactlyOnceWith('verb-banks', { expire: 0 });
     expect(await response.json()).toMatchObject({ success: true, data: { id: 2 } });
   });
 
@@ -122,5 +128,6 @@ describe('DELETE /api/admin/verb-banks/[id]', () => {
     mocks.del.mockReturnValue(builder([]));
     const response = await DELETE(delRequest('999'), params('999'));
     expect(response.status).toBe(404);
+    expect(mocks.revalidateTag).not.toHaveBeenCalled();
   });
 });

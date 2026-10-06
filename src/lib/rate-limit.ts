@@ -5,6 +5,18 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
+// One atomic round trip: increment + initial expiry + retry TTL. Repair a
+// missing expiry left by an interrupted older INCR/EXPIRE pair as well.
+const FIXED_WINDOW_SCRIPT = `
+local current = redis.call('INCR', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
+if current == 1 or ttl < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {current, ttl}
+`;
+
 export interface RateLimitOptions {
   windowMs?: number;
   maxRequests?: number;
@@ -19,15 +31,12 @@ export async function rateLimit(
   const windowSeconds = Math.ceil(windowMs / 1000);
 
   try {
-    const current = await redis.incr(key);
-
-    if (current === 1) {
-      await redis.expire(key, windowSeconds);
-    }
+    const [current, ttlMs] = await redis.eval<[number], [number, number]>(
+      FIXED_WINDOW_SCRIPT, [key], [windowSeconds * 1000],
+    );
 
     if (current > maxRequests) {
-      const ttl = await redis.ttl(key);
-      return { limited: true, retryAfterMs: ttl * 1000 };
+      return { limited: true, retryAfterMs: Math.max(0, ttlMs) };
     }
 
     return { limited: false, retryAfterMs: 0 };

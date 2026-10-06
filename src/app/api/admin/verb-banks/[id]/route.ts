@@ -4,6 +4,7 @@ import { verbBanks } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { firstVerbError, validateVerbEntry } from '@/lib/verb-bank';
+import { revalidateTag } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       return NextResponse.json({ success: false, error: 'ไม่พบรายการนี้' }, { status: 404 });
     }
 
+    revalidateTag('verb-banks', { expire: 0 });
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {
     // 23505 = unique_violation → ชุด 3 ช่องซ้ำกับรายการอื่น
@@ -78,6 +80,7 @@ export async function DELETE(_request: NextRequest, props: { params: Promise<{ i
       return NextResponse.json({ success: false, error: 'ไม่พบรายการนี้' }, { status: 404 });
     }
 
+    revalidateTag('verb-banks', { expire: 0 });
     return NextResponse.json({ success: true, data: deleted });
   } catch (err) {
     console.error('[admin/verb-banks/[id]] DELETE error:', err);
