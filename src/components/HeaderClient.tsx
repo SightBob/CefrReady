@@ -109,7 +109,7 @@ export default function HeaderClient() {
 
   // Figma 249:3559-249:3566 — 16px semibold #343434 บนช่องกว้าง 114 สูง 46
   const navLinkCls = (href: string) =>
-    `flex h-[46px] w-[114px] items-center justify-center px-[10px] text-center text-[16px] font-semibold tracking-[0.32px] transition-colors ${
+    `flex h-[46px] w-auto items-center justify-center px-[10px] text-center text-[16px] font-semibold tracking-[0.32px] transition-colors ${
       pathname === href ? 'text-[#5A95C6]' : 'text-[#343434] hover:text-[#5A95C6]'
     }`;
 

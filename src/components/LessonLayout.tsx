@@ -126,7 +126,7 @@ export default function LessonLayout({
       <div className={`${reviewMode ? 'max-w-[735px] px-[11px] pt-4 max-md:px-[17px]' : 'max-w-[1360px] px-4 sm:px-6 lg:px-8 mt-[30px]'} mx-auto w-full pb-44 max-md:pb-[101px]`}>
         {/* Label chip row — gap matches the sidebar/content gap below (gap-6).
             In review mode the row holds only the chip + exit button → push X right. */}
-        <div className={`w-full border flex items-center min-md:gap-6 max-md:gap-0 ${reviewMode ? 'justify-between' : ''}`}>
+        <div className={`w-full flex items-center min-md:gap-6 max-md:gap-0 ${reviewMode ? 'justify-between' : ''}`}>
           <button
             type="button"
             onClick={() => setIsLessonMenuOpen(true)}

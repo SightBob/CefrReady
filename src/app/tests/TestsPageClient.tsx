@@ -44,37 +44,49 @@ export default function TestsPageClient({ sections, user }: TestsPageClientProps
           #8EBEE6, 12px medium, 10px padding, nowrap) — slides as a marquee. */}
       {showBanner && (
         <div className="relative flex h-[37px] w-full items-center bg-[#8EBEE6] lg:h-[51px]">
-          <div className="w-full overflow-hidden px-[10px] lg:px-14">
-            {/* Two identical copies: the track slides -50%, i.e. exactly one
-                copy width, so the wrap-around is invisible. With a single copy
-                the text snapped ~440px backwards every cycle. The second copy
-                is aria-hidden so screen readers still hear it once. */}
-            <div className="marquee-track">
-              <span className="whitespace-nowrap text-[12px] font-medium leading-normal text-white lg:text-[14px] lg:font-semibold">
-                {ANNOUNCEMENT}
-              </span>
-              <span
-                aria-hidden="true"
-                className="whitespace-nowrap text-[12px] font-medium leading-normal text-white lg:text-[14px] lg:font-semibold"
-              >
-                {ANNOUNCEMENT}
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowBanner(false)}
-            aria-label="ปิดประกาศ"
-            className="absolute right-0 top-1/2 flex h-[29.57px] w-[29.57px] -translate-y-1/2 items-center justify-center bg-[#8EBEE6]"
-          >
-            <svg width="29.57" height="29.57" viewBox="0 0 29.5654 29.5654" fill="none" aria-hidden="true">
-              <path
-                d="M15.9759 14.7827L19.3158 11.4429C19.4743 11.2846 19.5634 11.0699 19.5636 10.846C19.5638 10.622 19.475 10.4071 19.3168 10.2486C19.1586 10.0901 18.9439 10.0009 18.7199 10.0007C18.4959 10.0005 18.2811 10.0893 18.1226 10.2476L14.7827 13.5874L11.4429 10.2476C11.2844 10.089 11.0694 10 10.8452 10C10.621 10 10.4061 10.089 10.2476 10.2476C10.089 10.4061 10 10.621 10 10.8452C10 11.0694 10.089 11.2844 10.2476 11.4429L13.5874 14.7827L10.2476 18.1226C10.089 18.2811 10 18.496 10 18.7202C10 18.9444 10.089 19.1594 10.2476 19.3179C10.4061 19.4764 10.621 19.5654 10.8452 19.5654C11.0694 19.5654 11.2844 19.4764 11.4429 19.3179L14.7827 15.978L18.1226 19.3179C18.2811 19.4764 18.496 19.5654 18.7202 19.5654C18.9444 19.5654 19.1594 19.4764 19.3179 19.3179C19.4764 19.1594 19.5654 18.9444 19.5654 18.7202C19.5654 18.496 19.4764 18.2811 19.3179 18.1226L15.9759 14.7827Z"
-                fill="white"
-              />
-            </svg>
-          </button>
-        </div>
+  <div className="w-full overflow-hidden px-[10px] lg:px-14">
+    {/* Mobile: marquee */}
+    <div className="marquee-track lg:hidden">
+      <span className="whitespace-nowrap text-[12px] font-medium leading-normal text-white">
+        {ANNOUNCEMENT}
+      </span>
+
+      <span
+        aria-hidden="true"
+        className="whitespace-nowrap text-[12px] font-medium leading-normal text-white"
+      >
+        {ANNOUNCEMENT}
+      </span>
+    </div>
+
+    {/* Desktop: single announcement centered */}
+    <div className="hidden w-full items-center justify-center lg:flex">
+      <span className="whitespace-nowrap text-[14px] font-semibold leading-normal text-white">
+        {ANNOUNCEMENT}
+      </span>
+    </div>
+  </div>
+
+  <button
+    type="button"
+    onClick={() => setShowBanner(false)}
+    aria-label="ปิดประกาศ"
+    className="absolute right-0 top-1/2 flex h-[29.57px] w-[29.57px] -translate-y-1/2 items-center justify-center bg-[#8EBEE6]"
+  >
+    <svg
+      width="29.57"
+      height="29.57"
+      viewBox="0 0 29.5654 29.5654"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M15.9759 14.7827L19.3158 11.4429C19.4743 11.2846 19.5634 11.0699 19.5636 10.846C19.5638 10.622 19.475 10.4071 19.3168 10.2486C19.1586 10.0901 18.9439 10.0009 18.7199 10.0007C18.4959 10.0005 18.2811 10.0893 18.1226 10.2476L14.7827 13.5874L11.4429 10.2476C11.2844 10.089 11.0694 10 10.8452 10C10.621 10 10.4061 10.089 10.2476 10.2476C10.089 10.4061 10 10.621 10 10.8452C10 11.0694 10.089 11.2844 10.2476 11.4429L13.5874 14.7827L10.2476 18.1226C10.089 18.2811 10 18.496 10 18.7202C10 18.9444 10.089 19.1594 10.2476 19.3179C10.4061 19.4764 10.621 19.5654 10.8452 19.5654C11.0694 19.5654 11.2844 19.4764 11.4429 19.3179L14.7827 15.978L18.1226 19.3179C18.2811 19.4764 18.496 19.5654 18.9444 19.3179L15.9759 14.7827Z"
+        fill="white"
+      />
+    </svg>
+  </button>
+</div>
       )}
 
       {/* 200:9227 — the 390px frame centres a 339px content column, i.e. ~26px

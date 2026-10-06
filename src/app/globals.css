@@ -137,9 +137,22 @@
   animation-play-state: paused;
 }
 
-/* Visitors who ask for reduced motion still get the announcement, just at a
-   gentler pace. `width` has to stay max-content here — the -50% loop only
-   lines up when the track is exactly two copies of the message. */
+@keyframes marqueeScroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (min-width: 1024px) {
+  .marquee-track {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .marquee-track {
     animation-duration: 40s;
