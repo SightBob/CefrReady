@@ -471,3 +471,33 @@ export const verbBanks = pgTable('verb_banks', {
 export type DbVerbBank = typeof verbBanks.$inferSelect;
 export type NewVerbBank = typeof verbBanks.$inferInsert;
 
+// ============================================================
+// AI Usage Logs (การใช้ AI จาก OpenRouter — วัด token/request รายคน)
+// บันทึกแบบ fire-and-forget หลังเรียก evaluateTapReason สำเร็จ
+// ============================================================
+
+export const aiUsageLogs = pgTable('ai_usage_logs', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  // 'tap_reason' — ฟีเจอร์ที่เรียก AI (รองรับฟีเจอร์ใหม่ในอนาคต)
+  feature: varchar('feature', { length: 50 }).notNull(),
+  model: varchar('model', { length: 200 }).notNull(),
+  promptTokens: integer('prompt_tokens').notNull(),
+  completionTokens: integer('completion_tokens').notNull(),
+  totalTokens: integer('total_tokens').notNull(),
+  // 'ok' | 'error' — error ยังกิน token อาจเกิดขึ้นก่อน parse fail
+  status: varchar('status', { length: 20 }).notNull(),
+  errorStatus: integer('error_status'),
+  latencyMs: integer('latency_ms'),
+  // 'correct' | 'partial' | 'incorrect' | 'unclear' — เฉพาะกรณี status = ok
+  understanding: varchar('understanding', { length: 20 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index('ai_usage_logs_user_idx').on(table.userId),
+  createdAtIdx: index('ai_usage_logs_created_at_idx').on(table.createdAt),
+  featureIdx: index('ai_usage_logs_feature_idx').on(table.feature),
+}));
+
+export type DbAiUsageLog = typeof aiUsageLogs.$inferSelect;
+export type NewAiUsageLog = typeof aiUsageLogs.$inferInsert;
+
