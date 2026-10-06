@@ -55,6 +55,24 @@ export default function AdminDashboard() {
 
   const menuItems = [
     {
+      title: 'จัดการ AI',
+      description: 'ตั้งค่า OpenRouter สำหรับตรวจเหตุผล Tap & Select',
+      icon: Settings,
+      href: '/admin/ai-settings',
+      color: 'from-sky-500 to-cyan-500',
+      bgColor: 'bg-sky-50',
+      count: 0,
+    },
+    {
+      title: 'การใช้ AI',
+      description: 'Token และ request ของ OpenRouter รายบุคคล',
+      icon: BarChart3,
+      href: '/admin/ai-usage',
+      color: 'from-sky-500 to-cyan-500',
+      bgColor: 'bg-sky-50',
+      count: 0,
+    },
+    {
       title: 'จัดการข้อสอบ',
       description: 'เพิ่ม แก้ไข ลบข้อสอบ',
       icon: FileQuestion,

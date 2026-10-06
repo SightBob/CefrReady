@@ -70,11 +70,29 @@ export default function HomeHero() {
 
         {/* Figma 249:3269 — 80px ไม่มีขอบขาว */}
         <h1 className="mt-1 text-[clamp(38px,9.5vw,64px)] font-bold leading-normal max-md:mt-[-2px] md:text-[80px]">
-          <span className="font-['IBM_Plex_Sans_Thai'] text-[#5A95C6]">CEFR</span>
+          <span className="
+  text-[#5A95C6]
+  text-center
+  font-['IBM_Plex_Sans_Thai']
+  text-[80px]
+  font-bold
+  leading-normal
+  [-webkit-text-stroke:9px_#FFF]
+  [paint-order:stroke_fill]
+">CEFR</span>
 
           {' '}
 
-          <span className="font-['IBM_Plex_Sans_Thai'] text-[#FFDB40]">Ready!</span>
+          <span className="
+  text-[#5A95C6]
+  text-center
+  font-['IBM_Plex_Sans_Thai']
+  text-[80px]
+  font-bold
+  leading-normal
+  [-webkit-text-stroke:9px_#FFF]
+  [paint-order:stroke_fill]
+">Ready!</span>
         </h1>
 
         {/* Figma 249:3268 */}
@@ -105,7 +123,7 @@ export default function HomeHero() {
         </div>
 
         {/* Otter */}
-        <div className="absolute bottom-[-9px] left-1/2 h-[162px] w-[191px] -translate-x-1/2 max-md:bottom-[-12px] max-md:h-[100px] max-md:w-[116px]">
+        <div className="absolute bottom-[-19px] left-1/2 h-[162px] w-[191px] -translate-x-1/2 max-md:bottom-[-12px] max-md:h-[100px] max-md:w-[116px]">
           <Image
             src="/logo-otter/otter-flag1.png"
             alt=""
