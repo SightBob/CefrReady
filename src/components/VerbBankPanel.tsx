@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { filterVerbEntries, type VerbEntry } from '@/lib/verb-bank';
+import { clearVerbEntries, loadVerbEntries, VERB_BANK_CHANGED_EVENT, VERB_BANK_STORAGE_KEY } from '@/lib/verb-bank-client';
 
 type Column = 'v1' | 'v2' | 'v3';
 
@@ -33,11 +34,9 @@ export default function VerbBankPanel({ variant = 'sidebar' }: { variant?: 'side
 
     async function loadVerbs() {
       try {
-        const response = await fetch('/api/verb-banks');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const body = await response.json();
+        const entries = await loadVerbEntries();
         if (cancelled) return;
-        setVerbs(Array.isArray(body?.data) ? (body.data as VerbEntry[]) : []);
+        setVerbs(entries);
         setError(null);
       } catch {
         if (cancelled) return;
@@ -48,9 +47,29 @@ export default function VerbBankPanel({ variant = 'sidebar' }: { variant?: 'side
       }
     }
 
-    void loadVerbs();
-    return () => { cancelled = true; };
-  }, []);
+    // Do not fetch the CSS-hidden desktop panel on mobile. Match the existing
+    // layout breakpoint, without changing its markup or any modal behavior.
+    const media = window.matchMedia('(min-width: 890px)');
+    const loadIfVisible = () => { if (isModal || media.matches) void loadVerbs(); };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== VERB_BANK_STORAGE_KEY) return;
+      clearVerbEntries(event.newValue);
+      loadIfVisible();
+    };
+    const onFocus = () => { loadIfVisible(); };
+    loadIfVisible();
+    media.addEventListener('change', loadIfVisible);
+    window.addEventListener(VERB_BANK_CHANGED_EVENT, loadIfVisible);
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      media.removeEventListener('change', loadIfVisible);
+      window.removeEventListener(VERB_BANK_CHANGED_EVENT, loadIfVisible);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [isModal]);
 
   const filtered = useMemo(
     () => filterVerbEntries(verbs, query, activeCol),
