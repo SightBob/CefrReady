@@ -1,5 +1,5 @@
 import { unstable_cache, revalidateTag } from 'next/cache';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { questions } from '@/db/schema';
 
@@ -11,6 +11,11 @@ import { questions } from '@/db/schema';
  * pool only changes when an admin edits questions. This cache removes one DB
  * round trip per question and keeps the payload small (id/type/level only).
  *
+ * `tapExercise IS NULL` keeps Tap & Select items out of the mock exam: those
+ * belong to test sets ("mixed" sets embed tap items on questions of any type,
+ * e.g. a focus-form row carrying tapExercise), and the full exam has no tap
+ * renderer — without the filter such a row is served as a broken MCQ.
+ *
  * `revalidate: 30` is the safety net: even if an admin route forgets to call
  * revalidateQuestionPool(), a change is visible within 30 seconds.
  */
@@ -21,7 +26,7 @@ export const getCachedQuestionPool = unstable_cache(
     db
       .select({ id: questions.id, testTypeId: questions.testTypeId, cefrLevel: questions.cefrLevel })
       .from(questions)
-      .where(and(eq(questions.testTypeId, part), eq(questions.active, 'true'))),
+      .where(and(eq(questions.testTypeId, part), eq(questions.active, 'true'), isNull(questions.tapExercise))),
   ['full-test-question-pool'],
   { revalidate: 30, tags: [QUESTION_POOL_CACHE_TAG] },
 );

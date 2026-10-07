@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Sparkle } from '@phosphor-icons/react';
 import SelectableText from './SelectableText';
@@ -77,6 +77,25 @@ export default function FocusFormQuestionCard({
   const theme = ACCENT[accent] ?? ACCENT.primary;
   const isCorrect = selectedAnswer === correctAnswer;
   const showExplanation = selectedAnswer !== null && explanation !== null && correctAnswer !== null;
+
+  // เลื่อนไปคำอธิบายแบบ smooth เมื่อ user ตอบ (unanswered -> answered) — pattern เดียวกับ ListeningAudioPlayer
+  const explanationRef = useRef<HTMLDivElement | null>(null);
+  const prevSelectedRef = useRef<string | null>(selectedAnswer);
+  const isMountedRef = useRef(false);
+  useEffect(() => {
+    if (!isMountedRef.current) {
+      // ข้าม render แรก: หน้า review render ด้วยคำตอบที่ fill มาแล้ว ไม่ควรเลื่อนเอง
+      isMountedRef.current = true;
+      return;
+    }
+    const wasUnanswered = prevSelectedRef.current === null;
+    prevSelectedRef.current = selectedAnswer;
+    if (!wasUnanswered || selectedAnswer === null || !showExplanation) return;
+    const id = window.setTimeout(() => {
+      explanationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, [selectedAnswer, showExplanation]);
 
 
   // Parse "Speaker: textSpeaker: text" into [{speaker, text}] lines (fallback when no structured conversation)
@@ -234,7 +253,7 @@ export default function FocusFormQuestionCard({
       </div>
 
       {showExplanation && (
-  <div className="mt-6">
+  <div ref={explanationRef} className="mt-6">
     {/* Header — Otter + caption */}
     <div className="relative z-20 inline-flex items-end gap-2 pl-[2.6rem]">
       <Image

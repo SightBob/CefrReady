@@ -44,8 +44,19 @@ describe('POST tap-reason', () => {
     expect(mocks.rate).toHaveBeenCalledWith('learner', { keySuffix: 'tap-reason-ai', maxRequests: 6 });
     expect(mocks.evaluate).not.toHaveBeenCalled();
   });
-  it.each([{ reason: '  ' }, { reason: 'x'.repeat(1501) }, { selectedAnswer: 'C' }, { itemIndex: -1 }, { model: 'evil/model' }, { correctAnswer: 'A' }])('rejects malformed or client-supplied grading inputs %#', async patch => {
+  it.each([{ reason: 'x'.repeat(1501) }, { selectedAnswer: 'C' }, { itemIndex: -1 }, { model: 'evil/model' }, { correctAnswer: 'A' }])('rejects malformed or client-supplied grading inputs %#', async patch => {
     expect((await POST(request(patch))).status).toBe(400); expect(mocks.select).not.toHaveBeenCalled();
+  });
+  it('accepts an empty reason without failing', async () => {
+    const response = await POST(request({ reason: '' }));
+    expect(response.status).toBe(200);
+    expect(mocks.evaluate).toHaveBeenCalledTimes(1);
+  });
+  it('prefills a server-side explanation request when the reason is blank', async () => {
+    await POST(request({ reason: '   ' }));
+    const context = mocks.evaluate.mock.calls[0][1];
+    expect(context.reason).toContain('ยังไม่ได้เขียนเหตุผล');
+    expect(context.reason).not.toBe(context.reason.trim() && '   ');
   });
   it('rejects missing/non-Tap question items', async () => {
     mocks.select.mockReturnValue(rows([{ ...row, tapExercise: null }]));

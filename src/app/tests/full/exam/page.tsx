@@ -1,21 +1,28 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import { useSession } from 'next-auth/react';
-import { Trophy } from 'lucide-react';
-import { toast } from 'sonner';
-import ConfirmModal from '@/components/ConfirmModal';
-import TestLayout from '@/components/TestLayout';
-import { ApiError, apiFetch } from '@/lib/api-fetch';
-import { FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL_SECONDS } from '@/lib/full-test/constants';
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { useSession } from "next-auth/react";
+import { Trophy } from "lucide-react";
+import { toast } from "sonner";
+import ConfirmModal from "@/components/ConfirmModal";
+import TestLayout from "@/components/TestLayout";
+import { ApiError, apiFetch } from "@/lib/api-fetch";
+import {
+  FULL_TEST_TOTAL_QUESTIONS,
+  FULL_TEST_TOTAL_SECONDS,
+} from "@/lib/full-test/constants";
 
-const ListeningAudioPlayer = dynamic(() => import('@/components/ListeningAudioPlayer'));
-const FocusMeaningConversationCard = dynamic(() => import('@/components/FocusMeaningConversationCard'));
-const FormMeaningBlankInput = dynamic(() => import('@/components/FormMeaningBlankInput'));
-const FocusFormQuestionCard = dynamic(() => import('@/components/FocusFormQuestionCard'));
-
+const ListeningAudioPlayer = dynamic(
+  () => import("@/components/ListeningAudioPlayer"),
+);
+const FormMeaningFillCard = dynamic(
+  () => import("@/components/FormMeaningFillCard"),
+);
+const FocusFormQuestionCard = dynamic(
+  () => import("@/components/FocusFormQuestionCard"),
+);
 
 interface Question {
   id: number;
@@ -28,7 +35,11 @@ interface Question {
   audioUrl?: string | null;
   transcript?: string | null;
   conversation?: Array<{ speaker: string; text: string }>;
-  article?: { title: string; text: string; blanks: Array<{ id: number; correctAnswer: string; hint?: string }> };
+  article?: {
+    title: string;
+    text: string;
+    blanks: Array<{ id: number; correctAnswer: string; hint?: string }>;
+  };
   cefrLevel: string;
 }
 
@@ -39,6 +50,10 @@ interface ExamState {
   totalQuestions: number;
   timeRemaining: number;
 }
+
+/** สำรองคำตอบข้อปัจจุบันไว้กู้หลัง refresh (ต่อ attempt + ข้อ) */
+const answerStorageKey = (attemptId: number, questionId: number) =>
+  `full-exam-answer:${attemptId}:${questionId}`;
 
 export default function FullTestExamPage() {
   const { status } = useSession();
@@ -53,8 +68,11 @@ export default function FullTestExamPage() {
   const [submitting, setSubmitting] = useState(false);
   const [finished, setFinished] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
-  const [skipConfirmMessage, setSkipConfirmMessage] = useState('');
-  const [revealed, setRevealed] = useState<{ mcq: string | null; blanks: Record<number, string> | null } | null>(null);
+  const [skipConfirmMessage, setSkipConfirmMessage] = useState("");
+  const [revealed, setRevealed] = useState<{
+    mcq: string | null;
+    blanks: Record<number, string> | null;
+  } | null>(null);
 
   const attemptIdRef = useRef<number | null>(null);
   const questionIdRef = useRef<number | null>(null);
@@ -70,12 +88,12 @@ export default function FullTestExamPage() {
 
   // Gate: Full Test ถูกปิดปรับปรุง (เช่น พิมพ์ URL ตรง) → หน้าแจ้งเฉพาะพาร์ท
   useEffect(() => {
-    fetch('/api/tests-maintenance')
+    fetch("/api/tests-maintenance")
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { sections?: Record<string, boolean> } | null) => {
         if (data?.sections?.full) {
           setMaintenanceBlocked(true);
-          router.replace('/tests/full/maintenance');
+          router.replace("/tests/full/maintenance");
         }
       })
       .catch(() => undefined); // fail-open
@@ -84,6 +102,20 @@ export default function FullTestExamPage() {
   const setSelectedAnswerSynced = useCallback((answer: string | null) => {
     selectedAnswerRef.current = answer;
     setSelectedAnswer(answer);
+    // สำรองคำตอบที่ commit แล้ว — refresh กลางข้อจะได้คำตอบเดิมกลับมา
+    const aid = attemptIdRef.current;
+    const qid = questionIdRef.current;
+    if (aid && qid) {
+      try {
+        if (answer === null) {
+          sessionStorage.removeItem(answerStorageKey(aid, qid));
+        } else {
+          sessionStorage.setItem(answerStorageKey(aid, qid), answer);
+        }
+      } catch {
+        // sessionStorage ใช้ไม่ได้ (private mode/quota) — แค่ไม่มีการกู้คำตอบ
+      }
+    }
   }, []);
 
   const loadState = useCallback((data: ExamState) => {
@@ -105,21 +137,26 @@ export default function FullTestExamPage() {
     const attempt = attemptIdRef.current;
     if (!attempt || questionIdRef.current !== questionId) return;
     try {
-      const res = await apiFetch('/api/tests/full/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await apiFetch("/api/tests/full/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ attemptId: attempt, questionId }),
       });
       const data = await res.json();
       if (!data.success || questionIdRef.current !== questionId) return;
-      if (data.data.type === 'cloze') {
+      if (data.data.type === "cloze") {
         const blanks: Record<number, string> = {};
-        Object.entries(data.data.blanks as Record<string, string>).forEach(([k, v]) => {
-          blanks[Number(k)] = v;
-        });
+        Object.entries(data.data.blanks as Record<string, string>).forEach(
+          ([k, v]) => {
+            blanks[Number(k)] = v;
+          },
+        );
         setRevealed({ mcq: null, blanks });
       } else {
-        setRevealed({ mcq: data.data.correctAnswer as string | null, blanks: null });
+        setRevealed({
+          mcq: data.data.correctAnswer as string | null,
+          blanks: null,
+        });
       }
     } catch {
       // Non-fatal: exam continues without reveal
@@ -130,27 +167,41 @@ export default function FullTestExamPage() {
     if (initializedRef.current || attemptIdRef.current) return;
     initializedRef.current = true;
     try {
-      const resumeRes = await apiFetch('/api/tests/full/resume');
+      const resumeRes = await apiFetch("/api/tests/full/resume");
       const resumeData = await resumeRes.json();
 
-      if (resumeData.success && resumeData.data && !resumeData.data.expired && !resumeData.data.completed) {
+      if (
+        resumeData.success &&
+        resumeData.data &&
+        !resumeData.data.expired &&
+        !resumeData.data.completed
+      ) {
         loadState(resumeData.data as ExamState);
         setLoading(false);
         return;
       }
 
-      if (resumeData.success && (resumeData.data?.expired || resumeData.data?.completed)) {
+      if (
+        resumeData.success &&
+        (resumeData.data?.expired || resumeData.data?.completed)
+      ) {
         const resultAttemptId = resumeData.data.result?.attemptId;
-        router.push(resultAttemptId ? `/tests/full/results?attemptId=${resultAttemptId}` : '/tests/full/results');
+        router.push(
+          resultAttemptId
+            ? `/tests/full/results?attemptId=${resultAttemptId}`
+            : "/tests/full/results",
+        );
         return;
       }
 
-      const startRes = await apiFetch('/api/tests/full/start', { method: 'POST' });
+      const startRes = await apiFetch("/api/tests/full/start", {
+        method: "POST",
+      });
       const startData = await startRes.json();
       if (!startData.success) throw new Error(startData.error);
 
       if (startData.data.resume) {
-        const resumeRes2 = await apiFetch('/api/tests/full/resume');
+        const resumeRes2 = await apiFetch("/api/tests/full/resume");
         const resumeData2 = await resumeRes2.json();
         loadState(resumeData2.data as ExamState);
       } else {
@@ -159,15 +210,15 @@ export default function FullTestExamPage() {
     } catch (err) {
       initializedRef.current = false;
       if (err instanceof ApiError && err.status === 401) {
-        toast.error('กรุณาเข้าสู่ระบบใหม่');
-        router.push('/tests/full');
+        toast.error("กรุณาเข้าสู่ระบบใหม่");
+        router.push("/tests/full");
         return;
       }
       if (err instanceof ApiError && err.status === 429) {
-        const secs = err.message.split(':')[1] || '60';
+        const secs = err.message.split(":")[1] || "60";
         toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
       } else {
-        toast.error('ไม่สามารถเริ่มข้อสอบได้');
+        toast.error("ไม่สามารถเริ่มข้อสอบได้");
       }
       console.error(err);
     } finally {
@@ -186,14 +237,16 @@ export default function FullTestExamPage() {
     setSubmitting(true);
     setFinished(true);
     try {
-      const submitRes = await apiFetch('/api/tests/full/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const submitRes = await apiFetch("/api/tests/full/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ attemptId: id }),
       });
       const submitData = await submitRes.json();
       if (!submitData.success) {
-        toast.error(submitData.error || 'เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่');
+        toast.error(
+          submitData.error || "เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่",
+        );
         timeUpHandledRef.current = false;
         submittingRef.current = false;
         setSubmitting(false);
@@ -202,15 +255,15 @@ export default function FullTestExamPage() {
       router.push(`/tests/full/results?attemptId=${id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        toast.error('กรุณาเข้าสู่ระบบใหม่');
-        router.push('/tests/full');
+        toast.error("กรุณาเข้าสู่ระบบใหม่");
+        router.push("/tests/full");
         return;
       }
       if (err instanceof ApiError && err.status === 429) {
-        const secs = err.message.split(':')[1] || '60';
+        const secs = err.message.split(":")[1] || "60";
         toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
       } else {
-        toast.error('เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่');
+        toast.error("เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่");
       }
       console.error(err);
       timeUpHandledRef.current = false;
@@ -219,51 +272,56 @@ export default function FullTestExamPage() {
     }
   }, [router]);
 
-  // Countdown timer: delta-based to eliminate drift over long sessions
-  useEffect(() => {
-    if (finished || loading || !endTimeRef.current) return;
-
-    const tick = () => {
-      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
-      setTimeRemaining(remaining);
-      if (remaining <= 0) {
-        handleTimeUp();
-      }
-    };
-
-    tick(); // Run immediately
-    const intervalId = setInterval(tick, 1000);
-    return () => clearInterval(intervalId);
-  }, [finished, loading, handleTimeUp]);
+  // นาฬิกาถอยหลังอยู่ใน CountdownTimerBox (TestLayout) — นับในตัวเองจาก
+  // เวลาเริ่มที่ได้รับตอน mount และเรียก onTimeUp เองเมื่อครบ หน้านี้จึงไม่
+  // re-render ทั้ง TestLayout ทุกวินาทีอีกต่อไป (state timeRemaining เหลือไว้
+  // เป็นค่าเริ่มต้นให้กล่องเวลาตอน load/resume เท่านั้น)
 
   useEffect(() => {
-    if (finished || loading || timeRemaining > 0) return;
-    handleTimeUp();
-  }, [finished, loading, timeRemaining, handleTimeUp]);
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/tests/full');
+    if (status === "unauthenticated") {
+      router.push("/tests/full");
       return;
     }
-    if (status === 'authenticated') {
+    if (status === "authenticated") {
       startOrResume();
     }
   }, [status, router, startOrResume]);
 
+  // กู้คำตอบที่เคยเลือกไว้ของข้อนี้หลัง refresh — MCQ เรียก /check ซ้ำเพื่อให้
+  // สถานะเฉลย/ล็อกตรงกับที่ผู้ใช้เห็นก่อนรีเฟรช ส่วน form-meaning กู้แค่ช่องกรอก
+  // (เฉลยยังรอกดถัดไปเหมือนเดิม ไม่เปลี่ยนพฤติกรรม)
+  useEffect(() => {
+    if (!attemptId || !question) return;
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem(answerStorageKey(attemptId, question.id));
+    } catch {
+      return; // sessionStorage ใช้ไม่ได้ — ข้ามการกู้
+    }
+    if (!stored) return;
+    setSelectedAnswerSynced(stored);
+    if (question.testTypeId !== "form-meaning") void checkAnswer(question.id);
+  }, [attemptId, question, setSelectedAnswerSynced, checkAnswer]);
+
   const handleNextClick = () => {
     if (!attemptIdRef.current || !question || submitting) return;
 
-    if (question.testTypeId === 'form-meaning' && question.article) {
+    if (question.testTypeId === "form-meaning" && question.article) {
       let answers: Record<number, string> = {};
       try {
-        answers = selectedAnswerRef.current ? JSON.parse(selectedAnswerRef.current) : {};
+        answers = selectedAnswerRef.current
+          ? JSON.parse(selectedAnswerRef.current)
+          : {};
       } catch {
         answers = {};
       }
-      const allFilled = question.article.blanks.every((b) => answers[b.id]?.trim());
+      const allFilled = question.article.blanks.every((b) =>
+        answers[b.id]?.trim(),
+      );
       if (!allFilled) {
-        setSkipConfirmMessage('คุณยังไม่ได้กรอกคำตอบให้ครบทุกช่อง หากข้ามข้อนี้จะถือว่าคำตอบข้อนี้ผิด');
+        setSkipConfirmMessage(
+          "คุณยังไม่ได้กรอกคำตอบให้ครบทุกช่อง หากข้ามข้อนี้จะถือว่าคำตอบข้อนี้ผิด",
+        );
         setSkipConfirmOpen(true);
         return;
       }
@@ -275,7 +333,9 @@ export default function FullTestExamPage() {
     }
 
     if (!selectedAnswerRef.current) {
-      setSkipConfirmMessage('คุณยังไม่ได้เลือกคำตอบ หากข้ามข้อนี้จะถือว่าคำตอบข้อนี้ผิด');
+      setSkipConfirmMessage(
+        "คุณยังไม่ได้เลือกคำตอบ หากข้ามข้อนี้จะถือว่าคำตอบข้อนี้ผิด",
+      );
       setSkipConfirmOpen(true);
       return;
     }
@@ -293,35 +353,52 @@ export default function FullTestExamPage() {
 
     submittingRef.current = true;
     setSubmitting(true);
+    let examExpired = false;
     try {
-      const res = await apiFetch('/api/tests/full/next', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      // เวลา ณ ปัจจุบันคำนวณจาก endTimeRef (state เดิมไม่อัปเดตทุกวินาทีแล้ว)
+      const remainingNow = endTimeRef.current
+        ? Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
+        : 0;
+      const res = await apiFetch("/api/tests/full/next", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           attemptId: attemptIdRef.current,
           questionId: question.id,
-          selectedAnswer: selectedAnswerRef.current ?? '',
-          timeRemaining,
+          selectedAnswer: selectedAnswerRef.current ?? "",
+          timeRemaining: remainingNow,
         }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Unknown error');
+      if (!data.success) throw new Error(data.error || "Unknown error");
+
+      // คำตอบข้อนี้ถูกบันทึกฝั่ง server แล้ว — เคลียร์สำรองใน sessionStorage
+      try {
+        sessionStorage.removeItem(
+          answerStorageKey(attemptIdRef.current, question.id),
+        );
+      } catch {
+        // ignore
+      }
 
       if (data.data.finished) {
         // Finalize ONLY when the user pressed the submit button on the real
         // last question. A premature "finished" from the server (e.g. an
         // exhausted question pool) must never auto-submit the attempt.
         if (questionIndex < FULL_TEST_TOTAL_QUESTIONS - 1) {
-          toast.error('ระบบดึงข้อถัดไปไม่ได้ กรุณารอสักครู่แล้วกดถัดไปอีกครั้ง');
+          toast.error(
+            "ระบบดึงข้อถัดไปไม่ได้ กรุณารอสักครู่แล้วกดถัดไปอีกครั้ง",
+          );
           return;
         }
-        const submitRes = await apiFetch('/api/tests/full/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const submitRes = await apiFetch("/api/tests/full/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ attemptId: attemptIdRef.current }),
         });
         const submitData = await submitRes.json();
-        if (!submitData.success) throw new Error(submitData.error || 'Submit failed');
+        if (!submitData.success)
+          throw new Error(submitData.error || "Submit failed");
         router.push(`/tests/full/results?attemptId=${attemptIdRef.current}`);
         return;
       }
@@ -333,16 +410,24 @@ export default function FullTestExamPage() {
       questionIdRef.current = data.data.question.id;
       setRevealed(null);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        toast.error('กรุณาเข้าสู่ระบบใหม่');
-        router.push('/tests/full');
+      if (
+        err instanceof ApiError &&
+        err.status === 403 &&
+        err.message.includes("EXAM_TIME_EXPIRED")
+      ) {
+        // Server ยืนยันว่าหมดเวลาแล้ว (นาฬิกา client ถูกแก้/JS หยุดทำงาน) —
+        // ส่งยอดรวมทันทีหลัง finally ปลดล็อก submitting
+        examExpired = true;
+      } else if (err instanceof ApiError && err.status === 401) {
+        toast.error("กรุณาเข้าสู่ระบบใหม่");
+        router.push("/tests/full");
         return;
-      }
-      if (err instanceof ApiError && err.status === 429) {
-        const secs = err.message.split(':')[1] || '60';
+      } else if (err instanceof ApiError && err.status === 429) {
+        const secs = err.message.split(":")[1] || "60";
         toast.error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
       } else {
-        const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+        const msg =
+          err instanceof Error ? err.message : "เกิดข้อผิดพลาด กรุณาลองใหม่";
         toast.error(msg);
       }
       console.error(err);
@@ -350,17 +435,20 @@ export default function FullTestExamPage() {
       submittingRef.current = false;
       setSubmitting(false);
     }
+    if (examExpired) {
+      void handleTimeUp();
+    }
   };
 
   // TestLayout's exit confirm calls this — cancels the attempt server-side.
   const handleExit = async () => {
     if (!attemptIdRef.current) return;
-    await apiFetch('/api/tests/full/cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await apiFetch("/api/tests/full/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ attemptId: attemptIdRef.current }),
     });
-    router.push('/tests');
+    router.push("/tests");
   };
 
   // Some questions only have 3 options — drop empty slots so exactly that
@@ -368,26 +456,41 @@ export default function FullTestExamPage() {
   const mcqOptions = useMemo(() => {
     if (!question) return [] as Array<{ key: string; value: string }>;
     return [
-      { key: 'A', value: question.optionA ?? '' },
-      { key: 'B', value: question.optionB ?? '' },
-      { key: 'C', value: question.optionC ?? '' },
-      { key: 'D', value: question.optionD ?? '' },
-    ].filter((o) => o.value.trim() !== '');
+      { key: "A", value: question.optionA ?? "" },
+      { key: "B", value: question.optionB ?? "" },
+      { key: "C", value: question.optionC ?? "" },
+      { key: "D", value: question.optionD ?? "" },
+    ].filter((o) => o.value.trim() !== "");
   }, [question]);
+
+  // คำตอบ cloze ที่เก็บเป็น JSON ({blankId: answer}) — parse กลับเป็น map ให้การ์ดบทความ
+  const clozeAnswers = useMemo<Record<number, string>>(() => {
+    if (question?.testTypeId !== "form-meaning" || !selectedAnswer) return {};
+    try {
+      return JSON.parse(selectedAnswer) as Record<number, string>;
+    } catch {
+      return {};
+    }
+  }, [question, selectedAnswer]);
 
   const progressAnswers = useMemo(
     () =>
       Array.from({ length: FULL_TEST_TOTAL_QUESTIONS }, (_, i) =>
-        i < questionIndex || (i === questionIndex && selectedAnswer != null) ? 'x' : null
+        i < questionIndex || (i === questionIndex && selectedAnswer != null)
+          ? "x"
+          : null,
       ),
-    [questionIndex, selectedAnswer]
+    [questionIndex, selectedAnswer],
   );
 
-  const handleMcqSelect = useCallback((key: string) => {
-    setSelectedAnswerSynced(key);
-    const qid = questionIdRef.current;
-    if (qid) void checkAnswer(qid);
-  }, [checkAnswer, setSelectedAnswerSynced]);
+  const handleMcqSelect = useCallback(
+    (key: string) => {
+      setSelectedAnswerSynced(key);
+      const qid = questionIdRef.current;
+      if (qid) void checkAnswer(qid);
+    },
+    [checkAnswer, setSelectedAnswerSynced],
+  );
 
   const handleClozeChange = (answersMap: Record<number, string>) => {
     setSelectedAnswerSynced(JSON.stringify(answersMap));
@@ -395,15 +498,27 @@ export default function FullTestExamPage() {
 
   if (maintenanceBlocked) {
     // กำลัง redirect ไป /tests/full/maintenance — กันแฟลชหน้าสอบชั่วขณะ
-    return <div className="min-h-screen flex items-center justify-center">กำลังโหลด...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        กำลังโหลด...
+      </div>
+    );
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">กำลังโหลด...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        กำลังโหลด...
+      </div>
+    );
   }
 
   if (!question) {
-    return <div className="min-h-screen flex items-center justify-center">ไม่พบข้อสอบ</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        ไม่พบข้อสอบ
+      </div>
+    );
   }
 
   return (
@@ -417,15 +532,17 @@ export default function FullTestExamPage() {
         onTimeUp={handleTimeUp}
         onNext={handleNextClick}
         onSubmit={handleNextClick}
-        onExit={() => { void handleExit(); }}
+        onExit={() => {
+          void handleExit();
+        }}
         sequentialNav
         currentQuestionId={question.id}
         sectionIcon={Trophy}
         sectionColor="from-indigo-500 to-purple-500"
         sectionLabel="Full Mock Exam"
-        timerSeconds={timeRemaining > 0 ? timeRemaining : 1}
+        timerSeconds={timeRemaining}
       >
-        {question.testTypeId === 'focus-form' ? (
+        {question.testTypeId === "focus-form" ? (
           <div key={question.id}>
             <FocusFormQuestionCard
               questionText={question.questionText}
@@ -440,7 +557,7 @@ export default function FullTestExamPage() {
           </div>
         ) : (
           <div key={question.id}>
-            {question.testTypeId === 'listening' && (
+            {question.testTypeId === "listening" && (
               <ListeningAudioPlayer
                 audioUrl={question.audioUrl ?? undefined}
                 transcript={question.transcript ?? question.questionText}
@@ -454,26 +571,33 @@ export default function FullTestExamPage() {
               />
             )}
 
-            {question.testTypeId === 'focus-meaning' && (
-              <FocusMeaningConversationCard
-                conversation={question.conversation ?? []}
-                question={question.questionText}
-                options={mcqOptions.map((o) => o.value)}
-                selectedAnswer={selectedAnswer ? mcqOptions.findIndex((o) => o.key === selectedAnswer) : null}
-                correctAnswer={revealed?.mcq ? mcqOptions.findIndex((o) => o.key === revealed.mcq) : null}
-                explanation={''}
-                onAnswerSelect={(idx) => {
-                  const opt = mcqOptions[idx];
-                  if (opt) handleMcqSelect(opt.key);
-                }}
+            {/* Focus on Meaning — UI เดียวกับชุดข้อสอบ (FocusFormQuestionCard accent="emerald") */}
+            {question.testTypeId === "focus-meaning" && (
+              <FocusFormQuestionCard
+                questionText={question.questionText}
+                options={mcqOptions}
+                selectedAnswer={selectedAnswer}
+                correctAnswer={revealed?.mcq ?? null}
+                explanation={null}
+                conversation={question.conversation ?? null}
+                onAnswerSelect={handleMcqSelect}
+                disabled={submitting}
+                accent="emerald"
               />
             )}
 
-            {question.testTypeId === 'form-meaning' && question.article && (
-              <FormMeaningBlankInput
+            {/* Form and Meaning — การ์ดบทความ UI เดียวกับ FormMeaningQuiz ของชุดข้อสอบ
+                (เฉลยต่อ blank มาจาก /api/tests/full/check ผ่าน revealed.blanks) */}
+            {question.testTypeId === "form-meaning" && question.article && (
+              <FormMeaningFillCard
                 article={question.article}
-                onChange={handleClozeChange}
-                revealedAnswers={revealed?.blanks ?? null}
+                answers={clozeAnswers}
+                onInputChange={(blankId, value) =>
+                  handleClozeChange({ ...clozeAnswers, [blankId]: value })
+                }
+                revealed={revealed?.blanks != null}
+                correctAnswers={revealed?.blanks ?? null}
+                disabled={submitting}
               />
             )}
           </div>

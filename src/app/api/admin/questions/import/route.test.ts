@@ -9,7 +9,8 @@ vi.mock('@/db', () => ({ db: {} }));
 vi.mock('@/db/schema', () => ({ questions: {}, testSetQuestions: {}, testSets: {} }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: async () => ({ error: null, session: null }) }));
 
-import { validateQuestion, normalizeTap } from './route';
+import { validateQuestion, normalizeTap, GET } from './route';
+import Papa from 'papaparse';
 
 const baseRow = (overrides: Partial<Record<string, string>> = {}): Record<string, string> => ({
   testTypeId: 'tap-select',
@@ -96,6 +97,24 @@ describe('validateQuestion — tap-select', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('subTopicGrammar เกิน 200 ตัวอักษร → error, 200 ตัวอักษรพอดี → ผ่าน', () => {
+    const tap = tapJson({ title: 'T', items: [{ prompt: 'p', choiceA: 'a', choiceB: 'b', correct: 0 }] });
+    const tooLong = validateQuestion(baseRow({ tapExercise: tap, subTopicGrammar: 'x'.repeat(201) }), 2);
+    expect(tooLong.valid).toBe(false);
+    expect(tooLong.errors.some((e) => e.includes('"subTopicGrammar" is too long'))).toBe(true);
+
+    const maxLength = validateQuestion(baseRow({ tapExercise: tap, subTopicGrammar: 'x'.repeat(200) }), 2);
+    expect(maxLength.valid).toBe(true);
+  });
+
+  it('subTopicGrammar ว่าง/ไม่มี → ผ่าน (field นี้ optional)', () => {
+    const result = validateQuestion(baseRow({
+      tapExercise: tapJson({ title: 'T', items: [{ prompt: 'p', choiceA: 'a', choiceB: 'b', correct: 0 }] }),
+      subTopicGrammar: '',
+    }), 2);
+    expect(result.valid).toBe(true);
+  });
+
   it('cefrLevel ยังบังคับสำหรับ tap-select', () => {
     const result = validateQuestion(baseRow({
       cefrLevel: '',
@@ -103,6 +122,19 @@ describe('validateQuestion — tap-select', () => {
     }), 2);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('cefrLevel'))).toBe(true);
+  });
+});
+
+describe('GET — CSV template', () => {
+  it('มีคอลัมน์ subTopicGrammar ต่อท้าย grammarTopic และมีตัวอย่างค่า', async () => {
+    const res = await GET();
+    const csv = await res.text();
+    const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
+    const fields = (parsed.meta.fields ?? []).map((f) => f.trim());
+
+    expect(fields).toContain('subTopicGrammar');
+    expect(fields.indexOf('subTopicGrammar')).toBe(fields.indexOf('grammarTopic') + 1);
+    expect(parsed.data.some((row) => row.subTopicGrammar?.trim())).toBe(true);
   });
 });
 

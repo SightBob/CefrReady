@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Lightbulb, Pencil, RotateCcw, Sparkles } from 'lucide-react';
 import { MAX_TAP_REASON_LENGTH, UNDERSTANDING_LABELS, type TapReasonResult } from '@/lib/tap-ai';
@@ -42,6 +42,26 @@ export default function TestTapSelectCard({
   error?: string;
   onSkipFeedback?: () => void;
 }) {
+  // เลื่อนไปกล่อง “เหตุผลที่เลือกข้อนี้” แบบ smooth เมื่อ user ตอบ (unanswered -> answered)
+  // pattern เดียวกับ ListeningAudioPlayer / FocusFormQuestionCard
+  const reasonSectionRef = useRef<HTMLElement | null>(null);
+  const prevSelectedRef = useRef<string | null>(selectedAnswer);
+  const isMountedRef = useRef(false);
+  useEffect(() => {
+    if (!isMountedRef.current) {
+      // ข้าม render แรก: หน้า review/กลับมาแก้ข้อเก่า render ด้วยคำตอบที่ fill มาแล้ว ไม่ควรเลื่อนเอง
+      isMountedRef.current = true;
+      return;
+    }
+    const wasUnanswered = prevSelectedRef.current === null;
+    prevSelectedRef.current = selectedAnswer;
+    if (!wasUnanswered || selectedAnswer === null) return;
+    const id = window.setTimeout(() => {
+      reasonSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, [selectedAnswer]);
+
   const [localNote, setLocalNote] = useState('');
   const note = controlledNote ?? localNote;
   const correctAnswer = item.correct === 0 ? 'A' : item.correct === 1 ? 'B' : null;
@@ -125,7 +145,7 @@ export default function TestTapSelectCard({
         {answered && !feedback && (
           <p className="text-[0.8125rem] leading-[19px] text-[#76641C]">
             {verifiedAnswer === null
-              ? 'เลือกแล้ว ยังไม่ได้ตรวจ — พิมพ์เหตุผลแล้วกด “ตรวจคำตอบ” เพื่อดูว่าถูกหรือไม่'
+              ? 'เลือกแล้ว — พิมพ์เหตุผลแล้วกด “ตรวจคำตอบ” หรือกดตรวจเลยได้โดยไม่ต้องพิมพ์ AI จะอธิบายข้อนี้ให้'
               : 'เฉลยแล้ว — พิมพ์เหตุผลของคุณ แล้วกด “ตรวจคำตอบ” ให้ AI ช่วยตรวจ'}
           </p>
         )}
@@ -135,7 +155,7 @@ export default function TestTapSelectCard({
       {/* แสดงหลังเลือกคำตอบแล้วเท่านั้น */}
       {/* Figma 172:12726 — gap หัวข้อ↔ช่องพิมพ์ 12px */}
       {answered && (
-      <section className="space-y-3 pt-1">
+      <section ref={reasonSectionRef} className="space-y-3 pt-1">
         <div className="flex flex-wrap items-center gap-3.5">
           <h3 className="text-base font-medium leading-8 text-[#1E293B]">เหตุผลที่เลือกข้อนี้</h3>
           {/* Figma 172:12729 — pill h31 r32 pl7 pr17 py6, ไอคอนอยู่ในช่อง 23px, gap 3px */}
@@ -157,13 +177,14 @@ export default function TestTapSelectCard({
             onChange={event => onNoteChange ? onNoteChange(event.target.value) : setLocalNote(event.target.value)}
             disabled={disabled || checking || revealAnswer}
             maxLength={MAX_TAP_REASON_LENGTH}
-            placeholder="เขียนเหตุผลสั้นๆ แล้วกดตรวจคำตอบ"
+            placeholder="พิมพ์เหตุผล (หรือกดตรวจคำตอบเลยได้)"
             aria-label="เหตุผลที่เลือกข้อนี้"
             className="min-w-0 flex-1 bg-transparent text-base font-medium text-[#1E293B] placeholder:text-[#9A9A9A] focus:outline-none"
           />
         </label>
         <p className="flex items-center gap-1.5 text-xs text-slate-400"><RotateCcw size={12} /> ใช้ฝึกความเข้าใจ ไม่เปลี่ยนคะแนนสอบ · {note.length}/{MAX_TAP_REASON_LENGTH}</p>
         {onNoteChange && <p className="text-sm leading-6 text-slate-500">เหตุผลและโจทย์จะถูกส่งไปตรวจผ่าน OpenRouter เมื่อผู้ดูแลเปิด AI กรุณาไม่ใส่ข้อมูลส่วนตัว</p>}
+
         {checking && <p role="status" className="text-sm text-slate-500">AI กำลังตรวจความเข้าใจ…</p>}
         {error && <div role="alert" className="space-y-3 text-sm text-red-600">
           <p>{error}</p>
@@ -178,11 +199,21 @@ export default function TestTapSelectCard({
                 <Image src="/icon_svg/spark.svg" alt="" width={16} height={16} className="h-[15.8px] w-[15.8px]" />
               </span>
               <div className="min-w-0 flex-1 space-y-1">
-                {feedback.ai?.feedback && (
+                {feedback.ai ? <>
+                  {/* ประเมินว่า “เหตุผล” เข้าใจถูกไหม — แยกจากความถูกของตัวเลือกที่เลือก */}
+                  <p className="text-sm font-medium leading-[21px] text-[#76641C]">
+                    {feedback.isCorrect ? AI_PRAISE : UNDERSTANDING_LABELS[feedback.ai.understanding]}
+                  </p>
+                  {/* ตัวเลือกถูกแต่ AI ประเมินเหตุผลไม่ใช่ “correct” → แจ้งประเมินแยกจากคำชม */}
+                  {feedback.isCorrect && (
+                    <p className="text-[0.8125rem] leading-[19px] text-[#76641C]/75">
+                      {UNDERSTANDING_LABELS[feedback.ai.understanding]}
+                    </p>
+                  )}
                   <p className="whitespace-pre-line break-words text-sm font-medium leading-[21px] text-[#76641C]">
                     {feedback.ai.feedback}
                   </p>
-                )}
+                </> : <p className="text-sm font-medium leading-[21px] text-[#76641C]">{feedback.message}</p>}
               </div>
             </div>
           </div>

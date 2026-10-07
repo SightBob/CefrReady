@@ -20,6 +20,7 @@ const COLUMNS = [
   'cefrLevel',
   'difficulty',
   'grammarTopic',
+  'subTopicGrammar',
   'testSetId',
   'conversation',
   'article',
@@ -38,6 +39,7 @@ interface CsvRow {
   cefrLevel: string;
   difficulty: string;
   grammarTopic: string;
+  subTopicGrammar: string;
   testSetId: string;
   conversation: string;
   article: string;
@@ -127,6 +129,7 @@ export async function GET(request: NextRequest) {
       cefrLevel: q.cefrLevel,
       difficulty: q.difficulty ?? 'medium',
       grammarTopic: q.grammarTopic ?? '',
+      subTopicGrammar: q.subTopicGrammar ?? '',
       testSetId: String(numericSetFilter ?? firstSetByQuestion.get(q.id) ?? ''),
       conversation: q.conversation ? JSON.stringify(q.conversation) : '',
       article: q.article ? JSON.stringify(q.article) : '',

@@ -363,6 +363,12 @@ export default function ImportQuestionsPage() {
                   <td className="px-3 py-2 font-mono text-xs">Present Perfect</td>
                 </tr>
                 <tr>
+                  <td className="px-3 py-2 font-mono text-primary-600">subTopicGrammar</td>
+                  <td className="px-3 py-2 text-slate-400">-</td>
+                  <td className="px-3 py-2 text-slate-600">หัวข้อย่อยของไวยากรณ์ (ละเอียดกว่า grammarTopic, สูงสุด 200 ตัวอักษร)</td>
+                  <td className="px-3 py-2 font-mono text-xs">Present Perfect: ever/never</td>
+                </tr>
+                <tr>
                   <td className="px-3 py-2 font-mono text-primary-600">testSetId</td>
                   <td className="px-3 py-2 text-slate-400">-</td>
                   <td className="px-3 py-2 text-slate-600">ระบุ ID ชุดข้อสอบที่จะเพิ่มข้อนี้ลงไป</td>

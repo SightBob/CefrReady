@@ -132,14 +132,21 @@ export default async function Home() {
 
       {/* CTA Section — SEO target section */}
        <section className="relative h-[523px] max-md:h-[306px] overflow-visible bg-[#FFFEFA]">
-  {/* Background pattern */}
+  {/* Background pattern — เดสก์ท็อป ≥768px ใช้ bg-main1.png, มือถือ ≤767px ใช้ bg-mobile.png */}
   <div className="absolute inset-0 -z-0 overflow-hidden" aria-hidden="true">
     <Image
       src="/bg/bg-main1.png"
       alt=""
       fill
       sizes="100vw"
-      className="object-cover object-center"
+      className="object-cover object-center max-md:hidden"
+    />
+    <Image
+      src="/bg/bg-mobile.png"
+      alt=""
+      fill
+      sizes="100vw"
+      className="hidden object-cover object-center max-md:block"
     />
   </div>
 

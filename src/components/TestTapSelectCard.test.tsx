@@ -13,7 +13,7 @@ describe('Tap & Select reasoning UI', () => {
   });
   it('distinguishes a correct selected choice from incorrect understanding', () => {
     const html = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" answerIsCorrect feedback={{ isCorrect: true, ai: { understanding: 'incorrect', feedback: 'เหตุผลยังคลาดเคลื่อน' } }} />);
-    expect(html).toContain('ตัวเลือก: ถูกต้อง');
+    expect(html).toContain('ตัวเลือกถูกต้อง');
     expect(html).toContain('ยังเข้าใจคลาดเคลื่อน');
     expect(html).toContain('เหตุผลยังคลาดเคลื่อน');
     expect(html).toContain('ไม่เปลี่ยนคะแนนสอบ');
@@ -33,7 +33,7 @@ describe('Tap & Select reasoning UI', () => {
     const html = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" />);
     // เคยเป็นบั๊ก: สถานะ “เลือกแล้วยังไม่รู้ผล” ใช้เทาเดียวกับ “ตอบผิด” ทำให้อ่านว่าตอบผิด
     expect(html).not.toContain('bg-[#EEEEEE]');
-    expect(html).toContain('เลือกแล้ว ยังไม่ได้ตรวจ');
+    expect(html).toContain(      'เลือกแล้ว — พิมพ์เหตุผล');
   });
   it('escapes untrusted AI feedback instead of rendering HTML', () => {
     const html = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" feedback={{ isCorrect: true, ai: { understanding: 'correct', feedback: '<script>alert(1)</script>' } }} />);

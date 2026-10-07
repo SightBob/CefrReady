@@ -33,7 +33,7 @@ interface ValidationResult {
 
 const CSV_COLUMNS = [
   'testTypeId','questionText','optionA','optionB','optionC','optionD',
-  'correctAnswer','explanation','cefrLevel','difficulty','grammarTopic','testSetId',
+  'correctAnswer','explanation','cefrLevel','difficulty','grammarTopic','subTopicGrammar','testSetId',
   'conversation','article','audioUrl','transcript','tapExercise',
 ] as const;
 
@@ -97,6 +97,11 @@ export function validateQuestion(row: Record<string, string>, rowNum: number): V
   // Validate grammarTopic (optional free text, max 200 chars per DB schema)
   if (row.grammarTopic && row.grammarTopic.length > 200) {
     errors.push(`Row ${rowNum}: "grammarTopic" is too long (${row.grammarTopic.length} characters). Must be 200 characters or fewer.`);
+  }
+
+  // Validate subTopicGrammar (optional free text, max 200 chars per DB schema)
+  if (row.subTopicGrammar && row.subTopicGrammar.length > 200) {
+    errors.push(`Row ${rowNum}: "subTopicGrammar" is too long (${row.subTopicGrammar.length} characters). Must be 200 characters or fewer.`);
   }
 
   // Validate testSetId (optional)
@@ -605,6 +610,7 @@ export async function POST(request: NextRequest) {
           cefrLevel: row.cefrLevel,
           difficulty: row.difficulty?.toLowerCase() || 'medium',
           grammarTopic: row.grammarTopic?.trim() || null,
+          subTopicGrammar: row.subTopicGrammar?.trim() || null,
           conversation: conversationData,
           article: articleData,
           audioUrl: row.audioUrl || null,
@@ -758,6 +764,7 @@ export async function GET() {
       cefrLevel: 'B1',
       difficulty: 'medium',
       grammarTopic: 'Present Simple',
+      subTopicGrammar: 'Present Simple: third person -s',
       testSetId: '',
       conversation: '',
       article: '',
@@ -776,6 +783,7 @@ export async function GET() {
       cefrLevel: 'A1',
       difficulty: 'easy',
       grammarTopic: 'Telling the Time',
+      subTopicGrammar: "Telling the Time: o'clock",
       testSetId: '',
       conversation: JSON.stringify([{ speaker: 'A', name: 'Tom', text: 'What time is it?' }, { speaker: 'B', name: 'Jane', text: "It's 3 o'clock." }]),
       article: '',
@@ -794,6 +802,7 @@ export async function GET() {
       cefrLevel: 'B1',
       difficulty: 'medium',
       grammarTopic: '',
+      subTopicGrammar: '',
       testSetId: '',
       conversation: '',
       article: JSON.stringify({ title: 'Cooking with Kids', text: 'Cooking is {{1}} fun activity. Kids love {{2}} in the kitchen.', blanks: [{ id: 1, correctAnswer: 'a' }, { id: 2, correctAnswer: 'working' }] }),
@@ -812,6 +821,7 @@ export async function GET() {
       cefrLevel: 'B1',
       difficulty: 'medium',
       grammarTopic: 'Listening Comprehension',
+      subTopicGrammar: 'Listening Comprehension: numbers and times',
       testSetId: '',
       conversation: '',
       article: '',
@@ -830,6 +840,7 @@ export async function GET() {
       cefrLevel: 'B1',
       difficulty: 'easy',
       grammarTopic: 'Present Simple',
+      subTopicGrammar: 'Present Simple: third person -s',
       testSetId: '',
       conversation: '',
       article: '',

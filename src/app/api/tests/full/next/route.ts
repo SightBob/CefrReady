@@ -1,10 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { db } from '@/db';
-import { testAttempts, questions } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { auth } from '@/lib/auth';
-import { validateOrigin, checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/db";
+import { testAttempts, questions } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import {
+  validateOrigin,
+  checkIpThrottle,
+  checkUserRateLimit,
+} from "@/lib/api-security";
 import {
   FULL_TEST_PART_DISTRIBUTION,
   FULL_TEST_TOTAL_QUESTIONS,
@@ -13,11 +17,19 @@ import {
   type PerTypeLevels,
   cefrIndex,
   CEFR_LEVELS,
-} from '@/lib/full-test/constants';
-import { getNextLevel, selectQuestion, getPerTypeAnswerHistory, getInitialLevels } from '@/lib/full-test/algorithm';
-import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
-import { getCachedQuestionPool } from '@/lib/full-test/question-pool';
-import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
+} from "@/lib/full-test/constants";
+import {
+  getNextLevel,
+  selectQuestion,
+  getPerTypeAnswerHistory,
+  getInitialLevels,
+} from "@/lib/full-test/algorithm";
+import {
+  determineSelectionMode,
+  logQuestionSelection,
+} from "@/lib/full-test/log-selection";
+import { getCachedQuestionPool } from "@/lib/full-test/question-pool";
+import { sanitizeQuestionForClient } from "@/lib/sanitize-question";
 
 const bodySchema = z.object({
   attemptId: z.number().int(),
@@ -47,14 +59,16 @@ interface GradeableQuestion {
 
 function gradeAnswer(
   question: GradeableQuestion,
-  selectedAnswer: string
+  selectedAnswer: string,
 ): boolean {
   if (
-    question.testTypeId === 'form-meaning' &&
+    question.testTypeId === "form-meaning" &&
     question.article &&
-    typeof question.article === 'object'
+    typeof question.article === "object"
   ) {
-    const art = question.article as { blanks?: Array<{ id: number; correctAnswer: string }> };
+    const art = question.article as {
+      blanks?: Array<{ id: number; correctAnswer: string }>;
+    };
     if (Array.isArray(art.blanks) && art.blanks.length > 0) {
       let parsed: Record<string, string> = {};
       try {
@@ -64,15 +78,15 @@ function gradeAnswer(
       }
       const blanksCorrect = art.blanks.filter(
         (b) =>
-          (parsed[String(b.id)] ?? '').toLowerCase().trim() ===
-          b.correctAnswer.toLowerCase().trim()
+          (parsed[String(b.id)] ?? "").toLowerCase().trim() ===
+          b.correctAnswer.toLowerCase().trim(),
       ).length;
       return blanksCorrect === art.blanks.length;
     }
   }
   return (
     selectedAnswer.toLowerCase().trim() ===
-    (question.correctAnswer ?? '').toLowerCase().trim()
+    (question.correctAnswer ?? "").toLowerCase().trim()
   );
 }
 
@@ -82,15 +96,18 @@ function gradeAnswer(
 function applyAdaptiveLevel(
   path: PathEntry[],
   beforeLevels: PerTypeLevels,
-  testTypeId: string
+  testTypeId: string,
 ): PerTypeLevels {
   const levels = { ...beforeLevels };
   const history = getPerTypeAnswerHistory(path, testTypeId);
-  levels[testTypeId] = getNextLevel((levels[testTypeId] as CefrLevel) ?? 'B1', history);
+  levels[testTypeId] = getNextLevel(
+    (levels[testTypeId] as CefrLevel) ?? "B1",
+    history,
+  );
   return levels;
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   const originError = validateOrigin(request);
@@ -100,12 +117,18 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
   }
 
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const { attemptId, questionId, selectedAnswer, timeRemaining } = parsed.data;
@@ -119,26 +142,58 @@ export async function POST(request: NextRequest) {
       status: testAttempts.status,
       adaptivePath: testAttempts.adaptivePath,
       currentLevels: testAttempts.currentLevels,
+      timeRemainingSeconds: testAttempts.timeRemainingSeconds,
+      lastActivityAt: testAttempts.lastActivityAt,
+      startedAt: testAttempts.startedAt,
     })
     .from(testAttempts)
     .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId)))
     .limit(1);
 
   const [ipThrottleError, rateLimitError] = await Promise.all([
-    checkIpThrottle(request, { keySuffix: 'full-next' }),
-    checkUserRateLimit(userId, { windowMs: 60_000, maxRequests: 30, keySuffix: 'next' }),
+    checkIpThrottle(request, { keySuffix: "full-next" }),
+    checkUserRateLimit(userId, {
+      windowMs: 60_000,
+      maxRequests: 30,
+      keySuffix: "next",
+    }),
   ]);
   if (ipThrottleError) return ipThrottleError;
   if (rateLimitError) return rateLimitError;
 
   const [attempt] = await attemptPromise;
 
-  if (!attempt || attempt.status !== 'in_progress') {
-    return NextResponse.json({ success: false, error: 'Attempt not found' }, { status: 404 });
+  if (!attempt || attempt.status !== "in_progress") {
+    return NextResponse.json(
+      { success: false, error: "Attempt not found" },
+      { status: 404 },
+    );
+  }
+
+  // Time authority (server-side): นาฬิกา client ไม่น่าเชื่อถือ — ผู้สอบที่แก้
+  // เวลาเครื่องหรือหยุด JS ไม่ควรตอบข้อต่อไปได้เกินกรอบ 60 นาที คิดสองทาง:
+  // (1) ตามบัญชีเดียวกับ /resume: เวลาคงเหลือที่บันทึกไว้ ลบเวลาที่ผ่านไป
+  //     ตั้งแต่ lastActivityAt
+  // (2) เพดานสัมบูรณ์จาก startedAt — ปิดช่องที่ client รายงานเวลาปลิ้น
+  // เกินทั้งคู่ → 403 EXAM_TIME_EXPIRED (client จะ finalize ด้วย /submit เอง)
+  const now = Date.now();
+  const remainingByStored =
+    (attempt.timeRemainingSeconds ?? FULL_TEST_TOTAL_SECONDS) -
+    (now - new Date(attempt.lastActivityAt ?? attempt.startedAt).getTime()) /
+      1000;
+  const remainingByStartedAt =
+    FULL_TEST_TOTAL_SECONDS -
+    (now - new Date(attempt.startedAt).getTime()) / 1000;
+  if (Math.min(remainingByStored, remainingByStartedAt) <= 0) {
+    return NextResponse.json(
+      { success: false, error: "EXAM_TIME_EXPIRED" },
+      { status: 403 },
+    );
   }
 
   const currentPath = (attempt.adaptivePath ?? []) as PathEntry[];
-  const beforeLevels: PerTypeLevels = (attempt.currentLevels as PerTypeLevels) ?? getInitialLevels('B1');
+  const beforeLevels: PerTypeLevels =
+    (attempt.currentLevels as PerTypeLevels) ?? getInitialLevels("B1");
 
   // Idempotent: question already processed — return current state instead of erroring.
   // This handles double-clicks, React strict mode re-renders, and page refreshes.
@@ -172,7 +227,10 @@ export async function POST(request: NextRequest) {
     const [question] = await gradePromise;
 
     if (!question) {
-      return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: "Question not found" },
+        { status: 404 },
+      );
     }
 
     newPath = [
@@ -206,11 +264,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: { finished: true } });
   }
 
-  const nextTypeLevel = (levels[nextPart] as CefrLevel) ?? 'B1';
-  const prevLevel = (beforeLevels[nextPart] as CefrLevel) ?? 'B1';
-  const direction: 'up' | 'down' | 'neutral' =
-    cefrIndex(nextTypeLevel) > cefrIndex(prevLevel) ? 'up' :
-    cefrIndex(nextTypeLevel) < cefrIndex(prevLevel) ? 'down' : 'neutral';
+  const nextTypeLevel = (levels[nextPart] as CefrLevel) ?? "B1";
+  const prevLevel = (beforeLevels[nextPart] as CefrLevel) ?? "B1";
+  const direction: "up" | "down" | "neutral" =
+    cefrIndex(nextTypeLevel) > cefrIndex(prevLevel)
+      ? "up"
+      : cefrIndex(nextTypeLevel) < cefrIndex(prevLevel)
+        ? "down"
+        : "neutral";
 
   const seenQuestionIds = new Set(newPath.map((p) => p.questionId));
   const pool = await poolPromise!;
@@ -234,7 +295,10 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(testAttempts.id, attemptId));
     }
-    return NextResponse.json({ success: true, data: { finished: true, reason: 'pool_exhausted' } });
+    return NextResponse.json({
+      success: true,
+      data: { finished: true, reason: "pool_exhausted" },
+    });
   }
 
   // Guard: if selected question has an invalid cefrLevel, re-select
@@ -248,12 +312,19 @@ export async function POST(request: NextRequest) {
       direction,
     });
     if (!reselect && isDuplicate) {
-      return NextResponse.json({ success: true, data: { finished: true, reason: 'pool_exhausted' } });
+      return NextResponse.json({
+        success: true,
+        data: { finished: true, reason: "pool_exhausted" },
+      });
     }
     if (reselect) selection = reselect;
   }
 
-  const selMode = determineSelectionMode(selection.reused, selection.question.cefrLevel, nextTypeLevel);
+  const selMode = determineSelectionMode(
+    selection.reused,
+    selection.question.cefrLevel,
+    nextTypeLevel,
+  );
 
   // Persist path, hydrate the selected question, and log the selection
   // concurrently — none of the three depends on another's result.
@@ -282,7 +353,10 @@ export async function POST(request: NextRequest) {
   const fullQuestion = questionRows[0];
 
   if (!fullQuestion) {
-    return NextResponse.json({ success: false, error: 'Question not found' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Question not found" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({

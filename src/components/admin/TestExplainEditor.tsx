@@ -12,6 +12,8 @@ import ReviewContent from '@/components/ReviewContent';
 import RichText from '@/components/RichText';
 import { normalizeLessonSection, type LessonSection } from '@/lib/lesson-sections';
 import { readableTextColor } from '@/lib/rich-text';
+import { explainTopicWarning, linkExplainTopic, type QuestionTopicOption } from '@/lib/test-explain-topics';
+import ExplainTopicField from '@/components/admin/ExplainTopicField';
 import type { TestExplainContent } from '@/components/TestExplainOverlay';
 
 // ============================================================
@@ -59,7 +61,7 @@ function loadSavedColors(): SavedColor[] {
 // Types (mirror test_explains.sections JSONB shapes)
 // ============================================================
 
-interface TopicOption { grammarTopic: string; questionCount: number }
+type TopicOption = QuestionTopicOption;
 interface ExplainRow extends TestExplainContent { isPublished: boolean; questionCount: number; updatedAt: string }
 
 interface ExampleRow { en: string; th: string; ok: boolean }
@@ -229,6 +231,8 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const [rows, setRows] = useState<ExplainRow[]>([]);
   const [topics, setTopics] = useState<TopicOption[]>([]);
   const [grammarTopic, setGrammarTopic] = useState('');
+  // โหมดพิมพ์หัวข้อเอง — เปิดเมื่อแก้เนื้อหาที่หัวข้อไม่ตรงกับข้อสอบแล้ว หรือเลือก "พิมพ์หัวข้อใหม่"
+  const [customTopic, setCustomTopic] = useState(false);
   const [title, setTitle] = useState('');
   const [intro, setIntro] = useState('');
   const [sections, setSections] = useState<SectionRow[]>([emptySection()]);
@@ -333,6 +337,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         const selected = explainRows.find((row) => row.id === explainId);
         if (!selected) throw new Error('ไม่พบ explain ที่ต้องการแก้ไข');
         setGrammarTopic(selected.grammarTopic);
+        setCustomTopic(!topicRows.some((topic) => topic.grammarTopic === selected.grammarTopic.trim()));
         setTitle(selected.title);
         setIntro(selected.intro ?? '');
         setSections(selected.sections?.length ? selected.sections.map(toSectionDraft) : [emptySection()]);
@@ -341,6 +346,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         setTestSetIds(selected.testSetIds ?? []);
       } else {
         setGrammarTopic(topicRows[0]?.grammarTopic ?? '');
+        setCustomTopic(topicRows.length === 0);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'โหลดข้อมูลไม่สำเร็จ');
@@ -482,16 +488,22 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   };
 
   // ---------- Validation + save ----------
-  const validationWarnings = sections.flatMap((section, index) => {
-    if (section.type !== 'practice') return [];
-    if (!section.practice.some((question) => question.sentence.trim())) return [`Mini Quiz Section ${index + 1} ต้องมีโจทย์อย่างน้อย 1 ข้อ`];
-    return section.practice.flatMap((question, questionIndex) => {
-      if (!question.sentence.trim()) return [];
-      if (question.options.filter((option) => option.trim()).length < 2) return [`Mini Quiz Section ${index + 1} ข้อ ${questionIndex + 1} ต้องมีตัวเลือกอย่างน้อย 2 ข้อ`];
-      if (!question.options[question.answerIndex]?.trim()) return [`Mini Quiz Section ${index + 1} ข้อ ${questionIndex + 1} ต้องกำหนดคำตอบที่ถูกต้อง`];
-      return [];
-    });
-  });
+  // หัวข้อต้องตรงกับข้อสอบจริง (เทียบสตริงตรงเป๊ะกับ questions.grammar_topic) ไม่งั้นเนื้อหาจะไม่ถูกเรียกใช้เลย
+  const topicWarning = explainTopicWarning(linkExplainTopic(grammarTopic, topics));
+
+  const validationWarnings = [
+    ...(topicWarning ? [topicWarning] : []),
+    ...sections.flatMap((section, index) => {
+      if (section.type !== 'practice') return [];
+      if (!section.practice.some((question) => question.sentence.trim())) return [`Mini Quiz Section ${index + 1} ต้องมีโจทย์อย่างน้อย 1 ข้อ`];
+      return section.practice.flatMap((question, questionIndex) => {
+        if (!question.sentence.trim()) return [];
+        if (question.options.filter((option) => option.trim()).length < 2) return [`Mini Quiz Section ${index + 1} ข้อ ${questionIndex + 1} ต้องมีตัวเลือกอย่างน้อย 2 ข้อ`];
+        if (!question.options[question.answerIndex]?.trim()) return [`Mini Quiz Section ${index + 1} ข้อ ${questionIndex + 1} ต้องกำหนดคำตอบที่ถูกต้อง`];
+        return [];
+      });
+    }),
+  ];
 
   const save = async () => {
     if (!grammarTopic.trim() || !title.trim()) {
@@ -554,7 +566,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         {rows.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">ยังไม่มีเนื้อหา Explain สำหรับข้อสอบ</div> : (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             {rows.map((row) => <div key={row.id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4 last:border-0">
-              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold text-slate-800">{row.title}</h2><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${row.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{row.isPublished ? 'เผยแพร่' : 'ฉบับร่าง'}</span></div><p className="mt-1 text-sm text-slate-500">{row.grammarTopic} · {row.questionCount} ข้อสอบ · อัปเดต {new Date(row.updatedAt).toLocaleDateString('th-TH')}</p></div>
+              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold text-slate-800">{row.title}</h2><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${row.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{row.isPublished ? 'เผยแพร่' : 'ฉบับร่าง'}</span></div><p className="mt-1 text-sm text-slate-500">{row.grammarTopic} · {row.questionCount > 0 ? `${row.questionCount} ข้อสอบ` : <span className="font-bold text-amber-600">⚠ ไม่มีข้อสอบใช้หัวข้อนี้</span>} · อัปเดต {new Date(row.updatedAt).toLocaleDateString('th-TH')}</p></div>
               <Link href={`/admin/test-explains/${row.id}`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50">แก้ไข</Link>
               <button type="button" onClick={() => exportOne(row)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" aria-label={`ส่งออก ${row.title}`}><Download className="h-4 w-4" /></button>
               <button type="button" onClick={() => removeExplain(row.id)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`ลบ ${row.title}`}><Trash2 className="h-4 w-4" /></button>
@@ -565,7 +577,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         {/* สรุปความผูก — ชุดข้อสอบไหนได้เนื้อหาอธิบายอันไหน */}
         <section className="mt-6 rounded-[20px] border-[1.4px] border-[#DEEBF6] bg-white p-5 shadow-[2px_2px_0px_0px_#DEEBF6]">
           <h2 className="text-[18px] font-semibold leading-[30px] text-[#334155]">ชุดข้อสอบ ↔ เนื้อหาอธิบาย</h2>
-          <p className="mt-[4px] text-[14px] font-medium leading-[17px] text-[#53657F]">ชุดที่ผูกไว้จะพาไปหน้าเนื้อหาอธิบายก่อนเข้าสอบ และมีปุ่ม โหมดทบทวน ให้เปิดดูระหว่างทำชุด — กดชื่อเนื้อหาเพื่อไปแก้ไข</p>
+          <p className="mt-[4px] text-[14px] font-medium leading-[17px] text-[#53657F]">ชุดที่ผูกไว้จะแสดงเนื้อหานี้ให้ผู้เรียน — ชุดเรื่องเดียวอ่านก่อนเข้าสอบ ชุดที่รวมหลายเรื่องจะเห็นทีละเรื่องตอนขึ้นเรื่องใหม่ (และเปิดซ้ำได้ด้วยปุ่ม โหมดทบทวน) — กดชื่อเนื้อหาเพื่อไปแก้ไข</p>
           {availableTestSets.length === 0 ? (
             <p className="mt-3 text-sm text-slate-400">ยังไม่มีชุดข้อสอบในระบบ</p>
           ) : (
@@ -758,10 +770,13 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
 
         {/* Meta fields */}
         <section className="mb-5 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2">
-          <label className="block text-sm font-bold text-slate-700">เชื่อมกับ grammarTopic ของข้อสอบ
-            <input list="question-topics" value={grammarTopic} onChange={(event) => setGrammarTopic(event.target.value)} maxLength={200} placeholder="เลือกหัวข้อ หรือพิมพ์ชื่อ grammarTopic" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 font-normal focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400" />
-            <datalist id="question-topics">{topics.map((topic) => <option key={topic.grammarTopic} value={topic.grammarTopic}>{topic.questionCount} ข้อ</option>)}</datalist>
-          </label>
+          <ExplainTopicField
+            grammarTopic={grammarTopic}
+            topics={topics}
+            customTopic={customTopic}
+            onChange={setGrammarTopic}
+            onCustomTopicChange={setCustomTopic}
+          />
           <label className="block text-sm font-bold text-slate-700">ชื่อที่แสดงในหน้าอธิบาย<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} placeholder="เช่น Present Perfect" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 font-normal focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400" /></label>
           <label className="block text-sm font-bold text-slate-700 sm:col-span-2">บทนำ (ไม่บังคับ)
             <div className="flex items-end gap-1">
@@ -779,7 +794,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
           </label>
           <div className="sm:col-span-2">
             <p className="text-sm font-bold text-slate-700">ผูกเนื้อหานี้กับชุดข้อสอบ (ไม่บังคับ)</p>
-            <p className="mt-0.5 text-xs text-slate-500">ชุดที่เลือกจะพาไปหน้าเนื้อหาอธิบายก่อนเข้าสอบ และมีปุ่ม โหมดทบทวน ให้เปิดดูระหว่างทำชุด — ไม่เลือก = เข้าสอบได้เลย และแสดงผ่านปุ่ม โหมดทบทวน ตาม grammarTopic เหมือนเดิม</p>
+            <p className="mt-0.5 text-xs text-slate-500">ชุดที่เลือกจะแสดงเนื้อหานี้ให้ผู้เรียน — ชุดที่มีเรื่องเดียวจะพาไปหน้าเนื้อหาอธิบายก่อนเข้าสอบ ส่วนชุดที่รวมหลายเรื่องไว้จะเด้ง intro + เนื้อหาของแต่ละเรื่องตอนผู้เรียนขึ้นเรื่องใหม่ และเปิดซ้ำได้ด้วยปุ่ม โหมดทบทวน — ไม่เลือก = เข้าสอบได้เลย</p>
             {availableTestSets.length === 0 ? (
               <p className="mt-2 text-xs text-slate-400">ยังไม่มีชุดข้อสอบในระบบ</p>
             ) : (

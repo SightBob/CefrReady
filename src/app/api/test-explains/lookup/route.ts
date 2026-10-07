@@ -28,8 +28,17 @@ export async function GET(request: NextRequest) {
       sections: testExplains.sections,
       tip: testExplains.tip,
     };
-    // Explain ที่ผูกกับชุดข้อสอบนี้ไว้ (test_set_ids) มาก่อน — ใช้แสดงอัตโนมัติ
-    // เมื่อเริ่มทำชุด; ถ้าไม่มี fallback หาจาก grammarTopic ตามเดิม
+    // ลำดับความสำคัญ: เรื่องของข้อที่กำลังเปิดอยู่ก่อนเสมอ (grammarTopic ตรงเป๊ะ)
+    // แล้วจึง fallback เป็น explain ที่ผูกกับชุดนี้
+    //
+    // เดิมลำดับกลับกัน (pinned ก่อน) ซึ่งใช้ได้ตอนชุดหนึ่งมีเรื่องเดียว แต่พอรวม
+    // หลายเรื่องไว้ในชุดเดียว ปุ่ม “โหมดทบทวน” จะเปิดเนื้อหาของเรื่องแรกให้ทุกข้อ
+    const [explain] = await db.select(explainColumns).from(testExplains)
+      .where(and(eq(testExplains.grammarTopic, topic), eq(testExplains.isPublished, true)))
+      .limit(1);
+    if (explain) {
+      return NextResponse.json({ success: true, data: explain }, { headers: { 'Cache-Control': 'private, no-store' } });
+    }
     if (setId !== null && Number.isInteger(setId) && setId > 0) {
       const pinned = await db.select(explainColumns).from(testExplains)
         .where(and(
@@ -42,11 +51,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data: pinned[0], auto: true }, { headers: { 'Cache-Control': 'private, no-store' } });
       }
     }
-    const [explain] = await db.select(explainColumns).from(testExplains)
-      .where(and(eq(testExplains.grammarTopic, topic), eq(testExplains.isPublished, true)))
-      .limit(1);
-    if (!explain) return NextResponse.json({ success: true, data: null });
-    return NextResponse.json({ success: true, data: explain }, { headers: { 'Cache-Control': 'private, no-store' } });
+    return NextResponse.json({ success: true, data: null });
   } catch (error) {
     console.error('[test-explains/lookup] GET error:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch explain content' }, { status: 500 });

@@ -3,7 +3,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCachedSections } from '@/lib/sections';
-import { getCachedExplainForSet } from '@/lib/test-explains';
+import { getCachedExplainsForSet, getCachedSetTopicRuns } from '@/lib/test-explains';
+import { usesSetLevelExplain } from '@/lib/test-set-topics';
 
 export const revalidate = 300;
 
@@ -45,10 +46,17 @@ export default async function TestSetIntroPage({ params }: { params: IntroParams
 
   // เนื้อหาอธิบายที่แอดมินผูกไว้กับชุดนี้ — ถ้ามี ปุ่ม “ต่อไป” จะพาไปหน้า /explain
   // ก่อน แล้วจึงเข้าสอบ; ถ้าไม่มีก็เข้าสอบได้เลยเหมือนเดิม
-  const explain = await getCachedExplainForSet(testSet.id);
-  const nextHref = explain
-    ? `/tests/${section.id}/${testSet.id}/explain`
-    : `/tests/${section.id}/${testSet.id}`;
+  //
+  // ชุดที่รวมหลายเรื่องไว้ (มากกว่า 1 ช่วงเรื่อง) จะข้ามหน้า /explain ระดับชุด เพราะ
+  // หน้าสอบเด้ง intro+explain ของแต่ละเรื่องให้อยู่แล้ว — ไม่งั้นเรื่องแรกจะได้อ่านซ้ำ
+  const [explains, topicRuns] = await Promise.all([
+    getCachedExplainsForSet(testSet.id),
+    getCachedSetTopicRuns(testSet.id),
+  ]);
+  const quizHref = `/tests/${section.id}/${testSet.id}`;
+  const nextHref = usesSetLevelExplain(explains.length, topicRuns.length)
+    ? `${quizHref}/explain`
+    : quizHref;
 
   return (
     <div className="intro-fluid flex h-[100vh] flex-col bg-[#F7F7F7]">

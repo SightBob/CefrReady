@@ -16,6 +16,7 @@ import {
   Database,
   Highlighter,
   BookMarked,
+  Sparkle,
 } from 'lucide-react';
 import MaintenanceToggle from '@/components/admin/MaintenanceToggle';
 import TestSectionMaintenanceToggle from '@/components/admin/TestSectionMaintenanceToggle';
@@ -143,6 +144,15 @@ export default function AdminDashboard() {
       href: '/admin/contacts',
       color: 'from-cyan-500 to-blue-500',
       bgColor: 'bg-cyan-50',
+      count: 0,
+    },
+    {
+      title: 'คะแนนเก็บเหตุผล',
+      description: 'ให้คะแนนเหตุผล Tap & Select ที่ผู้เรียนเขียน',
+      icon: Sparkle,
+      href: '/admin/tap-reasons',
+      color: 'from-amber-500 to-orange-500',
+      bgColor: 'bg-amber-50',
       count: 0,
     },
     {

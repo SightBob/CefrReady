@@ -44,6 +44,8 @@ interface TestSetAssignment {
   id: number;
   name: string;
   sectionId: string;
+  // ตำแหน่งจริงของข้อนี้ภายในชุด (1-based, เรียงเหมือนตอน serve ข้อสอบ) — ขาดได้ถ้า API เก่า
+  position?: number | null;
 }
 
 interface Question {
@@ -948,7 +950,17 @@ export default function QuestionsManagement() {
                                   <span
                                     key={ts.id}
                                     className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-indigo-100 text-indigo-700"
+                                    title={
+                                      ts.position != null
+                                        ? `ลำดับที่ ${ts.position} ในชุด "${ts.name}"`
+                                        : `ชุด "${ts.name}"`
+                                    }
                                   >
+                                    {ts.position != null && (
+                                      <span className="font-mono text-[10px] font-bold leading-none px-1 py-0.5 rounded bg-indigo-200/70 text-indigo-800">
+                                        #{ts.position}
+                                      </span>
+                                    )}
                                     {ts.name}
                                     <button
                                       onClick={() =>

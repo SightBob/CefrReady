@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getCachedSections } from '@/lib/sections';
-import { getCachedExplainForSet } from '@/lib/test-explains';
+import { getCachedExplainsForSet, getCachedSetTopicRuns } from '@/lib/test-explains';
+import { usesSetLevelExplain } from '@/lib/test-set-topics';
 import TestSetExplainView from '@/components/TestSetExplainView';
 
 export const revalidate = 300;
@@ -42,8 +43,17 @@ export default async function TestSetExplainPage({ params }: { params: ExplainPa
   const testSet = section.testSets.find((item) => String(item.id) === setId);
   if (!testSet) redirect(`/tests/${section.id}`);
 
-  const explain = await getCachedExplainForSet(testSet.id);
-  if (!explain) redirect(`/tests/${section.id}/${testSet.id}/intro`);
+  const quizHref = `/tests/${section.id}/${testSet.id}`;
+  const [explains, topicRuns] = await Promise.all([
+    getCachedExplainsForSet(testSet.id),
+    getCachedSetTopicRuns(testSet.id),
+  ]);
+
+  // ชุดที่รวมหลายเรื่องไว้จะไม่มีหน้า explain ระดับชุด (และฉบับร่าง/ไม่มีเนื้อหาก็ไม่มี)
+  // — เนื้อหาเด้งเป็นรายเรื่องอยู่ในหน้าสอบแทน จึงพาเข้าสอบเลยทั้งจากปุ่มและการเปิด URL ตรง
+  if (!usesSetLevelExplain(explains.length, topicRuns.length)) redirect(quizHref);
+  const explain = explains[0];
+  if (!explain) redirect(quizHref);
 
   return (
     <TestSetExplainView
@@ -52,7 +62,7 @@ export default async function TestSetExplainPage({ params }: { params: ExplainPa
       tip={explain.tip}
       sections={explain.sections}
       sectionId={section.id}
-      quizHref={`/tests/${section.id}/${testSet.id}`}
+      quizHref={quizHref}
       backHref={`/tests/${section.id}/${testSet.id}/intro`}
     />
   );

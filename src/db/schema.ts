@@ -86,6 +86,8 @@ export const questions = pgTable('questions', {
   explanation: text('explanation'),
   // Grammar topic label (e.g. "Present Perfect") — shown to users for further study
   grammarTopic: varchar('grammar_topic', { length: 200 }),
+  // Grammar sub-topic label (e.g. "Present Perfect: ever/never") — finer detail under grammarTopic
+  subTopicGrammar: varchar('sub_topic_grammar', { length: 200 }),
 
   // Structured data for complex question types
   conversation: jsonb('conversation'),  // focus-meaning: [{speaker, text}]
@@ -220,6 +222,26 @@ export const userAnswers = pgTable('user_answers', {
 }, (table) => ({
   attemptIdx: index('user_answers_attempt_idx').on(table.attemptId),
   questionIdx: index('user_answers_question_idx').on(table.questionId),
+}));
+
+// Tap & Select เหตุผลที่ผู้เรียนพิมพ์ต่อข้อย่อย (itemIndex ภายใน question) — เก็บเฉพาะที่พิมพ์จริง
+// admin ตั้งคะแนนเก็บรายเหตุผลได้ (rewardPoints) ผ่านหน้า admin/tap-reasons
+export const tapReasonSubmissions = pgTable('tap_reason_submissions', {
+  id: serial('id').primaryKey(),
+  attemptId: integer('attempt_id').notNull().references(() => testAttempts.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  itemIndex: integer('item_index').notNull(),
+  reason: text('reason').notNull(),
+  isCorrect: boolean('is_correct').notNull(),
+  // คะแนนเก็บที่ admin กำหนด — null = ยังไม่ได้ตั้งคะแนน
+  rewardPoints: integer('reward_points'),
+  scoredAt: timestamp('scored_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  attemptItemIdx: unique('tap_reason_submission_unique').on(table.attemptId, table.questionId, table.itemIndex),
+  userIdx: index('tap_reason_submissions_user_idx').on(table.userId),
+  unscoredIdx: index('tap_reason_submissions_unscored_idx').on(table.rewardPoints, table.createdAt),
 }));
 
 // Test feedback: user rating + comment after completing a test attempt

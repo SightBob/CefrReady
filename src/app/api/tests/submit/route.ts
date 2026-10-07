@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { questions, testAttempts, userAnswers, userProgress, testTypes, testSets } from '@/db/schema';
+import { questions, testAttempts, userAnswers, userProgress, testTypes, testSets, tapReasonSubmissions } from '@/db/schema';
 import { eq, inArray, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { calculateScore } from '@/lib/score-utils';
+import { MAX_TAP_REASON_LENGTH, collectTapReasonRows } from '@/lib/tap-reason-rewards';
 import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
 import { z } from 'zod';
@@ -17,6 +18,11 @@ const submitBodySchema = z.object({
   })).min(1),
   isDemo: z.boolean().optional().default(false),
   startedAt: z.string().datetime().optional(),
+  // Tap & Select เหตุผลที่ผู้เรียนพิมพ์ keyed โดย questionId → itemIndex
+  // (เก็บเฉพาะที่มีข้อความจริง — ว่างไม่ถูกบันทึก)
+  tapReasons: z
+    .record(z.string(), z.record(z.string(), z.string().max(MAX_TAP_REASON_LENGTH)))
+    .optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { testTypeId, testSetId, answers, isDemo, startedAt: clientStartedAt } = parsedBody.data;
+  const { testTypeId, testSetId, answers, isDemo, startedAt: clientStartedAt, tapReasons: clientReasons } = parsedBody.data;
   if (testTypeId === 'tap-select') {
     return NextResponse.json({ success: false, error: 'Tap & Select must be submitted as part of its parent test set' }, { status: 400 });
   }
@@ -187,6 +193,25 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[submit] Failed to save user answers:', error);
     // Non-fatal — continue to return results
+  }
+
+  // Tap & Select: เก็บเหตุผลที่ผู้เรียนพิมพ์ (เฉพาะที่มีข้อความเท่านั้น) — รอ admin ให้คะแนนเก็บภายหลัง
+  try {
+    const reasonRows = collectTapReasonRows({
+      attemptId: newAttempt.id,
+      userId: user.id,
+      createdAt: now,
+      results,
+      questions: dbQuestions,
+      clientReasons,
+    });
+    if (reasonRows.length > 0) {
+      // onConflictDoNothing: unique (attempt, question, item) กัน submit ซ้ำไม่ให้การส่งล้มทั้งก้อน
+      await db.insert(tapReasonSubmissions).values(reasonRows).onConflictDoNothing();
+    }
+  } catch (error) {
+    console.error('[submit] Failed to save tap reasons:', error);
+    // Non-fatal — reason storage must not fail score submission
   }
 
   // Update or create user progress — atomic upsert (ON CONFLICT) computes

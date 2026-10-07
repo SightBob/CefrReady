@@ -18,7 +18,9 @@ const bodySchema = z.object({
   questionId: z.number().int().positive(),
   itemIndex: z.number().int().nonnegative(),
   selectedAnswer: z.enum(['A', 'B']),
-  reason: z.string().trim().min(1).max(MAX_TAP_REASON_LENGTH),
+  // เหตุผลของผู้เรียน — ว่างได้: ผู้เรียนกด “ตรวจคำตอบ” ทั้งที่ยังไม่ได้พิมพ์ เซิร์ฟเวอร์จะ prefill
+  // วลีสำเร็จรูปให้ AI ช่วยอธิบายข้อนี้ตามปกติ (ไม่เรียกว่าเหตุผลของผู้เรียนเอง)
+  reason: z.string().trim().max(MAX_TAP_REASON_LENGTH),
 }).strict();
 
 export async function POST(request: NextRequest) {
@@ -34,10 +36,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitError) return rateLimitError;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: `กรุณาเลือกคำตอบและเขียนเหตุผลไม่เกิน ${MAX_TAP_REASON_LENGTH} ตัวอักษร` }, { status: 400 });
+    return NextResponse.json({ success: false, error: `กรุณาเลือกคำตอบก่อน (เหตุผลไม่เกิน ${MAX_TAP_REASON_LENGTH} ตัวอักษร)` }, { status: 400 });
   }
   try {
-    const { testSetId, questionId, itemIndex, selectedAnswer, reason } = parsed.data;
+    const { testSetId, questionId, itemIndex, selectedAnswer, reason: submittedReason } = parsed.data;
     const [row] = await db
       .select({ tapExercise: questions.tapExercise, explanation: questions.explanation, grammarTopic: questions.grammarTopic })
       .from(testSetQuestions)
@@ -55,6 +57,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'ไม่พบข้อย่อย Tap & Select' }, { status: 404 });
     }
     const isCorrect = selectedAnswer === (item.correct === 0 ? 'A' : 'B');
+    // เหตุผลว่าง = ผู้เรียนกดตรวจโดยไม่พิมพ์ — prefill วลีสำเร็จรูปให้ AI อธิบายข้อนี้ตามปกติ
+    // (ไม่ตัดสินเหตุผลของผู้เรียน เพราะไม่มีเหตุผลส่งมา)
+    const reason = submittedReason || 'ผู้เรียนยังไม่ได้เขียนเหตุผล กรุณาอธิบายเฉลยของข้อนี้ให้เข้าใจ';
     const settings = await getTapAiSettings();
     if (!settings.enabled) {
       return NextResponse.json({ success: true, data: {

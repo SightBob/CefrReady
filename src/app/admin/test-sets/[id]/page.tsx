@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useState, useCallback, use } from 'react';
+import { Fragment, useEffect, useState, useCallback, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, BookOpen, Plus, Trash2, Loader2, LayoutList, X, Pencil,
+  ArrowLeft, BookOpen, Check, Plus, Trash2, Loader2, LayoutList, X, Pencil,
   GripVertical, ChevronDown, ChevronUp
 } from 'lucide-react';
 import AssignToTestSetModal from '@/components/admin/AssignToTestSetModal';
 import ArticleEditor from '@/components/ArticleEditor';
 import TapExerciseEditor from '@/components/admin/TapExerciseEditor';
 import { countTestSetItems, type TapExerciseData } from '@/lib/test-set-slots';
+import { buildTopicRuns, normalizeTopic, type TopicRun } from '@/lib/test-set-topics';
 import { toast } from 'sonner';
 
 interface Question {
@@ -33,6 +34,17 @@ interface Question {
   audioUrl?: string;
   transcript?: string;
   tapExercise?: TapExerciseData | null;
+  /** ใช้ตัดเส้นแบ่งเรื่องในชุดนี้ (และผูกเนื้อหา explain ต่อเรื่อง) */
+  grammarTopic: string | null;
+}
+
+/** แถวของ test_explains ที่หน้านี้ต้องใช้ตัดสินว่าผูกเรื่องไว้กับชุดนี้หรือยัง */
+interface TopicExplainRow {
+  id: number;
+  grammarTopic: string;
+  title: string;
+  isPublished: boolean;
+  testSetIds: number[];
 }
 
 interface SetQuestion {
@@ -108,6 +120,9 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
   const [testSet, setTestSet] = useState<TestSet | null>(null);
   const [section, setSection] = useState<Section | null>(null);
   const [questions, setQuestions] = useState<SetQuestion[]>([]);
+  // คีย์ = grammarTopic ที่ trim แล้ว → แถว explain ของเรื่องนั้น
+  const [topicExplains, setTopicExplains] = useState<Record<string, TopicExplainRow>>({});
+  const [explainSavingTopic, setExplainSavingTopic] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -157,6 +172,21 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
           setSection(sec || null);
         }
       }
+      // ความผูก explain ↔ ชุดนี้ — แยก request และกลืน error ไว้ เพราะหน้าที่หลัก
+      // (ข้อสอบในชุด) ต้องเปิดได้แม้ endpoint นี้ล่ม
+      try {
+        const explainsRes = await fetch('/api/admin/test-explains');
+        if (explainsRes.ok) {
+          const explainsJson = await explainsRes.json();
+          if (explainsJson.success) {
+            setTopicExplains(Object.fromEntries(
+              (explainsJson.data as TopicExplainRow[]).map((row) => [normalizeTopic(row.grammarTopic), row]),
+            ));
+          }
+        }
+      } catch {
+        setTopicExplains({});
+      }
     } finally {
       setLoading(false);
     }
@@ -165,6 +195,109 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // ─── เส้นแบ่งเรื่อง + ความผูก explain ต่อเรื่อง ────────────────────────────
+
+  // ข้อสอบที่เรียงติดกันและมี grammarTopic เดียวกัน = เรื่องเดียว (ดู lib/test-set-topics)
+  const topicRuns = useMemo(
+    () => buildTopicRuns(questions.map(({ question }) => question)),
+    [questions],
+  );
+  // index ของข้อแรกในแต่ละเรื่อง → run นั้น
+  // buildTopicRuns คืน run เรียงตามลำดับข้อสอบ และทุกข้อบวก questionCount ข้อละ 1
+  // (ข้อที่ topic เดิมต่อท้าย run ปัจจุบัน) จึงหา index เริ่มของแต่ละ run ได้ด้วยผลรวมสะสม
+  const runStartAt = useMemo(() => {
+    const map = new Map<number, TopicRun>();
+    let cursor = 0;
+    topicRuns.forEach((run) => {
+      map.set(cursor, run);
+      cursor += run.questionCount;
+    });
+    return map;
+  }, [topicRuns]);
+
+  const toggleTopicExplain = async (topic: string, bound: boolean) => {
+    const previous = topicExplains[topic];
+    if (!previous) return;
+    setExplainSavingTopic(topic);
+    // optimistic — คืนค่าเดิมถ้าเซิร์ฟเวอร์ปฏิเสธ
+    setTopicExplains((current) => ({
+      ...current,
+      [topic]: {
+        ...previous,
+        testSetIds: bound
+          ? [...new Set([...previous.testSetIds, setId])].sort((a, b) => a - b)
+          : previous.testSetIds.filter((id) => id !== setId),
+      },
+    }));
+    try {
+      const response = await fetch(`/api/admin/test-sets/${setId}/explains`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grammarTopic: topic, bound }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success) throw new Error(payload?.error ?? 'ผูกเนื้อหาไม่สำเร็จ');
+      const savedIds: number[] = payload.data?.testSetIds ?? [];
+      setTopicExplains((current) => ({ ...current, [topic]: { ...previous, testSetIds: savedIds } }));
+      toast.success(bound ? `ผูก “${previous.title}” กับชุดนี้แล้ว` : `ยกเลิกการผูก “${previous.title}” แล้ว`);
+    } catch (error) {
+      setTopicExplains((current) => ({ ...current, [topic]: previous }));
+      toast.error(error instanceof Error ? error.message : 'ผูกเนื้อหาไม่สำเร็จ');
+    } finally {
+      setExplainSavingTopic(null);
+    }
+  };
+
+  /** หัวเรื่องของช่วงนี้ — คืน null ถ้าข้อ index นี้ไม่ใช่ข้อแรกของเรื่อง */
+  const topicHeaderFor = (questionIndex: number) => {
+    const run = runStartAt.get(questionIndex);
+    if (!run) return null;
+    const explain = topicExplains[run.topic];
+    const bound = Boolean(explain?.testSetIds?.includes(setId));
+    const saving = explainSavingTopic === run.topic;
+    return (
+      <div className="flex flex-wrap items-center gap-3 border-l-4 border-sky-400 bg-slate-50 px-5 py-3">
+        <span className="text-sm font-bold text-slate-700">
+          {run.topic === '' ? 'ไม่ระบุเรื่อง' : run.topic}
+        </span>
+        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
+          {run.questionCount} ข้อ
+        </span>
+        {run.topic === '' ? (
+          <span className="text-xs text-slate-400">ข้อสอบช่วงนี้ยังไม่ตั้ง grammarTopic</span>
+        ) : !explain ? (
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">ยังไม่มีเนื้อหา explain</span>
+            <Link href="/admin/test-explains/new" className="text-xs font-semibold text-sky-700 hover:underline">สร้างเนื้อหา</Link>
+          </span>
+        ) : (
+          <span className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${explain.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+              {explain.isPublished ? 'เผยแพร่' : 'ฉบับร่าง — ยังไม่แสดงให้นักเรียน'}
+            </span>
+            <Link href={`/admin/test-explains/${explain.id}`} className="text-xs font-semibold text-sky-700 hover:underline">
+              {explain.title}
+            </Link>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void toggleTopicExplain(run.topic, !bound)}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                bound
+                  ? 'border-slate-200 bg-white text-slate-600 hover:border-rose-300 hover:text-rose-600'
+                  : 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100'
+              }`}
+              title={bound ? 'เนื้อหานี้จะไม่ถูกผูกกับชุดนี้อีก' : 'ผู้เรียนจะเห็นเนื้อหานี้ตอนขึ้นเรื่องนี้ในชุดนี้'}
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : bound ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+              {saving ? 'กำลังบันทึก…' : bound ? 'ยกเลิกการผูก' : 'ผูกกับชุดนี้'}
+            </button>
+          </span>
+        )}
+      </div>
+    );
+  };
 
   const moveQuestion = async (fromIndex: number, toIndex: number) => {
     if (reordering || fromIndex < 0 || toIndex < 0 || fromIndex >= questions.length || toIndex >= questions.length || fromIndex === toIndex) return;
@@ -485,6 +618,8 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
           ) : (
             <div className="divide-y divide-slate-50">
               {questions.map((sq, idx) => (
+                <Fragment key={sq.assignmentId}>
+                {topicHeaderFor(idx)}
                 <div
                   key={sq.assignmentId}
                   onDragOver={(event) => {
@@ -578,6 +713,7 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
                     </button>
                   </div>
                 </div>
+                </Fragment>
               ))}
             </div>
           )}

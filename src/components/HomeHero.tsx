@@ -44,7 +44,8 @@ export default function HomeHero() {
 
   return (
     <section className="relative overflow-visible bg-[#FFFEFA]">
-      {/* Background pattern */}
+      {/* Background pattern — เดสก์ท็อป ≥768px ใช้ bg-main1.png (6144×2044)
+          มือถือ ≤767px ใช้ bg-mobile.png (1560×1504) สลับที่ระดับ CSS ไม่แตะ layout เดสก์ท็อป */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
         <Image
           src="/bg/bg-main1.png"
@@ -52,12 +53,19 @@ export default function HomeHero() {
           fill
           priority
           sizes="100vw"
-          className="object-cover object-center"
+          className="object-cover object-center max-md:hidden"
+        />
+        <Image
+          src="/bg/bg-mobile.png"
+          alt=""
+          fill
+          sizes="100vw"
+          className="hidden object-cover object-center max-md:block"
         />
       </div>
 
       {/* Hero — mobile ≤767px ตาม Figma 249:4518 (249:4667/249:4672) */}
-      <div className="relative z-20 flex h-[511px] flex-col items-center px-4 pt-14 pb-0 text-center max-md:h-auto max-md:pb-[110px] max-md:pt-[27px]">
+      <div className="relative z-20 flex h-[532px] flex-col items-center px-4 pt-[41px] pb-0 text-center max-md:h-auto max-md:pb-[110px] max-md:pt-[27px]">
         {/* Figma 249:3267 — 36px + text-shadow 3px/4px ขาว */}
         <p className="text-[36px] font-bold leading-[normal] text-[#556376] [text-shadow:3px_4px_0_#FFF] max-md:hidden">
           การเตรียมสอบจะไม่ใช่เรื่องยากอีกต่อไป...
@@ -69,7 +77,7 @@ export default function HomeHero() {
         </p>
 
         {/* Figma 249:3269 — 80px ไม่มีขอบขาว */}
-        <h1 className="mt-1 text-[clamp(38px,9.5vw,64px)] font-bold leading-normal max-md:mt-[-2px] md:text-[80px]">
+        <h1 className="text-[clamp(38px,9.5vw,64px)] font-bold leading-normal md:text-[80px]">
           <span className="
   text-[#5A95C6]
   text-center
@@ -96,7 +104,7 @@ export default function HomeHero() {
         </h1>
 
         {/* Figma 249:3268 */}
-        <p className="mt-2 text-[20px] font-bold text-[#556376] max-md:hidden">
+        <p className="mt-[16px] text-[20px] font-bold text-[#556376] max-md:hidden">
           รวมทุกเนื้อหาข้อสอบ CEFR และแนวทางต่าง ๆ ไว้ให้คุณแล้ว
         </p>
 
@@ -116,7 +124,7 @@ export default function HomeHero() {
 
           <Link
             href="/demo"
-            className="flex h-[65px] w-[243px] max-w-full items-center justify-center rounded-[14px] border border-[#EAEAEA] bg-white px-[20px] py-[12px] text-[18px] font-bold text-[#797253] shadow-[3px_4px_0px_#D5D3D3] max-md:h-[50px] max-md:w-[227px] max-md:text-[15px] max-md:shadow-[2px_3px_0px_#D5D3D3]"
+            className="flex h-[65px] w-[243px] max-w-full items-center justify-center rounded-[14px] border border-[#EAEAEA] bg-white px-[20px] py-[10px] text-[18px] font-bold text-[#797253] shadow-[3px_4px_0px_#D5D3D3] max-md:h-[50px] max-md:w-[227px] max-md:text-[15px] max-md:shadow-[2px_3px_0px_#D5D3D3]"
           >
             โหมดตัวอย่าง
           </Link>

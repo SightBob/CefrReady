@@ -100,14 +100,18 @@ export async function GET(request: NextRequest) {
 
     // Fetch test set memberships for returned questions
     const questionIds = allQuestions.map((q) => q.id);
-    let membershipMap: Record<number, { id: number; name: string; sectionId: string }[]> = {};
+    let membershipMap: Record<number, { id: number; name: string; sectionId: string; position: number }[]> = {};
     if (questionIds.length > 0) {
+      // position = ตำแหน่งจริงของข้อภายในชุด (1-based) เรียงแบบเดียวกับตอน serve
+      // ข้อสอบ (/api/test-sets/[id] ใช้ ORDER BY order_index) — tie-break ด้วย id
+      // การเพิ่มเข้าชุด เพราะ order_index ใน DB มีค่าซ้ำ/เป็น 0 หมดในหลายชุด
       const memberships = await db
         .select({
           questionId: testSetQuestions.questionId,
           setId: testSets.id,
           setName: testSets.name,
           sectionId: testSets.sectionId,
+          position: sql<number>`CAST(ROW_NUMBER() OVER (PARTITION BY ${testSetQuestions.testSetId} ORDER BY ${testSetQuestions.orderIndex} ASC, ${testSetQuestions.id} ASC) AS integer)`,
         })
         .from(testSetQuestions)
         .innerJoin(testSets, eq(testSetQuestions.testSetId, testSets.id))
@@ -115,10 +119,10 @@ export async function GET(request: NextRequest) {
       membershipMap = memberships.reduce(
         (acc, m) => {
           if (!acc[m.questionId]) acc[m.questionId] = [];
-          acc[m.questionId].push({ id: m.setId, name: m.setName, sectionId: m.sectionId });
+          acc[m.questionId].push({ id: m.setId, name: m.setName, sectionId: m.sectionId, position: m.position });
           return acc;
         },
-        {} as Record<number, { id: number; name: string; sectionId: string }[]>
+        {} as Record<number, { id: number; name: string; sectionId: string; position: number }[]>
       );
     }
 

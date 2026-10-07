@@ -29,6 +29,8 @@ const SECTION_SKILL_LABEL: Record<string, string> = {
   'focus-meaning': 'ทักษะการเข้าใจความหมายของศัพท์',
   'form-meaning': 'ทักษะไวยากรณ์และความหมายของภาษา',
   listening: 'ทักษะการฟังและเข้าใจภาษาพูด',
+  // ข้อความกำกับของ Full Test (ไม่มีในเฟรม Figma ของการ์ดคะแนน 75:70702 ซึ่งทำไว้เฉพาะพาร์ทเดี่ยว)
+  'full-test': 'ทักษะภาษาอังกฤษครบทั้ง 4 พาร์ท',
 };
 /** บรรทัดที่สองของการ์ดคะแนน — ข้อความตามดีไซน์ (node 75:70702) */
 const SKILL_OUTCOME_LABEL = 'และความหมายของคุณอยู่ในเกณฑ์สูงมาก';
@@ -58,6 +60,10 @@ interface TestResultsProps {
   sectionId?: string;
   /** รายการเฉลยรายข้อ — การ์ดเฉลยจะไม่แสดงเมื่อไม่มีข้อมูล */
   reviewItems?: ReviewItem[];
+  /** ระดับ CEFR จาก server (Full Test คำนวณแบบถ่วงน้ำหนัก) — ถ้าไม่ส่งจะประมาณจาก percentage เหมือนเดิม */
+  cefrLevel?: string | null;
+  /** เนื้อหาเสริมเฉพาะพาร์ท (เช่น สัดส่วนตามพาร์ทของ Full Test) — แสดงหลังการ์ดให้คะแนน ก่อนการ์ดเฉลย */
+  extraContent?: React.ReactNode;
 }
 
 /**
@@ -79,6 +85,8 @@ export default function TestResults({
   setNumber,
   sectionId,
   reviewItems,
+  cefrLevel: cefrLevelOverride,
+  extraContent,
 }: TestResultsProps) {
   const posthog = usePostHog();
   const [rating, setRating] = useState<number | null>(null);
@@ -99,7 +107,7 @@ export default function TestResults({
   useEffect(() => clearFeedbackTimers, []);
 
   const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
-  const cefrLevel = estimateCefrLevel(percentage);
+  const cefrLevel = cefrLevelOverride ?? estimateCefrLevel(percentage);
   const skillLabel = SECTION_SKILL_LABEL[sectionId ?? 'focus-form'];
   // แถบบนสุดนับ "ทำครบกี่ข้อ" — ถ้ามีเฉลยรายข้อให้ยึดตามจำนวนข้อที่ตอบจริง
   const hasReviewList = !!reviewItems?.length;
@@ -314,6 +322,8 @@ export default function TestResults({
           </div>
         )
         )}
+
+        {extraContent}
 
         {/* การ์ดเฉลยและทบทวนข้อสอบ — 75:70717 */}
         {hasReviewList && (

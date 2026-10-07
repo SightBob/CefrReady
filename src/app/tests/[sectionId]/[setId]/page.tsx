@@ -32,7 +32,10 @@ import {
 } from '@/lib/test-set-slots';
 import type { PublicTapExerciseData } from '@/lib/test-set-slots';
 import dynamic from 'next/dynamic';
-import TestExplainOverlay from '@/components/TestExplainOverlay';
+import TestExplainOverlay, { type TestExplainContent } from '@/components/TestExplainOverlay';
+import TopicIntroOverlay from '@/components/TopicIntroOverlay';
+import { buildTopicRuns, topicRunForSlot } from '@/lib/test-set-topics';
+import { groupTapReasonsByQuestion } from '@/lib/tap-reason-rewards';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
   loading: () => (
@@ -164,8 +167,21 @@ export default function SetQuizPage() {
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [testExplain, setTestExplain] = useState<import('@/components/TestExplainOverlay').TestExplainContent | null>(null);
   const [showTestExplain, setShowTestExplain] = useState(false);
-  const explainCache = useRef(new Map<string, import('@/components/TestExplainOverlay').TestExplainContent | null>());
+  const explainCache = useRef(new Map<string, TestExplainContent | null>());
   const explainRequestId = useRef(0);
+
+  // เนื้อหา explain ของทุกเรื่องที่ผูกกับชุดนี้ (คีย์ตาม grammarTopic) — ชุดที่รวม
+  // หลายเรื่องไว้จะเด้ง intro+explain ของเรื่องนั้นตอนขึ้นเรื่องใหม่
+  const [topicExplains, setTopicExplains] = useState<Record<string, TestExplainContent>>({});
+  const [explainsLoaded, setExplainsLoaded] = useState(false);
+  const [pendingTopic, setPendingTopic] = useState<{
+    explain: TestExplainContent;
+    questionCount: number;
+    topicNumber: number;
+    topicTotal: number;
+  } | null>(null);
+  /** เรื่องที่เด้งไปแล้วในรอบนี้ — เด้งครั้งเดียวต่อเรื่องต่อการทำชุดหนึ่งครั้ง */
+  const seenTopics = useRef(new Set<string>());
 
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
@@ -173,6 +189,13 @@ export default function SetQuizPage() {
   // Set selector dropdown
   const [availableSets, setAvailableSets] = useState<{ id: number; name: string; description?: string | null }[]>([]);
   const mainSlots = useMemo(() => setData ? expandTestSetSlots(setData.questions) : [], [setData]);
+  /** ช่วงเรื่องตามลำดับข้อสอบ — จุดที่ผู้เรียนจะเจอหน้า intro ของเรื่องใหม่ */
+  const topicRuns = useMemo(() => (setData ? buildTopicRuns(setData.questions, mainSlots) : []), [setData, mainSlots]);
+  /** เรื่องที่จะได้เห็นหน้าเนื้อหาจริง — นับ "เรื่องที่ N จาก M" ให้ตรงกับที่ผู้เรียนจะเจอ */
+  const explainRuns = useMemo(
+    () => topicRuns.filter((run) => run.topic && topicExplains[run.topic]),
+    [topicRuns, topicExplains],
+  );
   const choiceShuffleSeed = `${setId}-${testStartedAt}`;
   const mainSlot = mainSlots[currentQuestion];
   const explainQuestionIndex = (mainSlot?.questionIndex ?? currentQuestion);
@@ -214,6 +237,23 @@ export default function SetQuizPage() {
       });
   }, [explainTopic, setId]);
 
+  // ขึ้นเรื่องใหม่ในชุดที่รวมหลายเรื่อง → เด้ง intro + explain ของเรื่องนั้นก่อนข้อแรก
+  // (เรื่องละครั้งต่อการทำชุด · กดปิดแล้วเข้าข้อสอบต่อ และกด "โหมดทบทวน" เปิดซ้ำได้)
+  useEffect(() => {
+    if (!setData || !explainsLoaded) return;
+    const run = topicRunForSlot(topicRuns, currentQuestion);
+    if (!run || !run.topic) return;
+    const explain = topicExplains[run.topic];
+    if (!explain || seenTopics.current.has(run.topic)) return;
+    seenTopics.current.add(run.topic);
+    setPendingTopic({
+      explain,
+      questionCount: run.questionCount,
+      topicNumber: explainRuns.indexOf(run) + 1,
+      topicTotal: explainRuns.length,
+    });
+  }, [currentQuestion, explainsLoaded, setData, topicExplains, topicRuns, explainRuns]);
+
   useEffect(() => {
     if (!showTestExplain) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -239,9 +279,24 @@ export default function SetQuizPage() {
   const testStartedAtRef = useRef<number>(0);
 
   const fetchSet = useCallback(async () => {
+    // เปลี่ยนชุด (dropdown) = เริ่มนับเรื่องใหม่ — ไม่งั้นชุดใหม่ที่ใช้ชื่อเรื่อง
+    // เดิมจะไม่เด้ง intro ให้อีก
+    seenTopics.current.clear();
+    setPendingTopic(null);
     try {
-      const res = await fetch(`/api/test-sets/${setId}`);
+      // เนื้อหา explain รายเรื่องโหลดคู่กับตัวชุดไปเลย เพื่อให้รู้ก่อนข้อแรกว่ามีเรื่อง
+      // อะไรให้เด้ง — ถ้าโหลดไม่ได้ก็เข้าสอบต่อได้ (แค่ไม่มีหน้า intro ของเรื่อง)
+      const [res, explainsRes] = await Promise.all([
+        fetch(`/api/test-sets/${setId}`),
+        fetch(`/api/test-sets/${setId}/explains`).catch(() => null),
+      ]);
       const data = await res.json();
+      try {
+        const explainsData = explainsRes ? await explainsRes.json() : null;
+        setTopicExplains(explainsData?.success && explainsData.data ? explainsData.data : {});
+      } catch {
+        setTopicExplains({});
+      }
       if (data.success) {
         // Keep the authored test-set order so teaching groups remain inserted
         // between the intended exam questions.
@@ -254,6 +309,7 @@ export default function SetQuizPage() {
     } catch {
       setNotFound(true);
     } finally {
+      setExplainsLoaded(true);
       setLoading(false);
     }
   }, [setId]);
@@ -335,8 +391,10 @@ export default function SetQuizPage() {
     if (slot?.kind !== 'tap') return;
     const key = tapStateKey(slotIndex);
     if (tapChecking[key]) return;
+    // เหตุผลว่างได้: ผู้เรียนกดตรวจโดยไม่พิมพ์ → ส่ง '' ให้เซิร์ฟเวอร์ prefill คำขออธิบายเฉลย
+    // (เซิร์ฟเวอร์จะเปลี่ยนเป็นวลีสำเร็จรูปก่อนเรียก AI — ดู tap-reason route)
     const reason = (tapReasons[key] ?? '').trim();
-    if (!reason || reason.length > MAX_TAP_REASON_LENGTH) return;
+    if (reason.length > MAX_TAP_REASON_LENGTH) return;
     const question = setData.questions[slot.questionIndex];
     const version = (tapRequestVersions.current[key] ?? 0) + 1;
     tapRequestVersions.current[key] = version;
@@ -429,6 +487,16 @@ export default function SetQuizPage() {
           testSetId: setId,
           startedAt: testStartedAt,
           answers: buildTestSubmissionAnswers(setData.questions, mainSlots, answers, toStoredAnswer),
+          // ส่งเหตุผลที่พิมพ์ไปเก็บด้วย — server เก็บเฉพาะที่มีข้อความจริง (รอ admin ให้คะแนน)
+          // ข้อเดียวกันมีหลายข้อย่อยได้ → ต้องรวมเป็น record เดียวต่อ questionId ไม่ให้ทับกัน
+          tapReasons: groupTapReasonsByQuestion(
+            mainSlots.map((_, slotIndex) => ({
+              slotIndex,
+              reason: tapReasons[tapStateKey(slotIndex)] ?? '',
+            })),
+            mainSlots,
+            setData.questions
+          ),
         }),
       });
       const data = await res.json();
@@ -503,7 +571,7 @@ export default function SetQuizPage() {
   // ─── Render guards ────────────────────────────────────────────────
 
   if (maintenanceBlocked) return <Spinner />; // กำลัง redirect ไปหน้า maintenance
-  if (loading || status === 'loading') return <Spinner />;
+  if (loading || status === 'loading' || !explainsLoaded) return <Spinner />;
 
   if (submitting && !isFinished) {
     return (
@@ -555,6 +623,9 @@ export default function SetQuizPage() {
     setFormMeaningTotalBlanks(0);
     setAudioPlayedMap({});
     setIsFinished(false);
+    // ทำชุดใหม่ = เห็นหน้า intro ของทุกเรื่องอีกครั้ง
+    seenTopics.current.clear();
+    setPendingTopic(null);
     Object.keys(tapRequestVersions.current).forEach(key => { tapRequestVersions.current[key] += 1; });
     setTapReasons({});
     setTapReasonResults({});
@@ -653,6 +724,19 @@ export default function SetQuizPage() {
     </>
   );
 
+  // ขึ้นเรื่องใหม่ → เด้งหน้านี้ก่อน (ปิดแล้วกลับไปทำข้อสอบต่อได้ทันที)
+  const topicGate = pendingTopic ? (
+    <TopicIntroOverlay
+      key={`${pendingTopic.explain.id}-${pendingTopic.topicNumber}`}
+      explain={pendingTopic.explain}
+      sectionId={sectionId}
+      questionCount={pendingTopic.questionCount}
+      topicNumber={pendingTopic.topicNumber}
+      topicTotal={pendingTopic.topicTotal}
+      onStart={() => setPendingTopic(null)}
+    />
+  ) : null;
+
   // ─── Mixed form-meaning blank slot ────────────────────────────────
   if (articleBlank && activeSlot?.kind === 'article') {
     const articleText = question.article?.text ?? '';
@@ -691,6 +775,7 @@ export default function SetQuizPage() {
           </label>
         </div>
         {modalsFragment}
+        {topicGate}
       </TestLayout>
     );
   }
@@ -726,7 +811,7 @@ export default function SetQuizPage() {
           primaryAction={selectedAnswer !== null && !result ? {
             label: checking ? 'กำลังตรวจ…' : 'ตรวจคำตอบ',
             onClick: () => void checkTapReason(),
-            disabled: submitting || checking || !reason.trim(),
+            disabled: submitting || checking,
           } : result && layoutCurrent >= layoutTotal - 1 ? {
             label: 'ส่งคำตอบ', onClick: () => void handleSubmit(), disabled: submitting,
           } : undefined}
@@ -752,6 +837,7 @@ export default function SetQuizPage() {
           {modalsFragment}
         </TestLayout>
         <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
+        {topicGate}
       </>
     );
   }
@@ -795,6 +881,7 @@ export default function SetQuizPage() {
         {modalsFragment}
       </TestLayout>
       <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
+      {topicGate}
       </>
     );
   }
@@ -836,6 +923,7 @@ export default function SetQuizPage() {
         {modalsFragment}
       </TestLayout>
       <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
+      {topicGate}
       </>
     );
   }
@@ -877,6 +965,7 @@ export default function SetQuizPage() {
       {modalsFragment}
     </TestLayout>
     <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
+    {topicGate}
     </>
   );
 }
