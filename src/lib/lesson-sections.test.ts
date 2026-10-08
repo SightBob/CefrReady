@@ -41,6 +41,13 @@ describe('normalizeLessonSection', () => {
     expect(current.practice?.questions).toHaveLength(2);
   });
 
+  it('keeps the per-section visibility flag and drops unknown values', () => {
+    expect(normalizeLessonSection({ type: 'rule', heading: 'A', visibility: 'draft' }).visibility).toBe('draft');
+    expect(normalizeLessonSection({ type: 'rule', heading: 'A', visibility: 'published' }).visibility).toBe('published');
+    expect(normalizeLessonSection({ type: 'rule', heading: 'A' }).visibility).toBeUndefined();
+    expect(normalizeLessonSection({ type: 'rule', heading: 'A', visibility: 'whatever' }).visibility).toBeUndefined();
+  });
+
   it('migrates old page-level intro and tip into ordered components', () => {
     expect(normalizeLessonSections([], { intro: 'Intro', tip: 'Remember this' })).toMatchObject([
       { type: 'detailedRule', heading: 'บทนำ', body: 'Intro' },

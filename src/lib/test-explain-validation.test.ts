@@ -39,6 +39,23 @@ describe('collectItemIssues — import structure validation', () => {
     expect(errors.some((e) => e.includes('sections[0].examples[0].en'))).toBe(true);
   });
 
+  it('visibility ที่ไม่รู้จักต้องเป็น error — พิมพ์ผิดแล้วส่วนที่ยังไม่เสร็จจะหลุดถึงผู้เรียน', () => {
+    const { errors } = collectItemIssues({
+      sections: [{ type: 'rule', heading: 'A', visibility: 'hidden' }],
+    });
+    expect(errors.some((e) => e.includes('sections[0].visibility'))).toBe(true);
+  });
+
+  it('visibility draft/published ผ่านได้โดยไม่มี error', () => {
+    const { errors } = collectItemIssues({
+      sections: [
+        { type: 'rule', heading: 'A', visibility: 'draft' },
+        { type: 'rule', heading: 'B', visibility: 'published' },
+      ],
+    });
+    expect(errors).toEqual([]);
+  });
+
   it('answerIndex เกินจำนวนตัวเลือกต้อง error พร้อมบอกช่วงที่ถูก', () => {
     const { errors } = collectItemIssues({
       sections: [{ type: 'practice', practice: { questions: [{ sentence: '___', options: ['a', 'b', 'c', 'd'], answerIndex: 9 }] } }],

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { BookOpen, Headphones, Layers, PenTool } from 'lucide-react';
@@ -34,7 +34,7 @@ import type { PublicTapExerciseData } from '@/lib/test-set-slots';
 import dynamic from 'next/dynamic';
 import TestExplainOverlay, { type TestExplainContent } from '@/components/TestExplainOverlay';
 import TopicIntroOverlay from '@/components/TopicIntroOverlay';
-import { buildTopicRuns, topicRunForSlot } from '@/lib/test-set-topics';
+import { buildTopicRuns, firstSlotIndexForTopic, topicRunForSlot } from '@/lib/test-set-topics';
 import { groupTapReasonsByQuestion } from '@/lib/tap-reason-rewards';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
@@ -128,6 +128,16 @@ export default function SetQuizPage() {
   const sectionId = params.sectionId;
   const setId = parseInt(params.setId);
 
+  // โหมดพรีวิวของแอดมิน (?preview=1): ดูหน้าสอบจริงพร้อมเนื้อหา explain ที่ยังไม่เผยแพร่
+  // — ตัว API เป็นคนตรวจสิทธิ์ผู้ดูแลจริง ๆ ฝั่งนี้เป็นแค่การส่งธงกับแบนเนอร์
+  const searchParams = useSearchParams();
+  const previewMode = searchParams.get('preview') === '1';
+  const previewNotice = previewMode
+    ? 'โหมดพรีวิวสำหรับแอดมิน — เห็นเนื้อหาที่ยังไม่เผยแพร่ (ฉบับร่าง/รอตรวจสอบ/ปิดชั่วคราว) ทั้งหน้าอธิบายและกิจกรรม Tap & Select แต่ผู้เรียนยังไม่เห็น'
+    : undefined;
+  /** เรื่องที่แอดมินขอเปิดตรง ๆ (?topic=…) — ใช้เฉพาะโหมดพรีวิว */
+  const previewTopic = previewMode ? searchParams.get('topic') : null;
+
   const [setData, setSetData] = useState<SetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -191,6 +201,17 @@ export default function SetQuizPage() {
   const mainSlots = useMemo(() => setData ? expandTestSetSlots(setData.questions) : [], [setData]);
   /** ช่วงเรื่องตามลำดับข้อสอบ — จุดที่ผู้เรียนจะเจอหน้า intro ของเรื่องใหม่ */
   const topicRuns = useMemo(() => (setData ? buildTopicRuns(setData.questions, mainSlots) : []), [setData, mainSlots]);
+  // โหมดพรีวิวของแอดมิน: กระโดดไปข้อแรกของเรื่องที่ขอมา (?topic=…) เพื่อดูว่าเนื้อหาที่
+  // ยังไม่เผยแพร่จะโผล่ตอนทำข้อสอบอย่างไร — ไม่แตะพฤติกรรมการสอบปกติ (ไม่มี topic = ไม่ขยับ)
+  const previewJumped = useRef(false);
+  useEffect(() => {
+    if (!previewTopic || previewJumped.current || !setData) return;
+    const slotIndex = firstSlotIndexForTopic(topicRuns, previewTopic);
+    previewJumped.current = true;
+    if (slotIndex === null || slotIndex <= 0 || slotIndex >= mainSlots.length) return;
+    setCurrentQuestion(slotIndex);
+  }, [previewTopic, setData, topicRuns, mainSlots.length]);
+
   /** เรื่องที่จะได้เห็นหน้าเนื้อหาจริง — นับ "เรื่องที่ N จาก M" ให้ตรงกับที่ผู้เรียนจะเจอ */
   const explainRuns = useMemo(
     () => topicRuns.filter((run) => run.topic && topicExplains[run.topic]),
@@ -222,7 +243,7 @@ export default function SetQuizPage() {
       return;
     }
     setTestExplain(null);
-    fetch(`/api/test-explains/lookup?topic=${encodeURIComponent(explainTopic)}&setId=${setId}`, { cache: 'no-store' })
+    fetch(`/api/test-explains/lookup?topic=${encodeURIComponent(explainTopic)}&setId=${setId}${previewMode ? '&preview=1' : ''}`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : null)
       .then((payload) => {
         if (requestId !== explainRequestId.current) return;
@@ -235,7 +256,7 @@ export default function SetQuizPage() {
       .catch(() => {
         if (requestId === explainRequestId.current) setTestExplain(null);
       });
-  }, [explainTopic, setId]);
+  }, [explainTopic, setId, previewMode]);
 
   // ขึ้นเรื่องใหม่ในชุดที่รวมหลายเรื่อง → เด้ง intro + explain ของเรื่องนั้นก่อนข้อแรก
   // (เรื่องละครั้งต่อการทำชุด · กดปิดแล้วเข้าข้อสอบต่อ และกด "โหมดทบทวน" เปิดซ้ำได้)
@@ -287,8 +308,8 @@ export default function SetQuizPage() {
       // เนื้อหา explain รายเรื่องโหลดคู่กับตัวชุดไปเลย เพื่อให้รู้ก่อนข้อแรกว่ามีเรื่อง
       // อะไรให้เด้ง — ถ้าโหลดไม่ได้ก็เข้าสอบต่อได้ (แค่ไม่มีหน้า intro ของเรื่อง)
       const [res, explainsRes] = await Promise.all([
-        fetch(`/api/test-sets/${setId}`),
-        fetch(`/api/test-sets/${setId}/explains`).catch(() => null),
+        fetch(`/api/test-sets/${setId}${previewMode ? '?preview=1' : ''}`),
+        fetch(`/api/test-sets/${setId}/explains${previewMode ? '?preview=1' : ''}`).catch(() => null),
       ]);
       const data = await res.json();
       try {
@@ -312,7 +333,7 @@ export default function SetQuizPage() {
       setExplainsLoaded(true);
       setLoading(false);
     }
-  }, [setId]);
+  }, [setId, previewMode]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -746,6 +767,7 @@ export default function SetQuizPage() {
     ) ?? articleText;
     return (
       <TestLayout
+        notice={previewNotice}
         title={setData.name}
         {...setSelectorProps}
         durationMinutes={setData.duration ?? undefined}
@@ -795,6 +817,7 @@ export default function SetQuizPage() {
     return (
       <>
         <TestLayout
+          notice={previewNotice}
           title={setData.name}
           {...setSelectorProps}
           durationMinutes={setData.duration ?? undefined}
@@ -847,6 +870,7 @@ export default function SetQuizPage() {
     return (
       <>
       <TestLayout
+        notice={previewNotice}
         title={setData.name}
         {...setSelectorProps}
         durationMinutes={setData.duration ?? undefined}
@@ -891,6 +915,7 @@ export default function SetQuizPage() {
     return (
       <>
       <TestLayout
+        notice={previewNotice}
         title={setData.name}
         {...setSelectorProps}
         durationMinutes={setData.duration ?? undefined}
@@ -936,6 +961,7 @@ export default function SetQuizPage() {
   return (
     <>
     <TestLayout
+      notice={previewNotice}
       title={setData.name}
       {...setSelectorProps}
       durationMinutes={setData.duration ?? undefined}

@@ -3,6 +3,8 @@ import { db } from '@/db';
 import { testSets, testSetQuestions, questions, testTypes } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
+import { isAdminRequest } from '@/lib/admin-auth';
+import { filterQuestionsForLearners } from '@/lib/tap-visibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,8 +12,11 @@ export const dynamic = 'force-dynamic';
  * GET /api/test-sets/[id]
  * Auth-required endpoint: returns a test set with all its questions in order.
  * Used by the student test-taking page.
+ *
+ * `?preview=1` = โหมดพรีวิวของแอดมินเท่านั้น (ตรวจสิทธิ์ที่ฝั่งเซิร์ฟเวอร์): เห็นกิจกรรม
+ * Tap & Select ที่ยังไม่เผยแพร่ด้วย — ผู้เรียนไม่ส่งพารามิเตอร์นี้และไม่เห็นเนื้อหานั้นเลย
  */
-export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const session = await auth();
   if (!session?.user) {
@@ -21,6 +26,14 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   const setId = parseInt(params.id);
   if (isNaN(setId)) {
     return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 });
+  }
+
+  const preview = req.nextUrl.searchParams.get('preview') === '1';
+  if (preview && !(await isAdminRequest())) {
+    return NextResponse.json(
+      { success: false, error: 'โหมดพรีวิวใช้ได้เฉพาะบัญชีผู้ดูแล' },
+      { status: 403 },
+    );
   }
 
   try {
@@ -76,7 +89,10 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     // จึงต้องส่ง item.correct มาพร้อม payload เพื่อให้หน้าเว็บขึ้นสีถูก/ผิดได้ทันทีโดยไม่รอ
     // เซิร์ฟเวอร์ (ไม่มี request เพิ่ม) — endpoint นี้ถูกส่ง correctAnswer/explanation
     // ของข้อปกติอยู่แล้ว จึงสอดคล้องกัน
-    const publicQuestions = setQuestions;
+    //
+    // CONTENT STATUS: กิจกรรม Tap & Select ที่ยังไม่เผยแพร่ (ฉบับร่าง/รอตรวจสอบ/ปิดชั่วคราว)
+    // ถูกตัดออกทั้งข้อสำหรับผู้เรียน — โหมดพรีวิวของแอดมินเท่านั้นที่เห็นครบ
+    const publicQuestions = preview ? setQuestions : filterQuestionsForLearners(setQuestions);
 
     return NextResponse.json({
       success: true,

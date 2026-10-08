@@ -28,6 +28,11 @@ export function collectItemIssues(raw: Record<string, unknown>): { errors: strin
     }
     const s = section as Record<string, unknown>;
     const type = typeof s.type === 'string' ? s.type : undefined;
+    // visibility='draft' = ซ่อนจากผู้เรียน ถ้าพิมพ์ผิดแล้วระบบมองข้าม ส่วนที่ยังไม่เสร็จจะหลุดถึงผู้เรียน
+    // จึงเป็น error ไม่ใช่ warning
+    if (s.visibility !== undefined && s.visibility !== null && s.visibility !== 'draft' && s.visibility !== 'published') {
+      errors.push(`${at('visibility')}: ${JSON.stringify(s.visibility)} ไม่รู้จัก — ใช้ "draft" (ยังไม่แสดงให้ผู้เรียน) หรือ "published" (แสดง) เท่านั้น`);
+    }
     if (type !== undefined && !['rule', 'detailedRule', 'importantNote', 'practice'].includes(type)) {
       warnings.push(`${at('type')}: "${type}" ไม่ใช่ type ที่รู้จัก (rule/detailedRule/importantNote/practice) — ระบบจะเดา type ให้อัตโนมัติ`);
     }

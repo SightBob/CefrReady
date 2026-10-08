@@ -5,10 +5,65 @@ import type { TestSetSlot, TapExerciseData } from './test-set-slots';
  *
  * กติกาเดียวที่ทั้งสองฝั่งต้องตรงกัน: **เก็บ/ได้คะแนนเฉพาะข้อย่อยที่ผู้เรียนเขียนเหตุผลจริง**
  * ข้อที่ปล่อยว่างจะไม่ถูกบันทึก (ไม่มีแถว) จึงไม่ถูก admin ให้คะแนน
+ *
+ * โมดูลนี้เป็น pure (ไม่มี db/redis) จึงใช้ร่วมกันได้ทั้งฝั่ง server และหน้าแอดมิน
  */
 
 /** ความยาวเหตุผลสูงสุด — ต้องตรงกับ zod schema ใน /api/tests/submit และ /api/tests/tap-reason */
 export const MAX_TAP_REASON_LENGTH = 1500;
+
+/** คะแนนสูงสุดต่อเหตุผลหนึ่งรายการ — กันค่ามั่วจาก admin UI/API */
+export const MAX_TAP_REASON_POINTS = 100;
+
+/**
+ * "คะแนนเหมา" — พิมพ์เหตุผลก็ได้คะแนนที่ตั้งไว้ทันที ไม่ต้องประเมินทีละคำตอบ
+ * เก็บใน Upstash Redis ภายใต้คีย์ของฟีเจอร์นี้เท่านั้น (แยกจาก maintenance:mode โดยสิ้นเชิง)
+ */
+export interface TapReasonRewardSettings {
+  /** true = ให้คะแนนอัตโนมัติตอนผู้เรียนส่งข้อสอบ ไม่ต้องรอแอดมินตรวจ */
+  autoAward: boolean;
+  /** คะแนนที่ให้ต่อเหตุผลหนึ่งรายการ */
+  points: number;
+}
+
+export const DEFAULT_TAP_REASON_REWARD_SETTINGS: TapReasonRewardSettings = { autoAward: true, points: 50 };
+
+/**
+ * อ่านค่าที่เก็บไว้แบบไม่มีวันพัง — ค่าที่ไม่รู้จัก/หายไปใช้ค่าเริ่มต้น และจุดทศนิยมถูกปัด
+ * (การให้คะแนนเป็นงานเบื้องหลังของการส่งข้อสอบ จึงต้องไม่ล้มเพราะค่าตั้งเพี้ยน)
+ */
+export function readTapReasonRewardSettings(value: unknown): TapReasonRewardSettings {
+  const source = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return {
+    autoAward: typeof source.autoAward === 'boolean'
+      ? source.autoAward
+      : DEFAULT_TAP_REASON_REWARD_SETTINGS.autoAward,
+    points:
+      typeof source.points === 'number' && Number.isFinite(source.points)
+        ? normalizeTapReasonPoints(source.points)
+        : DEFAULT_TAP_REASON_REWARD_SETTINGS.points,
+  };
+}
+
+/** ทำคะแนนให้อยู่ในช่วงที่ยอมรับได้เสมอ: จำนวนเต็ม 0…MAX */
+function normalizeTapReasonPoints(points: number): number {
+  if (!Number.isFinite(points)) return 0;
+  return Math.min(Math.max(Math.round(points), 0), MAX_TAP_REASON_POINTS);
+}
+
+/**
+ * คะแนนที่จะให้กับเหตุผลที่เพิ่งส่งเข้ามา — "เหมา" เท่ากันทุกแถวถ้าเปิดโหมดอัตโนมัติ
+ * คืน null = ยังไม่ให้คะแนน (รอแอดมินให้เอง)
+ */
+export function computeTapReasonRewardPoints(
+  settings: TapReasonRewardSettings | null,
+  rows: readonly { isCorrect: boolean }[]
+): Array<number | null> {
+  // อ่านค่าตั้งไม่ได้ = ไม่เดา ให้แอดมินตรวจเอง
+  if (!settings || !settings.autoAward) return rows.map(() => null);
+  const points = normalizeTapReasonPoints(settings.points);
+  return rows.map(() => points);
+}
 
 /** แถวที่จะ insert ลงตาราง tap_reason_submissions */
 export interface TapReasonRow {

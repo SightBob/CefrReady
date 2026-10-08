@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { questions, testExplains } from '@/db/schema';
 import { requireAdmin } from '@/lib/admin-auth';
 import { normalizeLessonSections } from '@/lib/lesson-sections';
+import { PUBLISHED_STATUS, resolveContentStatus } from '@/lib/explain-visibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,8 @@ const explainPayloadSchema = z.object({
   tip: z.string().optional().nullable(),
   // ชุดข้อสอบที่ผูกเนื้อหานี้ไว้ (แสดง overlay อัตโนมัติเมื่อเริ่มทำชุด)
   testSetIds: z.array(z.number().int().positive()).max(200).optional(),
+  // สถานะเนื้อหา (draft/review/published/hidden) — แทน isPublished เดิมที่ยังรับได้เพื่อความเข้ากันได้
+  status: z.string().optional(),
   isPublished: z.boolean().optional(),
 });
 
@@ -25,7 +28,9 @@ const parsePayload = (body: unknown) => {
   const sections = normalizeLessonSections(parsed.data.sections);
   const hasContent = sections.some((section) => section.heading?.trim() || section.body?.trim() || section.chip?.trim() || section.description?.trim() || section.rows?.some((row) => row.left.trim() || row.right?.trim()) || section.examples?.some((example) => example.en.trim()) || section.practice?.questions?.some((question) => question.sentence.trim()));
   if (!hasContent) throw new Error('ต้องมีเนื้อหา explain อย่างน้อย 1 ส่วน');
-  if (parsed.data.isPublished && sections.some((section) => section.type === 'practice' && section.practice?.questions.some((question) => question.sentence.trim() && (question.options.filter(Boolean).length < 2 || !question.options[question.answerIndex]?.trim())))) {
+  const status = resolveContentStatus(parsed.data);
+  if (!status) throw new Error('สถานะไม่ถูกต้อง — ใช้ draft, review, published หรือ hidden');
+  if (status === PUBLISHED_STATUS && sections.some((section) => section.type === 'practice' && section.practice?.questions.some((question) => question.sentence.trim() && (question.options.filter(Boolean).length < 2 || !question.options[question.answerIndex]?.trim())))) {
     throw new Error('Mini Quiz ทุกข้อต้องมีตัวเลือกอย่างน้อย 2 ข้อและระบุคำตอบที่ถูกต้อง');
   }
   return {
@@ -36,7 +41,7 @@ const parsePayload = (body: unknown) => {
     tip: parsed.data.tip?.trim() || null,
     // เก็บแบบ unique + sorted กันค่าซ้ำจาก UI
     testSetIds: [...new Set(parsed.data.testSetIds ?? [])].sort((a, b) => a - b),
-    isPublished: parsed.data.isPublished ?? false,
+    status,
   };
 };
 
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create explain content';
     const duplicate = message.includes('duplicate key') || message.includes('unique constraint');
-    const validation = error instanceof z.ZodError || message.startsWith('กรุณาระบุ') || message.startsWith('ต้องมี') || message.startsWith('Mini Quiz');
+    const validation = error instanceof z.ZodError || message.startsWith('กรุณาระบุ') || message.startsWith('ต้องมี') || message.startsWith('Mini Quiz') || message.startsWith('สถานะ');
     const status = duplicate ? 409 : validation ? 400 : 500;
     if (status === 500) console.error('[admin/test-explains] POST error:', error);
     return NextResponse.json({ success: false, error: status === 409 ? 'มีเนื้อหาอธิบายสำหรับ grammarTopic นี้แล้ว' : message }, { status });

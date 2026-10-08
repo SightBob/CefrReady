@@ -5,6 +5,7 @@ import { eq, sql, and, asc } from 'drizzle-orm';
 import { checkIpThrottle } from '@/lib/api-security';
 import { sanitizeArticleForClient, sanitizeTapExerciseForClient } from '@/lib/sanitize-question';
 import { isSectionInMaintenance } from '@/lib/test-section-maintenance';
+import { filterQuestionsForLearners } from '@/lib/tap-visibility';
 
 /**
  * GET /api/tests/[type]
@@ -113,13 +114,17 @@ export async function GET(request: NextRequest, props: { params: Promise<{ type:
           .orderBy(sql`RANDOM()`)
           .limit(count);
 
+    // CONTENT STATUS: กิจกรรม Tap & Select ที่ยังไม่เผยแพร่ (ฉบับร่าง/รอตรวจสอบ/ปิดชั่วคราว)
+    // ต้องไม่ถึงมือผู้เรียนทุกเส้นทาง รวมถึงคลังฝึกและหน้า /demo ด้วย
+    const visibleQuestions = filterQuestionsForLearners(fetchedQuestions);
+
     // SECURITY: in non-demo mode the article JSON of cloze (form-meaning)
     // questions still contains blanks[].correctAnswer — strip it so answers
     // never leave the server pre-submission (C3). Demo mode keeps answers
     // intentionally (public /demo/* feature, capped at 10 questions).
     const data = isDemo
-      ? fetchedQuestions
-      : fetchedQuestions.map((q) => ({
+      ? visibleQuestions
+      : visibleQuestions.map((q) => ({
           ...q,
           article: sanitizeArticleForClient(q.article),
           tapExercise: sanitizeTapExerciseForClient(q.tapExercise),

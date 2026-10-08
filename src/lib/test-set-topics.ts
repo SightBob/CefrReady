@@ -81,6 +81,20 @@ export function usesSetLevelExplain(explainCount: number, topicRunCount: number)
   return explainCount === 1 && topicRunCount <= 1;
 }
 
+/**
+ * slot แรกของเรื่องนี้ (null = ชุดนี้ไม่มีเรื่องนั้น หรือ topic ว่าง)
+ * ใช้เปิดหน้าสอบตรงข้อแรกของเรื่อง เพื่อดูว่าเนื้อหา explain จะแสดงตอนทำข้อสอบอย่างไร
+ */
+export function firstSlotIndexForTopic(
+  runs: TopicRun[],
+  topic: string | null | undefined,
+): number | null {
+  const normalized = normalizeTopic(topic);
+  if (!normalized) return null;
+  const run = runs.find((item) => item.topic === normalized && item.slotCount > 0);
+  return run ? run.firstSlotIndex : null;
+}
+
 /** ช่วงเรื่องที่ slot นี้อยู่ (null = ไม่พบ หรือ slot อยู่นอกช่วงที่มีคำถามจริง) */
 export function topicRunForSlot(runs: TopicRun[], slotIndex: number): TopicRun | null {
   return (

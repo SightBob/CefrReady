@@ -62,6 +62,8 @@ interface TestLayoutProps {
   reviewAction?: { label: string; onClick: () => void };
   /** Optional teaching action; ordinary question navigation remains unchanged. */
   primaryAction?: { label: string; onClick: () => void; disabled?: boolean };
+  /** แบนเนอร์เหนือข้อสอบ — ใช้เฉพาะโหมดพรีวิวของแอดมิน (ไม่ส่ง = หน้าสอบปกติ) */
+  notice?: React.ReactNode;
 }
 
 /**
@@ -170,6 +172,7 @@ export default function TestLayout({
   sequentialNav = false,
   reviewAction,
   primaryAction,
+  notice,
 }: TestLayoutProps) {
   const router = useRouter();
   const [showNavPanel, setShowNavPanel] = useState(true);
@@ -793,7 +796,14 @@ export default function TestLayout({
           {/* Main Content — Figma 60:3935 กว้าง 840px */}
           <div className="flex-1 min-w-0 max-w-[840px]">
             {/* Question Content */}
-            <div className="mb-6">{children}</div>
+            <div className="mb-6">
+              {notice && (
+                <p role="status" className="mb-4 rounded-2xl border-[1.4px] border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
+                  {notice}
+                </p>
+              )}
+              {children}
+            </div>
           </div>
         </div>
       </div>

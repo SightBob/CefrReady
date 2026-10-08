@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { explainsByTopic, fetchExplainsForSet } from '@/lib/test-explains';
+import { isAdminRequest } from '@/lib/admin-auth';
+import { explainsByTopic, fetchExplainsForSet, fetchExplainsForSetPreview } from '@/lib/test-explains';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,10 @@ export const dynamic = 'force-dynamic';
  *
  * ชุดที่มีเรื่องเดียวจะได้ 1 คีย์ → พฤติกรรมเดิม (อ่านจากหน้า /explain ก่อนเข้าสอบ)
  * และยังเปิดผ่านปุ่ม “โหมดทบทวน” ได้เหมือนเดิม
+ *
+ * ?preview=1 = โหมดพรีวิวสำหรับแอดมิน: คืนเนื้อหาทุกสถานะ (ตรวจสิทธิ์ที่ฝั่งเซิร์ฟเวอร์)
  */
-export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const session = await auth();
   if (!session?.user) {
@@ -24,8 +27,18 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 });
   }
 
+  const preview = req.nextUrl.searchParams.get('preview') === '1';
+  if (preview && !(await isAdminRequest())) {
+    return NextResponse.json(
+      { success: false, error: 'โหมดพรีวิวใช้ได้เฉพาะบัญชีผู้ดูแล' },
+      { status: 403 },
+    );
+  }
+
   try {
-    const explains = await fetchExplainsForSet(setId);
+    const explains = preview
+      ? await fetchExplainsForSetPreview(setId)
+      : await fetchExplainsForSet(setId);
     return NextResponse.json(
       { success: true, data: explainsByTopic(explains) },
       { headers: { 'Cache-Control': 'private, no-store' } },

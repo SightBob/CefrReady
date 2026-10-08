@@ -5,14 +5,18 @@ import { createPortal } from 'react-dom';
 import LessonLayout from '@/components/LessonLayout';
 import ReviewContent from '@/components/ReviewContent';
 import type { LessonSection } from '@/lib/lesson-sections';
+import type { ContentStatus } from '@/lib/explain-visibility';
 
 export interface TestExplainContent {
   id: number;
   grammarTopic: string;
   title: string;
   intro: string | null;
+  /** ส่งมาเฉพาะส่วนที่ผู้เรียนเห็นได้แล้ว (ส่วนที่เป็นฉบับร่างถูกตัดที่ฝั่งเซิร์ฟเวอร์) */
   sections: LessonSection[];
   tip: string | null;
+  /** สถานะเนื้อหา — ผู้เรียนได้รับเฉพาะ 'published' */
+  status?: ContentStatus;
   /** ชุดข้อสอบที่ผูกเนื้อหานี้ไว้ — overlay จะเปิดอัตโนมัติเมื่อเริ่มทำชุดเหล่านั้น */
   testSetIds?: number[];
 }

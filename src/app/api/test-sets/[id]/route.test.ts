@@ -1,16 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), select: vi.fn(), pending: 0, peak: 0, set: null as unknown, questions: [] as unknown[], fail: false }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), isAdmin: vi.fn(), select: vi.fn(), pending: 0, peak: 0, set: null as unknown, questions: [] as unknown[], fail: false }));
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
+vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: mocks.isAdmin }));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
 import { GET } from './route';
 const request = new NextRequest('http://localhost:3000/api/test-sets/1');
+const previewRequest = new NextRequest('http://localhost:3000/api/test-sets/1?preview=1');
 const params = { params: Promise.resolve({ id: '1' }) };
+const tap = (status?: string) => ({
+  title: `Tap ${status ?? 'legacy'}`,
+  ...(status ? { status } : {}),
+  items: [{ prompt: 'She ___', choiceA: 'go', choiceB: 'goes', correct: 1 as const }],
+});
 beforeEach(() => {
   mocks.pending = 0; mocks.peak = 0; mocks.fail = false;
   mocks.set = { id: 1, sectionId: 'focus-form', name: 'Practice', description: null, duration: 20, isActive: true };
   mocks.questions = [{ id: 2, orderIndex: 0, questionText: 'Tap', tapExercise: { title: 'Tap', items: [{ prompt: 'She ___', choiceA: 'go', choiceB: 'goes', correct: 1 }] } }];
   mocks.auth.mockReset().mockResolvedValue({ user: { id: 'learner' } });
+  mocks.isAdmin.mockReset().mockResolvedValue(false);
   mocks.select.mockReset().mockImplementation(() => {
     let name = '';
     const b: Record<string, unknown> = {};
@@ -44,6 +52,38 @@ describe('parallel test-set loading', () => {
     mocks.set = set; const response = await GET(request, params); expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ success: false, error: 'Test set not found' });
   });
+  it('drops Tap & Select activities that are not published, and keeps the rest', async () => {
+    mocks.questions = [
+      { id: 1, orderIndex: 0, questionText: 'MCQ' },
+      { id: 2, orderIndex: 1, tapExercise: tap('published') },
+      { id: 3, orderIndex: 2, tapExercise: tap('review') },
+      { id: 4, orderIndex: 3, tapExercise: tap() },
+      { id: 5, orderIndex: 4, tapExercise: tap('hidden') },
+    ];
+    const body = await (await GET(request, params)).json();
+    expect(body.data.questions.map((question: { id: number }) => question.id)).toEqual([1, 2, 4]);
+    // ผู้เรียนไม่ต้องรู้ว่ามีของรอตรวจอยู่ — ไม่มีการถามสิทธิ์แอดมินด้วยซ้ำ
+    expect(mocks.isAdmin).not.toHaveBeenCalled();
+  });
+
+  it('refuses ?preview=1 for anyone who is not an admin, before touching the database', async () => {
+    const response = await GET(previewRequest, params);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ success: false, error: 'โหมดพรีวิวใช้ได้เฉพาะบัญชีผู้ดูแล' });
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+
+  it('serves the pending activity to an admin in preview mode, so it can be checked on the real exam page', async () => {
+    mocks.isAdmin.mockResolvedValue(true);
+    mocks.questions = [
+      { id: 1, orderIndex: 0, questionText: 'MCQ' },
+      { id: 3, orderIndex: 1, tapExercise: tap('review') },
+    ];
+    const body = await (await GET(previewRequest, params)).json();
+    expect(body.data.questions.map((question: { id: number }) => question.id)).toEqual([1, 3]);
+    expect(body.data.questions[1].tapExercise.status).toBe('review');
+  });
+
   it('preserves the error response if either concurrent query fails', async () => {
     mocks.fail = true; const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     try { expect((await GET(request, params)).status).toBe(500); } finally { log.mockRestore(); }

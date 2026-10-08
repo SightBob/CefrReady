@@ -12,6 +12,7 @@ import ArticleEditor from '@/components/ArticleEditor';
 import TapExerciseEditor from '@/components/admin/TapExerciseEditor';
 import { countTestSetItems, type TapExerciseData } from '@/lib/test-set-slots';
 import { buildTopicRuns, normalizeTopic, type TopicRun } from '@/lib/test-set-topics';
+import { contentStatusMeta } from '@/lib/explain-visibility';
 import { toast } from 'sonner';
 
 interface Question {
@@ -43,7 +44,8 @@ interface TopicExplainRow {
   id: number;
   grammarTopic: string;
   title: string;
-  isPublished: boolean;
+  /** สถานะเนื้อหา: draft | review | published | hidden (ผู้เรียนเห็นเฉพาะ published) */
+  status: string;
   testSetIds: number[];
 }
 
@@ -109,7 +111,7 @@ interface CreateQuestionForm {
   article: Article;
   audioUrl: string;
   transcript: string;
-  tapExercise: { title: string; hint: string; items: { prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }[] };
+  tapExercise: TapExerciseData;
 }
 
 export default function TestSetDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -143,7 +145,7 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
     article: { title: '', text: '', blanks: [] } as Article,
     audioUrl: '',
     transcript: '',
-    tapExercise: { title: '', hint: '', items: [{ prompt: '', choiceA: '', choiceB: '', correct: 0 }] },
+    tapExercise: { title: '', hint: '', items: [{ prompt: '', choiceA: '', choiceB: '', correct: 0 }], status: 'published' },
   });
   const [creating, setCreating] = useState(false);
   const [audioUploading, setAudioUploading] = useState(false);
@@ -273,8 +275,11 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
           </span>
         ) : (
           <span className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${explain.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-              {explain.isPublished ? 'เผยแพร่' : 'ฉบับร่าง — ยังไม่แสดงให้นักเรียน'}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${contentStatusMeta(explain.status).badgeClass}`}
+              title={contentStatusMeta(explain.status).hint}
+            >
+              {contentStatusMeta(explain.status).label}{contentStatusMeta(explain.status).learnerVisible ? '' : ' — ยังไม่แสดงให้นักเรียน'}
             </span>
             <Link href={`/admin/test-explains/${explain.id}`} className="text-xs font-semibold text-sky-700 hover:underline">
               {explain.title}
@@ -476,7 +481,7 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
       article: { title: '', text: '', blanks: [] },
       audioUrl: '',
       transcript: '',
-      tapExercise: { title: '', hint: '', items: [{ prompt: '', choiceA: '', choiceB: '', correct: 0 }] },
+      tapExercise: { title: '', hint: '', items: [{ prompt: '', choiceA: '', choiceB: '', correct: 0 }], status: 'published' },
     });
     setTapExerciseMode(false);
   };
@@ -660,6 +665,15 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
                     <p className="text-sm text-slate-800 line-clamp-2">{sq.question.questionText}</p>
                     <div className="flex items-center gap-3 mt-2">
                       {sq.question.tapExercise && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">Tap & Select · {sq.question.tapExercise.items.length} ข้อย่อย</span>}
+                      {sq.question.tapExercise && (
+                        // สถานะของกิจกรรม — ไม่ใช่ published = ผู้เรียนไม่เห็นข้อนี้ในชุด
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${contentStatusMeta(sq.question.tapExercise.status).badgeClass}`}
+                          title={contentStatusMeta(sq.question.tapExercise.status).hint}
+                        >
+                          {contentStatusMeta(sq.question.tapExercise.status).label}
+                        </span>
+                      )}
                       <span className="text-xs text-slate-400">{sq.question.cefrLevel}</span>
                       <span className="text-xs text-slate-400 capitalize">{sq.question.difficulty}</span>
                       {isFormMeaning && sq.question.article && (

@@ -68,6 +68,11 @@ export interface ReviewTopic {
   examples?: LessonExample[];
   practice?: LessonPractice;
   tap?: TapExercise;
+  /**
+   * สถานะรายส่วน: `'draft'` = ยังไม่เสร็จ ห้ามแสดงให้ผู้เรียน (ไม่ระบุ = `'published'`)
+   * ใช้ทยอยเปิดใช้เนื้อหาเป็นส่วน ๆ โดยที่เรื่องนั้นยังเผยแพร่รวมอยู่ได้
+   */
+  visibility?: 'draft' | 'published';
   /** Historical type marker accepted while normalizing older saved sections. */
   legacyType?: string;
   /** ℹ️ tip line at the card bottom (optional) */
@@ -121,7 +126,12 @@ export function normalizeLessonSection(value: unknown): LessonSection {
 
   const originalType = typeof section.type === 'string' ? section.type : undefined;
   const legacyType = typeof section.legacyType === 'string' ? section.legacyType : originalType;
+  // สถานะรายส่วน: เก็บเฉพาะค่าที่รู้จัก — ค่าอื่นถือว่า "เผยแพร่" เพื่อไม่ให้เนื้อหาเดิมหายจากผู้เรียน
+  const visibility = section.visibility === 'draft' ? 'draft' as const
+    : section.visibility === 'published' ? 'published' as const
+      : undefined;
   const normalized: LessonSection = {
+    visibility,
     type: undefined,
     legacyType: legacyType === 'rule' || legacyType === 'detailedRule' || legacyType === 'importantNote' || legacyType === 'practice' ? undefined : legacyType,
     heading: typeof section.heading === 'string' ? section.heading : undefined,

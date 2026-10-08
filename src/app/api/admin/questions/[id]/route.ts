@@ -4,6 +4,7 @@ import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { eq, sql, asc } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
+import { resolveTapExerciseStatus } from '@/lib/tap-visibility';
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -87,6 +88,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       const tapExercise = body.tapExercise as {
         title?: unknown;
         hint?: unknown;
+        status?: unknown;
         items?: Array<{ prompt?: unknown; choiceA?: unknown; choiceB?: unknown; correct?: unknown }>;
       } | null;
       if (tapExercise !== null && (
@@ -105,7 +107,14 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       )) {
         return NextResponse.json({ error: 'Invalid Tap & Select exercise' }, { status: 400 });
       }
-      updateData.tapExercise = tapExercise as typeof questions.$inferInsert.tapExercise;
+      // สถานะของกิจกรรม: รับเฉพาะค่าที่รู้จัก (ไม่ส่งมา = คงค่าเดิม/ถือว่าเผยแพร่)
+      const status = resolveTapExerciseStatus(tapExercise?.status);
+      if (status === null) {
+        return NextResponse.json({ error: 'สถานะของกิจกรรม Tap & Select ไม่ถูกต้อง' }, { status: 400 });
+      }
+      updateData.tapExercise = (tapExercise && status !== undefined
+        ? { ...tapExercise, status }
+        : tapExercise) as typeof questions.$inferInsert.tapExercise;
     }
     // Note: Do NOT include createdAt, updatedAt, or any other fields
 

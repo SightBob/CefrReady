@@ -2,6 +2,8 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 import type { TapExerciseData } from '@/lib/test-set-slots';
+import { parseTapExerciseStatus } from '@/lib/tap-visibility';
+import ExplainStatusSelect from '@/components/admin/ExplainStatusSelect';
 
 export default function TapExerciseEditor({
   value,
@@ -16,6 +18,13 @@ export default function TapExerciseEditor({
 
   return (
     <div className="space-y-4">
+      {/* สถานะของกิจกรรม: ผู้เรียนเห็นเฉพาะ “เผยแพร่” — แอดมินเห็นทุกสถานะในหน้าสอบจริง
+          ที่เปิดด้วยโหมดพรีวิว (?preview=1) และในหน้าจัดชุดข้อสอบนี้ */}
+      <ExplainStatusSelect
+        label="สถานะกิจกรรม"
+        value={parseTapExerciseStatus(value.status)}
+        onChange={status => onChange({ ...value, status })}
+      />
       <label className="block text-sm font-medium text-slate-700">
         ชื่อกิจกรรม
         <input

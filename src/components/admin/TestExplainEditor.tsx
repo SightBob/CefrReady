@@ -6,14 +6,25 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   AlertTriangle, ArrowLeft, BookOpen, Check, ChevronDown, ChevronUp, Download,
-  Eye, FileUp, Highlighter, Loader2, Plus, Trash2, Upload, X,
+  Eye, EyeOff, FileUp, Highlighter, Loader2, Plus, Trash2, Upload, X,
 } from 'lucide-react';
 import ReviewContent from '@/components/ReviewContent';
 import RichText from '@/components/RichText';
 import { normalizeLessonSection, type LessonSection } from '@/lib/lesson-sections';
 import { readableTextColor } from '@/lib/rich-text';
 import { explainTopicWarning, linkExplainTopic, type QuestionTopicOption } from '@/lib/test-explain-topics';
+import { explainCoverage, type CoverageQuestion } from '@/lib/explain-coverage';
 import ExplainTopicField from '@/components/admin/ExplainTopicField';
+import ExplainCoveragePanel from '@/components/admin/ExplainCoveragePanel';
+import ExplainStatusSelect from '@/components/admin/ExplainStatusSelect';
+import {
+  contentStatusMeta,
+  parseContentStatus,
+  parseSectionVisibility,
+  PUBLISHED_STATUS,
+  type ContentStatus,
+  type SectionVisibility,
+} from '@/lib/explain-visibility';
 import type { TestExplainContent } from '@/components/TestExplainOverlay';
 
 // ============================================================
@@ -62,7 +73,7 @@ function loadSavedColors(): SavedColor[] {
 // ============================================================
 
 type TopicOption = QuestionTopicOption;
-interface ExplainRow extends TestExplainContent { isPublished: boolean; questionCount: number; updatedAt: string }
+interface ExplainRow extends TestExplainContent { status: ContentStatus; questionCount: number; updatedAt: string }
 
 interface ExampleRow { en: string; th: string; ok: boolean }
 interface RowDraft { left: string; right: string }
@@ -72,6 +83,8 @@ type SectionType = NonNullable<LessonSection['type']>;
 
 interface SectionRow {
   type: SectionType;
+  /** 'draft' = ส่วนนี้ยังไม่เสร็จ ยังไม่แสดงให้ผู้เรียน */
+  visibility: SectionVisibility;
   heading: string;
   body: string;
   chip: string;
@@ -84,6 +97,8 @@ interface SectionRow {
 
 const emptySection = (type: SectionType = 'rule'): SectionRow => ({
   type,
+  // ส่วนใหม่เริ่มที่ 'ผู้เรียนเห็น' เพื่อไม่ให้เนื้อหาที่เพิ่งเพิ่มหายจากผู้เรียนโดยไม่ตั้งใจ
+  visibility: 'published',
   heading: '',
   body: '',
   chip: '',
@@ -116,7 +131,7 @@ const JSON_EXAMPLE = `{
     }
   ],
   "tip": "==yellow;อย่าลืมเติม s== กับ he/she/it",
-  "isPublished": true
+  "status": "published"
 }`;
 
 function toSectionDraft(value: LessonSection): SectionRow {
@@ -125,6 +140,7 @@ function toSectionDraft(value: LessonSection): SectionRow {
   return {
     ...emptySection(type),
     type,
+    visibility: parseSectionVisibility(normalized.visibility),
     heading: normalized.heading ?? '',
     body: normalized.body ?? '',
     chip: normalized.chip ?? '',
@@ -156,6 +172,8 @@ function sectionHasContent(section: SectionRow): boolean {
 
 function sectionToPayload(section: SectionRow) {
   const payload: Record<string, unknown> = { type: section.type };
+  // ส่งเฉพาะตอนเป็นฉบับร่าง — ไม่ระบุ = ผู้เรียนเห็น (คงรูปแบบข้อมูลเดิมไว้)
+  if (section.visibility === 'draft') payload.visibility = 'draft';
   if (section.heading.trim()) payload.heading = section.heading.trim();
   if (section.body.trim()) payload.body = section.body.trim();
   if (section.type === 'rule' || section.type === 'detailedRule') {
@@ -230,6 +248,9 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const router = useRouter();
   const [rows, setRows] = useState<ExplainRow[]>([]);
   const [topics, setTopics] = useState<TopicOption[]>([]);
+  /** ข้อสอบทุกข้อของหัวข้อที่เลือก — ใช้ตรวจว่าบทนี้ครอบคลุมทุกข้อหรือยัง */
+  const [coverageQuestions, setCoverageQuestions] = useState<CoverageQuestion[]>([]);
+  const [coverageLoading, setCoverageLoading] = useState(false);
   const [grammarTopic, setGrammarTopic] = useState('');
   // โหมดพิมพ์หัวข้อเอง — เปิดเมื่อแก้เนื้อหาที่หัวข้อไม่ตรงกับข้อสอบแล้ว หรือเลือก "พิมพ์หัวข้อใหม่"
   const [customTopic, setCustomTopic] = useState(false);
@@ -237,7 +258,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const [intro, setIntro] = useState('');
   const [sections, setSections] = useState<SectionRow[]>([emptySection()]);
   const [tip, setTip] = useState('');
-  const [isPublished, setIsPublished] = useState(false);
+  const [status, setStatus] = useState<ContentStatus>('draft');
   // ชุดข้อสอบที่ผูกเนื้อหานี้ไว้ — เปิด overlay อัตโนมัติเมื่อเริ่มทำชุด
   const [testSetIds, setTestSetIds] = useState<number[]>([]);
   const [availableTestSets, setAvailableTestSets] = useState<{ id: number; sectionId: string; name: string; sectionName: string }[]>([]);
@@ -248,6 +269,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previewIncludeDraft, setPreviewIncludeDraft] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [importResult, setImportResult] = useState<null | {
@@ -308,6 +330,18 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
     [sections],
   );
 
+  /** ส่วนที่ผู้เรียนจะเห็นจริง — ตัดส่วนที่ตั้งเป็นฉบับร่างออก */
+  const learnerPreviewSections = useMemo(
+    () => parsedSections.filter((section) => section.visibility !== 'draft'),
+    [parsedSections],
+  );
+
+  /** จำนวนส่วนที่มีเนื้อหาแต่ตั้งเป็นฉบับร่าง (ผู้เรียนจะไม่เห็น) */
+  const hiddenPartCount = useMemo(
+    () => sections.filter((section) => sectionHasContent(section) && section.visibility === 'draft').length,
+    [sections],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -342,7 +376,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         setIntro(selected.intro ?? '');
         setSections(selected.sections?.length ? selected.sections.map(toSectionDraft) : [emptySection()]);
         setTip(selected.tip ?? '');
-        setIsPublished(selected.isPublished);
+        setStatus(parseContentStatus(selected.status));
         setTestSetIds(selected.testSetIds ?? []);
       } else {
         setGrammarTopic(topicRows[0]?.grammarTopic ?? '');
@@ -356,6 +390,37 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   }, [explainId, mode]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // โหลดข้อสอบของหัวข้อที่เลือกไว้ เพื่อเทียบกับหัวข้อย่อยที่บทนี้มี (ใช้เตือนเท่านั้น)
+  const coverageTopic = customTopic ? '' : grammarTopic.trim();
+  useEffect(() => {
+    if (!coverageTopic) {
+      setCoverageQuestions([]);
+      setCoverageLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCoverageLoading(true);
+    fetch(`/api/admin/test-explains/topics/${encodeURIComponent(coverageTopic)}/questions`, { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (cancelled) return;
+        setCoverageQuestions(payload?.success && payload.data ? (payload.data.questions as CoverageQuestion[]) : []);
+      })
+      .catch(() => {
+        // ตรวจความครอบคลุมเป็นตัวช่วย — โหลดไม่ได้ก็ไม่ควรกั้นการแก้เนื้อหา
+        if (!cancelled) setCoverageQuestions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCoverageLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [coverageTopic]);
+
+  const coverage = useMemo(
+    () => explainCoverage(coverageQuestions, parsedSections),
+    [coverageQuestions, parsedSections],
+  );
 
   // ---------- Section helpers ----------
   const updateSection = (i: number, patch: Partial<SectionRow>) =>
@@ -510,7 +575,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
       toast.error('กรุณาระบุ grammarTopic และชื่อเนื้อหา');
       return;
     }
-    if (isPublished && validationWarnings.length > 0) {
+    if (status === PUBLISHED_STATUS && validationWarnings.length > 0) {
       toast.error(`ยังเผยแพร่ไม่ได้: ${validationWarnings[0]}`);
       return;
     }
@@ -524,7 +589,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
       const response = await fetch(mode === 'edit' && explainId ? `/api/admin/test-explains/${explainId}` : '/api/admin/test-explains', {
         method: mode === 'edit' && explainId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grammarTopic: grammarTopic.trim(), title: title.trim(), intro, sections: payloadSections, tip, testSetIds, isPublished }),
+        body: JSON.stringify({ grammarTopic: grammarTopic.trim(), title: title.trim(), intro, sections: payloadSections, tip, testSetIds, status }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error ?? 'บันทึกไม่สำเร็จ');
@@ -566,7 +631,8 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         {rows.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">ยังไม่มีเนื้อหา Explain สำหรับข้อสอบ</div> : (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             {rows.map((row) => <div key={row.id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4 last:border-0">
-              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold text-slate-800">{row.title}</h2><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${row.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{row.isPublished ? 'เผยแพร่' : 'ฉบับร่าง'}</span></div><p className="mt-1 text-sm text-slate-500">{row.grammarTopic} · {row.questionCount > 0 ? `${row.questionCount} ข้อสอบ` : <span className="font-bold text-amber-600">⚠ ไม่มีข้อสอบใช้หัวข้อนี้</span>} · อัปเดต {new Date(row.updatedAt).toLocaleDateString('th-TH')}</p></div>
+              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold text-slate-800">{row.title}</h2><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${contentStatusMeta(row.status).badgeClass}`}>{contentStatusMeta(row.status).label}</span></div><p className="mt-1 text-sm text-slate-500">{row.grammarTopic} · {row.questionCount > 0 ? `${row.questionCount} ข้อสอบ` : <span className="font-bold text-amber-600">⚠ ไม่มีข้อสอบใช้หัวข้อนี้</span>} · อัปเดต {new Date(row.updatedAt).toLocaleDateString('th-TH')}</p></div>
+              <Link href={`/admin/test-explains/${row.id}/preview`} target="_blank" rel="noreferrer" title="เปิดหน้าอธิบายจริงเหมือนที่ผู้เรียนเห็น (ใช้เวลาที่บันทึกไว้ล่าสุด)" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-sky-300 hover:text-sky-700"><Eye className="h-4 w-4" /> ดูหน้าจริง</Link>
               <Link href={`/admin/test-explains/${row.id}`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50">แก้ไข</Link>
               <button type="button" onClick={() => exportOne(row)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" aria-label={`ส่งออก ${row.title}`}><Download className="h-4 w-4" /></button>
               <button type="button" onClick={() => removeExplain(row.id)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`ลบ ${row.title}`}><Trash2 className="h-4 w-4" /></button>
@@ -598,7 +664,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                               <Link
                                 key={row.id}
                                 href={`/admin/test-explains/${row.id}`}
-                                className={`rounded-[8px] px-2 py-0.5 text-[11px] font-semibold hover:underline ${row.isPublished ? 'bg-[#FFF0AE] text-[#574E29]' : 'bg-[#F5F5F5] text-[#6F7C8E]'}`}
+                                className={`rounded-[8px] px-2 py-0.5 text-[11px] font-semibold hover:underline ${contentStatusMeta(row.status).badgeClass}`}
                               >
                                 {row.title}
                               </Link>
@@ -651,7 +717,8 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                         <li><code className="rounded bg-slate-200 px-1 font-mono">intro</code> — บทนำ (string, ไม่บังคับ) รองรับ <code className="rounded bg-slate-200 px-1">**ตัวหนา**</code> และ <code className="rounded bg-slate-200 px-1">==ไฮไลต์==</code></li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">sections</code> <span className="text-rose-600">*บังคับ*</span> — array ของ Section (ดูรายละเอียดด้านล่าง) อย่างน้อย 1 อัน</li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">tip</code> — เคล็ดลับท้ายหน้า (string, ไม่บังคับ)</li>
-                        <li><code className="rounded bg-slate-200 px-1 font-mono">isPublished</code> — true = เผยแพร่ / false = ฉบับร่าง (ค่าเริ่มต้น false)</li>
+                        <li><code className="rounded bg-slate-200 px-1 font-mono">status</code> — สถานะเนื้อหา: <code className="rounded bg-slate-200 px-1">draft</code> (กำลังพัฒนา) · <code className="rounded bg-slate-200 px-1">review</code> (รอตรวจสอบ) · <code className="rounded bg-slate-200 px-1">published</code> (พร้อมให้ผู้เรียนเห็น) · <code className="rounded bg-slate-200 px-1">hidden</code> (ปิดชั่วคราว) — ค่าเริ่มต้น <code className="rounded bg-slate-200 px-1">draft</code> และผู้เรียนเห็นเฉพาะ <code className="rounded bg-slate-200 px-1">published</code> (ยังรับ <code className="rounded bg-slate-200 px-1">isPublished</code> แบบเดิมได้)</li>
+                        <li><code className="rounded bg-slate-200 px-1 font-mono">sections[].visibility</code> — <code className="rounded bg-slate-200 px-1">draft</code> = ส่วนนี้ยังไม่เสร็จ ไม่แสดงให้ผู้เรียน (ไม่ระบุ = <code className="rounded bg-slate-200 px-1">published</code>) ใช้ทยอยเปิดทีละส่วนได้โดยไม่ต้องซ่อนทั้งเรื่อง</li>
                         <li>ฟิลด์อื่นที่ไม่รู้จัก (เช่น id, createdAt, questionCount จากไฟล์ Export) จะถูก<b>ละเว้นโดยอัตโนมัติ</b> — นำเข้าซ้ำจากไฟล์ Export ได้ทันที</li>
                       </ul>
                     </div>
@@ -743,13 +810,28 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <Link href="/admin/test-explains" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> รายการ Explain</Link>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setIsPublished((v) => !v)} className={`inline-flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-bold ${isPublished ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>{isPublished ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'}</button>
+            {mode === 'edit' && explainId && (
+              <Link
+                href={`/admin/test-explains/${explainId}/preview`}
+                target="_blank"
+                rel="noreferrer"
+                title="เปิดหน้าอธิบายจริงเหมือนที่ผู้เรียนเห็น (ใช้เวลาที่บันทึกไว้ล่าสุด)"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-sky-300 hover:text-sky-700"
+              >
+                <Eye className="h-4 w-4" /> ดูหน้าจริง
+              </Link>
+            )}
             <button type="button" onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} บันทึก
             </button>
           </div>
         </div>
-        <h1 className="mb-6 text-2xl font-black text-slate-900">{mode === 'edit' ? 'แก้ไข' : 'สร้าง'} Explain สำหรับข้อสอบ</h1>
+        <h1 className="mb-4 text-2xl font-black text-slate-900">{mode === 'edit' ? 'แก้ไข' : 'สร้าง'} Explain สำหรับข้อสอบ</h1>
+
+        {/* สถานะเนื้อหา — draft/review/published/hidden · ผู้เรียนเห็นเฉพาะ published */}
+        <div className="mb-5">
+          <ExplainStatusSelect value={status} onChange={setStatus} />
+        </div>
 
         {/* Validation checklist */}
         {validationWarnings.length > 0 && (
@@ -762,7 +844,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                   {validationWarnings.slice(0, 5).map((warning) => <li key={warning}>• {warning}</li>)}
                 </ul>
                 {validationWarnings.length > 5 && <p className="mt-1 text-xs text-amber-600">และอีก {validationWarnings.length - 5} รายการ</p>}
-                <p className="mt-2 text-[11px] text-amber-600">บันทึกเป็นฉบับร่างได้ แต่ต้องแก้รายการเหล่านี้ก่อนกดเผยแพร่</p>
+                <p className="mt-2 text-[11px] text-amber-600">บันทึกเป็นฉบับร่าง/รอตรวจสอบได้เสมอ แต่ต้องแก้รายการเหล่านี้ให้ครบก่อนตั้งสถานะเป็น “เผยแพร่”</p>
               </div>
             </div>
           </div>
@@ -836,6 +918,9 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
             )}
           </div>
         </section>
+
+        {/* ความครอบคลุมของเนื้อหา — เตือนเท่านั้น ไม่กั้นการเผยแพร่ */}
+        <ExplainCoveragePanel coverage={coverage} loading={coverageLoading} />
 
         {/* Highlight color picker (shared across all fields) */}
         <div className="sticky top-2 z-20 mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
@@ -953,6 +1038,16 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                   </select>
                 </div>
                 <div className="flex items-center gap-0.5 rounded-lg bg-slate-50 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => updateSection(si, { visibility: section.visibility === 'draft' ? 'published' : 'draft' })}
+                    aria-pressed={section.visibility === 'draft'}
+                    title={section.visibility === 'draft' ? 'ส่วนนี้ยังไม่แสดงให้ผู้เรียน — คลิกเพื่อเปิดให้เห็น' : 'ผู้เรียนเห็นส่วนนี้อยู่ — คลิกเพื่อซ่อนไว้ก่อน (ฉบับร่าง)'}
+                    className={`mr-1 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold transition-colors ${section.visibility === 'draft' ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+                  >
+                    {section.visibility === 'draft' ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {section.visibility === 'draft' ? 'ฉบับร่าง (ผู้เรียนไม่เห็น)' : 'ผู้เรียนเห็น'}
+                  </button>
                   <button type="button" onClick={() => moveSection(si, 'up')} disabled={si === 0} aria-label="เลื่อน Section ขึ้น" className="rounded-md p-1.5 text-slate-400 hover:bg-white hover:text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronUp className="h-4 w-4" /></button>
                   <button type="button" onClick={() => moveSection(si, 'down')} disabled={si === sections.length - 1} aria-label="เลื่อน Section ลง" className="rounded-md p-1.5 text-slate-400 hover:bg-white hover:text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronDown className="h-4 w-4" /></button>
                   <button type="button" onClick={() => removeSection(si)} disabled={sections.length === 1} aria-label="ลบ Section" className="rounded-md p-1.5 text-slate-300 hover:bg-white hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"><Trash2 className="h-4 w-4" /></button>
@@ -1121,12 +1216,27 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
 
         {/* Preview */}
         <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><div><h2 className="font-extrabold text-slate-800">พรีวิวหน้าผู้เรียน</h2><p className="text-xs text-slate-400">แสดงการ์ดแบบเดียวกับหน้า explain ของผู้เรียน</p></div><Eye className="h-4 w-4 text-sky-600" /></div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+            <div><h2 className="font-extrabold text-slate-800">พรีวิวหน้าผู้เรียน</h2><p className="text-xs text-slate-400">แสดงการ์ดแบบเดียวกับหน้า explain ของผู้เรียน</p></div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-0.5 rounded-lg bg-slate-50 p-0.5" role="group" aria-label="โหมดพรีวิว">
+                <button type="button" aria-pressed={!previewIncludeDraft} onClick={() => setPreviewIncludeDraft(false)} className={`rounded-md px-2.5 py-1 text-[11px] font-bold ${previewIncludeDraft ? 'text-slate-400 hover:text-slate-600' : 'bg-white text-slate-800 shadow-sm'}`}>มุมมองผู้เรียน</button>
+                <button type="button" aria-pressed={previewIncludeDraft} onClick={() => setPreviewIncludeDraft(true)} className={`rounded-md px-2.5 py-1 text-[11px] font-bold ${previewIncludeDraft ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>รวมฉบับร่าง</button>
+              </div>
+              <Eye className="h-4 w-4 text-sky-600" />
+            </div>
+          </div>
+          {hiddenPartCount > 0 && (
+            <p className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800">
+              ⚠ มี {hiddenPartCount} ส่วนที่ตั้งเป็นฉบับร่าง — ผู้เรียนจะไม่เห็นส่วนนั้น
+              {status === PUBLISHED_STATUS && learnerPreviewSections.length === 0 ? ' และเนื่องจากทุกส่วนยังเป็นฉบับร่าง ผู้เรียนจะไม่เห็นเนื้อหาเรื่องนี้เลย' : ''}
+            </p>
+          )}
           <div className="min-h-[400px] bg-[#F7F7F7] p-3 sm:p-5">
-            {parsedSections.length ? (
+            {(previewIncludeDraft ? parsedSections : learnerPreviewSections).length ? (
               <>
                 <div className="mb-3 rounded-xl bg-white px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wider text-sky-600">{grammarTopic || 'grammarTopic'}</p><h3 className="font-extrabold text-slate-800">{title || 'ชื่อเนื้อหา'}</h3>{intro && <p className="mt-1 text-sm text-slate-500">{intro}</p>}</div>
-                <ReviewContent title={title} topics={parsedSections as LessonSection[]} tip={tip || undefined} />
+                <ReviewContent title={title} topics={(previewIncludeDraft ? parsedSections : learnerPreviewSections) as LessonSection[]} tip={tip || undefined} />
                 <div className="mt-3 rounded-xl bg-white p-4"><p className="mb-2 text-xs font-bold text-slate-500">ตัวอย่างไฮไลต์/ตัวหนา</p><RichText text="==yellow;ตัวอย่างเหลือง== · ==green;ตัวอย่างเขียว== · ==blue;ตัวอย่างฟ้า== · **ตัวหนา**" as="span" /></div>
               </>
             ) : <div className="rounded-xl bg-white p-8 text-center text-sm text-slate-400">เพิ่ม Section และกรอกเนื้อหาเพื่อดูตัวอย่างเนื้อหา</div>}

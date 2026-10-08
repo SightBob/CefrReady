@@ -1,10 +1,11 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { unstable_cache } from 'next/cache';
 import { db } from '@/db';
-import { questions, testExplains, testSetQuestions } from '@/db/schema';
+import { questions, testExplains, testSetQuestions, testSets } from '@/db/schema';
 import type { LessonSection } from '@/lib/lesson-sections';
+import { parseContentStatus, toLearnerExplain, toPreviewExplain, type ContentStatus } from '@/lib/explain-visibility';
 import type { TestSetQuestionLike } from '@/lib/test-set-slots';
-import { buildTopicRuns, type TopicRun } from '@/lib/test-set-topics';
+import { buildTopicRuns, normalizeTopic, type TopicRun } from '@/lib/test-set-topics';
 
 export interface SectionExplain {
   id: number;
@@ -13,6 +14,7 @@ export interface SectionExplain {
   intro: string | null;
   sections: LessonSection[];
   tip: string | null;
+  status: ContentStatus;
 }
 
 const explainColumns = {
@@ -22,10 +24,12 @@ const explainColumns = {
   intro: testExplains.intro,
   sections: testExplains.sections,
   tip: testExplains.tip,
+  status: testExplains.status,
 };
 
 /**
  * เนื้อหา Explain ทุกอันที่แอดมินผูกไว้กับชุดข้อสอบนี้ (`test_set_ids`) — เฉพาะฉบับที่เผยแพร่แล้ว
+ * และตัดส่วนที่ยังเป็นฉบับร่างออก (แอดมินดูของที่ยังไม่เสร็จได้จากหน้า /admin/test-explains)
  *
  * หนึ่งเรื่องมีได้หนึ่งอัน เพราะ `test_explains.grammar_topic` เป็น UNIQUE ดังนั้น
  * "ชุดหนึ่งมีได้หลายเรื่อง" = "ชุดหนึ่งมี explain ได้หลายอัน" โดยคีย์คือ grammarTopic
@@ -37,13 +41,95 @@ export async function fetchExplainsForSet(setId: number): Promise<SectionExplain
     .from(testExplains)
     .where(
       and(
-        eq(testExplains.isPublished, true),
+        eq(testExplains.status, 'published'),
         sql`${testExplains.testSetIds} @> ${JSON.stringify([setId])}::jsonb`,
       ),
     )
     .orderBy(asc(testExplains.id));
 
-  return rows.map((row) => ({ ...row, sections: (row.sections ?? []) as LessonSection[] }));
+  // เรื่องที่ผู้เรียนยังไม่เห็นเลย (ทุกส่วนเป็นฉบับร่าง) จะถูกตัดทิ้ง ไม่ให้เห็นหน้าเปล่า
+  return rows.flatMap((row) => {
+    const learner = toLearnerExplain({
+      ...row,
+      status: parseContentStatus(row.status),
+      sections: (row.sections ?? []) as LessonSection[],
+    });
+    return learner ? [learner] : [];
+  });
+}
+
+/** ชุดข้อสอบที่แอดมินควรเปิดดู “หน้าทำข้อสอบจริง” ของเนื้อหาอันหนึ่ง */
+export interface ExplainQuizTarget {
+  setId: number;
+  sectionId: string;
+  name: string;
+}
+
+const quizTargetColumns = {
+  setId: testSets.id,
+  sectionId: testSets.sectionId,
+  name: testSets.name,
+};
+
+/**
+ * หาชุดข้อสอบที่เนื้อหานี้จะถูกใช้จริง เพื่อเปิดหน้าทำข้อสอบจากหน้าพรีวิวของแอดมิน
+ *
+ * ลำดับความสำคัญ:
+ *  1. ชุดที่แอดมินผูกไว้ (`test_explains.test_set_ids`) — ของจริงที่ผู้เรียนจะเจอ
+ *  2. ชุดที่มีข้อสอบใช้ grammarTopic เดียวกัน — เคสปกติของเนื้อหาที่ยังไม่ได้ผูกชุด
+ *     (ผู้เรียนเจอเนื้อหานี้ผ่าน `grammarTopic` ตอนขึ้นเรื่องใหม่ ไม่ใช่ผ่านการผูกชุด)
+ *
+ * คืน null เมื่อไม่มีข้อสอบข้อใดใช้หัวข้อนี้เลย — ตอนนั้นเปิดหน้าสอบไปก็ไม่มีอะไรให้ดู
+ */
+export async function findExplainQuizTarget(options: {
+  grammarTopic: string;
+  boundSetIds?: number[] | null;
+}): Promise<ExplainQuizTarget | null> {
+  const boundIds = (options.boundSetIds ?? []).filter((id) => Number.isInteger(id) && id > 0);
+  if (boundIds.length) {
+    const [bound] = await db
+      .select(quizTargetColumns)
+      .from(testSets)
+      .where(inArray(testSets.id, boundIds))
+      .orderBy(asc(testSets.orderIndex))
+      .limit(1);
+    if (bound) return bound;
+  }
+
+  const topic = normalizeTopic(options.grammarTopic);
+  if (!topic) return null;
+
+  const [byTopic] = await db
+    .select(quizTargetColumns)
+    .from(questions)
+    .innerJoin(testSetQuestions, eq(testSetQuestions.questionId, questions.id))
+    .innerJoin(testSets, eq(testSets.id, testSetQuestions.testSetId))
+    .where(sql`TRIM(${questions.grammarTopic}) = ${topic}`)
+    .orderBy(asc(testSets.orderIndex), asc(testSets.id))
+    .limit(1);
+  return byTopic ?? null;
+}
+
+/**
+ * โหมดพรีวิวของแอดมิน: เนื้อหา explain **ทุกสถานะ** ที่ผูกกับชุดนี้ (ยังตัดส่วนฉบับร่างออก)
+ * ใช้เฉพาะเมื่อผู้เรียกตรวจสิทธิ์ผู้ดูแลแล้ว (ดู `isAdminRequest()`)
+ * — ไม่ cache เพราะเป็นมุมมองเฉพาะแอดมินที่ต้องเห็นค่าล่าสุดเสมอ
+ */
+export async function fetchExplainsForSetPreview(setId: number): Promise<SectionExplain[]> {
+  const rows = await db
+    .select(explainColumns)
+    .from(testExplains)
+    .where(sql`${testExplains.testSetIds} @> ${JSON.stringify([setId])}::jsonb`)
+    .orderBy(asc(testExplains.id));
+
+  return rows.flatMap((row) => {
+    const preview = toPreviewExplain({
+      ...row,
+      status: parseContentStatus(row.status),
+      sections: (row.sections ?? []) as LessonSection[],
+    });
+    return preview ? [preview] : [];
+  });
 }
 
 /** จัด explain เป็น map คีย์ตาม grammarTopic (trim) สำหรับเด้งรายเรื่องในหน้าสอบ */

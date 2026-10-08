@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTopicRuns, normalizeTopic, topicRunForSlot, usesSetLevelExplain } from './test-set-topics';
+import { buildTopicRuns, firstSlotIndexForTopic, normalizeTopic, topicRunForSlot, usesSetLevelExplain } from './test-set-topics';
 import { expandTestSetSlots } from './test-set-slots';
 
 const mcq = (id: number, grammarTopic: string | null) => ({
@@ -88,6 +88,24 @@ describe('topicRunForSlot', () => {
   it('returns null outside the delivered slots', () => {
     expect(topicRunForSlot(runs, 3)).toBeNull();
     expect(topicRunForSlot([], 0)).toBeNull();
+  });
+});
+
+describe('firstSlotIndexForTopic', () => {
+  const runs = buildTopicRuns([mcq(1, 'Modals'), mcq(2, 'Auxiliaries'), mcq(3, 'Auxiliaries')]);
+
+  it('points at the first slot of the topic so an admin preview opens on it', () => {
+    expect(firstSlotIndexForTopic(runs, 'Auxiliaries')).toBe(1);
+    expect(firstSlotIndexForTopic(runs, '  Auxiliaries ')).toBe(1);
+    expect(firstSlotIndexForTopic(runs, 'Modals')).toBe(0);
+  });
+
+  it('returns the first run when the same topic appears twice, and null when it is absent', () => {
+    const repeated = buildTopicRuns([mcq(1, 'A'), mcq(2, 'B'), mcq(3, 'A')]);
+    expect(firstSlotIndexForTopic(repeated, 'A')).toBe(0);
+    expect(firstSlotIndexForTopic(repeated, 'C')).toBeNull();
+    expect(firstSlotIndexForTopic(repeated, '')).toBeNull();
+    expect(firstSlotIndexForTopic(repeated, null)).toBeNull();
   });
 });
 

@@ -1,3 +1,5 @@
+import type { TapExerciseStatus } from '@/lib/tap-visibility';
+
 export interface TapExerciseItem {
   prompt: string;
   choiceA: string;
@@ -9,6 +11,11 @@ export interface TapExerciseData {
   title: string;
   hint?: string;
   items: TapExerciseItem[];
+  /**
+   * สถานะของกิจกรรม (ไม่ระบุ = 'published') — ผู้เรียนเห็นเฉพาะ 'published' เท่านั้น
+   * ดูกติกาที่ src/lib/tap-visibility.ts
+   */
+  status?: TapExerciseStatus;
 }
 
 export interface ChoiceOption {

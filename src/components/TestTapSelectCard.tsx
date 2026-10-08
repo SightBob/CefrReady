@@ -182,9 +182,6 @@ export default function TestTapSelectCard({
             className="min-w-0 flex-1 bg-transparent text-base font-medium text-[#1E293B] placeholder:text-[#9A9A9A] focus:outline-none"
           />
         </label>
-        <p className="flex items-center gap-1.5 text-xs text-slate-400"><RotateCcw size={12} /> ใช้ฝึกความเข้าใจ ไม่เปลี่ยนคะแนนสอบ · {note.length}/{MAX_TAP_REASON_LENGTH}</p>
-        {onNoteChange && <p className="text-sm leading-6 text-slate-500">เหตุผลและโจทย์จะถูกส่งไปตรวจผ่าน OpenRouter เมื่อผู้ดูแลเปิด AI กรุณาไม่ใส่ข้อมูลส่วนตัว</p>}
-
         {checking && <p role="status" className="text-sm text-slate-500">AI กำลังตรวจความเข้าใจ…</p>}
         {error && <div role="alert" className="space-y-3 text-sm text-red-600">
           <p>{error}</p>

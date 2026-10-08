@@ -4,8 +4,25 @@ import { db } from '@/db';
 import { testExplains } from '@/db/schema';
 import { auth } from '@/lib/auth';
 import { checkUserRateLimit } from '@/lib/api-security';
+import type { LessonSection } from '@/lib/lesson-sections';
+import { parseContentStatus, PUBLISHED_STATUS, toLearnerExplain, toPreviewExplain } from '@/lib/explain-visibility';
+import { isAdminRequest } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * เนื้อหาที่ผู้เรียนเห็นได้จริง — null เมื่อยังไม่ published หรือทุกส่วนเป็นฉบับร่าง
+ * `preview` = โหมดพรีวิวของแอดมิน (ข้ามการเช็คสถานะ แต่ยังตัดส่วนฉบับร่างออก)
+ */
+function learnerExplain<T extends { status: unknown; sections: unknown }>(row: T | undefined, preview = false) {
+  if (!row) return null;
+  const build = preview ? toPreviewExplain : toLearnerExplain;
+  return build({
+    ...row,
+    status: parseContentStatus(row.status),
+    sections: (row.sections ?? []) as LessonSection[],
+  });
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -19,6 +36,15 @@ export async function GET(request: NextRequest) {
   const setIdParam = request.nextUrl.searchParams.get('setId');
   const setId = setIdParam ? Number(setIdParam) : null;
 
+  // โหมดพรีวิวของแอดมิน: เห็นเนื้อหาที่ยังไม่เผยแพร่ได้ (ตรวจสิทธิ์ที่ฝั่งเซิร์ฟเวอร์เท่านั้น)
+  const preview = request.nextUrl.searchParams.get('preview') === '1';
+  if (preview && !(await isAdminRequest())) {
+    return NextResponse.json(
+      { success: false, error: 'โหมดพรีวิวใช้ได้เฉพาะบัญชีผู้ดูแล' },
+      { status: 403 },
+    );
+  }
+
   try {
     const explainColumns = {
       id: testExplains.id,
@@ -27,28 +53,43 @@ export async function GET(request: NextRequest) {
       intro: testExplains.intro,
       sections: testExplains.sections,
       tip: testExplains.tip,
+      status: testExplains.status,
     };
     // ลำดับความสำคัญ: เรื่องของข้อที่กำลังเปิดอยู่ก่อนเสมอ (grammarTopic ตรงเป๊ะ)
     // แล้วจึง fallback เป็น explain ที่ผูกกับชุดนี้
     //
     // เดิมลำดับกลับกัน (pinned ก่อน) ซึ่งใช้ได้ตอนชุดหนึ่งมีเรื่องเดียว แต่พอรวม
     // หลายเรื่องไว้ในชุดเดียว ปุ่ม “โหมดทบทวน” จะเปิดเนื้อหาของเรื่องแรกให้ทุกข้อ
+    // ผู้เรียนเห็นเฉพาะเนื้อหาที่ published — draft/review/hidden แอดมินดูได้จาก
+    // หน้า /admin/test-explains (และส่วนที่เป็นฉบับร่างถูกตัดออกให้ด้วย)
     const [explain] = await db.select(explainColumns).from(testExplains)
-      .where(and(eq(testExplains.grammarTopic, topic), eq(testExplains.isPublished, true)))
+      .where(preview
+        ? eq(testExplains.grammarTopic, topic)
+        : and(eq(testExplains.grammarTopic, topic), eq(testExplains.status, PUBLISHED_STATUS)))
       .limit(1);
-    if (explain) {
-      return NextResponse.json({ success: true, data: explain }, { headers: { 'Cache-Control': 'private, no-store' } });
+    const visible = learnerExplain(explain, preview);
+    if (visible) {
+      return NextResponse.json(
+        { success: true, data: visible, ...(preview ? { preview: true } : {}) },
+        { headers: { 'Cache-Control': 'private, no-store' } },
+      );
     }
     if (setId !== null && Number.isInteger(setId) && setId > 0) {
       const pinned = await db.select(explainColumns).from(testExplains)
-        .where(and(
-          eq(testExplains.isPublished, true),
-          sql`${testExplains.testSetIds} @> ${JSON.stringify([setId])}::jsonb`,
-        ))
+        .where(preview
+          ? sql`${testExplains.testSetIds} @> ${JSON.stringify([setId])}::jsonb`
+          : and(
+            eq(testExplains.status, PUBLISHED_STATUS),
+            sql`${testExplains.testSetIds} @> ${JSON.stringify([setId])}::jsonb`,
+          ))
         .orderBy(asc(testExplains.id))
         .limit(1);
-      if (pinned.length > 0) {
-        return NextResponse.json({ success: true, data: pinned[0], auto: true }, { headers: { 'Cache-Control': 'private, no-store' } });
+      const pinnedVisible = learnerExplain(pinned[0], preview);
+      if (pinnedVisible) {
+        return NextResponse.json(
+          { success: true, data: pinnedVisible, auto: true, ...(preview ? { preview: true } : {}) },
+          { headers: { 'Cache-Control': 'private, no-store' } },
+        );
       }
     }
     return NextResponse.json({ success: true, data: null });

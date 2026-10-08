@@ -53,6 +53,8 @@ interface ProgressData {
   }>;
   /** Every test type in the catalogue (id + name), whether attempted or not. */
   testTypes: Array<{ id: string; name: string }>;
+  /** "คะแนนเก็บ" รวมจากเหตุผล Tap & Select ที่ admin ให้คะแนนแล้ว */
+  rewardPoints: number;
 }
 
 export interface ProgressUser {
@@ -225,9 +227,9 @@ export default function ProgressContent({
     );
   }
 
-  // Points badge — Figma 172:487 / 172:7264 ("260 คะแนน"). There is no points
-  // column in the schema yet; the value is a placeholder.
-  const POINTS_PLACEHOLDER = 260;
+  // Points badge — Figma 172:487 / 172:7264. Shows the user's real "คะแนนเก็บ"
+  // (total reward points an admin has given for Tap & Select reasons).
+  const rewardPoints = progress.rewardPoints;
 
   const attempts: HistoryAttempt[] = progress.recentAttempts;
 
@@ -280,7 +282,7 @@ export default function ProgressContent({
                         className="w-[10.7px] h-[9.5px] min-[992px]:w-[13.4px] min-[992px]:h-[11.9px] shrink-0"
                       />
                       <span className="text-[#00608a] text-[12px] min-[992px]:text-[14px] font-bold leading-[22px] tracking-[0.16px] whitespace-nowrap">
-                        {POINTS_PLACEHOLDER} คะแนน
+                        {rewardPoints} คะแนน
                       </span>
                     </div>
                   </div>

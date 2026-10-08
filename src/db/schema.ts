@@ -98,6 +98,9 @@ export const questions = pgTable('questions', {
     title: string;
     hint?: string;
     items: { prompt: string; choiceA: string; choiceB: string; correct: 0 | 1 }[];
+    // สถานะของกิจกรรม: 'draft' | 'review' | 'published' | 'hidden' — ไม่ระบุ = published
+    // ผู้เรียนเห็นเฉพาะ published (ดู src/lib/tap-visibility.ts)
+    status?: 'draft' | 'review' | 'published' | 'hidden';
   }>(), // Tap & Select teaching questions embedded in a test set
 
   cefrLevel: varchar('cefr_level', { length: 10 }).notNull(),
@@ -123,6 +126,8 @@ export const testExplains = pgTable('test_explains', {
   intro: text('intro'),
   sections: jsonb('sections').$type<Array<{
     type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice';
+    /** 'draft' = ยังไม่เสร็จ ไม่แสดงให้ผู้เรียน (ไม่ระบุ = 'published') */
+    visibility?: 'draft' | 'published';
     heading?: string;
     body?: string;
     chip?: string;
@@ -136,11 +141,13 @@ export const testExplains = pgTable('test_explains', {
   // Test sets ที่จะเปิด overlay เนื้อหานี้ให้ผู้เรียนดูอัตโนมัติเมื่อเริ่มทำชุด
   // [] = ไม่ผูกกับชุดใด (ใช้จาก grammarTopic อย่างเดียวเหมือนเดิม)
   testSetIds: jsonb('test_set_ids').$type<number[]>().default([]).notNull(),
-  isPublished: boolean('is_published').default(false).notNull(),
+  // สถานะเนื้อหา: 'draft' | 'review' | 'published' | 'hidden' — ผู้เรียนเห็นเฉพาะ 'published'
+  // (แทน is_published เดิม: true → published, false → draft ดู drizzle/0042)
+  status: varchar('status', { length: 20 }).default('draft').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
-  publishedIdx: index('test_explains_published_idx').on(table.isPublished),
+  statusIdx: index('test_explains_status_idx').on(table.status),
 }));
 
 export type DbTestExplain = typeof testExplains.$inferSelect;

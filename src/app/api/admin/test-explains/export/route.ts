@@ -5,6 +5,7 @@ import { testExplains } from '@/db/schema';
 import { normalizeLessonSections } from '@/lib/lesson-sections';
 import { requireAdmin } from '@/lib/admin-auth';
 import { collectItemIssues } from '@/lib/test-explain-validation';
+import { resolveContentStatus } from '@/lib/explain-visibility';
 
 // Export test explains as structured JSON. The payload is also the exact
 // shape the import endpoint accepts (round-trip safe), so admins can download,
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
 }
 
 // Upsert-style bulk import keyed by grammarTopic:
-//  - grammarTopic exists  → update that explain (title/intro/sections/tip/isPublished)
+//  - grammarTopic exists  → update that explain (title/intro/sections/tip/status)
 //  - grammarTopic is new  → insert
 // Sections always pass through normalizeLessonSections, so legacy shapes and
 // unknown extra keys are tolerated the same way the single-item API does.
@@ -110,13 +111,17 @@ export async function POST(request: Request) {
         );
         if (!hasContent) throw new Error('ต้องมีเนื้อหา explain อย่างน้อย 1 ส่วน');
 
+        // status ใหม่มาก่อน — ไฟล์เก่าที่มีแต่ isPublished ยังนำเข้าได้ (true = published)
+        const status = resolveContentStatus(raw);
+        if (!status) throw new Error('status ไม่ถูกต้อง — ใช้ draft, review, published หรือ hidden');
+
         const values = {
           grammarTopic,
           title,
           intro: typeof raw.intro === 'string' ? raw.intro.trim() || null : null,
           sections,
           tip: typeof raw.tip === 'string' ? raw.tip.trim() || null : null,
-          isPublished: raw.isPublished === true,
+          status,
         };
 
         const [existing] = await db.select({ id: testExplains.id }).from(testExplains).where(eq(testExplains.grammarTopic, grammarTopic)).limit(1);

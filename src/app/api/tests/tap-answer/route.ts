@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { checkUserRateLimit } from '@/lib/api-security';
+import { isAdminRequest } from '@/lib/admin-auth';
+import { isTapExerciseVisibleToLearners } from '@/lib/tap-visibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +46,11 @@ export async function POST(request: NextRequest) {
       eq(testSets.isActive, true),
     ))
     .limit(1);
+
+  // CONTENT STATUS: กิจกรรมที่ยังไม่เผยแพร่ให้ผู้เรียนทำไม่ได้ — แอดมินทำได้เพื่อตรวจในโหมดพรีวิว
+  if (row?.tapExercise && !isTapExerciseVisibleToLearners(row.tapExercise) && !(await isAdminRequest())) {
+    return NextResponse.json({ success: false, error: 'Tap & Select item not found' }, { status: 404 });
+  }
 
   const items = row?.tapExercise?.items;
   const item = Array.isArray(items) ? items[itemIndex] : undefined;

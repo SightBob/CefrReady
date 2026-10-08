@@ -4,6 +4,7 @@ import { questions, testSetQuestions, testSets, testTypes } from '@/db/schema';
 import { eq, count as drizzleCount } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
+import { resolveTapExerciseStatus } from '@/lib/tap-visibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +65,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
         typeof item.prompt === 'string' && typeof item.choiceA === 'string' && typeof item.choiceB === 'string' && (item.correct === 0 || item.correct === 1)
       );
       if (!validItems) return NextResponse.json({ error: 'ข้อมูล item ของ Tap & Select ไม่ถูกต้อง' }, { status: 400 });
+      // สถานะของกิจกรรม (ไม่ส่งมา = ไม่ระบุ → ถือว่าเผยแพร่ ตามกติกาใน tap-visibility)
+      const status = resolveTapExerciseStatus(tapExercise.status);
+      if (status === null) {
+        return NextResponse.json({ error: 'สถานะของกิจกรรม Tap & Select ไม่ถูกต้อง' }, { status: 400 });
+      }
+      if (status !== undefined) tapExercise.status = status;
     }
 
     if ((!questionText && !tapExercise) || !difficulty || !cefrLevel) {

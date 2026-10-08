@@ -4,7 +4,8 @@ import { questions, testAttempts, userAnswers, userProgress, testTypes, testSets
 import { eq, inArray, and, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { calculateScore } from '@/lib/score-utils';
-import { MAX_TAP_REASON_LENGTH, collectTapReasonRows } from '@/lib/tap-reason-rewards';
+import { MAX_TAP_REASON_LENGTH, collectTapReasonRows, computeTapReasonRewardPoints } from '@/lib/tap-reason-rewards';
+import { getTapReasonRewardSettingsSafe } from '@/lib/tap-reason-settings';
 import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
 import { z } from 'zod';
@@ -195,7 +196,9 @@ export async function POST(request: NextRequest) {
     // Non-fatal — continue to return results
   }
 
-  // Tap & Select: เก็บเหตุผลที่ผู้เรียนพิมพ์ (เฉพาะที่มีข้อความเท่านั้น) — รอ admin ให้คะแนนเก็บภายหลัง
+  // Tap & Select: เก็บเหตุผลที่ผู้เรียนพิมพ์ (เฉพาะที่มีข้อความเท่านั้น)
+  // ถ้าแอดมินเปิด "คะแนนเหมา" จะให้คะแนนทันทีที่ส่ง — ไม่ต้องประเมินทีละคำตอบ
+  // ถ้าปิดไว้ rewardPoints = null แล้วรอแอดมินให้คะแนนเองที่หน้า admin/tap-reasons
   try {
     const reasonRows = collectTapReasonRows({
       attemptId: newAttempt.id,
@@ -206,8 +209,20 @@ export async function POST(request: NextRequest) {
       clientReasons,
     });
     if (reasonRows.length > 0) {
+      // ให้คะแนนเป็นงานเสริม: อ่านค่าตั้งไม่สำเร็จ = เก็บเหตุผลไว้แบบยังไม่ให้คะแนน
+      // (ต้องไม่ทำให้เหตุผลที่ผู้เรียนเขียนหายไป)
+      let rewards: Array<number | null> = reasonRows.map(() => null);
+      try {
+        rewards = computeTapReasonRewardPoints(await getTapReasonRewardSettingsSafe(), reasonRows);
+      } catch (error) {
+        console.warn('[submit] อ่านค่าคะแนนเหมาไม่สำเร็จ — เก็บเหตุผลไว้แบบยังไม่ให้คะแนน:', error);
+      }
+      const rowsToInsert = reasonRows.map((row, index) => {
+        const points = rewards[index] ?? null;
+        return { ...row, rewardPoints: points, scoredAt: points === null ? null : now };
+      });
       // onConflictDoNothing: unique (attempt, question, item) กัน submit ซ้ำไม่ให้การส่งล้มทั้งก้อน
-      await db.insert(tapReasonSubmissions).values(reasonRows).onConflictDoNothing();
+      await db.insert(tapReasonSubmissions).values(rowsToInsert).onConflictDoNothing();
     }
   } catch (error) {
     console.error('[submit] Failed to save tap reasons:', error);

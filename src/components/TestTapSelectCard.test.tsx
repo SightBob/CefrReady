@@ -16,7 +16,8 @@ describe('Tap & Select reasoning UI', () => {
     expect(html).toContain('ตัวเลือกถูกต้อง');
     expect(html).toContain('ยังเข้าใจคลาดเคลื่อน');
     expect(html).toContain('เหตุผลยังคลาดเคลื่อน');
-    expect(html).toContain('ไม่เปลี่ยนคะแนนสอบ');
+    // หมายเหตุใต้ช่องพิมพ์ถูกถอดออกจาก UI แล้ว — ล็อกไว้ไม่ให้กลับมาโดยไม่ตั้งใจ
+    expect(html).not.toContain('ไม่เปลี่ยนคะแนนสอบ');
   });
   it('reveals the answer as soon as it is known, without any extra request', () => {
     const right = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" answerIsCorrect />);

@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 import { DEFAULT_TAP_AI_SETTINGS } from '@/lib/tap-ai';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), rate: vi.fn(), select: vi.fn(), settings: vi.fn(), evaluate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), rate: vi.fn(), select: vi.fn(), settings: vi.fn(), evaluate: vi.fn(), isAdmin: vi.fn() }));
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
+vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: mocks.isAdmin }));
 vi.mock('@/lib/api-security', () => ({ validateOrigin: mocks.origin, checkUserRateLimit: mocks.rate }));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
 vi.mock('@/lib/tap-ai-settings', () => ({ getTapAiSettings: mocks.settings }));
@@ -28,6 +29,29 @@ beforeEach(() => {
   mocks.select.mockReturnValue(rows([row]));
   mocks.settings.mockResolvedValue({ ...DEFAULT_TAP_AI_SETTINGS, enabled: true, model: 'provider/model' });
   mocks.evaluate.mockResolvedValue({ understanding: 'correct', feedback: 'เข้าใจถูกต้อง' });
+  mocks.isAdmin.mockReset().mockResolvedValue(false);
+});
+
+/** แถวของกิจกรรมที่ยังไม่เผยแพร่ — ผู้เรียนต้องแตะไม่ได้ แต่แอดมินตรวจในโหมดพรีวิวได้ */
+const pendingRow = { ...row, tapExercise: { ...row.tapExercise, status: 'review' } };
+
+describe('Tap & Select content status', () => {
+  it('hides an activity that is not published from learners without asking about admin rights', async () => {
+    mocks.select.mockReturnValue(rows([pendingRow]));
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(404);
+    expect(mocks.evaluate).not.toHaveBeenCalled();
+  });
+
+  it('lets an admin check an activity that is not published, so the preview exam can be used', async () => {
+    mocks.select.mockReturnValue(rows([pendingRow]));
+    mocks.isAdmin.mockResolvedValue(true);
+
+    expect((await POST(request())).status).toBe(200);
+    expect(mocks.evaluate).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('POST tap-reason', () => {

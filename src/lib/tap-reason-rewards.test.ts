@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_TAP_REASON_REWARD_SETTINGS,
   MAX_TAP_REASON_LENGTH,
+  MAX_TAP_REASON_POINTS,
   collectTapReasonRows,
+  computeTapReasonRewardPoints,
   groupTapReasonsByQuestion,
+  readTapReasonRewardSettings,
 } from './tap-reason-rewards';
 import type { TestSetSlot } from './test-set-slots';
 
@@ -99,6 +103,69 @@ describe('collectTapReasonRows', () => {
       clientReasons: { 99: { 0: 'เหตุผล' }, 1: {} },
     });
     expect(rows).toEqual([]);
+  });
+});
+
+describe('computeTapReasonRewardPoints', () => {
+  const rows = [{ isCorrect: false }, { isCorrect: true }];
+
+  it('ให้คะแนนเหมาเท่ากันทุกแถว ไม่สนว่าตอบถูกหรือผิด', () => {
+    expect(computeTapReasonRewardPoints({ autoAward: true, points: 50 }, rows)).toEqual([50, 50]);
+  });
+
+  it('คืน null ทุกแถวเมื่อปิดระบบเหมา (รอแอดมินให้คะแนนเอง)', () => {
+    expect(computeTapReasonRewardPoints({ autoAward: false, points: 50 }, rows)).toEqual([
+      null,
+      null,
+    ]);
+  });
+
+  it('คืน null ทุกแถวเมื่ออ่านค่าตั้งไม่ได้ (ไม่เดาคะแนน)', () => {
+    expect(computeTapReasonRewardPoints(null, rows)).toEqual([null, null]);
+  });
+
+  it('ให้ 0 คะแนนได้ ถ้าแอดมินตั้งเหมาไว้ 0', () => {
+    expect(computeTapReasonRewardPoints({ autoAward: true, points: 0 }, rows)).toEqual([0, 0]);
+  });
+
+  it('กันค่าที่หลุดสเปก: ติดลบ ปัดเป็น 0, เกินเพดาน ตัดที่เพดาน, ทศนิยม ปัดลงเป็นจำนวนเต็ม', () => {
+    expect(computeTapReasonRewardPoints({ autoAward: true, points: -20 }, rows)).toEqual([0, 0]);
+    expect(
+      computeTapReasonRewardPoints({ autoAward: true, points: MAX_TAP_REASON_POINTS + 999 }, rows)
+    ).toEqual([MAX_TAP_REASON_POINTS, MAX_TAP_REASON_POINTS]);
+    expect(computeTapReasonRewardPoints({ autoAward: true, points: 12.6 }, rows)).toEqual([13, 13]);
+  });
+
+  it('คืนอาร์เรย์ว่างเมื่อไม่มีแถว', () => {
+    expect(computeTapReasonRewardPoints({ autoAward: true, points: 50 }, [])).toEqual([]);
+  });
+});
+
+describe('readTapReasonRewardSettings', () => {
+  it('คืนค่าเริ่มต้นเมื่อไม่มีค่าในที่เก็บ', () => {
+    expect(readTapReasonRewardSettings(null)).toEqual(DEFAULT_TAP_REASON_REWARD_SETTINGS);
+  });
+
+  it('ทนค่าที่ผิดรูป (สตริง/อาร์เรย์/ตัวเลขมั่ว) ด้วยค่าเริ่มต้น', () => {
+    for (const garbage of ['50', 50, [], { points: 'ห้าสิบ' }, { autoAward: 'yes' }]) {
+      const settings = readTapReasonRewardSettings(garbage);
+      expect(Number.isInteger(settings.points)).toBe(true);
+      expect(typeof settings.autoAward).toBe('boolean');
+    }
+  });
+
+  it('อ่านค่าที่แอดมินตั้งไว้ได้ตรง ๆ', () => {
+    expect(readTapReasonRewardSettings({ autoAward: false, points: 25 })).toEqual({
+      autoAward: false,
+      points: 25,
+    });
+  });
+
+  it('ตัดคะแนนที่เกินเพดานหรือติดลบให้อยู่ในช่วงที่กำหนด', () => {
+    expect(readTapReasonRewardSettings({ autoAward: true, points: 10_000 }).points).toBe(
+      MAX_TAP_REASON_POINTS
+    );
+    expect(readTapReasonRewardSettings({ autoAward: true, points: -5 }).points).toBe(0);
   });
 });
 

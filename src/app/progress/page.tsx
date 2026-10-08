@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { userProgress, testAttempts, testTypes, users } from '@/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { userProgress, testAttempts, testTypes, users, tapReasonSubmissions } from '@/db/schema';
+import { eq, desc, and, sql, isNotNull } from 'drizzle-orm';
 import ProgressContent from './ProgressContent';
 
 export const metadata: Metadata = {
@@ -51,7 +51,7 @@ export default async function ProgressPage() {
   }
 
   // Fetch progress data server-side
-  const [progressByType, recentAttempts, allTestTypes, overallAgg, profileRow] = await Promise.all([
+  const [progressByType, recentAttempts, allTestTypes, overallAgg, profileRow, rewardAgg] = await Promise.all([
     db.select().from(userProgress).where(eq(userProgress.userId, session.user.id)),
     db
       .select({
@@ -91,6 +91,19 @@ export default async function ProgressPage() {
       .from(users)
       .where(eq(users.id, session.user.id))
       .limit(1),
+    // "คะแนนเก็บ" รวมจากเหตุผล Tap & Select — นับเฉพาะแถวที่ admin ให้คะแนนแล้ว
+    // (แถวจะเกิดเฉพาะข้อย่อยที่ผู้เรียนเขียนเหตุผลจริง จึงมีแต่คนที่เขียนที่มีคะแนน)
+    db
+      .select({
+        totalPoints: sql<number>`COALESCE(SUM(${tapReasonSubmissions.rewardPoints}), 0)`,
+      })
+      .from(tapReasonSubmissions)
+      .where(
+        and(
+          eq(tapReasonSubmissions.userId, session.user.id),
+          isNotNull(tapReasonSubmissions.rewardPoints)
+        )
+      ),
   ]);
 
   // Build test type name map
@@ -111,6 +124,8 @@ export default async function ProgressPage() {
 
   const totalTests = Number(overallAgg?.[0]?.totalTests ?? 0);
   const overallAverage = Number(overallAgg?.[0]?.overallAverage ?? 0);
+  // pg คืน SUM() ของ integer มาเป็น string → แปลงเป็น number ก่อนส่งให้ UI
+  const rewardPoints = Number(rewardAgg?.[0]?.totalPoints ?? 0);
 
   const formattedAttempts = recentAttempts.map((attempt) => ({
     id: attempt.id,
@@ -129,6 +144,7 @@ export default async function ProgressPage() {
 
   const progressData = {
     overall: { testsTaken: totalTests, averageScore: overallAverage },
+    rewardPoints,
     byCategory,
     recentAttempts: formattedAttempts,
     // Every test type in the catalogue, so the mobile picker can offer all of

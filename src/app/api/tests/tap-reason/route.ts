@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
+import { isAdminRequest } from '@/lib/admin-auth';
+import { isTapExerciseVisibleToLearners } from '@/lib/tap-visibility';
 import { MAX_TAP_REASON_LENGTH } from '@/lib/tap-ai';
 import { getTapAiSettings } from '@/lib/tap-ai-settings';
 import { evaluateTapReason, TapAiError } from '@/lib/openrouter';
@@ -52,6 +54,10 @@ export async function POST(request: NextRequest) {
         eq(questions.active, 'true'),
       ))
       .limit(1);
+    // CONTENT STATUS: กิจกรรมที่ยังไม่เผยแพร่ให้ผู้เรียนตรวจไม่ได้ — แอดมินทำได้เพื่อตรวจในโหมดพรีวิว
+    if (row?.tapExercise && !isTapExerciseVisibleToLearners(row.tapExercise) && !(await isAdminRequest())) {
+      return NextResponse.json({ success: false, error: 'ไม่พบข้อย่อย Tap & Select' }, { status: 404 });
+    }
     const item = row?.tapExercise?.items[itemIndex];
     if (!item || (item.correct !== 0 && item.correct !== 1)) {
       return NextResponse.json({ success: false, error: 'ไม่พบข้อย่อย Tap & Select' }, { status: 404 });
