@@ -23,9 +23,9 @@ describe('estimateCefrLevel', () => {
 });
 
 describe('skillOutcomeMessage (การ์ดคะแนน Figma 75:70702)', () => {
-  it('ระดับบนสุดคงข้อความตามดีไซน์เดิม', () => {
-    expect(skillOutcomeMessage('C2', 100)).toBe('และความหมายของคุณอยู่ในเกณฑ์สูงมาก');
-    expect(SKILL_OUTCOME_MESSAGES.C2).toBe('และความหมายของคุณอยู่ในเกณฑ์สูงมาก');
+  it('ระดับบนสุดใช้ข้อความที่ตกลงกันใหม่ (รอดีไซน์ยืนยัน)', () => {
+    expect(skillOutcomeMessage('C2', 100)).toBe('และคุณทำได้ในระดับสูงมาก');
+    expect(SKILL_OUTCOME_MESSAGES.C2).toBe('และคุณทำได้ในระดับสูงมาก');
   });
 
   it('คะแนนน้อยต้องไม่ได้ข้อความ "สูงมาก" อีก (บั๊กเดิม: ทุกคะแนนขึ้นเหมือนกันหมด)', () => {
@@ -35,10 +35,15 @@ describe('skillOutcomeMessage (การ์ดคะแนน Figma 75:70702)', 
     expect(skillOutcomeMessage('A1', 10)).not.toContain('สูงมาก');
   });
 
-  it('ทุกข้อความขึ้นต้นด้วย "และ" + พูดถึง "ของคุณ" เพื่อต่อท้ายป้ายทักษะได้ทุกแบบ', () => {
+  it('ไม่มีข้อความไหนฝังชื่อวิชา "ความหมาย" (บั๊กเดิม: สอบฟังแต่ข้อความบอกว่าความหมายดี)', () => {
+    for (const message of Object.values(SKILL_OUTCOME_MESSAGES)) {
+      expect(message).not.toContain('ความหมาย');
+    }
+  });
+
+  it('ทุกข้อความขึ้นต้นด้วย "และ" เพื่อต่อท้ายป้ายทักษะของบรรทัดแรกได้ทุกแบบ', () => {
     for (const message of Object.values(SKILL_OUTCOME_MESSAGES)) {
       expect(message.startsWith('และ')).toBe(true);
-      expect(message).toContain('ของคุณ');
     }
   });
 

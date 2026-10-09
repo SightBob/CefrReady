@@ -22,16 +22,16 @@ const render = (props: {
   );
 
 describe('TestResults — บรรทัดให้กำลังใจของการ์ดคะแนน', () => {
-  it('คะแนนสูง (C2) → ใช้ข้อความตามดีไซน์ "อยู่ในเกณฑ์สูงมาก"', () => {
+  it('คะแนนสูง (C2) → ข้อความระดับสูงสุด', () => {
     const html = render({ score: 10, totalQuestions: 10 });
     expect(html).toContain('ระดับที่ประเมินได้: C2');
-    expect(html).toContain('และความหมายของคุณอยู่ในเกณฑ์สูงมาก');
+    expect(html).toContain('และคุณทำได้ในระดับสูงมาก');
   });
 
   it('คะแนนน้อย (A1) → ข้อความให้กำลังใจ ไม่ขึ้นว่า "สูงมาก"', () => {
     const html = render({ score: 2, totalQuestions: 10 });
     expect(html).toContain('ระดับที่ประเมินได้: A1');
-    expect(html).toContain('และความหมายของคุณอยู่ในช่วงเริ่มต้น ฝึกต่อไปได้เลย');
+    expect(html).toContain('และคุณอยู่ในช่วงเริ่มต้น ฝึกต่อไปได้เลย');
     expect(html).not.toContain('สูงมาก');
   });
 
@@ -39,7 +39,7 @@ describe('TestResults — บรรทัดให้กำลังใจขอ
     const html = render({ score: 6, totalQuestions: 10 });
     expect(html).toContain('ระดับที่ประเมินได้: B1');
     expect(html).toContain('ทักษะความเข้าใจไวยากรณ์');
-    expect(html).toContain('และความหมายของคุณอยู่ในเกณฑ์ดี พื้นฐานแน่นแล้ว');
+    expect(html).toContain('และคุณทำได้ดี พื้นฐานแน่นแล้ว');
     expect(html).not.toContain('สูงมาก');
   });
 
