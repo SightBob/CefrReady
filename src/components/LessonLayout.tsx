@@ -90,7 +90,7 @@ export default function LessonLayout({
   const progressPct = Math.round(Math.min(Math.max(progress, 0), 1) * 100);
 
   return (
-    <div className="flex flex-col bg-[#F7F7F7] min-h-svh relative">
+    <div className={`flex flex-col bg-[#F7F7F7] min-h-svh relative ${reviewMode ? 'font-ibm' : ''}`}>
       {/* ===== Mobile Dot Map — same pattern as TestLayout's mobile nav ===== */}
       <div className={`${reviewMode ? 'hidden' : ''} md:hidden sticky top-0 z-30 border-b border-slate-200 shadow-sm`}>
         <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>

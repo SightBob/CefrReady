@@ -22,6 +22,21 @@ const practiceTopic = {
     ],
   },
 };
+describe('ReviewContent Typography (Figma 419:57569)', () => {
+  it('ใช้ IBM Plex Sans Thai กับเนื้อหาทั้งหน้าอธิบาย แทนฟอนต์ global', () => {
+    const html = renderToStaticMarkup(<ReviewContent topics={[{
+      type: 'rule' as const,
+      heading: 'IN (เมือง / ปี / ช่วงเวลา)',
+      chip: 'เมืองใหญ่ใช้ in',
+      description: 'ใช้กับพื้นที่ใหญ่ เมือง ประเทศ เดือน ปี และช่วงเวลา',
+      rows: [{ left: 'เมืองใหญ่ใช้ in', right: 'He lives in Bangkok.' }],
+      tip: 'In ฐานกว้าง',
+    }]} />);
+
+    expect(html).toMatch(/<div class="[^"]*font-ibm[^"]*">/);
+  });
+});
+
 
 describe('ReviewContent Mini Quiz เฉลย (ตาม Figma 249:1099)', () => {
   it('ยังไม่ตอบ: ไม่แสดงแถบเฉลย', () => {

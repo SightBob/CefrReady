@@ -304,7 +304,7 @@ export default function ReviewContent({
   // Node title (e.g. "Node 1: Do / Don't — ลูกมือสายลุย") is intentionally NOT
   // rendered on the explain page — the layout chip already shows the lesson name.
   return (
-    <div className="flex w-full flex-col items-center gap-3.5 max-md:gap-[7px]">
+    <div className="flex w-full flex-col items-center gap-3.5 font-ibm max-md:gap-[7px]">
       {groups.map((group, groupIndex) => {
         if (group.kind === "practice") {
           const section = group.sections[0];
