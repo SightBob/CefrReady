@@ -164,6 +164,19 @@ function MiniQuiz({
           {questions.map((item, index) => {
             const answered = answers[index] !== undefined;
             const correct = answers[index] === item.answerIndex;
+            /**
+             * สีพื้นบอก "ผลการตอบ" เสมอ ไม่ว่าเลขข้อนั้นจะเป็นข้อที่กำลังเปิดดูอยู่หรือไม่
+             *
+             * เดิมเช็ค `active` ก่อน ทำให้เลขข้อที่เพิ่งตอบยังเป็นสีเทา ต้องคลิกไปข้ออื่น
+             * ก่อนถึงเห็นสีเขียว/แดง (ยิ่งกว่านั้นสีเทาของ "ข้อที่กำลังดู" ซ้ำกับสีเทาของ
+             * "ยังไม่ตอบ" จึงแยกไม่ออก) — "ข้อที่กำลังดู" จึงย้ายไปบอกด้วยวงแหวนด้านใน
+             * ทับบนสีพื้นเดิม (ไม่ทับสีผลการตอบ และไม่เปลี่ยนขนาด 19px เพราะเป็น inset)
+             */
+            const stateClass = answered
+              ? correct
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-rose-100 text-rose-700"
+              : "bg-[#F2F2F2] text-[#5C5C5C] hover:bg-slate-200";
             return (
               <button
                 key={index}
@@ -171,14 +184,8 @@ function MiniQuiz({
                 onClick={() => setActive(index)}
                 aria-current={active === index ? "step" : undefined}
                 aria-label={`ข้อ ${index + 1}${answered ? (correct ? " ตอบถูก" : " ตอบผิด") : ""}`}
-                className={`grid size-[19px] place-items-center rounded-[4px] text-[11px] font-semibold leading-[18px] tracking-[0.35px] transition-colors ${
-                  active === index
-                    ? "bg-[#F2F2F2] text-[#5C5C5C]"
-                    : answered && correct
-                      ? "bg-emerald-100 text-emerald-700"
-                      : answered
-                        ? "bg-rose-100 text-rose-700"
-                        : "bg-[#F2F2F2] text-[#5C5C5C] hover:bg-slate-200"
+                className={`grid size-[19px] place-items-center rounded-[4px] text-[11px] font-semibold leading-[18px] tracking-[0.35px] transition-colors ${stateClass}${
+                  active === index ? " ring-2 ring-inset ring-[#E9CD62]" : ""
                 }`}
               >
                 {index + 1}

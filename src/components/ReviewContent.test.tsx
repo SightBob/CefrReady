@@ -84,6 +84,69 @@ describe('ReviewContent Mini Quiz เฉลย (ตาม Figma 249:1099)', () =
 });
 
 /**
+ * เลขข้อ 1 2 3 ของ Mini Quiz ต้องบอก “ผลการตอบ” เสมอบนสีพื้น
+ * (บั๊กเดิม: เช็ค active ก่อน answered — เลขข้อที่กำลังเปิดดูอยู่จึงถูกบังด้วยสีเทา
+ *  ต้องคลิกไปข้ออื่นก่อนถึงเห็นสีเขียว/แดง และสีเทาของ “ข้อที่กำลังดู”
+ *  ซ้ำกับสีเทาของ “ยังไม่ตอบ” จึงแยกไม่ออก)
+ * “ข้อที่กำลังดู” บอกด้วยวงแหวนด้านใน (ring-2 ring-inset) ทับบนสีพื้น
+ */
+describe('ReviewContent Mini Quiz เลขข้อ (nav) — สีบอกผลการตอบ', () => {
+  const ACTIVE_RING = 'ring-2 ring-inset ring-[#E9CD62]';
+  /** คลาสของปุ่มเลขข้อ (aria-label = "ข้อ N …") */
+  const navButtonClass = (html: string, questionNumber: number) => {
+    const match = html.match(
+      new RegExp(`<button[^>]*aria-label="ข้อ ${questionNumber}[^"]*"[^>]*class="([^"]*)"`),
+    );
+    return match?.[1] ?? '';
+  };
+
+  it('ข้อที่กำลังเปิดดูอยู่ + ตอบถูก → พื้นเขียว และมีวงแหวนบอกข้อที่กำลังดู', () => {
+    // question 0 = answerIndex 0 → ตอบถูก, active เริ่มที่ 0
+    const html = renderToStaticMarkup(
+      <ReviewContent topics={[practiceTopic]} initialPracticeAnswers={{ 0: 0 }} />,
+    );
+    const first = navButtonClass(html, 1);
+    expect(first).toContain('bg-emerald-100');
+    expect(first).toContain('text-emerald-700');
+    expect(first).toContain(ACTIVE_RING);
+    expect(first).not.toContain('bg-[#F2F2F2]'); // ห้ามถูกแทนที่ด้วยสีเทาของ active
+    expect(html).toContain('aria-current="step"'); // ยังบอกว่าเป็นข้อที่กำลังดูอยู่
+    expect(html).toContain('aria-label="ข้อ 1 ตอบถูก"');
+  });
+
+  it('ข้อที่กำลังเปิดดูอยู่ + ตอบผิด → พื้นแดง ไม่ใช่เทา และมีวงแหวนเหมือนกัน', () => {
+    const html = renderToStaticMarkup(
+      <ReviewContent topics={[practiceTopic]} initialPracticeAnswers={{ 0: 2 }} />,
+    );
+    const first = navButtonClass(html, 1);
+    expect(first).toContain('bg-rose-100');
+    expect(first).toContain('text-rose-700');
+    expect(first).toContain(ACTIVE_RING);
+    expect(first).not.toContain('bg-[#F2F2F2]');
+  });
+
+  it('ข้อยังไม่ตอบ → เทา ไม่มีสีถูก/ผิด และไม่มีวงแหวนของข้อที่กำลังดู', () => {
+    const html = renderToStaticMarkup(
+      <ReviewContent topics={[practiceTopic]} initialPracticeAnswers={{ 0: 0 }} />,
+    );
+    const second = navButtonClass(html, 2);
+    expect(second).toContain('bg-[#F2F2F2]');
+    expect(second).toContain('hover:bg-slate-200');
+    expect(second).not.toContain('bg-emerald-100');
+    expect(second).not.toContain('bg-rose-100');
+    expect(second).not.toContain(ACTIVE_RING);
+  });
+
+  it('ข้อยังไม่ตอบที่กำลังเปิดดูอยู่ → ยังมีวงแหวนบอกว่ากำลังดูข้อนี้', () => {
+    // ยังไม่ตอบเลย → active (ข้อ 1) ต้องมีวงแหวน แต่สีพื้นยังเป็นเทา
+    const html = renderToStaticMarkup(<ReviewContent topics={[practiceTopic]} />);
+    const first = navButtonClass(html, 1);
+    expect(first).toContain('bg-[#F2F2F2]');
+    expect(first).toContain(ACTIVE_RING);
+  });
+});
+
+/**
  * การจัดกลุ่มกล่อง (design ล่าสุด): การ์ดกฎ + กล่องทริกสำคัญ + การ์ด Mini Quiz
  * ที่วางต่อกันต้องอยู่ในการ์ดสีขาวก้อนเดียวกัน เรียงตามลำดับที่แอดมินวางไว้จริง
  * (เดิม Mini Quiz ถูกดึงขึ้นไปบนสุดเสมอ — เทสต์ชุดนี้กันไม่ให้พฤติกรรมนั้นกลับมา)
