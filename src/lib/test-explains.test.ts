@@ -20,7 +20,13 @@ vi.mock('drizzle-orm', async (importOriginal) => {
   };
 });
 
-import { fetchExplainsForSet, fetchExplainsForSetPreview, findExplainQuizTarget } from './test-explains';
+import {
+  explainTopicsOf,
+  explainsByTopic,
+  fetchExplainsForSet,
+  fetchExplainsForSetPreview,
+  findExplainQuizTarget,
+} from './test-explains';
 
 /** drizzle chain ของฟังก์ชันนี้: db.select().from().where().orderBy() */
 function chain(rows: unknown[], methods = ['from', 'where', 'orderBy', 'limit', 'innerJoin']) {
@@ -97,6 +103,71 @@ describe('findExplainQuizTarget', () => {
     mocks.select.mockReturnValueOnce(chain([]));
 
     await expect(findExplainQuizTarget({ grammarTopic: 'No such topic' })).resolves.toBeNull();
+  });
+
+  it('accepts multiple grammarTopics and answers from any of them', async () => {
+    mocks.select.mockReturnValueOnce(chain([target]));
+
+    await expect(
+      findExplainQuizTarget({ grammarTopics: ['Present Perfect', 'Present Perfect Continuous'] }),
+    ).resolves.toEqual(target);
+    expect(mocks.select).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null when the multi-topic list is empty and nothing is bound', async () => {
+    await expect(findExplainQuizTarget({ grammarTopics: ['   ', ''] })).resolves.toBeNull();
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+});
+
+describe('explainsByTopic (multi-topic)', () => {
+  const explain = (id: number, grammarTopic: string, grammarTopics?: string[]) => ({
+    id,
+    grammarTopic,
+    grammarTopics: grammarTopics ?? [],
+    title: grammarTopic,
+    intro: null,
+    sections: [],
+    tip: null,
+    status: 'published' as const,
+  });
+
+  it('maps every topic of an explain so each linked topic resolves to the same content', () => {
+    const map = explainsByTopic([explain(1, 'Present Perfect', ['Present Perfect', 'Present Perfect Continuous'])]);
+    expect(map['Present Perfect'].id).toBe(1);
+    expect(map['Present Perfect Continuous'].id).toBe(1);
+  });
+
+  it('falls back to grammarTopic when grammarTopics is empty (legacy rows)', () => {
+    const map = explainsByTopic([explain(2, 'Quantifiers')]);
+    expect(map['Quantifiers'].id).toBe(2);
+    expect(Object.keys(map)).toHaveLength(1);
+  });
+
+  it('first explain wins when two contents claim the same topic', () => {
+    const map = explainsByTopic([explain(1, 'A', ['A', 'B']), explain(2, 'C', ['B', 'C'])]);
+    expect(map['B'].id).toBe(1);
+    expect(map['C'].id).toBe(2);
+  });
+
+  it('skips blank topic keys', () => {
+    const map = explainsByTopic([explain(3, 'X', ['X', '   '])]);
+    expect(Object.keys(map)).toEqual(['X']);
+  });
+});
+
+describe('explainTopicsOf', () => {
+  it('returns grammarTopics when present', () => {
+    expect(explainTopicsOf({ grammarTopic: 'A', grammarTopics: ['A', 'B'] })).toEqual(['A', 'B']);
+  });
+
+  it('trims and drops blank entries', () => {
+    expect(explainTopicsOf({ grammarTopic: 'A', grammarTopics: ['  A  ', '', 'B'] })).toEqual(['A', 'B']);
+  });
+
+  it('falls back to grammarTopic for legacy rows', () => {
+    expect(explainTopicsOf({ grammarTopic: ' A ' })).toEqual(['A']);
+    expect(explainTopicsOf({ grammarTopic: ' A ', grammarTopics: [] })).toEqual(['A']);
   });
 });
 

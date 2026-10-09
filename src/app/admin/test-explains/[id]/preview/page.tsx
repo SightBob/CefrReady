@@ -4,7 +4,7 @@ import { db } from '@/db';
 import { testExplains } from '@/db/schema';
 import TestSetExplainView from '@/components/TestSetExplainView';
 import { buildAdminExplainPreview } from '@/lib/explain-preview';
-import { findExplainQuizTarget } from '@/lib/test-explains';
+import { explainTopicsOf, findExplainQuizTarget } from '@/lib/test-explains';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +37,9 @@ export default async function AdminExplainPreviewPage({
   const preview = buildAdminExplainPreview({ status: row.status, sections: row.sections });
 
   // ชุดข้อสอบที่เนื้อหานี้จะถูกใช้จริง — ผูกไว้ก่อน ถ้าไม่ได้ผูกก็หาจากข้อสอบที่ใช้
-  // grammarTopic เดียวกัน เพื่อให้เปิด “หน้าทำข้อสอบจริง” ได้เสมอเมื่อมีที่ให้ดู
+  // หัวข้อใดหัวข้อหนึ่งที่เนื้อหานี้เชื่อมไว้ (รองรับหลาย grammarTopic)
   const target = await findExplainQuizTarget({
-    grammarTopic: row.grammarTopic,
+    grammarTopics: explainTopicsOf(row),
     boundSetIds: row.testSetIds,
   });
 
@@ -53,9 +53,7 @@ export default async function AdminExplainPreviewPage({
   return (
     <TestSetExplainView
       title={row.title}
-      intro={row.intro}
-      tip={row.tip}
-      sections={preview.sections}
+      entries={[{ title: row.title, intro: row.intro, tip: row.tip, sections: preview.sections }]}
       sectionId={target?.sectionId ?? ''}
       quizHref={quizHref}
       backHref={editorHref}

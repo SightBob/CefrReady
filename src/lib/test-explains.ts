@@ -10,6 +10,8 @@ import { buildTopicRuns, normalizeTopic, type TopicRun } from '@/lib/test-set-to
 export interface SectionExplain {
   id: number;
   grammarTopic: string;
+  /** หัวข้อทั้งหมดที่เนื้อหานี้เชื่อมกับข้อสอบ (ตัวแรก = หัวข้อหลักตาม `grammarTopic`) */
+  grammarTopics: string[];
   title: string;
   intro: string | null;
   sections: LessonSection[];
@@ -20,6 +22,7 @@ export interface SectionExplain {
 const explainColumns = {
   id: testExplains.id,
   grammarTopic: testExplains.grammarTopic,
+  grammarTopics: testExplains.grammarTopics,
   title: testExplains.title,
   intro: testExplains.intro,
   sections: testExplains.sections,
@@ -82,7 +85,10 @@ const quizTargetColumns = {
  * คืน null เมื่อไม่มีข้อสอบข้อใดใช้หัวข้อนี้เลย — ตอนนั้นเปิดหน้าสอบไปก็ไม่มีอะไรให้ดู
  */
 export async function findExplainQuizTarget(options: {
-  grammarTopic: string;
+  /** หัวข้อหลัก (ใช้เองได้เมื่อเนื้อหานั้นมีหัวข้อเดียว) */
+  grammarTopic?: string;
+  /** หัวข้อทั้งหมดของเนื้อหา — ชุดใดมีข้อสอบหัวข้อใดหัวข้อหนึ่งในนี้ก็เปิดได้ */
+  grammarTopics?: string[] | null;
   boundSetIds?: number[] | null;
 }): Promise<ExplainQuizTarget | null> {
   const boundIds = (options.boundSetIds ?? []).filter((id) => Number.isInteger(id) && id > 0);
@@ -96,15 +102,17 @@ export async function findExplainQuizTarget(options: {
     if (bound) return bound;
   }
 
-  const topic = normalizeTopic(options.grammarTopic);
-  if (!topic) return null;
+  const topics = [...(options.grammarTopics ?? []), ...(options.grammarTopic ? [options.grammarTopic] : [])]
+    .map((topic) => normalizeTopic(topic))
+    .filter((topic): topic is string => Boolean(topic));
+  if (!topics.length) return null;
 
   const [byTopic] = await db
     .select(quizTargetColumns)
     .from(questions)
     .innerJoin(testSetQuestions, eq(testSetQuestions.questionId, questions.id))
     .innerJoin(testSets, eq(testSets.id, testSetQuestions.testSetId))
-    .where(sql`TRIM(${questions.grammarTopic}) = ${topic}`)
+    .where(inArray(sql`TRIM(${questions.grammarTopic})`, topics))
     .orderBy(asc(testSets.orderIndex), asc(testSets.id))
     .limit(1);
   return byTopic ?? null;
@@ -132,9 +140,29 @@ export async function fetchExplainsForSetPreview(setId: number): Promise<Section
   });
 }
 
-/** จัด explain เป็น map คีย์ตาม grammarTopic (trim) สำหรับเด้งรายเรื่องในหน้าสอบ */
+/**
+ * จัด explain เป็น map คีย์ตาม grammarTopic (trim) สำหรับเด้งรายเรื่องในหน้าสอบ
+ *
+ * เนื้อหาหนึ่งอันเชื่อมได้หลายหัวข้อ (`grammarTopics`) จึงลง map ทุกหัวข้อที่ตัวเองผูกไว้
+ * — ข้อสอบหัวข้อใดก็ได้ในนั้นจะชี้มาที่เนื้อหาเดียวกัน ถ้าหัวข้อเดียวกันถูกผูกไว้กับหลายเนื้อหา
+ * (กันไว้ที่ตอนบันทึกแล้ว) ตัวที่เรียงก่อน (id น้อยกว่า) จะชนะ
+ */
 export function explainsByTopic(explains: SectionExplain[]): Record<string, SectionExplain> {
-  return Object.fromEntries(explains.map((explain) => [explain.grammarTopic.trim(), explain]));
+  const byTopic: Record<string, SectionExplain> = {};
+  for (const explain of explains) {
+    const topics = explain.grammarTopics?.length ? explain.grammarTopics : [explain.grammarTopic];
+    for (const topic of topics) {
+      const key = topic.trim();
+      if (key && !byTopic[key]) byTopic[key] = explain;
+    }
+  }
+  return byTopic;
+}
+
+/** หัวข้อทั้งหมดของ explain รายการเดียว (fallback เป็น grammarTopic เดิมเมื่อยังไม่มี array) */
+export function explainTopicsOf(row: { grammarTopic: string; grammarTopics?: string[] | null }): string[] {
+  const topics = (row.grammarTopics ?? []).map((topic) => topic.trim()).filter(Boolean);
+  return topics.length ? topics : [row.grammarTopic.trim()].filter(Boolean);
 }
 
 /**

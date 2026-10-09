@@ -4,8 +4,9 @@ import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 
 // Exam pages render their own chrome — no site header/footer
-// Covers section sets (/tests/[sectionId]/[setId]), full mock exam + results
-const EXAM_PATH = /^\/(?:tests\/(?:[a-z-]+\/\d+|full\/(?:exam|results)))/;
+// Covers section sets (/tests/[sectionId]/[setId]), full mock exam + results,
+// and the demo exam flow (/demo/intro → /demo/exam) which mirrors the same layout
+const EXAM_PATH = /^\/(?:tests\/(?:[a-z-]+\/\d+|full\/(?:exam|results))|demo\/(?:intro|exam))/;
 
 // Section landing pages (/tests/focus-form, /tests/listening, …) render without
 // the site header — Figma 60:174 has no navbar. `/tests/full` keeps its header,

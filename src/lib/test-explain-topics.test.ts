@@ -3,6 +3,8 @@ import {
   explainTopicSummary,
   explainTopicTone,
   explainTopicWarning,
+  explainTopicsSummary,
+  explainTopicsWarning,
   linkExplainTopic,
   type QuestionTopicOption,
 } from '@/lib/test-explain-topics';
@@ -84,5 +86,43 @@ describe('explainTopicTone', () => {
     expect(explainTopicTone(linkExplainTopic('Present Simple', options))).toBe('ok');
     expect(explainTopicTone(linkExplainTopic('Nope', options))).toBe('warn');
     expect(explainTopicTone(linkExplainTopic('', options))).toBe('muted');
+  });
+});
+
+describe('explainTopicsWarning (หลายหัวข้อ)', () => {
+  it('ผ่านเมื่อทุกหัวข้อมีข้อสอบใช้', () => {
+    expect(explainTopicsWarning(['Present Simple', 'Prepositions'], options)).toBeNull();
+  });
+
+  it('เตือนรายหัวข้อเมื่อหัวข้อใดไม่ตรงกับข้อสอบ', () => {
+    expect(explainTopicsWarning(['Present Simple', 'Nope'], options)).toContain('"Nope"');
+  });
+
+  it('รวมหลายหัวข้อที่ไม่ตรงในข้อความเดียว', () => {
+    const warning = explainTopicsWarning(['Nope', 'Nope 2'], options);
+    expect(warning).toContain('"Nope"');
+    expect(warning).toContain('"Nope 2"');
+    expect(warning).toContain('หัวข้อเหล่านี้');
+  });
+
+  it('ไม่มีหัวข้อเลย = ต้องเลือกก่อนเผยแพร่', () => {
+    expect(explainTopicsWarning([], options)).toContain('ต้องเลือก grammarTopic');
+    expect(explainTopicsWarning(['   '], options)).toContain('ต้องเลือก grammarTopic');
+  });
+});
+
+describe('explainTopicsSummary (หลายหัวข้อ)', () => {
+  it('รวมจำนวนข้อสอบของทุกหัวข้อและชุดที่ใช้ (ตัดชื่อชุดซ้ำ)', () => {
+    const summary = explainTopicsSummary(['Present Simple', 'Prepositions'], options);
+    expect(summary).toBe('2 หัวข้อ · รวมข้อสอบ 28 ข้อ · ชุด: Present Simple & Present Continuous, Prepositions, Mixed Review');
+  });
+
+  it('บอกจำนวนหัวข้อที่ไม่ตรงข้อสอบ', () => {
+    const summary = explainTopicsSummary(['Present Simple', 'Nope'], options);
+    expect(summary).toContain('⚠ ไม่ตรงข้อสอบ 1 หัวข้อ');
+  });
+
+  it('ยังไม่ได้เลือก = บอกให้เลือกจากรายการ', () => {
+    expect(explainTopicsSummary([], options)).toBe('เลือกหัวข้อจากรายการที่ดึงมาจากข้อสอบจริง');
   });
 });

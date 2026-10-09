@@ -49,19 +49,21 @@ export default async function TestSetExplainPage({ params }: { params: ExplainPa
     getCachedSetTopicRuns(testSet.id),
   ]);
 
-  // ชุดที่รวมหลายเรื่องไว้จะไม่มีหน้า explain ระดับชุด (และฉบับร่าง/ไม่มีเนื้อหาก็ไม่มี)
-  // — เนื้อหาเด้งเป็นรายเรื่องอยู่ในหน้าสอบแทน จึงพาเข้าสอบเลยทั้งจากปุ่มและการเปิด URL ตรง
+  // ไม่มีเนื้อหาผูกไว้เลย → เข้าสอบได้เลย (ทั้งจากปุ่มและการเปิด URL ตรง)
+  // (ฉบับร่างถูกกรองทิ้งแล้วใน fetchExplainsForSet)
   if (!usesSetLevelExplain(explains.length, topicRuns.length)) redirect(quizHref);
-  const explain = explains[0];
-  if (!explain) redirect(quizHref);
 
   return (
     <TestSetExplainView
-      title={explain.title}
-      intro={explain.intro}
-      tip={explain.tip}
-      sections={explain.sections}
+      title={testSet.name}
+      entries={explains.map((explain) => ({
+        title: explain.title,
+        intro: explain.intro,
+        tip: explain.tip,
+        sections: explain.sections,
+      }))}
       sectionId={section.id}
+      setId={testSet.id}
       quizHref={quizHref}
       backHref={`/tests/${section.id}/${testSet.id}/intro`}
     />

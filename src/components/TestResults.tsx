@@ -64,6 +64,10 @@ interface TestResultsProps {
   cefrLevel?: string | null;
   /** เนื้อหาเสริมเฉพาะพาร์ท (เช่น สัดส่วนตามพาร์ทของ Full Test) — แสดงหลังการ์ดให้คะแนน ก่อนการ์ดเฉลย */
   extraContent?: React.ReactNode;
+  /** ปลายทางปุ่ม "จบการสอบ" ของโหมด demo (default /demo) — เช่น flow ใหม่ส่ง "/" เพื่อกลับหน้าแรก */
+  endHref?: string;
+  /** ข้อความปุ่มรองล่างของโหมด demo (default "Other Demo Tests") */
+  endLabel?: string;
 }
 
 /**
@@ -87,6 +91,8 @@ export default function TestResults({
   reviewItems,
   cefrLevel: cefrLevelOverride,
   extraContent,
+  endHref,
+  endLabel,
 }: TestResultsProps) {
   const posthog = usePostHog();
   const [rating, setRating] = useState<number | null>(null);
@@ -136,6 +142,8 @@ export default function TestResults({
         headerTitle={headerTitle}
         durationMinutes={durationMinutes}
         setNumber={setNumber}
+        endHref={endHref}
+        endLabel={endLabel}
       />
     );
   }
@@ -405,7 +413,7 @@ export default function TestResults({
             ทำอีกครั้ง
           </button>
           <Link
-            href="/tests"
+            href={endHref ?? '/tests'}
             aria-label="จบการสอบ"
             className="flex h-[49px] w-[216px] shrink-0 items-center justify-center rounded-[14px] border border-[#ffdb40] border-b-4 border-r-[3px] bg-[#fff0ae] px-[11px] py-[10px] text-center text-[16px] font-semibold text-[#524924]"
           >

@@ -14,7 +14,10 @@ export { HIGHLIGHT_PALETTE, type HighlightColorName } from '@/lib/rich-text';
  * safe to render from the database.
  */
 
-function renderInline(text: string, defaultBackground: string, defaultTextColor: string | undefined, keyPrefix: string): React.ReactNode[] {
+/** ปรับรูปทรงชิป ==highlight== เฉพาะจุดที่ระบุ (ไม่ระบุ = ใช้ค่าเริ่มต้นของทั้งโปรเจกต์) */
+type HighlightChipShape = { radius?: number; paddingX?: number };
+
+function renderInline(text: string, defaultBackground: string, defaultTextColor: string | undefined, keyPrefix: string, chip?: HighlightChipShape): React.ReactNode[] {
   return parseInline(text).map((token, i) => {
     const key = `${keyPrefix}-${i}`;
     if (token.type === 'bold') {
@@ -31,11 +34,13 @@ function renderInline(text: string, defaultBackground: string, defaultTextColor:
           style={{
             background,
             color,
+            borderRadius: hasBackground ? chip?.radius : undefined,
+            paddingInline: hasBackground && chip?.paddingX != null ? `${chip.paddingX}px` : undefined,
             boxDecorationBreak: 'clone',
             WebkitBoxDecorationBreak: 'clone',
           }}
         >
-          {renderInline(token.value, defaultBackground, defaultTextColor, key)}
+          {renderInline(token.value, defaultBackground, defaultTextColor, key, chip)}
         </mark>
       );
     }
@@ -52,6 +57,8 @@ export default function RichText({
   highlightColor = '#FDE68A',
   highlightTextColor,
   highlightBackground = highlightColor,
+  highlightRadius,
+  highlightPaddingX,
   className,
   as: Tag = 'p',
 }: {
@@ -61,10 +68,17 @@ export default function RichText({
   highlightTextColor?: string;
   /** Background behind ==highlight==; set to transparent for color-only markup. */
   highlightBackground?: string;
+  /** Corner radius (px) of the ==highlight== chip — omit to keep the project-wide default. */
+  highlightRadius?: number;
+  /** Left/right padding (px) inside the ==highlight== chip — omit to keep the project-wide default. */
+  highlightPaddingX?: number;
   className?: string;
   as?: 'p' | 'span';
 }) {
-  const content = renderInline(text, highlightBackground, highlightTextColor, text.slice(0, 12));
+  const chip = highlightRadius != null || highlightPaddingX != null
+    ? { radius: highlightRadius, paddingX: highlightPaddingX }
+    : undefined;
+  const content = renderInline(text, highlightBackground, highlightTextColor, text.slice(0, 12), chip);
   if (Tag === 'span') return <span className={className}>{content}</span>;
   return <p className={className}>{content}</p>;
 }

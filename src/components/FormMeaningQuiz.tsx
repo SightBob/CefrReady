@@ -204,6 +204,11 @@ export default function FormMeaningQuiz({
       onExit={() => { if (onExit) onExit(); else router.push(`/tests/${sectionId}`); }}
       reviewAction={reviewAction}
       sequentialNav
+      // หลังส่งคำตอบ ปุ่มสุดท้ายของแถบล่างเปลี่ยนจาก "ตรวจคำตอบ" เป็น "ดูผลการสอบ"
+      // (primaryAction แทนปุ่ม submit ของ TestLayout — แบบเดียวกับที่หน้าชุดจริงใช้)
+      primaryAction={isSubmitted
+        ? { label: 'ดูผลการสอบ', onClick: () => onFinish(correctCount, totalBlanks) }
+        : undefined}
     >
       <FormMeaningFillCard
         article={combinedArticle}
@@ -213,17 +218,6 @@ export default function FormMeaningQuiz({
         correctAnswers={correctAnswersMap}
         disabled={submitting}
       >
-        {/* หลังส่งคำตอบแล้ว TestLayout จะแสดงปุ่ม “ทำชุดถัดไป” แทน
-            ปุ่มดูผลการสอบจึงต้องอยู่ในการ์ดบทความตามเดิม */}
-        {isSubmitted && (
-          <button
-            type="button"
-            onClick={() => onFinish(correctCount, totalBlanks)}
-            className="mt-6 flex h-[3.375rem] w-[13.875rem] items-center justify-center rounded-full bg-[#6D89EF] text-base font-bold text-white hover:bg-[#5A75E0]"
-          >
-            ดูผลการสอบ
-          </button>
-        )}
       </FormMeaningFillCard>
     </TestLayout>
 

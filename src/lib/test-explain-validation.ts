@@ -7,6 +7,8 @@
  * เป็น pure function (ไม่พึ่ง db/next) จึงเขียน unit test ได้ตรงๆ
  */
 
+import { normalizeFormulaBarTone } from '@/lib/lesson-sections';
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -33,10 +35,81 @@ export function collectItemIssues(raw: Record<string, unknown>): { errors: strin
     if (s.visibility !== undefined && s.visibility !== null && s.visibility !== 'draft' && s.visibility !== 'published') {
       errors.push(`${at('visibility')}: ${JSON.stringify(s.visibility)} ไม่รู้จัก — ใช้ "draft" (ยังไม่แสดงให้ผู้เรียน) หรือ "published" (แสดง) เท่านั้น`);
     }
-    if (type !== undefined && !['rule', 'detailedRule', 'importantNote', 'practice'].includes(type)) {
-      warnings.push(`${at('type')}: "${type}" ไม่ใช่ type ที่รู้จัก (rule/detailedRule/importantNote/practice) — ระบบจะเดา type ให้อัตโนมัติ`);
+    if (type !== undefined && !['rule', 'detailedRule', 'importantNote', 'practice', 'formulaBreakdown', 'typeBreakdown'].includes(type)) {
+      warnings.push(`${at('type')}: "${type}" ไม่ใช่ type ที่รู้จัก (rule/detailedRule/importantNote/practice/formulaBreakdown/typeBreakdown) — ระบบจะเดา type ให้อัตโนมัติ`);
     }
-    for (const field of ['heading', 'body', 'chip', 'description', 'tip'] as const) {
+
+    // Core Formula breakdown — cases[].left/right ต้องเป็น object { sentence, note } ที่เป็น string เท่านั้น
+    if (s.formula !== undefined) {
+      const formula = s.formula;
+      if (!formula || typeof formula !== 'object' || Array.isArray(formula)) {
+        errors.push(`${at('formula')} ต้องเป็น object { cases: [...] }`);
+      } else {
+        const f = formula as Record<string, unknown>;
+        if (!Array.isArray(f.cases)) {
+          errors.push(`${at('formula.cases')} ต้องเป็น array`);
+        } else {
+          f.cases.forEach((item, ci) => {
+            const cAt = at(`formula.cases[${ci}]`);
+            if (!item || typeof item !== 'object' || Array.isArray(item)) {
+              errors.push(`${cAt} ต้องเป็น object { label, example, left, right }`);
+              return;
+            }
+            const entry = item as Record<string, unknown>;
+            for (const field of ['label', 'example'] as const) {
+              if (entry[field] !== undefined && entry[field] !== null && typeof entry[field] !== 'string') {
+                errors.push(`${cAt}.${field} ต้องเป็น string หรือไม่ระบุ`);
+              }
+            }
+            for (const side of ['left', 'right'] as const) {
+              const column = entry[side];
+              if (column === undefined || column === null) continue;
+              if (typeof column !== 'object' || Array.isArray(column)) {
+                errors.push(`${cAt}.${side} ต้องเป็น object { sentence, note }`);
+                continue;
+              }
+              const col = column as Record<string, unknown>;
+              for (const field of ['sentence', 'note'] as const) {
+                if (col[field] !== undefined && col[field] !== null && typeof col[field] !== 'string') {
+                  errors.push(`${cAt}.${side}.${field} ต้องเป็น string หรือไม่ระบุ`);
+                }
+              }
+              if (col.tone !== undefined && col.tone !== null && !normalizeFormulaBarTone(col.tone)) {
+                errors.push(`${cAt}.${side}.tone ต้องเป็น "purple" หรือ "yellow" (หรือไม่ระบุ = ใช้สีตามตำแหน่งคอลัมน์)`);
+              }
+            }
+          });
+        }
+      }
+    }
+    // Type Breakdown — cases[].{label, color?, description, structure, example, note} ต้องเป็น string
+    if (s.typeBreakdown !== undefined) {
+      const typeBreakdown = s.typeBreakdown;
+      if (!typeBreakdown || typeof typeBreakdown !== 'object' || Array.isArray(typeBreakdown)) {
+        errors.push(`${at('typeBreakdown')} ต้องเป็น object { cases: [...] }`);
+      } else {
+        const t = typeBreakdown as Record<string, unknown>;
+        if (!Array.isArray(t.cases)) {
+          errors.push(`${at('typeBreakdown.cases')} ต้องเป็น array`);
+        } else {
+          t.cases.forEach((item, ci) => {
+            const cAt = at(`typeBreakdown.cases[${ci}]`);
+            if (!item || typeof item !== 'object' || Array.isArray(item)) {
+              errors.push(`${cAt} ต้องเป็น object { label, description, structure, example, note }`);
+              return;
+            }
+            const entry = item as Record<string, unknown>;
+            for (const field of ['label', 'color', 'description', 'structure', 'example', 'note'] as const) {
+              if (entry[field] !== undefined && entry[field] !== null && typeof entry[field] !== 'string') {
+                errors.push(`${cAt}.${field} ต้องเป็น string หรือไม่ระบุ`);
+              }
+            }
+          });
+        }
+      }
+    }
+
+    for (const field of ['heading', 'body', 'chip', 'description', 'tip', 'quizHeading'] as const) {
       const value = s[field];
       if (value !== undefined && value !== null && typeof value !== 'string') {
         errors.push(`${at(field)} ต้องเป็น string ไม่ใช่ ${value === null ? 'null' : typeof value}`);
@@ -108,6 +181,46 @@ export function collectItemIssues(raw: Record<string, unknown>): { errors: strin
         }
       }
     }
+  });
+
+  // คำเตือนเชิงเนื้อหา: เคสของ Core Formula breakdown ที่ยังไม่มีประโยคในแถบสีทั้งสองข้าง
+  const formulaSections = Array.isArray(raw.sections) ? raw.sections : [];
+  formulaSections.forEach((section, si) => {
+    if (!section || typeof section !== 'object') return;
+    const s = section as Record<string, unknown>;
+    const formula = s.formula && typeof s.formula === 'object' && !Array.isArray(s.formula) ? s.formula as Record<string, unknown> : null;
+    if (!Array.isArray(formula?.cases)) return;
+    formula.cases.forEach((item, ci) => {
+      if (!item || typeof item !== 'object') return;
+      const entry = item as Record<string, unknown>;
+      const readSentence = (side: unknown) => {
+        const col = side && typeof side === 'object' && !Array.isArray(side) ? side as Record<string, unknown> : {};
+        return typeof col.sentence === 'string' ? col.sentence.trim() : '';
+      };
+      if (!readSentence(entry.left) && !readSentence(entry.right)) {
+        warnings.push(`sections[${si}].formula.cases[${ci}]: ยังไม่มีประโยคในแถบสีทั้งสองข้าง — เคสนี้จะไม่แสดง`);
+      }
+    });
+  });
+
+  // คำเตือนเชิงเนื้อหา: เคสของ Type Breakdown ที่ยังไม่มีโครงสร้างหรือประโยคตัวอย่าง (จะแสดงแถบเปล่า)
+  const typeSections = Array.isArray(raw.sections) ? raw.sections : [];
+  typeSections.forEach((section, si) => {
+    if (!section || typeof section !== 'object') return;
+    const s = section as Record<string, unknown>;
+    const typeBreakdown = s.typeBreakdown && typeof s.typeBreakdown === 'object' && !Array.isArray(s.typeBreakdown)
+      ? s.typeBreakdown as Record<string, unknown>
+      : null;
+    if (!Array.isArray(typeBreakdown?.cases)) return;
+    typeBreakdown.cases.forEach((item, ci) => {
+      if (!item || typeof item !== 'object') return;
+      const entry = item as Record<string, unknown>;
+      const structure = typeof entry.structure === 'string' ? entry.structure.trim() : '';
+      const example = typeof entry.example === 'string' ? entry.example.trim() : '';
+      if (!structure || !example) {
+        warnings.push(`sections[${si}].typeBreakdown.cases[${ci}]: ยังไม่มี${!structure ? 'ช่องโครงสร้าง' : 'ประโยคตัวอย่าง'} — แถบส่วนนี้จะว่าง`);
+      }
+    });
   });
 
   // คำเตือนเชิงเนื้อหา: practice ที่จะโดนดรอปเพราะตอบไม่ได้ หรือ grammarTopic ที่อาจไม่ตรงกับข้อสอบ

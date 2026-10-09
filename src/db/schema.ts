@@ -121,11 +121,36 @@ export const questions = pgTable('questions', {
 // Test-side explanations are managed independently, keyed by grammar topic.
 export const testExplains = pgTable('test_explains', {
   id: serial('id').primaryKey(),
+  // หัวข้อหลัก (ตัวแรกของ grammar_topics) — คงไว้เพื่อความเข้ากันได้ + ใช้เรียงในหน้าแอดมิน
   grammarTopic: varchar('grammar_topic', { length: 200 }).notNull().unique(),
+  // หัวข้อทั้งหมดที่เนื้อหานี้เชื่อมกับข้อสอบ (trim + dedupe, ตัวแรก = หัวข้อหลักตาม grammarTopic)
+  // ข้อสอบที่ grammar_topic ตรงกับหัวข้อใดหัวข้อหนึ่งในนี้จะใช้เนื้อหานี้ได้ทั้งหมด
+  grammarTopics: jsonb('grammar_topics').$type<string[]>().default([]).notNull(),
   title: varchar('title', { length: 200 }).notNull(),
   intro: text('intro'),
   sections: jsonb('sections').$type<Array<{
-    type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice';
+    type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice' | 'formulaBreakdown' | 'typeBreakdown';
+    /** Layout "Core Formula breakdown" — เทียบสูตรซ้าย/ขวาทีละเคส */
+    formula?: {
+      cases: Array<{
+        label: string;
+        example: string;
+        left: { sentence: string; note: string };
+        right: { sentence: string; note: string };
+      }>;
+    };
+    /** Layout "Type Breakdown" — ป้าย Type → โครงสร้าง → ประโยคตัวอย่าง → บรรทัดสรุป */
+    typeBreakdown?: {
+      cases: Array<{
+        label: string;
+        /** สีพื้นของป้าย Type (hex) — ไม่ระบุ = เขียวมาตรฐานของดีไซน์ */
+        color?: string;
+        description: string;
+        structure: string;
+        example: string;
+        note: string;
+      }>;
+    };
     /** 'draft' = ยังไม่เสร็จ ไม่แสดงให้ผู้เรียน (ไม่ระบุ = 'published') */
     visibility?: 'draft' | 'published';
     heading?: string;
@@ -134,7 +159,13 @@ export const testExplains = pgTable('test_explains', {
     description?: string;
     rows?: Array<{ left: string; right?: string }>;
     examples?: Array<{ en: string; th?: string; ok?: boolean }>;
+    /**
+     * Mini Quiz — ใช้ได้กับทุก type: type 'practice' = การ์ดแยก,
+     * type อื่น = ฝังต่อจากเนื้อหาการ์ดนั้นในกล่องขาวเดียวกัน
+     */
     practice?: { questions: Array<{ sentence: string; options: string[]; answerIndex: number; explanation?: string }> };
+    /** หัวข้อของการ์ด Mini Quiz ที่ฝังมากับการ์ดเนื้อหา (ไม่ระบุ = หัวข้อมาตรฐาน) */
+    quizHeading?: string;
     tip?: string;
   }>>().default([]).notNull(),
   tip: text('tip'),

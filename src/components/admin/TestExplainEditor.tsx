@@ -10,9 +10,9 @@ import {
 } from 'lucide-react';
 import ReviewContent from '@/components/ReviewContent';
 import RichText from '@/components/RichText';
-import { normalizeLessonSection, type LessonSection } from '@/lib/lesson-sections';
+import { TYPE_BREAKDOWN_DEFAULT_COLOR, normalizeFormulaBarTone, normalizeLessonSection, type FormulaBarTone, type LessonSection } from '@/lib/lesson-sections';
 import { readableTextColor } from '@/lib/rich-text';
-import { explainTopicWarning, linkExplainTopic, type QuestionTopicOption } from '@/lib/test-explain-topics';
+import { explainTopicsWarning, type QuestionTopicOption } from '@/lib/test-explain-topics';
 import { explainCoverage, type CoverageQuestion } from '@/lib/explain-coverage';
 import ExplainTopicField from '@/components/admin/ExplainTopicField';
 import ExplainCoveragePanel from '@/components/admin/ExplainCoveragePanel';
@@ -73,11 +73,24 @@ function loadSavedColors(): SavedColor[] {
 // ============================================================
 
 type TopicOption = QuestionTopicOption;
-interface ExplainRow extends TestExplainContent { status: ContentStatus; questionCount: number; updatedAt: string }
+interface ExplainRow extends TestExplainContent { status: ContentStatus; questionCount: number; updatedAt: string; grammarTopics?: string[] }
 
 interface ExampleRow { en: string; th: string; ok: boolean }
 interface RowDraft { left: string; right: string }
 interface QuizRow { sentence: string; options: string[]; answerIndex: number; explanation: string }
+interface FormulaColumnDraft { sentence: string; note: string; tone?: FormulaBarTone }
+interface FormulaCaseDraft { label: string; example: string; left: FormulaColumnDraft; right: FormulaColumnDraft }
+interface TypeBreakdownCaseDraft { label: string; color: string; description: string; structure: string; example: string; note: string }
+
+/** สีแถบประโยคที่เลือกได้ในหน้าแก้ไข — '' = ใช้สีตามตำแหน่งคอลัมน์ (ซ้ายม่วง / ขวาเหลือง) */
+const FORMULA_TONE_OPTIONS: { value: '' | FormulaBarTone; label: string; swatch: string }[] = [
+  { value: '', label: 'ตามตำแหน่งคอลัมน์', swatch: '' },
+  { value: 'yellow', label: 'เหลือง', swatch: '#FFF5CF' },
+  { value: 'purple', label: 'ม่วง', swatch: '#E6E6FC' },
+];
+
+/** สีป้าย Type ที่ดีไซน์ใช้ (Type 1/2/3) — เลือกเร็ว ๆ ได้จากปุ่มในหน้าแก้ไข */
+const TYPE_CASE_COLORS = ['#8ACB66', '#B3B252', '#C55A5A'];
 
 type SectionType = NonNullable<LessonSection['type']>;
 
@@ -91,9 +104,23 @@ interface SectionRow {
   description: string;
   rows: RowDraft[];
   examples: ExampleRow[];
+  /** Mini Quiz — type 'practice' = การ์ดแยก, type อื่น = ฝังท้ายการ์ดนั้น */
   practice: QuizRow[];
+  /** หัวข้อของการ์ด Mini Quiz ที่ฝังมากับการ์ดเนื้อหา (ไม่ระบุ = หัวข้อมาตรฐาน) */
+  quizHeading: string;
+  /** Core Formula breakdown — เทียบสูตรซ้าย/ขวาทีละเคส */
+  formula: FormulaCaseDraft[];
+  /** Type Breakdown — แยกตาม Type ทีละเคส */
+  typeBreakdown: TypeBreakdownCaseDraft[];
   tip: string;
 }
+
+/** โจทย์ Mini Quiz เปล่า 1 ข้อ (ใช้ทั้งตอนสร้าง section และตอนล้าง quiz ออก) */
+const emptyQuizRow = (): QuizRow => ({ sentence: '', options: ['', '', ''], answerIndex: 0, explanation: '' });
+
+/** Mini Quiz ที่ฝังมากับการ์ดจะแสดงเมื่อมีโจทย์อย่างน้อย 1 ข้อ */
+const practiceHasContent = (section: SectionRow): boolean =>
+  section.practice.some((question) => question.sentence.trim().length > 0);
 
 const emptySection = (type: SectionType = 'rule'): SectionRow => ({
   type,
@@ -105,11 +132,21 @@ const emptySection = (type: SectionType = 'rule'): SectionRow => ({
   description: '',
   rows: [],
   examples: [],
-  practice: [{ sentence: '', options: ['', '', ''], answerIndex: 0, explanation: '' }],
+  practice: [emptyQuizRow()],
+  quizHeading: '',
+  formula: [emptyFormulaCase()],
+  typeBreakdown: [emptyTypeBreakdownCase()],
   tip: '',
 });
 const emptyRow = (): RowDraft => ({ left: '', right: '' });
 const emptyExample = (): ExampleRow => ({ en: '', th: '', ok: true });
+const emptyFormulaColumn = (): FormulaColumnDraft => ({ sentence: '', note: '' });
+function emptyFormulaCase(): FormulaCaseDraft {
+  return { label: '', example: '', left: emptyFormulaColumn(), right: emptyFormulaColumn() };
+}
+function emptyTypeBreakdownCase(): TypeBreakdownCaseDraft {
+  return { label: '', color: TYPE_BREAKDOWN_DEFAULT_COLOR, description: '', structure: '', example: '', note: '' };
+}
 
 // Full JSON example shown in the import guide modal (plain string → no JSX escaping issues)
 const JSON_EXAMPLE = `{
@@ -128,6 +165,23 @@ const JSON_EXAMPLE = `{
       "examples": [
         { "en": "She plays tennis", "th": "เธอเล่นเทนนิส", "ok": true }
       ]
+    },
+    {
+      "type": "typeBreakdown",
+      "heading": "Conditional Sentences (ประโยคเงื่อนไข)",
+      "description": "พูดถึงเรื่องสมมติหรือเงื่อนไข “ถ้า... ก็...”",
+      "typeBreakdown": {
+        "cases": [
+          {
+            "label": "Type 1 :",
+            "color": "#8ACB66",
+            "description": "มีโอกาสเกิดขึ้นจริงในอนาคต",
+            "structure": "If + V.1 , will + V.1",
+            "example": "If I ==study== , I ==will pass.==",
+            "note": "ปัจจุบันคู่กับอนาคต (V.1 คู่ will)"
+          }
+        ]
+      }
     }
   ],
   "tip": "==yellow;อย่าลืมเติม s== กับ he/she/it",
@@ -151,22 +205,57 @@ function toSectionDraft(value: LessonSection): SectionRow {
       options: question.options?.length ? [...question.options] : ['', '', ''],
       answerIndex: question.answerIndex ?? 0,
       explanation: question.explanation ?? '',
-    })) : [{ sentence: '', options: ['', '', ''], answerIndex: 0, explanation: '' }],
+    })) : [emptyQuizRow()],
+    quizHeading: normalized.quizHeading ?? '',
     tip: normalized.tip ?? '',
     examples: (normalized.examples ?? []).map((example) => ({ en: example.en ?? '', th: example.th ?? '', ok: example.ok ?? true })),
+    formula: normalized.formula?.cases?.length
+      ? normalized.formula.cases.map((item) => ({
+        label: item.label ?? '',
+        example: item.example ?? '',
+        left: { sentence: item.left?.sentence ?? '', note: item.left?.note ?? '', tone: normalizeFormulaBarTone(item.left?.tone) },
+        right: { sentence: item.right?.sentence ?? '', note: item.right?.note ?? '', tone: normalizeFormulaBarTone(item.right?.tone) },
+      }))
+      : [emptyFormulaCase()],
+    typeBreakdown: normalized.typeBreakdown?.cases?.length
+      ? normalized.typeBreakdown.cases.map((item) => ({
+        label: item.label ?? '',
+        color: item.color ?? TYPE_BREAKDOWN_DEFAULT_COLOR,
+        description: item.description ?? '',
+        structure: item.structure ?? '',
+        example: item.example ?? '',
+        note: item.note ?? '',
+      }))
+      : [emptyTypeBreakdownCase()],
   };
 }
 
+/** เคสของ Core Formula breakdown ที่มีข้อมูลอย่างน้อยหนึ่งช่อง */
+function formulaCaseHasContent(item: FormulaCaseDraft): boolean {
+  return Boolean(item.label.trim() || item.example.trim() || item.left.sentence.trim() || item.left.note.trim() || item.right.sentence.trim() || item.right.note.trim());
+}
+
+/** เคสของ Type Breakdown ที่มีข้อมูลอย่างน้อยหนึ่งช่อง */
+function typeBreakdownCaseHasContent(item: TypeBreakdownCaseDraft): boolean {
+  return Boolean(item.label.trim() || item.description.trim() || item.structure.trim() || item.example.trim() || item.note.trim());
+}
+
 function sectionHasContent(section: SectionRow): boolean {
+  // Mini Quiz ที่ฝังมากับการ์ดก็นับเป็นเนื้อหาของ section นั้น (แม้การ์ดจะยังว่าง)
+  const quiz = practiceHasContent(section);
   switch (section.type) {
     case 'rule':
-      return Boolean(section.heading.trim() || section.chip.trim() || section.description.trim() || section.examples.some((example) => example.en.trim() || example.th.trim()) || section.rows.some((row) => row.left.trim() || row.right.trim()) || section.tip.trim());
+      return quiz || Boolean(section.heading.trim() || section.chip.trim() || section.description.trim() || section.examples.some((example) => example.en.trim() || example.th.trim()) || section.rows.some((row) => row.left.trim() || row.right.trim()) || section.tip.trim());
     case 'detailedRule':
-      return Boolean(section.heading.trim() || section.chip.trim() || section.description.trim() || section.body.trim() || section.rows.some((row) => row.left.trim() || row.right.trim()) || section.tip.trim() || section.examples.some((example) => example.en.trim() || example.th.trim()));
+      return quiz || Boolean(section.heading.trim() || section.chip.trim() || section.description.trim() || section.body.trim() || section.rows.some((row) => row.left.trim() || row.right.trim()) || section.tip.trim() || section.examples.some((example) => example.en.trim() || example.th.trim()));
     case 'importantNote':
-      return Boolean(section.heading.trim() || section.body.trim() || section.tip.trim());
+      return quiz || Boolean(section.heading.trim() || section.body.trim() || section.tip.trim());
     case 'practice':
-      return section.practice.some((question) => question.sentence.trim());
+      return quiz;
+    case 'formulaBreakdown':
+      return quiz || section.heading.trim().length > 0 || section.formula.some(formulaCaseHasContent);
+    case 'typeBreakdown':
+      return quiz || section.heading.trim().length > 0 || section.typeBreakdown.some(typeBreakdownCaseHasContent);
   }
 }
 
@@ -185,16 +274,50 @@ function sectionToPayload(section: SectionRow) {
     const examples = section.examples.filter((example) => example.en.trim() || example.th.trim());
     if (examples.length) payload.examples = examples.map((example) => ({ en: example.en.trim(), th: example.th.trim() || undefined, ok: example.ok }));
   }
-  if (section.type === 'importantNote' && section.body.trim()) payload.body = section.body.trim();
-  if (section.type === 'practice') {
-    const questions = section.practice.filter((question) => question.sentence.trim()).map((question) => ({
-      sentence: question.sentence.trim(),
-      options: question.options.map((option) => option.trim()).filter(Boolean),
-      answerIndex: question.options.slice(0, question.answerIndex).filter((option) => option.trim()).length,
-      explanation: question.explanation.trim() || undefined,
+  if (section.type === 'formulaBreakdown') {
+    if (section.heading.trim()) payload.heading = section.heading.trim();
+    const column = (side: FormulaColumnDraft) => {
+      const tone = normalizeFormulaBarTone(side.tone);
+      return {
+        sentence: side.sentence.trim(),
+        note: side.note.trim(),
+        ...(tone ? { tone } : {}),
+      };
+    };
+    const cases = section.formula.filter(formulaCaseHasContent).map((item) => ({
+      label: item.label.trim(),
+      example: item.example.trim(),
+      left: column(item.left),
+      right: column(item.right),
     }));
-    if (questions.length) payload.practice = { questions };
+    if (cases.length) payload.formula = { cases };
   }
+  if (section.type === 'typeBreakdown') {
+    if (section.heading.trim()) payload.heading = section.heading.trim();
+    if (section.description.trim()) payload.description = section.description.trim();
+    const cases = section.typeBreakdown.filter(typeBreakdownCaseHasContent).map((item) => {
+      const color = /^#[0-9a-fA-F]{3,8}$/.test(item.color.trim()) ? item.color.trim() : TYPE_BREAKDOWN_DEFAULT_COLOR;
+      return {
+        label: item.label.trim(),
+        color,
+        description: item.description.trim(),
+        structure: item.structure.trim(),
+        example: item.example.trim(),
+        note: item.note.trim(),
+      };
+    });
+    if (cases.length) payload.typeBreakdown = { cases };
+  }
+  if (section.type === 'importantNote' && section.body.trim()) payload.body = section.body.trim();
+  // Mini Quiz ส่งออกได้ทุก type — type 'practice' = การ์ดแยก, type อื่น = ฝังท้ายการ์ดนั้น
+  const questions = section.practice.filter((question) => question.sentence.trim()).map((question) => ({
+    sentence: question.sentence.trim(),
+    options: question.options.map((option) => option.trim()).filter(Boolean),
+    answerIndex: question.options.slice(0, question.answerIndex).filter((option) => option.trim()).length,
+    explanation: question.explanation.trim() || undefined,
+  }));
+  if (questions.length) payload.practice = { questions };
+  if (section.type !== 'practice' && questions.length && section.quizHeading.trim()) payload.quizHeading = section.quizHeading.trim();
   return payload;
 }
 
@@ -251,8 +374,9 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   /** ข้อสอบทุกข้อของหัวข้อที่เลือก — ใช้ตรวจว่าบทนี้ครอบคลุมทุกข้อหรือยัง */
   const [coverageQuestions, setCoverageQuestions] = useState<CoverageQuestion[]>([]);
   const [coverageLoading, setCoverageLoading] = useState(false);
-  const [grammarTopic, setGrammarTopic] = useState('');
-  // โหมดพิมพ์หัวข้อเอง — เปิดเมื่อแก้เนื้อหาที่หัวข้อไม่ตรงกับข้อสอบแล้ว หรือเลือก "พิมพ์หัวข้อใหม่"
+  // หัวข้อทั้งหมดที่เนื้อหานี้เชื่อมกับข้อสอบ (เลือกได้หลายหัวข้อ — ตัวแรกคือหัวข้อหลัก)
+  const [grammarTopics, setGrammarTopics] = useState<string[]>([]);
+  // โหมดพิมพ์หัวข้อใหม่ — เปิดเมื่อกด "พิมพ์หัวข้อใหม่" ใน ExplainTopicField
   const [customTopic, setCustomTopic] = useState(false);
   const [title, setTitle] = useState('');
   const [intro, setIntro] = useState('');
@@ -270,6 +394,8 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewIncludeDraft, setPreviewIncludeDraft] = useState(false);
+  // section ที่เปิดกล่อง "Mini Quiz ท้ายการ์ดนี้" อยู่ (คีย์ = ลำดับ section)
+  const [quizOpenSections, setQuizOpenSections] = useState<Record<number, boolean>>({});
   const [importOpen, setImportOpen] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [importResult, setImportResult] = useState<null | {
@@ -370,8 +496,8 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
       if (mode === 'edit' && explainId) {
         const selected = explainRows.find((row) => row.id === explainId);
         if (!selected) throw new Error('ไม่พบ explain ที่ต้องการแก้ไข');
-        setGrammarTopic(selected.grammarTopic);
-        setCustomTopic(!topicRows.some((topic) => topic.grammarTopic === selected.grammarTopic.trim()));
+        setGrammarTopics(selected.grammarTopics?.length ? selected.grammarTopics : [selected.grammarTopic]);
+        setCustomTopic(false);
         setTitle(selected.title);
         setIntro(selected.intro ?? '');
         setSections(selected.sections?.length ? selected.sections.map(toSectionDraft) : [emptySection()]);
@@ -379,7 +505,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         setStatus(parseContentStatus(selected.status));
         setTestSetIds(selected.testSetIds ?? []);
       } else {
-        setGrammarTopic(topicRows[0]?.grammarTopic ?? '');
+        setGrammarTopics(topicRows[0] ? [topicRows[0].grammarTopic] : []);
         setCustomTopic(topicRows.length === 0);
       }
     } catch (error) {
@@ -391,31 +517,35 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
 
   useEffect(() => { void load(); }, [load]);
 
-  // โหลดข้อสอบของหัวข้อที่เลือกไว้ เพื่อเทียบกับหัวข้อย่อยที่บทนี้มี (ใช้เตือนเท่านั้น)
-  const coverageTopic = customTopic ? '' : grammarTopic.trim();
+  // โหลดข้อสอบของทุกหัวข้อที่เลือกไว้ เพื่อเทียบกับหัวข้อย่อยที่บทนี้มี (ใช้เตือนเท่านั้น)
+  // เนื้อหาเชื่อมได้หลายหัวข้อ — รวมข้อสอบของทุกหัวข้อ (ตัดข้อซ้ำด้วย id) มาตรวจพร้อมกัน
+  const coverageTopics = useMemo(() => grammarTopics.map((topic) => topic.trim()).filter(Boolean), [grammarTopics]);
   useEffect(() => {
-    if (!coverageTopic) {
+    if (!coverageTopics.length) {
       setCoverageQuestions([]);
       setCoverageLoading(false);
       return;
     }
     let cancelled = false;
     setCoverageLoading(true);
-    fetch(`/api/admin/test-explains/topics/${encodeURIComponent(coverageTopic)}/questions`, { cache: 'no-store' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload) => {
+    Promise.all(
+      coverageTopics.map((topic) =>
+        fetch(`/api/admin/test-explains/topics/${encodeURIComponent(topic)}/questions`, { cache: 'no-store' })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((payload) => (payload?.success && payload.data ? (payload.data.questions as CoverageQuestion[]) : []))
+          .catch(() => [] as CoverageQuestion[]),
+      ),
+    )
+      .then((lists) => {
         if (cancelled) return;
-        setCoverageQuestions(payload?.success && payload.data ? (payload.data.questions as CoverageQuestion[]) : []);
-      })
-      .catch(() => {
-        // ตรวจความครอบคลุมเป็นตัวช่วย — โหลดไม่ได้ก็ไม่ควรกั้นการแก้เนื้อหา
-        if (!cancelled) setCoverageQuestions([]);
+        const seen = new Set<number>();
+        setCoverageQuestions(lists.flat().filter((question) => !seen.has(question.id) && seen.add(question.id)));
       })
       .finally(() => {
         if (!cancelled) setCoverageLoading(false);
       });
     return () => { cancelled = true; };
-  }, [coverageTopic]);
+  }, [coverageTopics]);
 
   const coverage = useMemo(
     () => explainCoverage(coverageQuestions, parsedSections),
@@ -478,8 +608,49 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         return { ...q, options, answerIndex: Math.min(q.answerIndex, options.length - 1) };
       }) };
     }));
+  // Core Formula breakdown — เคสซ้าย/ขวา
+  const updateFormulaCase = (si: number, ci: number, patch: Partial<FormulaCaseDraft>) =>
+    setSections((s) => s.map((sec, i) => (i === si ? { ...sec, formula: sec.formula.map((item, j) => (j === ci ? { ...item, ...patch } : item)) } : sec)));
+  const updateFormulaColumn = (si: number, ci: number, side: 'left' | 'right', patch: Partial<FormulaColumnDraft>) =>
+    setSections((s) => s.map((sec, i) => (i === si ? { ...sec, formula: sec.formula.map((item, j) => (j === ci ? { ...item, [side]: { ...item[side], ...patch } } : item)) } : sec)));
+  const addFormulaCase = (si: number) =>
+    setSections((s) => s.map((sec, i) => (i === si ? { ...sec, formula: [...sec.formula, emptyFormulaCase()] } : sec)));
+  const removeFormulaCase = (si: number, ci: number) =>
+    setSections((s) => s.map((sec, i) => (i === si && sec.formula.length > 1 ? { ...sec, formula: sec.formula.filter((_, j) => j !== ci) } : sec)));
+  const moveFormulaCase = (si: number, ci: number, direction: 'up' | 'down') =>
+    setSections((sections) => sections.map((section, index) => {
+      if (index !== si) return section;
+      const target = direction === 'up' ? ci - 1 : ci + 1;
+      if (target < 0 || target >= section.formula.length) return section;
+      const formula = [...section.formula];
+      [formula[ci], formula[target]] = [formula[target], formula[ci]];
+      return { ...section, formula };
+    }));
+
+  // Type Breakdown — เคสแยกตาม Type
+  const updateTypeCase = (si: number, ci: number, patch: Partial<TypeBreakdownCaseDraft>) =>
+    setSections((s) => s.map((sec, i) => (i === si ? { ...sec, typeBreakdown: sec.typeBreakdown.map((item, j) => (j === ci ? { ...item, ...patch } : item)) } : sec)));
+  const addTypeCase = (si: number) =>
+    setSections((s) => s.map((sec, i) => (i === si ? { ...sec, typeBreakdown: [...sec.typeBreakdown, emptyTypeBreakdownCase()] } : sec)));
+  const removeTypeCase = (si: number, ci: number) =>
+    setSections((s) => s.map((sec, i) => (i === si && sec.typeBreakdown.length > 1 ? { ...sec, typeBreakdown: sec.typeBreakdown.filter((_, j) => j !== ci) } : sec)));
+  const moveTypeCase = (si: number, ci: number, direction: 'up' | 'down') =>
+    setSections((sections) => sections.map((section, index) => {
+      if (index !== si) return section;
+      const target = direction === 'up' ? ci - 1 : ci + 1;
+      if (target < 0 || target >= section.typeBreakdown.length) return section;
+      const cases = [...section.typeBreakdown];
+      [cases[ci], cases[target]] = [cases[target], cases[ci]];
+      return { ...section, typeBreakdown: cases };
+    }));
+
   const addPracticeQuestion = (si: number) =>
-    setSections((s) => s.map((sec, i) => (i === si ? { ...sec, practice: [...sec.practice, { sentence: '', options: ['', '', ''], answerIndex: 0, explanation: '' }] } : sec)));
+    setSections((s) => s.map((sec, i) => (i === si ? { ...sec, practice: [...sec.practice, emptyQuizRow()] } : sec)));
+  // ล้าง Mini Quiz ที่ฝังมากับการ์ด (ลบโจทย์ทั้งหมด + ปิดกล่อง)
+  const clearPractice = (si: number) => {
+    setSections((s) => s.map((sec, i) => (i === si ? { ...sec, practice: [emptyQuizRow()], quizHeading: '' } : sec)));
+    setQuizOpenSections((open) => ({ ...open, [si]: false }));
+  };
   const removePracticeQuestion = (si: number, qi: number) =>
     setSections((s) => s.map((sec, i) => (i === si && sec.practice.length > 1 ? { ...sec, practice: sec.practice.filter((_, j) => j !== qi) } : sec)));
   const movePracticeQuestion = (si: number, qi: number, direction: 'up' | 'down') =>
@@ -553,8 +724,9 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   };
 
   // ---------- Validation + save ----------
-  // หัวข้อต้องตรงกับข้อสอบจริง (เทียบสตริงตรงเป๊ะกับ questions.grammar_topic) ไม่งั้นเนื้อหาจะไม่ถูกเรียกใช้เลย
-  const topicWarning = explainTopicWarning(linkExplainTopic(grammarTopic, topics));
+  // ทุกหัวข้อที่เชื่อมไว้ต้องตรงกับข้อสอบจริง (เทียบสตริงตรงเป๊ะกับ questions.grammar_topic)
+  // ไม่งั้นข้อสอบหัวข้อนั้นจะไม่ถูกเรียกใช้เนื้อหาเลย
+  const topicWarning = explainTopicsWarning(grammarTopics, topics);
 
   const validationWarnings = [
     ...(topicWarning ? [topicWarning] : []),
@@ -571,8 +743,8 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
   ];
 
   const save = async () => {
-    if (!grammarTopic.trim() || !title.trim()) {
-      toast.error('กรุณาระบุ grammarTopic และชื่อเนื้อหา');
+    if (!grammarTopics.length || !title.trim()) {
+      toast.error('กรุณาระบุ grammarTopic อย่างน้อย 1 หัวข้อ และชื่อเนื้อหา');
       return;
     }
     if (status === PUBLISHED_STATUS && validationWarnings.length > 0) {
@@ -589,7 +761,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
       const response = await fetch(mode === 'edit' && explainId ? `/api/admin/test-explains/${explainId}` : '/api/admin/test-explains', {
         method: mode === 'edit' && explainId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grammarTopic: grammarTopic.trim(), title: title.trim(), intro, sections: payloadSections, tip, testSetIds, status }),
+        body: JSON.stringify({ grammarTopic: grammarTopics[0], grammarTopics, title: title.trim(), intro, sections: payloadSections, tip, testSetIds, status }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error ?? 'บันทึกไม่สำเร็จ');
@@ -602,6 +774,36 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * ตัวแก้ไข Mini Quiz — ใช้ร่วมกันทั้งการ์ดแยก (type 'practice')
+   * และ Mini Quiz ที่ฝังท้ายการ์ดอื่น (“เพิ่ม Mini Quiz ท้ายการ์ดนี้”)
+   */
+  const renderPracticeEditor = (si: number) => {
+    const section = sections[si];
+    if (!section) return null;
+    return (
+      <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+        {section.practice.map((question, qi) => (
+          <div key={qi} className="space-y-2 rounded-xl border border-emerald-100 bg-white p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-extrabold text-emerald-700">โจทย์ที่ {qi + 1}</p>
+              <div className="flex items-center">
+                <button type="button" onClick={() => movePracticeQuestion(si, qi, 'up')} disabled={qi === 0} aria-label="เลื่อนโจทย์ Mini Quiz ขึ้น" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronUp className="size-4" /></button>
+                <button type="button" onClick={() => movePracticeQuestion(si, qi, 'down')} disabled={qi === section.practice.length - 1} aria-label="เลื่อนโจทย์ Mini Quiz ลง" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronDown className="size-4" /></button>
+                <button type="button" onClick={() => removePracticeQuestion(si, qi)} disabled={section.practice.length <= 1} aria-label="ลบโจทย์ Mini Quiz" className="rounded p-1 text-slate-400 hover:text-red-500 disabled:opacity-30"><Trash2 className="size-4" /></button>
+              </div>
+            </div>
+            <input placeholder="ประโยคคำถาม ใช้ ____ แทนช่องว่าง" value={question.sentence} onChange={(event) => updatePractice(si, qi, { sentence: event.target.value })} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+            {question.options.map((option, oi) => <div key={oi} className="flex gap-2"><input placeholder={`ตัวเลือก ${oi + 1}`} value={option} onChange={(event) => updatePracticeOption(si, qi, oi, event.target.value)} className="flex-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm" /><label className="flex items-center gap-1 text-xs text-slate-600"><input type="radio" name={`practice-answer-${si}-${qi}`} checked={question.answerIndex === oi} onChange={() => updatePractice(si, qi, { answerIndex: oi })} /> เฉลย</label><button type="button" onClick={() => removePracticeOption(si, qi, oi)} disabled={question.options.length <= 2} aria-label="ลบตัวเลือก" className="rounded p-1 text-slate-400 hover:text-red-500 disabled:opacity-30"><Trash2 className="size-4" /></button></div>)}
+            <button type="button" onClick={() => addPracticeOption(si, qi)} className="text-xs font-semibold text-emerald-700">+ เพิ่มตัวเลือก</button>
+            <textarea placeholder="คำอธิบายหลังตอบ (ไม่บังคับ)" value={question.explanation} onChange={(event) => updatePractice(si, qi, { explanation: event.target.value })} rows={2} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+          </div>
+        ))}
+        <button type="button" onClick={() => addPracticeQuestion(si)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100"><Plus className="size-3.5" /> เพิ่มโจทย์ใน Mini Quiz</button>
+      </div>
+    );
   };
 
   if (loading) return <div className="flex min-h-80 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-sky-600" /></div>;
@@ -631,7 +833,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         {rows.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">ยังไม่มีเนื้อหา Explain สำหรับข้อสอบ</div> : (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             {rows.map((row) => <div key={row.id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4 last:border-0">
-              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold text-slate-800">{row.title}</h2><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${contentStatusMeta(row.status).badgeClass}`}>{contentStatusMeta(row.status).label}</span></div><p className="mt-1 text-sm text-slate-500">{row.grammarTopic} · {row.questionCount > 0 ? `${row.questionCount} ข้อสอบ` : <span className="font-bold text-amber-600">⚠ ไม่มีข้อสอบใช้หัวข้อนี้</span>} · อัปเดต {new Date(row.updatedAt).toLocaleDateString('th-TH')}</p></div>
+              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold text-slate-800">{row.title}</h2><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${contentStatusMeta(row.status).badgeClass}`}>{contentStatusMeta(row.status).label}</span></div><p className="mt-1 text-sm text-slate-500">{(row.grammarTopics?.length ? row.grammarTopics : [row.grammarTopic]).join(' · ')} · {row.questionCount > 0 ? `${row.questionCount} ข้อสอบ` : <span className="font-bold text-amber-600">⚠ ไม่มีข้อสอบใช้หัวข้อเหล่านี้</span>} · อัปเดต {new Date(row.updatedAt).toLocaleDateString('th-TH')}</p></div>
               <Link href={`/admin/test-explains/${row.id}/preview`} target="_blank" rel="noreferrer" title="เปิดหน้าอธิบายจริงเหมือนที่ผู้เรียนเห็น (ใช้เวลาที่บันทึกไว้ล่าสุด)" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-sky-300 hover:text-sky-700"><Eye className="h-4 w-4" /> ดูหน้าจริง</Link>
               <Link href={`/admin/test-explains/${row.id}`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50">แก้ไข</Link>
               <button type="button" onClick={() => exportOne(row)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" aria-label={`ส่งออก ${row.title}`}><Download className="h-4 w-4" /></button>
@@ -712,23 +914,26 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                     <div>
                       <p className="font-bold text-slate-700">ฟิลด์ของ explain แต่ละรายการ</p>
                       <ul className="mt-1 space-y-1">
-                        <li><code className="rounded bg-slate-200 px-1 font-mono">grammarTopic</code> <span className="text-rose-600">*บังคับ*</span> — ต้องตรงกับ <code className="rounded bg-slate-200 px-1 font-mono">questions.grammar_topic</code> ของข้อสอบเป๊ะ ๆ (case-sensitive) สูงสุด 200 ตัวอักษร, ห้ามซ้ำกันในไฟล์เดียว</li>
+                        <li><code className="rounded bg-slate-200 px-1 font-mono">grammarTopic</code> <span className="text-rose-600">*บังคับ*</span> — หัวข้อหลัก ต้องตรงกับ <code className="rounded bg-slate-200 px-1 font-mono">questions.grammar_topic</code> ของข้อสอบเป๊ะ ๆ (case-sensitive) สูงสุด 200 ตัวอักษร, ห้ามซ้ำกันในไฟล์เดียว</li>
+                        <li><code className="rounded bg-slate-200 px-1 font-mono">grammarTopics</code> — หัวข้อเพิ่มเติม (array, ไม่บังคับ) — 1 หน้าคำอธิบายเชื่อมหลายหัวข้อได้ ข้อสอบที่หัวข้อตรงกับหัวข้อใดในนี้จะใช้เนื้อหานี้ทั้งหมด (หัวข้อแรก = หัวข้อหลักตาม grammarTopic)</li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">title</code> <span className="text-rose-600">*บังคับ*</span> — ชื่อที่แสดงในหน้าอธิบาย สูงสุด 200 ตัวอักษร</li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">intro</code> — บทนำ (string, ไม่บังคับ) รองรับ <code className="rounded bg-slate-200 px-1">**ตัวหนา**</code> และ <code className="rounded bg-slate-200 px-1">==ไฮไลต์==</code></li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">sections</code> <span className="text-rose-600">*บังคับ*</span> — array ของ Section (ดูรายละเอียดด้านล่าง) อย่างน้อย 1 อัน</li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">tip</code> — เคล็ดลับท้ายหน้า (string, ไม่บังคับ)</li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">status</code> — สถานะเนื้อหา: <code className="rounded bg-slate-200 px-1">draft</code> (กำลังพัฒนา) · <code className="rounded bg-slate-200 px-1">review</code> (รอตรวจสอบ) · <code className="rounded bg-slate-200 px-1">published</code> (พร้อมให้ผู้เรียนเห็น) · <code className="rounded bg-slate-200 px-1">hidden</code> (ปิดชั่วคราว) — ค่าเริ่มต้น <code className="rounded bg-slate-200 px-1">draft</code> และผู้เรียนเห็นเฉพาะ <code className="rounded bg-slate-200 px-1">published</code> (ยังรับ <code className="rounded bg-slate-200 px-1">isPublished</code> แบบเดิมได้)</li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">sections[].visibility</code> — <code className="rounded bg-slate-200 px-1">draft</code> = ส่วนนี้ยังไม่เสร็จ ไม่แสดงให้ผู้เรียน (ไม่ระบุ = <code className="rounded bg-slate-200 px-1">published</code>) ใช้ทยอยเปิดทีละส่วนได้โดยไม่ต้องซ่อนทั้งเรื่อง</li>
-                        <li>ฟิลด์อื่นที่ไม่รู้จัก (เช่น id, createdAt, questionCount จากไฟล์ Export) จะถูก<b>ละเว้นโดยอัตโนมัติ</b> — นำเข้าซ้ำจากไฟล์ Export ได้ทันที</li>
+                        <li>ฟิลด์อื่นที่ไม่รู้จัก (เช่น id, createdAt, questionCount จากไฟล์ Export) จะถูก<b>ละเว้นโดยอัตโนมัติ</b> — นำเข้าซ้ำจากไฟล์ Export ได้ทันที รวมถึง <code className="rounded bg-slate-200 px-1 font-mono">formulaBreakdown</code> / <code className="rounded bg-slate-200 px-1 font-mono">typeBreakdown</code></li>
                       </ul>
                     </div>
                     <div>
-                      <p className="font-bold text-slate-700">Section 4 ประเภท (เลือกใช้ type ใดก็ได้)</p>
+                      <p className="font-bold text-slate-700">Section 6 ประเภท (เลือกใช้ type ใดก็ได้)</p>
                       <ul className="mt-1 space-y-1">
                         <li><code className="rounded bg-slate-200 px-1 font-mono">rule</code> — การ์ดกฎสั้น: heading, chip (ป้ายเหลือง), description, rows (ตาราง กฎ→ตัวอย่าง), examples (การ์ดตัวอย่าง en/th/ok), tip</li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">detailedRule</code> — กฎแบบละเอียด: heading, chip, description, body (ย่อหน้ายาว), rows, tip</li>
                         <li><code className="rounded bg-slate-200 px-1 font-mono">importantNote</code> — การ์ดจุดสำคัญ: heading, body, tip</li>
-                        <li><code className="rounded bg-slate-200 px-1 font-mono">practice</code> — Mini Quiz: practice.questions[] = {'{ sentence, options[], answerIndex, explanation }'} (ต้องมีตัวเลือก ≥ 2 ข้อและ answerIndex ชี้ตัวเลือกที่มีข้อความ ถ้าจะเผยแพร่)</li>
+                        <li><code className="rounded bg-slate-200 px-1 font-mono">formulaBreakdown</code> — การ์ดเทียบสูตรซ้าย/ขวาทีละเคส: heading (หัวเรื่องการ์ด), formula.cases[] = {'{ label, example, left: { sentence, note, tone? }, right: { sentence, note, tone? } }'} — ใช้ <code className="rounded bg-slate-200 px-1">==คำ==</code> ใน sentence เพื่อเน้นคำ · <code className="rounded bg-slate-200 px-1">tone</code> = <code className="rounded bg-slate-200 px-1">&quot;yellow&quot;</code> (#FFF5CF) หรือ <code className="rounded bg-slate-200 px-1">&quot;purple&quot;</code> (#E6E6FC) — ไม่ระบุ = ตามตำแหน่งคอลัมน์ (ซ้ายม่วง ขวาเหลือง) · ใช้เมื่อ Figma ของการ์ดนั้นสลับสีจากค่ามาตรฐาน (เช่น 419:56107 ที่ซ้ายเป็นเหลือง)</li>
+                        <li><code className="rounded bg-slate-200 px-1 font-mono">typeBreakdown</code> — การ์ดแยกตาม Type: heading (หัวการ์ด), description (คำโปรยใต้หัวการ์ด), typeBreakdown.cases[] = {'{ label, color?, description, structure, example, note }'} — ใช้ <code className="rounded bg-slate-200 px-1">==คำ==</code> ใน example เพื่อเน้นเป็นชิปพื้นขาว (color = สีป้าย Type แบบ hex ไม่ระบุ = เขียวมาตรฐาน)</li>
+                        <li><code className="rounded bg-slate-200 px-1 font-mono">practice</code> — Mini Quiz: practice.questions[] = {'{ sentence, options[], answerIndex, explanation }'} (ต้องมีตัวเลือก ≥ 2 ข้อและ answerIndex ชี้ตัวเลือกที่มีข้อความ ถ้าจะเผยแพร่) — ใช้ได้กับทุก type: ถ้าเป็น type <code className="rounded bg-slate-200 px-1 font-mono">practice</code> = การ์ด Mini Quiz แยก ถ้าเป็น type อื่น = Mini Quiz ฝังต่อท้ายการ์ดนั้นในกล่องขาวเดียวกัน (optional <code className="rounded bg-slate-200 px-1 font-mono">quizHeading</code> = หัวข้อของกล่อง quiz)</li>
                       </ul>
                     </div>
                     <div className="rounded-lg border border-sky-200 bg-sky-50 p-2.5 text-sky-800">
@@ -853,10 +1058,10 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
         {/* Meta fields */}
         <section className="mb-5 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2">
           <ExplainTopicField
-            grammarTopic={grammarTopic}
-            topics={topics}
+            topics={grammarTopics}
+            options={topics}
             customTopic={customTopic}
-            onChange={setGrammarTopic}
+            onChangeTopics={setGrammarTopics}
             onCustomTopicChange={setCustomTopic}
           />
           <label className="block text-sm font-bold text-slate-700">ชื่อที่แสดงในหน้าอธิบาย<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} placeholder="เช่น Present Perfect" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 font-normal focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400" /></label>
@@ -1020,7 +1225,10 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
 
         {/* ============ SECTION CARDS ============ */}
         <div className="space-y-4">
-          {sections.map((section, si) => (
+          {sections.map((section, si) => {
+            // กล่อง Mini Quiz ที่ฝังท้ายการ์ดเปิดอัตโนมัติเมื่อมีโจทย์อยู่แล้ว
+            const quizOpen = section.type !== 'practice' && (quizOpenSections[si] === true || practiceHasContent(section));
+            return (
             <div key={si} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-100">
               <div className="mb-4 flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -1034,6 +1242,8 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                     <option value="rule">Rule / Grammar Card</option>
                     <option value="detailedRule">Rule / Grammar แบบละเอียด</option>
                     <option value="importantNote">Important Note / Key Point</option>
+                    <option value="formulaBreakdown">Core Formula breakdown</option>
+                    <option value="typeBreakdown">Type Breakdown / แยกตาม Type</option>
                     <option value="practice">Mini Quiz / Practice</option>
                   </select>
                 </div>
@@ -1058,7 +1268,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                 <div className="flex items-end gap-1">
                   <input
                     type="text"
-                    placeholder={section.type === 'importantNote' ? 'หัวข้อ เช่น ทริคสำคัญ' : section.type === 'practice' ? 'Header เช่น ลองทำโจทย์เพื่อทบทวนความเข้าใจ' : 'Header ของ Card (ไม่บังคับ)'}
+                    placeholder={section.type === 'importantNote' ? 'หัวข้อ เช่น ทริคสำคัญ' : section.type === 'practice' ? 'Header เช่น ลองทำโจทย์เพื่อทบทวนความเข้าใจ' : section.type === 'formulaBreakdown' ? 'หัวเรื่องการ์ด เช่น ประโยคปฏิเสธ (-) ต้องตามด้วย ประโยคบอกเล่า (+)' : section.type === 'typeBreakdown' ? 'หัวการ์ด เช่น Conditional Sentences (ประโยคเงื่อนไข)' : 'Header ของ Card (ไม่บังคับ)'}
                     value={section.heading}
                     onChange={(event) => updateSection(si, { heading: event.target.value })}
                     data-highlight-field={`${si}-heading`}
@@ -1162,34 +1372,201 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                   </>
                 )}
 
+                {section.type === 'formulaBreakdown' && (
+                  <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
+                    <p className="text-xs text-indigo-700">การ์ดเทียบสูตร ซ้าย/ขวาทีละเคส — เน้นคำในประโยคด้วย <code className="rounded bg-white px-1">==คำ==</code> จะแสดงเป็นชิปพื้นขาว</p>
+                    {section.formula.map((item, ci) => (
+                      <div key={ci} className="space-y-2 rounded-xl border border-indigo-100 bg-white p-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-extrabold text-indigo-700">เคสที่ {ci + 1}</p>
+                          <div className="flex items-center">
+                            <button type="button" onClick={() => moveFormulaCase(si, ci, 'up')} disabled={ci === 0} aria-label="เลื่อนเคสขึ้น" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronUp className="size-4" /></button>
+                            <button type="button" onClick={() => moveFormulaCase(si, ci, 'down')} disabled={ci === section.formula.length - 1} aria-label="เลื่อนเคสลง" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronDown className="size-4" /></button>
+                            <button type="button" onClick={() => removeFormulaCase(si, ci)} disabled={section.formula.length <= 1} aria-label="ลบเคส" className="rounded p-1 text-slate-400 hover:text-red-500 disabled:opacity-30"><Trash2 className="size-4" /></button>
+                          </div>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <input
+                            placeholder="ป้ายเคส เช่น เคส Is / Am / Are - ปฏิเสธ :"
+                            value={item.label}
+                            onChange={(event) => updateFormulaCase(si, ci, { label: event.target.value })}
+                            className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+                          />
+                          <input
+                            placeholder="ประโยคตัวอย่างของเคส เช่น It isn't cold today, is it?"
+                            value={item.example}
+                            onChange={(event) => updateFormulaCase(si, ci, { example: event.target.value })}
+                            className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {(['left', 'right'] as const).map((side) => (
+                            <div key={side} className="space-y-2 rounded-lg p-2" style={{ background: side === 'left' ? '#E6E6FC' : '#FFF5CF' }}>
+                              <p className="text-[11px] font-black text-slate-600">{side === 'left' ? 'คอลัมน์ซ้าย' : 'คอลัมน์ขวา'}</p>
+                              <input
+                                placeholder="ประโยคในแถบสี (ใช้ ==คำ== เพื่อเน้น)"
+                                value={item[side].sentence}
+                                onChange={(event) => updateFormulaColumn(si, ci, side, { sentence: event.target.value })}
+                                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
+                              />
+                              <input
+                                placeholder="คำอธิบายใต้แถบ"
+                                value={item[side].note}
+                                onChange={(event) => updateFormulaColumn(si, ci, side, { note: event.target.value })}
+                                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
+                              />
+                              <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600">
+                                สีแถบ:
+                                <select
+                                  value={item[side].tone ?? ''}
+                                  onChange={(event) => updateFormulaColumn(si, ci, side, { tone: normalizeFormulaBarTone(event.target.value) })}
+                                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-semibold"
+                                >
+                                  {FORMULA_TONE_OPTIONS.map((option) => (
+                                    <option key={option.value || 'auto'} value={option.value}>
+                                      {option.swatch ? `${option.swatch} · ${option.label}` : option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => addFormulaCase(si)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100"><Plus className="size-3.5" /> เพิ่มเคส</button>
+                  </div>
+                )}
+
+                {section.type === 'typeBreakdown' && (
+                  <div className="space-y-3 rounded-xl border border-violet-100 bg-violet-50/40 p-3">
+                    <div className="flex flex-wrap items-end gap-1">
+                      <input
+                        type="text"
+                        placeholder="คำโปรยใต้หัวการ์ด เช่น พูดถึงเรื่องสมมติหรือเงื่อนไข “ถ้า... ก็...”"
+                        value={section.description}
+                        onChange={(event) => updateSection(si, { description: event.target.value })}
+                        className="w-full min-w-0 flex-1 rounded-lg border border-violet-200 bg-white px-2.5 py-2 text-sm"
+                      />
+                      <HighlightFieldToggle fieldKey={`${si}-description`} marker="**" onApply={(value) => updateSection(si, { description: value })} />
+                      <HighlightFieldToggle fieldKey={`${si}-description`} marker={highlightDirective} onApply={(value) => updateSection(si, { description: value })} />
+                    </div>
+                    <p className="text-xs text-violet-700">
+                      ป้าย Type → ช่องโครงสร้าง → ประโยคตัวอย่าง → บรรทัดสรุปท้ายเคส · ใช้ <code className="rounded bg-violet-100 px-1">==คำ==</code> ในประโยคตัวอย่างเพื่อเน้นเป็นชิปพื้นขาว
+                    </p>
+                    {section.typeBreakdown.map((item, ci) => (
+                      <div key={ci} className="space-y-2 rounded-xl border border-violet-100 bg-white p-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-extrabold text-violet-700">เคสที่ {ci + 1}</p>
+                          <div className="flex items-center">
+                            <button type="button" onClick={() => moveTypeCase(si, ci, 'up')} disabled={ci === 0} aria-label="เลื่อนเคสขึ้น" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronUp className="size-4" /></button>
+                            <button type="button" onClick={() => moveTypeCase(si, ci, 'down')} disabled={ci === section.typeBreakdown.length - 1} aria-label="เลื่อนเคสลง" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronDown className="size-4" /></button>
+                            <button type="button" onClick={() => removeTypeCase(si, ci)} disabled={section.typeBreakdown.length <= 1} aria-label="ลบเคส" className="rounded p-1 text-slate-400 hover:text-red-500 disabled:opacity-30"><Trash2 className="size-4" /></button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="ป้าย Type เช่น Type 1 :"
+                            value={item.label}
+                            onChange={(event) => updateTypeCase(si, ci, { label: event.target.value })}
+                            className="w-40 rounded-lg border border-violet-200 px-2.5 py-2 text-sm font-bold"
+                          />
+                          <div className="flex items-center gap-1">
+                            {TYPE_CASE_COLORS.map((color) => (
+                              <button
+                                key={color}
+                                type="button"
+                                onClick={() => updateTypeCase(si, ci, { color })}
+                                aria-label={`ใช้สีป้าย ${color}`}
+                                aria-pressed={(item.color || TYPE_BREAKDOWN_DEFAULT_COLOR).toUpperCase() === color}
+                                className={`size-6 rounded-full border-2 ${(item.color || TYPE_BREAKDOWN_DEFAULT_COLOR).toUpperCase() === color ? 'border-slate-800' : 'border-white ring-1 ring-slate-200'}`}
+                                style={{ background: color }}
+                              />
+                            ))}
+                            <input
+                              type="color"
+                              aria-label="สีป้าย Type"
+                              value={/^#[0-9a-fA-F]{6}$/.test(item.color) ? item.color : TYPE_BREAKDOWN_DEFAULT_COLOR}
+                              onChange={(event) => updateTypeCase(si, ci, { color: event.target.value.toUpperCase() })}
+                              className="h-7 w-9 cursor-pointer rounded border border-slate-200 bg-transparent p-0"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="คำอธิบายสั้นข้างป้าย เช่น มีโอกาสเกิดขึ้นจริงในอนาคต"
+                            value={item.description}
+                            onChange={(event) => updateTypeCase(si, ci, { description: event.target.value })}
+                            className="w-full min-w-0 flex-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="ช่องโครงสร้าง เช่น โครงสร้าง: If + V.1 , will + V.1"
+                          value={item.structure}
+                          onChange={(event) => updateTypeCase(si, ci, { structure: event.target.value })}
+                          className="w-full rounded-lg border border-slate-200 bg-[#F5F5F5] px-2.5 py-2 text-sm"
+                        />
+                        <input
+                          type="text"
+                          placeholder="ประโยคตัวอย่างของแถบเหลือง (ใช้ ==คำ== เพื่อเน้น)"
+                          value={item.example}
+                          onChange={(event) => updateTypeCase(si, ci, { example: event.target.value })}
+                          className="w-full rounded-lg border border-amber-200 bg-[#FFF5CF] px-2.5 py-2 text-sm"
+                        />
+                        <input
+                          type="text"
+                          placeholder="บรรทัดสรุปท้ายเคส (ไม่บังคับ) เช่น ปัจจุบันคู่กับอนาคต (V.1 คู่ will)"
+                          value={item.note}
+                          onChange={(event) => updateTypeCase(si, ci, { note: event.target.value })}
+                          className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+                        />
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => addTypeCase(si)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-violet-700 hover:bg-violet-100"><Plus className="size-3.5" /> เพิ่มเคส</button>
+                  </div>
+                )}
+
                 {section.type === 'importantNote' && (
                   <p className="text-xs text-amber-700">แสดงเป็นการ์ดจุดสำคัญขนาดกะทัดรัดพร้อมไอคอนหลอดไฟ</p>
                 )}
 
-                {section.type === 'practice' && (
-                  <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
-                    {section.practice.map((question, qi) => (
-                      <div key={qi} className="space-y-2 rounded-xl border border-emerald-100 bg-white p-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-extrabold text-emerald-700">โจทย์ที่ {qi + 1}</p>
-                          <div className="flex items-center">
-                            <button type="button" onClick={() => movePracticeQuestion(si, qi, 'up')} disabled={qi === 0} aria-label="เลื่อนโจทย์ Mini Quiz ขึ้น" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronUp className="size-4" /></button>
-                            <button type="button" onClick={() => movePracticeQuestion(si, qi, 'down')} disabled={qi === section.practice.length - 1} aria-label="เลื่อนโจทย์ Mini Quiz ลง" className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"><ChevronDown className="size-4" /></button>
-                            <button type="button" onClick={() => removePracticeQuestion(si, qi)} disabled={section.practice.length <= 1} aria-label="ลบโจทย์ Mini Quiz" className="rounded p-1 text-slate-400 hover:text-red-500 disabled:opacity-30"><Trash2 className="size-4" /></button>
-                          </div>
+                {section.type === 'practice' && renderPracticeEditor(si)}
+
+                {section.type !== 'practice' && (
+                  <div className={`rounded-xl border p-3 ${quizOpen ? 'border-emerald-100 bg-emerald-50/30' : 'border-dashed border-emerald-200 bg-emerald-50/20'}`}>
+                    {quizOpen ? (
+                      <>
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs font-extrabold text-emerald-700">Mini Quiz ท้ายการ์ดนี้</p>
+                          <button type="button" onClick={() => clearPractice(si)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-white hover:text-red-600"><Trash2 className="size-3.5" /> เอา Mini Quiz ออก</button>
                         </div>
-                        <input placeholder="ประโยคคำถาม ใช้ ____ แทนช่องว่าง" value={question.sentence} onChange={(event) => updatePractice(si, qi, { sentence: event.target.value })} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
-                        {question.options.map((option, oi) => <div key={oi} className="flex gap-2"><input placeholder={`ตัวเลือก ${oi + 1}`} value={option} onChange={(event) => updatePracticeOption(si, qi, oi, event.target.value)} className="flex-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm" /><label className="flex items-center gap-1 text-xs text-slate-600"><input type="radio" name={`practice-answer-${si}-${qi}`} checked={question.answerIndex === oi} onChange={() => updatePractice(si, qi, { answerIndex: oi })} /> เฉลย</label><button type="button" onClick={() => removePracticeOption(si, qi, oi)} disabled={question.options.length <= 2} aria-label="ลบตัวเลือก" className="rounded p-1 text-slate-400 hover:text-red-500 disabled:opacity-30"><Trash2 className="size-4" /></button></div>)}
-                        <button type="button" onClick={() => addPracticeOption(si, qi)} className="text-xs font-semibold text-emerald-700">+ เพิ่มตัวเลือก</button>
-                        <textarea placeholder="คำอธิบายหลังตอบ (ไม่บังคับ)" value={question.explanation} onChange={(event) => updatePractice(si, qi, { explanation: event.target.value })} rows={2} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
-                      </div>
-                    ))}
-                    <button type="button" onClick={() => addPracticeQuestion(si)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100"><Plus className="size-3.5" /> เพิ่มโจทย์ใน Mini Quiz</button>
+                        <div className="flex items-end gap-1">
+                          <input
+                            type="text"
+                            placeholder="หัวข้อการ์ด Mini Quiz (ไม่ระบุ = ลองทำโจทย์เพื่อทบทวนความเข้าใจ)"
+                            value={section.quizHeading}
+                            onChange={(event) => updateSection(si, { quizHeading: event.target.value })}
+                            className="w-full rounded-lg border border-emerald-200 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                          />
+                        </div>
+                        <div className="mt-2">{renderPracticeEditor(si)}</div>
+                        <p className="mt-2 text-[11px] font-semibold text-emerald-700/70">แสดงต่อจากเนื้อหาการ์ดนี้ ในกล่องสีขาวเดียวกับ Rule Card เอง</p>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => setQuizOpenSections((open) => ({ ...open, [si]: true }))} className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100"><Plus className="size-3.5" /> เพิ่ม Mini Quiz ท้ายการ์ดนี้</button>
+                    )}
                   </div>
                 )}
+
               </div>
             </div>
-          ))}
+          );
+          })}
+
+          <p className="text-center text-xs text-slate-400">
+            ลำดับการแสดง = ลำดับจากบนลงล่าง · Mini Quiz ที่กด “เพิ่ม Mini Quiz ท้ายการ์ดนี้” จะติดอยู่กับการ์ดนั้นเสมอ (ไม่ขึ้นกับลำดับ) · ส่วน Mini Quiz ที่เพิ่มเป็น Section ต่างหาก และกล่องทริกสำคัญ จะแสดงในกล่องเดียวกันกับการ์ดที่วางอยู่ก่อนหน้า · ยังไม่ใส่เนื้อหาใน Type Breakdown (ไม่มีเคส) = ไม่แสดงการ์ดเลย
+          </p>
 
           <div className="flex justify-center">
             <label className="group inline-flex cursor-pointer items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:border-sky-400 hover:bg-sky-50/40 hover:text-sky-700">
@@ -1208,6 +1585,8 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                 <option value="rule">Rule / Grammar Card</option>
                 <option value="detailedRule">Rule / Grammar แบบละเอียด</option>
                 <option value="importantNote">Important Note / Key Point</option>
+                <option value="formulaBreakdown">Core Formula breakdown</option>
+                <option value="typeBreakdown">Type Breakdown / แยกตาม Type</option>
                 <option value="practice">Mini Quiz / Practice</option>
               </select>
             </label>
@@ -1235,7 +1614,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
           <div className="min-h-[400px] bg-[#F7F7F7] p-3 sm:p-5">
             {(previewIncludeDraft ? parsedSections : learnerPreviewSections).length ? (
               <>
-                <div className="mb-3 rounded-xl bg-white px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wider text-sky-600">{grammarTopic || 'grammarTopic'}</p><h3 className="font-extrabold text-slate-800">{title || 'ชื่อเนื้อหา'}</h3>{intro && <p className="mt-1 text-sm text-slate-500">{intro}</p>}</div>
+                <div className="mb-3 rounded-xl bg-white px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wider text-sky-600">{(grammarTopics[0] || 'grammarTopic')}</p><h3 className="font-extrabold text-slate-800">{title || 'ชื่อเนื้อหา'}</h3>{intro && <p className="mt-1 text-sm text-slate-500">{intro}</p>}</div>
                 <ReviewContent title={title} topics={(previewIncludeDraft ? parsedSections : learnerPreviewSections) as LessonSection[]} tip={tip || undefined} />
                 <div className="mt-3 rounded-xl bg-white p-4"><p className="mb-2 text-xs font-bold text-slate-500">ตัวอย่างไฮไลต์/ตัวหนา</p><RichText text="==yellow;ตัวอย่างเหลือง== · ==green;ตัวอย่างเขียว== · ==blue;ตัวอย่างฟ้า== · **ตัวหนา**" as="span" /></div>
               </>

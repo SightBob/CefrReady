@@ -106,3 +106,141 @@ describe('collectItemIssues — import structure validation', () => {
     expect(warnings).toEqual([]);
   });
 });
+
+describe('collectItemIssues — Core Formula breakdown (Figma 419:56249)', () => {
+  const base = { grammarTopic: 'Question Tags', title: 'Question Tags' };
+
+  it('ผ่านเมื่อโครง formula ถูกต้อง', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{
+        type: 'formulaBreakdown',
+        heading: 'ประโยคปฏิเสธ (-) ต้องตามด้วย ประโยคบอกเล่า (+)',
+        formula: {
+          cases: [{
+            label: 'เคส Is / Am / Are - ปฏิเสธ :',
+            example: "It isn't cold today, is it?",
+            left: { sentence: "It ==isn't== too cold today", note: 'ประโยคหน้าปฏิเสธ / มี is/am/are' },
+            right: { sentence: '==is== it?', note: 'หลังใช้บอกเล่า' },
+          }],
+        },
+      }],
+    });
+    expect(issues.errors).toEqual([]);
+    expect(issues.warnings).toEqual([]);
+  });
+
+  it('เตือนชื่อ type ที่ไม่รู้จัก พร้อมบอก type ที่รองรับทั้งหมด', () => {
+    const issues = collectItemIssues({ ...base, sections: [{ type: 'formula', heading: 'x' }] });
+    expect(issues.warnings.join(' ')).toContain('formulaBreakdown');
+  });
+
+  it('ฟ้อง error เป็นตำแหน่งเมื่อ left/right ไม่ใช่ object { sentence, note }', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{ type: 'formulaBreakdown', formula: { cases: [{ label: 'A', left: 'broken' }] } }],
+    });
+    expect(issues.errors.join(' ')).toContain('sections[0].formula.cases[0].left');
+    expect(issues.errors.join(' ')).toContain('sentence, note');
+  });
+
+  it('ฟ้อง error เมื่อ sentence/note ไม่ใช่ string', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{ type: 'formulaBreakdown', formula: { cases: [{ right: { sentence: 12, note: [] } }] } }],
+    });
+    expect(issues.errors.join(' ')).toContain('sections[0].formula.cases[0].right.sentence');
+    expect(issues.errors.join(' ')).toContain('sections[0].formula.cases[0].right.note');
+  });
+
+  it('ฟ้อง error เมื่อ formula.cases ไม่ใช่ array', () => {
+    const issues = collectItemIssues({ ...base, sections: [{ type: 'formulaBreakdown', formula: { cases: 'nope' } }] });
+    expect(issues.errors.join(' ')).toContain('sections[0].formula.cases ต้องเป็น array');
+  });
+
+  it('Mini Quiz ที่ฝังท้ายการ์ดเนื้อหา กฎตรวจเดิมใช้ด้วย — answerIndex เกินช่วงคือ error', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{
+        type: 'rule',
+        heading: 'Superlative',
+        practice: { questions: [{ sentence: 'She is the ____ student.', options: ['best', 'better'], answerIndex: 5 }] },
+      }],
+    });
+    expect(issues.errors.join(' ')).toContain('sections[0].practice.questions[0].answerIndex');
+  });
+
+  it('quizHeading ที่ไม่ใช่ string เป็น error (กันค่าหลุดเข้าไปในการ์ด quiz)', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{ type: 'rule', heading: 'A', quizHeading: { nope: true } }],
+    });
+    expect(issues.errors.join(' ')).toContain('sections[0].quizHeading');
+  });
+
+  it('เตือนเคสที่ยังไม่มีประโยคในแถบสีทั้งสองข้าง (จะไม่แสดง)', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{ type: 'formulaBreakdown', formula: { cases: [{ label: 'เคสเปล่า', note: 'มีแค่โน้ต' }] } }],
+    });
+    expect(issues.errors).toEqual([]);
+    expect(issues.warnings.join(' ')).toContain('sections[0].formula.cases[0]');
+    expect(issues.warnings.join(' ')).toContain('จะไม่แสดง');
+  });
+});
+
+describe('collectItemIssues — Type Breakdown (Figma 419:56446)', () => {
+  const base = { grammarTopic: 'Conditionals', title: 'Conditional Sentences' };
+
+  it('ผ่านเมื่อโครง typeBreakdown ถูกต้อง', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{
+        type: 'typeBreakdown',
+        heading: 'Conditional Sentences (ประโยคเงื่อนไข)',
+        description: 'พูดถึงเรื่องสมมติหรือเงื่อนไข “ถ้า... ก็...”',
+        typeBreakdown: {
+          cases: [{
+            label: 'Type 1 :',
+            color: '#8ACB66',
+            description: 'มีโอกาสเกิดขึ้นจริงในอนาคต',
+            structure: 'โครงสร้าง: If + V.1 , will + V.1',
+            example: 'If I ==study== , I ==will pass.==',
+            note: 'ปัจจุบันคู่กับอนาคต (V.1 คู่ will)',
+          }],
+        },
+      }],
+    });
+    expect(issues.errors).toEqual([]);
+    expect(issues.warnings).toEqual([]);
+  });
+
+  it('type "typeBreakdown" ผ่านการตรวจโดยไม่ถูกเตือนว่าไม่รู้จัก type', () => {
+    const issues = collectItemIssues({ ...base, sections: [{ type: 'typeBreakdown', heading: 'x' }] });
+    expect(issues.warnings.join(' ')).not.toContain('ไม่ใช่ type ที่รู้จัก');
+  });
+
+  it('ฟ้อง error เมื่อ cases ไม่ใช่ array หรือเคสไม่ใช่ object', () => {
+    expect(collectItemIssues({ ...base, sections: [{ type: 'typeBreakdown', typeBreakdown: { cases: 'nope' } }] }).errors.join(' ')).toContain('sections[0].typeBreakdown.cases ต้องเป็น array');
+    expect(collectItemIssues({ ...base, sections: [{ type: 'typeBreakdown', typeBreakdown: { cases: ['broken'] } }] }).errors.join(' ')).toContain('sections[0].typeBreakdown.cases[0] ต้องเป็น object');
+  });
+
+  it('ฟ้อง error เป็นตำแหน่งเมื่อฟิลด์ในเคสไม่ใช่ string', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{ type: 'typeBreakdown', typeBreakdown: { cases: [{ label: 'Type 1 :', structure: 12, color: [] }] } }],
+    });
+    expect(issues.errors.join(' ')).toContain('sections[0].typeBreakdown.cases[0].structure');
+    expect(issues.errors.join(' ')).toContain('sections[0].typeBreakdown.cases[0].color');
+  });
+
+  it('เตือนเคสที่ยังไม่มีโครงสร้างหรือประโยคตัวอย่าง (แถบจะว่าง)', () => {
+    const issues = collectItemIssues({
+      ...base,
+      sections: [{ type: 'typeBreakdown', typeBreakdown: { cases: [{ label: 'Type 1 :', structure: 'If + V.1', note: 'มีแค่โน้ต' }] } }],
+    });
+    expect(issues.errors).toEqual([]);
+    expect(issues.warnings.join(' ')).toContain('sections[0].typeBreakdown.cases[0]');
+    expect(issues.warnings.join(' ')).toContain('ประโยคตัวอย่าง');
+  });
+});

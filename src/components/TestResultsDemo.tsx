@@ -18,6 +18,10 @@ interface TestResultsDemoProps {
   setNumber?: number;
   sectionIcon?: React.ElementType;
   sectionColor?: string;
+  /** ปลายทางปุ่ม "จบการสอบ" ด้านบน (default /demo) */
+  endHref?: string;
+  /** ข้อความปุ่มรองล่าง (default "Other Demo Tests") */
+  endLabel?: string;
 }
 
 export default function TestResultsDemo({
@@ -29,6 +33,8 @@ export default function TestResultsDemo({
   headerTitle = 'ผลการสอบ',
   durationMinutes,
   setNumber = 1,
+  endHref = '/demo',
+  endLabel = 'Other Demo Tests',
 }: TestResultsDemoProps) {
   const posthog = usePostHog();
   const percentage = Math.round((score / totalQuestions) * 100);
@@ -64,7 +70,7 @@ export default function TestResultsDemo({
               </div>
             </div>
             <Link
-              href="/demo"
+              href={endHref}
               className="text-[#616161] text-sm sm:text-[1.125rem] rounded-lg font-semibold flex items-center shrink-0"
               aria-label="จบการสอบ"
             >
@@ -168,10 +174,10 @@ export default function TestResultsDemo({
               <RotateCw className='size-[1.125rem] font-bold' />
             </button>
             <Link
-              href="/demo"
+              href={endHref}
               className="flex-1 md:flex-none h-14 md:h-[3.375rem] px-6 rounded-full border-2 border-[#6D89EF] text-[#6D89EF] bg-white flex items-center justify-center text-base md:text-[1.125rem] font-bold transition-colors whitespace-nowrap"
             >
-              Other Demo Tests
+              {endLabel}
             </Link>
           </div>
         </div>

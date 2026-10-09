@@ -1,11 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
 import { requireAdmin } from '@/lib/admin-auth';
-import { normalizeLessonSections } from '@/lib/lesson-sections';
+import { lessonSectionsHaveContent, normalizeLessonSections } from '@/lib/lesson-sections';
 import { PUBLISHED_STATUS, resolveContentStatus } from '@/lib/explain-visibility';
+
+/** รวม grammarTopic (แบบเดิม) + grammarTopics (หลายหัวข้อ) เป็นรายการหัวข้อ — ตัวแรกคือหัวข้อหลัก */
+function resolveTopics(payload: {
+  grammarTopic?: string;
+  grammarTopics?: string[];
+}): string[] {
+  const topics = [...(payload.grammarTopics ?? []), ...(payload.grammarTopic ? [payload.grammarTopic] : [])]
+    .map((topic) => topic.trim())
+    .filter(Boolean);
+  return [...new Set(topics)].slice(0, 50);
+}
+
+/** หัวข้อที่ถูกเนื้อหาอื่น (ไม่ใช่ตัวที่กำลังแก้) ใช้อยู่แล้ว */
+async function findDuplicateTopic(topics: string[], excludeId: number): Promise<string | null> {
+  if (!topics.length) return null;
+  // jsonb `?` เทียบว่า grammar_topics (jsonb array) มีหัวข้อนั้นหรือไม่ — ทำต่อหัวข้อแล้ว OR รวม
+  const overlapCondition = or(
+    inArray(testExplains.grammarTopic, topics),
+    ...topics.map((topic) => sql`${testExplains.grammarTopics} ? ${topic}`),
+  );
+  const [conflict] = await db
+    .select({ id: testExplains.id, grammarTopic: testExplains.grammarTopic })
+    .from(testExplains)
+    .where(and(overlapCondition, ne(testExplains.id, excludeId)))
+    .limit(1);
+  return conflict ? conflict.grammarTopic : null;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +45,10 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   try {
     const body = await request.json() as Record<string, unknown>;
     const parsed = z.object({
-      grammarTopic: z.string().trim().min(1).max(200),
+      // หัวข้อหลัก (ตัวแรก) — รับแบบเดิมได้ หรือส่ง grammarTopics หลายหัวข้อแทน
+      grammarTopic: z.string().trim().min(1).max(200).optional(),
+      // หัวข้อทั้งหมดที่เนื้อหานี้เชื่อมกับข้อสอบ — หัวข้อแรกคือหัวข้อหลัก
+      grammarTopics: z.array(z.string().trim().min(1).max(200)).min(1).max(50).optional(),
       title: z.string().trim().min(1).max(200),
       intro: z.string().optional().nullable(),
       sections: z.array(z.unknown()).min(1),
@@ -30,16 +60,23 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       isPublished: z.boolean().optional(),
     }).safeParse(body);
     if (!parsed.success) return NextResponse.json({ success: false, error: 'กรุณาระบุ grammarTopic, title และ sections ให้ถูกต้อง' }, { status: 400 });
+    const grammarTopics = resolveTopics(parsed.data);
+    if (!grammarTopics.length) return NextResponse.json({ success: false, error: 'กรุณาระบุ grammarTopic อย่างน้อย 1 หัวข้อ' }, { status: 400 });
+    const duplicateTopic = await findDuplicateTopic(grammarTopics, explainId);
+    if (duplicateTopic) {
+      return NextResponse.json({ success: false, error: `หัวข้อ "${duplicateTopic}" ถูกเนื้อหาอธิบายอื่นใช้อยู่แล้ว — หัวข้อเดียวเชื่อมได้เนื้อหาเดียว` }, { status: 409 });
+    }
     const sections = normalizeLessonSections(parsed.data.sections);
-    const hasContent = sections.some((section) => section.heading?.trim() || section.body?.trim() || section.chip?.trim() || section.description?.trim() || section.rows?.some((row) => row.left.trim() || row.right?.trim()) || section.examples?.some((example) => example.en.trim()) || section.practice?.questions?.some((question) => question.sentence.trim()));
-    if (!hasContent) return NextResponse.json({ success: false, error: 'ต้องมีเนื้อหา explain อย่างน้อย 1 ส่วน' }, { status: 400 });
+    if (!lessonSectionsHaveContent(sections)) return NextResponse.json({ success: false, error: 'ต้องมีเนื้อหา explain อย่างน้อย 1 ส่วน' }, { status: 400 });
     const status = resolveContentStatus(parsed.data);
     if (!status) return NextResponse.json({ success: false, error: 'สถานะไม่ถูกต้อง — ใช้ draft, review, published หรือ hidden' }, { status: 400 });
-    if (status === PUBLISHED_STATUS && sections.some((section) => section.type === 'practice' && section.practice?.questions.some((question) => question.sentence.trim() && (question.options.filter(Boolean).length < 2 || !question.options[question.answerIndex]?.trim())))) {
+    // Mini Quiz ตรวจทุก type — ฝังท้ายการ์ดเนื้อหาของก็ต้องตอบได้ครบเหมือนการ์ด practice
+    if (status === PUBLISHED_STATUS && sections.some((section) => section.practice?.questions.some((question) => question.sentence.trim() && (question.options.filter(Boolean).length < 2 || !question.options[question.answerIndex]?.trim())))) {
       return NextResponse.json({ success: false, error: 'Mini Quiz ทุกข้อต้องมีตัวเลือกอย่างน้อย 2 ข้อและระบุคำตอบที่ถูกต้อง' }, { status: 400 });
     }
     const [updated] = await db.update(testExplains).set({
-      grammarTopic: parsed.data.grammarTopic,
+      grammarTopic: grammarTopics[0],
+      grammarTopics,
       title: parsed.data.title,
       intro: parsed.data.intro?.trim() || null,
       sections,

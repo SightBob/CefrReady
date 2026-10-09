@@ -110,17 +110,16 @@ describe('firstSlotIndexForTopic', () => {
 });
 
 describe('usesSetLevelExplain', () => {
-  it('keeps the set-level explain page only for a single-topic set with exactly one explain', () => {
+  it('shows the set-level explain page whenever at least one explain is bound', () => {
     expect(usesSetLevelExplain(1, 1)).toBe(true);
-  });
-
-  it('lets the exam show per-topic intros when the set merges several topics', () => {
-    expect(usesSetLevelExplain(1, 3)).toBe(false);
-    expect(usesSetLevelExplain(3, 3)).toBe(false);
-    expect(usesSetLevelExplain(2, 1)).toBe(false);
+    // ชุดรวมหลายเรื่องที่ผูกหลายอธิบายไว้ก็มีหน้า /explain — แสดงทุกอันต่อกันเป็นภาพรวม
+    expect(usesSetLevelExplain(2, 3)).toBe(true);
+    expect(usesSetLevelExplain(3, 3)).toBe(true);
+    expect(usesSetLevelExplain(2, 1)).toBe(true);
   });
 
   it('has no set-level page when nothing is bound', () => {
     expect(usesSetLevelExplain(0, 1)).toBe(false);
+    expect(usesSetLevelExplain(0, 3)).toBe(false);
   });
 });

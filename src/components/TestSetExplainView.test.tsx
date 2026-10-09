@@ -7,10 +7,15 @@ import TestSetExplainView from './TestSetExplainView';
 
 // การ์ดแบบ rule แสดง chip + description (heading ไม่ได้ถูกวาดในการ์ดนี้) — ใช้ข้อความที่เห็นจริง
 const props = {
-  title: 'Present Simple',
-  intro: 'บทนำ',
-  tip: 'ทริค',
-  sections: [{ type: 'rule' as const, chip: 'โครงสร้าง', description: 'ประธาน + กริยาเติม s' }],
+  title: 'Present Simple & Present Continuous',
+  entries: [
+    {
+      title: 'Present Simple',
+      intro: 'บทนำ',
+      tip: 'ทริค',
+      sections: [{ type: 'rule' as const, chip: 'โครงสร้าง', description: 'ประธาน + กริยาเติม s' }],
+    },
+  ],
   sectionId: 'focus-form',
   quizHref: '/tests/focus-form/1',
   backHref: '/tests/focus-form/1/intro',
@@ -20,6 +25,7 @@ describe('TestSetExplainView', () => {
   it('เป็นหน้าอธิบายของผู้เรียนตามปกติเมื่อไม่ส่ง notice', () => {
     const html = renderToStaticMarkup(<TestSetExplainView {...props} />);
     expect(html).toContain('ประธาน + กริยาเติม s');
+    expect(html).toContain('font-ibm'); // หน้า explain ใช้ IBM Plex Sans Thai ตาม Figma
     expect(html).toContain('ทำข้อสอบต่อ');
     expect(html).not.toContain('พรีวิวสำหรับแอดมิน');
   });
@@ -65,5 +71,35 @@ describe('TestSetExplainView', () => {
     expect(html).toContain('border-sky-200 bg-sky-50 text-sky-800');
     expect(html).not.toContain('border-amber-300 bg-amber-50 text-amber-800');
     expect(html).toContain('ทำข้อสอบต่อ');
+  });
+
+  it('แสดงหน้าอธิบายหลายอันต่อกันตามลำดับที่เลือก พร้อมเลขลำดับ', () => {
+    const html = renderToStaticMarkup(
+      <TestSetExplainView
+        {...props}
+        entries={[
+          props.entries[0],
+          {
+            title: 'Present Continuous',
+            intro: null,
+            tip: null,
+            sections: [{ type: 'rule' as const, chip: 'โครงสร้าง', description: 'ประธาน + is/am/are + กริยา ing' }],
+          },
+        ]}
+      />
+    );
+    expect(html).toContain('Present Simple');
+    expect(html).toContain('Present Continuous');
+    expect(html).toContain('ประธาน + กริยาเติม s');
+    expect(html).toContain('ประธาน + is/am/are + กริยา ing');
+    // เนื้อหาอันแรกอยู่บน HTML ก่อนอันที่สอง (ตามลำดับที่เลือก)
+    expect(html.indexOf('กริยาเติม s')).toBeLessThan(html.indexOf('กริยา ing'));
+    expect(html).toContain('>1<');
+    expect(html).toContain('>2<');
+  });
+
+  it('ไม่แสดงหัวข้อเลขลำดับเมื่อมีหน้าอธิบายอันเดียว', () => {
+    const html = renderToStaticMarkup(<TestSetExplainView {...props} />);
+    expect(html).not.toContain('>1</span>');
   });
 });

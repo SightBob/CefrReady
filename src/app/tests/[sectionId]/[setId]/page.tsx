@@ -33,8 +33,8 @@ import {
 import type { PublicTapExerciseData } from '@/lib/test-set-slots';
 import dynamic from 'next/dynamic';
 import TestExplainOverlay, { type TestExplainContent } from '@/components/TestExplainOverlay';
-import TopicIntroOverlay from '@/components/TopicIntroOverlay';
 import { buildTopicRuns, firstSlotIndexForTopic, topicRunForSlot } from '@/lib/test-set-topics';
+import { wasSetExplainRead, clearSetExplainRead } from '@/lib/test-explain-read';
 import { groupTapReasonsByQuestion } from '@/lib/tap-reason-rewards';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
@@ -186,9 +186,6 @@ export default function SetQuizPage() {
   const [explainsLoaded, setExplainsLoaded] = useState(false);
   const [pendingTopic, setPendingTopic] = useState<{
     explain: TestExplainContent;
-    questionCount: number;
-    topicNumber: number;
-    topicTotal: number;
   } | null>(null);
   /** เรื่องที่เด้งไปแล้วในรอบนี้ — เด้งครั้งเดียวต่อเรื่องต่อการทำชุดหนึ่งครั้ง */
   const seenTopics = useRef(new Set<string>());
@@ -258,22 +255,24 @@ export default function SetQuizPage() {
       });
   }, [explainTopic, setId, previewMode]);
 
-  // ขึ้นเรื่องใหม่ในชุดที่รวมหลายเรื่อง → เด้ง intro + explain ของเรื่องนั้นก่อนข้อแรก
-  // (เรื่องละครั้งต่อการทำชุด · กดปิดแล้วเข้าข้อสอบต่อ และกด "โหมดทบทวน" เปิดซ้ำได้)
+  // เด้ง intro + explain เฉพาะ "เรื่องแรกของชุด" ก่อนข้อ 1 ครั้งเดียว — เรื่องถัด ๆ ไป
+  // ไม่เด้งระหว่างทำข้อสอบ (เนื้อหายังเปิดซ้ำได้ทุกเรื่องผ่านปุ่ม "โหมดทบทวน")
+  // ยกเว้น: ผู้เรียนเพิ่งอ่านหน้า /explain ระดับชุดมา — เนื้อหาเดียวกันอย่าให้อ่านซ้ำ
   useEffect(() => {
     if (!setData || !explainsLoaded) return;
+    if (currentQuestion !== 0) return; // เด้งเฉพาะตอนเริ่มชุด (ข้อแรก)
     const run = topicRunForSlot(topicRuns, currentQuestion);
     if (!run || !run.topic) return;
     const explain = topicExplains[run.topic];
     if (!explain || seenTopics.current.has(run.topic)) return;
     seenTopics.current.add(run.topic);
-    setPendingTopic({
-      explain,
-      questionCount: run.questionCount,
-      topicNumber: explainRuns.indexOf(run) + 1,
-      topicTotal: explainRuns.length,
-    });
-  }, [currentQuestion, explainsLoaded, setData, topicExplains, topicRuns, explainRuns]);
+    if (wasSetExplainRead(sectionId, setId)) {
+      // เพิ่งอ่านจากหน้า /explain แล้ว — ข้าม และรีเซ็ต flag ให้ครั้งถัดไปเด้งตามปกติ
+      clearSetExplainRead(sectionId, setId);
+      return;
+    }
+    setPendingTopic({ explain });
+  }, [currentQuestion, explainsLoaded, setData, topicExplains, topicRuns, explainRuns, sectionId, setId]);
 
   useEffect(() => {
     if (!showTestExplain) return;
@@ -745,16 +744,15 @@ export default function SetQuizPage() {
     </>
   );
 
-  // ขึ้นเรื่องใหม่ → เด้งหน้านี้ก่อน (ปิดแล้วกลับไปทำข้อสอบต่อได้ทันที)
+  // ขึ้นเรื่องแรกของชุด → เด้งหน้าเนื้อหาอธิบายเต็มจอ (UI เดียวกับ "โหมดทบทวน")
+  // ปิดแล้วเข้าข้อสอบต่อได้ทันที · หน้าการ์ด intro รายเรื่องถูกลบไปแล้ว (ไม่ใช้แล้ว)
   const topicGate = pendingTopic ? (
-    <TopicIntroOverlay
-      key={`${pendingTopic.explain.id}-${pendingTopic.topicNumber}`}
+    <TestExplainOverlay
+      key={pendingTopic.explain.id}
       explain={pendingTopic.explain}
+      open
       sectionId={sectionId}
-      questionCount={pendingTopic.questionCount}
-      topicNumber={pendingTopic.topicNumber}
-      topicTotal={pendingTopic.topicTotal}
-      onStart={() => setPendingTopic(null)}
+      onClose={() => setPendingTopic(null)}
     />
   ) : null;
 

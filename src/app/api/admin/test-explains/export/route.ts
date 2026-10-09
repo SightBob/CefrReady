@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
-import { normalizeLessonSections } from '@/lib/lesson-sections';
+import { lessonSectionsHaveContent, normalizeLessonSections } from '@/lib/lesson-sections';
 import { requireAdmin } from '@/lib/admin-auth';
 import { collectItemIssues } from '@/lib/test-explain-validation';
 import { resolveContentStatus } from '@/lib/explain-visibility';
@@ -61,9 +61,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Upsert-style bulk import keyed by grammarTopic:
-//  - grammarTopic exists  → update that explain (title/intro/sections/tip/status)
-//  - grammarTopic is new  → insert
+// Upsert-style bulk import keyed by grammarTopic(s):
+//  - topics exist          → update that explain (title/intro/sections/tip/status)
+//  - topics are all new    → insert
+// รองรับทั้ง `grammarTopic` (หัวข้อเดียว แบบเดิม) และ `grammarTopics` (หลายหัวข้อ — ตัวแรกคือหัวข้อหลัก)
 // Sections always pass through normalizeLessonSections, so legacy shapes and
 // unknown extra keys are tolerated the same way the single-item API does.
 export async function POST(request: Request) {
@@ -88,28 +89,28 @@ export async function POST(request: Request) {
       const label = typeof raw?.grammarTopic === 'string' ? raw.grammarTopic : `รายการที่ ${index + 1}`;
       try {
         if (!raw || typeof raw !== 'object') throw new Error('รายการไม่ใช่ object');
-        const grammarTopic = typeof raw.grammarTopic === 'string' ? raw.grammarTopic.trim() : '';
+        const rawTopics = [
+          ...(Array.isArray(raw.grammarTopics) ? raw.grammarTopics : []),
+          ...(typeof raw.grammarTopic === 'string' ? [raw.grammarTopic] : []),
+        ];
+        const grammarTopics = [...new Set(
+          rawTopics.map((topic) => (typeof topic === 'string' ? topic.trim() : '')).filter(Boolean),
+        )].slice(0, 50);
+        const grammarTopic = grammarTopics[0] ?? '';
         const title = typeof raw.title === 'string' ? raw.title.trim() : '';
         if (!grammarTopic || grammarTopic.length > 200) throw new Error('grammarTopic หายไป หรือยาวเกิน 200 ตัวอักษร');
         if (!title || title.length > 200) throw new Error('title หายไป หรือยาวเกิน 200 ตัวอักษร');
         if (!Array.isArray(raw.sections) || raw.sections.length === 0) throw new Error('sections ต้องเป็น array ที่มีอย่างน้อย 1 รายการ');
-        const duplicate = seen.has(grammarTopic);
-        if (duplicate) throw new Error('grammarTopic ซ้ำภายในไฟล์เดียวกัน');
-        seen.add(grammarTopic);
+        const duplicateTopic = grammarTopics.find((topic) => seen.has(topic));
+        if (duplicateTopic) throw new Error(`หัวข้อ "${duplicateTopic}" ซ้ำภายในไฟล์เดียวกัน`);
+        for (const topic of grammarTopics) seen.add(topic);
 
         // ตรวจโครงสร้างละเอียดก่อน normalize — พบ error ให้ข้ามรายการนี้พร้อมบอกตำแหน่งที่ผิดทุกจุด
         const issues = collectItemIssues(raw);
         if (issues.errors.length) throw new Error(issues.errors.join(' · '));
 
         const sections = normalizeLessonSections(raw.sections);
-        const hasContent = sections.some(
-          (section) =>
-            section.heading?.trim() || section.body?.trim() || section.chip?.trim() || section.description?.trim() ||
-            section.rows?.some((row) => row.left.trim() || row.right?.trim()) ||
-            section.examples?.some((example) => example.en.trim()) ||
-            section.practice?.questions?.some((question) => question.sentence.trim()),
-        );
-        if (!hasContent) throw new Error('ต้องมีเนื้อหา explain อย่างน้อย 1 ส่วน');
+        if (!lessonSectionsHaveContent(sections)) throw new Error('ต้องมีเนื้อหา explain อย่างน้อย 1 ส่วน');
 
         // status ใหม่มาก่อน — ไฟล์เก่าที่มีแต่ isPublished ยังนำเข้าได้ (true = published)
         const status = resolveContentStatus(raw);
@@ -117,6 +118,7 @@ export async function POST(request: Request) {
 
         const values = {
           grammarTopic,
+          grammarTopics,
           title,
           intro: typeof raw.intro === 'string' ? raw.intro.trim() || null : null,
           sections,
@@ -124,7 +126,13 @@ export async function POST(request: Request) {
           status,
         };
 
-        const [existing] = await db.select({ id: testExplains.id }).from(testExplains).where(eq(testExplains.grammarTopic, grammarTopic)).limit(1);
+        // หาของเดิมด้วยหัวข้อใดหัวข้อหนึ่งที่รายการนี้ใช้ (หัวข้อหลักหรือหัวข้อรองก็ตาม)
+        const [existing] = await db.select({ id: testExplains.id }).from(testExplains)
+          .where(or(
+            inArray(testExplains.grammarTopic, grammarTopics),
+            ...grammarTopics.map((topic) => sql`${testExplains.grammarTopics} ? ${topic}`),
+          ))
+          .limit(1);
         if (existing && !upsert) {
           results.push({ grammarTopic, status: 'error', message: 'มี grammarTopic นี้อยู่แล้วในระบบ (ตั้ง mode: "upsert" เพื่ออนุญาตให้อัปเดตทับ)' });
           continue;

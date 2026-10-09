@@ -70,15 +70,17 @@ export function buildTopicRuns<T extends TestSetQuestionLike & { grammarTopic?: 
 }
 
 /**
- * ชุดนี้ควรมีหน้า /explain ระดับชุด (อ่านเนื้อหาก่อนเข้าสอบ) หรือปล่อยให้หน้าสอบ
- * เด้ง intro+explain ของแต่ละเรื่องตอนขึ้นเรื่องใหม่
+ * ชุดนี้ควรมีหน้า /explain ระดับชุด (ภาพรวมเนื้อหาก่อนเข้าสอบ) หรือไม่
  *
- * - ชุดเรื่องเดียว + มี explain พอดี 1 อัน → ใช้หน้า /explain เหมือนเดิม
- * - ชุดที่รวมหลายเรื่อง → เด้งรายเรื่องตอนสอบ (ไม่ต้องอ่านเนื้อหาซ้ำสองรอบ)
- * - ไม่มี explain เลย → เข้าสอบได้เลย
+ * หน้า /explain แสดงทุกหน้าอธิบายที่แอดมินเลือกผูกไว้กับชุดนี้ เรียงต่อกัน
+ * ตามลำดับที่เลือก — เหมาะกับชุดที่รวมหลายเรื่องไว้ด้วยกัน ให้ผู้เรียนเห็นภาพรวม
+ * ก่อนเริ่มทำข้อสอบ
+ *
+ * - มี explain ผูกไว้อย่างน้อย 1 อัน → มีหน้า /explain (แสดงทุกอันต่อกัน)
+ * - ไม่มี explain เลย → เข้าสอบได้เลย (หน้า /explain redirect ไปหน้าสอบ)
  */
 export function usesSetLevelExplain(explainCount: number, topicRunCount: number): boolean {
-  return explainCount === 1 && topicRunCount <= 1;
+  return explainCount >= 1;
 }
 
 /**

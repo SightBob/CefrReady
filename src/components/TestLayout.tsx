@@ -927,8 +927,9 @@ export default function TestLayout({
             aria-hidden="true"
           />
 
-          {/* Next / Submit / Retry */}
-          {!isSubmitted &&
+          {/* Next / Submit / Retry — คงโชว์ต่อหลังส่งคำตอบถ้าผู้ใช้ส่ง primaryAction มา
+              (เช่น form-meaning เปลี่ยนปุ่ม "ตรวจคำตอบ" เป็น "ดูผลการสอบ") */}
+          {(!isSubmitted || primaryAction) &&
             (() => {
               const isLastQuestion = currentQuestion >= totalQuestions - 1;
               const isAnswered =
@@ -981,24 +982,6 @@ export default function TestLayout({
               );
             })()}
 
-          {/* After submit: next set */}
-          {isSubmitted &&
-            currentSetIndex >= 0 &&
-            availableSets &&
-            currentSetIndex < availableSets.length - 1 &&
-            onSetSelect && (
-              <button
-                onClick={() =>
-                  onSetSelect(availableSets[currentSetIndex + 1].id)
-                }
-                className="flex-1 min-[890px]:flex-none min-[890px]:w-[13.875rem] h-14 min-[890px]:h-[3.375rem] bg-[#6D89EF] hover:bg-[#5A75E0] rounded-full flex items-center space-x-1 justify-center text-white transition-colors lg:mr-[53px]"
-              >
-                <span className="text-base min-[890px]:text-[1.125rem] text-center font-bold">
-                  ทำชุด {currentSetIndex + 2}
-                </span>
-                <ArrowRight className="size-[1.125rem]" />
-              </button>
-            )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
 import { auth } from '@/lib/auth';
@@ -55,17 +55,23 @@ export async function GET(request: NextRequest) {
       tip: testExplains.tip,
       status: testExplains.status,
     };
-    // ลำดับความสำคัญ: เรื่องของข้อที่กำลังเปิดอยู่ก่อนเสมอ (grammarTopic ตรงเป๊ะ)
+    // ลำดับความสำคัญ: เรื่องของข้อที่กำลังเปิดอยู่ก่อนเสมอ (หัวข้อตรงเป๊ะ — เทียบกับทุกหัวข้อ
+    // ที่เนื้อหานั้นเชื่อมไว้ใน grammar_topics รองรับ 1 เนื้อหาครอบหลาย grammarTopic)
     // แล้วจึง fallback เป็น explain ที่ผูกกับชุดนี้
     //
     // เดิมลำดับกลับกัน (pinned ก่อน) ซึ่งใช้ได้ตอนชุดหนึ่งมีเรื่องเดียว แต่พอรวม
     // หลายเรื่องไว้ในชุดเดียว ปุ่ม “โหมดทบทวน” จะเปิดเนื้อหาของเรื่องแรกให้ทุกข้อ
     // ผู้เรียนเห็นเฉพาะเนื้อหาที่ published — draft/review/hidden แอดมินดูได้จาก
     // หน้า /admin/test-explains (และส่วนที่เป็นฉบับร่างถูกตัดออกให้ด้วย)
+    // เทียบทั้งหัวข้อหลัก (grammar_topic — เข้ากันได้กับแถวเก่า) และรายการ grammar_topics
+    const topicMatch = or(
+      eq(testExplains.grammarTopic, topic),
+      sql`${testExplains.grammarTopics} ? ${topic}`,
+    );
     const [explain] = await db.select(explainColumns).from(testExplains)
       .where(preview
-        ? eq(testExplains.grammarTopic, topic)
-        : and(eq(testExplains.grammarTopic, topic), eq(testExplains.status, PUBLISHED_STATUS)))
+        ? topicMatch
+        : and(topicMatch, eq(testExplains.status, PUBLISHED_STATUS)))
       .limit(1);
     const visible = learnerExplain(explain, preview);
     if (visible) {
