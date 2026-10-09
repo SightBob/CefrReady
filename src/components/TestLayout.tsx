@@ -14,7 +14,6 @@ import {
   PenTool,
   LogOut,
   RotateCcw,
-  ArrowRight,
   Clock,
 } from "lucide-react";
 import VerbBankPanel from "./VerbBankPanel";
@@ -49,7 +48,6 @@ interface TestLayoutProps {
   currentQuestionId?: number;
   availableSets?: AvailableSet[];
   currentSetId?: number;
-  onSetSelect?: (setId: number) => void;
   sectionIcon?: React.ElementType;
   sectionColor?: string;
   sectionLabel?: string;
@@ -162,7 +160,6 @@ export default function TestLayout({
   currentQuestionId,
   availableSets,
   currentSetId,
-  onSetSelect,
   sectionIcon: SectionIcon = PenTool,
   sectionColor = "from-blue-500 to-cyan-500",
   sectionLabel = "Conversation",
@@ -182,7 +179,6 @@ export default function TestLayout({
   const [currentPage, setCurrentPage] = useState(0);
   const [jumpToQuestion, setJumpToQuestion] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [isSetMenuOpen, setIsSetMenuOpen] = useState(false);
   const [isVerbBankOpen, setIsVerbBankOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "unanswered">("all");
@@ -191,20 +187,6 @@ export default function TestLayout({
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Close sets modal on Escape + lock body scroll while open
-  useEffect(() => {
-    if (!isSetMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsSetMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [isSetMenuOpen]);
 
   // Verb bank modal (opened from the trail button in the mobile nav) — Escape
   // closes it and the page behind it must not scroll while it is open.
@@ -223,7 +205,11 @@ export default function TestLayout({
 
   const currentSetIndex =
     availableSets?.findIndex((s) => s.id === currentSetId) ?? -1;
-  const currentSetLabel = `set - ${currentSetIndex >= 0 ? currentSetIndex + 1 : 1}`;
+  // ป้ายชื่อชุด: ใช้ชื่อชุดจริงจากชุดที่กำลังทำ — ถ้าไม่รู้ชื่อ (ไม่ส่ง availableSets) ใช้ "ชุด n"
+  const currentSetLabel =
+    currentSetIndex >= 0 && availableSets?.[currentSetIndex]?.name
+      ? availableSets![currentSetIndex].name
+      : `ชุด ${currentSetIndex >= 0 ? currentSetIndex + 1 : 1}`;
 
   const navSetOf = (index: number) =>
     index < FIRST_SET_QUESTIONS
@@ -479,90 +465,6 @@ export default function TestLayout({
           </div>
         </div>
       )}
-      {/* Sets modal (opened from the header) */}
-      {isSetMenuOpen &&
-        mounted &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in"
-            onClick={() => setIsSetMenuOpen(false)}
-            role="dialog"
-            aria-modal="true"
-            aria-label="เลือกชุดข้อสอบ"
-          >
-            <div
-              className="bg-white rounded-2xl shadow-xl w-full max-w-[1330px] max-h-[85vh] flex flex-col animate-slide-up"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-4 p-6 border-b border-slate-100">
-                <div
-                  className={`bg-gradient-to-br ${sectionColor} p-3 rounded-2xl shrink-0`}
-                >
-                  <SectionIcon className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-[1.125rem] font-semibold text-[#525252]">
-                    ชุดข้อสอบ
-                  </h2>
-                  <p className="text-sm font-medium mt-0.5 text-[#525252]">
-                    {title}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsSetMenuOpen(false)}
-                  className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  aria-label="ปิด"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="overflow-y-auto p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {availableSets!.map((s, i) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      data-current={s.id === currentSetId || undefined}
-                      onClick={() => {
-                        setIsSetMenuOpen(false);
-                        if (s.id !== currentSetId) onSetSelect?.(s.id);
-                      }}
-                      className={`group block w-full bg-white rounded-2xl border p-5 text-left ${
-                        s.id === currentSetId
-                          ? "border-[#3B82F6]"
-                          : "border-[#BFDFEB]"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <h3 className="font-bold text-slate-800 text-[1rem] leading-snug">
-                              ข้อสอบ - {i + 1}
-                            </h3>
-                            {s.id === currentSetId && (
-                              <span className="text-xs font-semibold text-[#3B82F6] shrink-0">
-                                ชุดปัจจุบัน
-                              </span>
-                            )}
-                          </div>
-                          {s.description && (
-                            <p className="text-sm text-slate-500 line-clamp-1 mt-3">
-                              {s.description}
-                            </p>
-                          )}
-                        </div>
-                        <div className="p-2 rounded-full flex items-center justify-center bg-[#E2E8FF]">
-                          <ArrowRight className="w-5 h-5 text-[#7372DF] shrink-0" />
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
       {/* Verb bank modal (Figma 249:8290) — การ์ด 334×337 r19 px21 py15
           เปิดจากปุ่มรูป nav-trail-100.png ในแถบนำทางมือถือ */}
       {isVerbBankOpen &&
@@ -600,42 +502,26 @@ export default function TestLayout({
       <div
         className={`max-w-[1154px] mx-auto px-4 lg:px-0 w-full mt-[17px] ${showQuestionNav && !isSubmitted ? "pb-[13.5rem] min-[890px]:pb-44" : "pb-44"}`}
       >
-        {/* Quiz controls row — set dropdown (left) + progress pill + exit ✕ (right) */}
+        {/* Quiz controls row — set label (left) + progress pill + exit ✕ (right) */}
         <div className="flex items-center justify-between gap-[15px]">
           <div className="flex items-center gap-[15px] min-w-0 flex-1">
-            {/* Full Exam (timerSeconds) — กล่องซ้ายบนเป็นเวลาถอยหลังแทนกล่องเลือกชุด
-                เพราะ full test ทำครั้งเดียวต่อ attempt ไม่มีปุ่มเลือกชุดให้กด */}{" "}
+            {/* Full Exam (timerSeconds) — กล่องซ้ายบนเป็นเวลาถอยหลังแทนกล่องชื่อชุด
+                เพราะ full test ทำครั้งเดียวต่อ attempt */}
             {timerSeconds !== undefined ? (
               <CountdownTimerBox
                 initialSeconds={timerSeconds}
                 onTimeUp={onTimeUp}
               />
             ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  availableSets?.length
-                    ? setIsSetMenuOpen((v) => !v)
-                    : undefined
-                }
-                className="shrink-0 w-full max-[768px]:w-auto max-[768px]:h-auto max-[768px]:px-[12px] max-[768px]:py-[10px] max-w-[18.4375rem] h-[2.8125rem] bg-white border border-[#EAEAEA] shadow-[3px_3px_0_0_#D5D3D3] rounded-xl px-[12.5px] flex items-center justify-between gap-2 disabled:opacity-70"
-                aria-expanded={isSetMenuOpen}
-                aria-label="เลือกชุดข้อสอบ"
-                disabled={!availableSets?.length}
+              // ป้ายชื่อชุดแบบคงที่ — ชุดหนึ่งคือเนื้อหาอธิบายหนึ่งเรื่องแล้ว ไม่ให้เลือกสลับชุดตอนทำข้อสอบ
+              <div
+                aria-label={`ชุดข้อสอบ: ${currentSetLabel}`}
+                className="shrink-0 w-full max-[768px]:w-auto max-[768px]:h-auto max-[768px]:px-[12px] max-[768px]:py-[10px] max-w-[18.4375rem] h-[2.8125rem] bg-white border border-[#EAEAEA] shadow-[3px_3px_0_0_#D5D3D3] rounded-xl px-[12.5px] flex items-center justify-between gap-2"
               >
                 <span className="truncate text-[1rem] max-[640px]:text-[0.75rem] font-bold text-[#6387A5]">
                   {currentSetLabel}
                 </span>
-                {availableSets?.length ? (
-                  <Image
-                    src="/icon_svg/caret-down.svg"
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="w-3.5 h-3.5 shrink-0"
-                  />
-                ) : null}
-              </button>
+              </div>
             )}
             {/* Progress pill — Figma: white card h45 radius 13, bar h14 #E3E2E2, fill #58CC02, label 11px Bold #3F4A36 */}
             <div className="flex flex-1 max-w-full items-center gap-3 bg-white rounded-[13px] px-5 h-[2.8125rem]">

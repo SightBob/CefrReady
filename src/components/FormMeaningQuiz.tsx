@@ -22,7 +22,6 @@ interface FormMeaningQuizProps {
   setId: number;
   setName: string;
   availableSets?: { id: number; name: string; description?: string | null }[];
-  onSetSelect?: (id: number) => void;
   onFinish: (score: number, totalBlanks: number) => void;
   onAttemptId?: (id: number) => void;
   demo?: boolean;
@@ -38,7 +37,6 @@ export default function FormMeaningQuiz({
   setId,
   setName,
   availableSets = [],
-  onSetSelect,
   onFinish,
   onAttemptId,
   demo = false,
@@ -196,7 +194,6 @@ export default function FormMeaningQuiz({
       answers={combinedArticle.blanks.map((b) => answers[b.id] || null)}
       availableSets={availableSets}
       currentSetId={setId}
-      onSetSelect={(id) => { if (!isSubmitted) onSetSelect?.(id); }}
       sectionIcon={Layers}
       sectionColor="from-purple-500 to-pink-500"
       onSubmit={handleSubmit}

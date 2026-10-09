@@ -1,15 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { RotateCcw, ChevronDown, X, ArrowRight } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { LessonStop } from './lesson-stops';
-
-/** Sibling lesson inside the same unit, for the chip dropdown. */
-export interface LessonSibling {
-  id: number;
-  title: string;
-  completed?: boolean;
-}
 
 interface LessonLayoutProps {
   /** Unit number (1-based) for the pill label. */
@@ -36,12 +28,6 @@ interface LessonLayoutProps {
   onStopSelect: (index: number) => void;
   /** Called when the learner taps X — returns to the path. */
   onExit: () => void;
-  /** Other lessons in the same unit, shown in the chip dropdown. */
-  siblings?: LessonSibling[];
-  /** Current lesson id (marks the active row in the dropdown). */
-  currentLessonId?: number;
-  /** Navigate to another lesson. */
-  onSiblingSelect?: (id: number) => void;
   /** Main content (question card, concept text, …). */
   children: React.ReactNode;
 }
@@ -64,29 +50,10 @@ export default function LessonLayout({
   reviewMode = false,
   onStopSelect,
   onExit,
-  siblings,
-  currentLessonId,
-  onSiblingSelect,
   children,
 }: LessonLayoutProps) {
-  // Dropdown for switching lessons (like the exam's set selector)
-  const [isLessonMenuOpen, setIsLessonMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+// ป้ายชื่อบทเรียน/ชุดเป็นแบบคงที่ — ไม่มีการเลือกสลับบทตอนเรียนอีกต่อไป
 
-  // Close dropdown on Escape + lock body scroll while open
-  useEffect(() => {
-    if (!isLessonMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsLessonMenuOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [isLessonMenuOpen]);
   const progressPct = Math.round(Math.min(Math.max(progress, 0), 1) * 100);
 
   return (
@@ -127,16 +94,13 @@ export default function LessonLayout({
         {/* Label chip row — gap matches the sidebar/content gap below (gap-6).
             In review mode the row holds only the chip + exit button → push X right. */}
         <div className={`w-full flex items-center min-md:gap-6 max-md:gap-0 ${reviewMode ? 'justify-between' : ''}`}>
-          <button
-            type="button"
-            onClick={() => setIsLessonMenuOpen(true)}
-            className={`shrink-0 text-[#638AAA] bg-white shadow-[3px_3px_0_0_#D5D3D3] border border-slate-100 flex items-center min-w-0 hover:bg-slate-50 transition-colors ${
+          {/* ป้ายชื่อบทเรียน/ชุดแบบคงที่ — แสดงชื่ออย่างเดียว กดไม่ได้ */}
+          <div
+            className={`shrink-0 text-[#638AAA] bg-white shadow-[3px_3px_0_0_#D5D3D3] border border-slate-100 flex items-center min-w-0 ${
               reviewMode
                 ? 'w-[calc(100%_-_52px)] h-[45px] px-5 py-3 rounded-[12px] justify-between gap-[84px] max-md:h-[39px] max-md:px-[10px] max-md:py-[12px] max-md:rounded-[10px] max-md:gap-2'
                 : 'w-72 ps-2 pe-3 py-2 gap-2.5 rounded-[12px]'
             }`}
-            aria-haspopup="dialog"
-            aria-expanded={isLessonMenuOpen}
           >
             {/* ป้ายหน่วย (เช่น "Unit 1" / "TEST") แสดงเฉพาะโหมดบทเรียน —
                 โหมดทบทวน/หน้า Explain แสดงชื่อชุดข้อสอบอย่างเดียวตาม design */}
@@ -151,11 +115,7 @@ export default function LessonLayout({
             <span className="flex-1 text-left text-[15px] font-semibold leading-normal truncate max-md:text-[12px]">
               {title}
             </span>
-            <ChevronDown
-              className={`size-[14px] shrink-0 transition-transform ${isLessonMenuOpen ? 'rotate-180' : ''}`}
-              aria-hidden="true"
-            />
-          </button>
+          </div>
 
           {/* White box (p-5) wrapping only the progress bar + step counter —
               hidden in review mode per UI reference */}
@@ -275,87 +235,6 @@ export default function LessonLayout({
           </div>
         </div>
       </div>
-
-      {/* ===== Lesson picker modal — like the exam's set selector ===== */}
-      {isLessonMenuOpen && mounted && siblings && siblings.length > 0 && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in"
-          onClick={() => setIsLessonMenuOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="เลือกบทเรียน"
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-[720px] max-h-[80vh] flex flex-col animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal header */}
-            <div className="flex items-center gap-4 p-6 border-b border-slate-100">
-              <div className="p-3 rounded-2xl shrink-0" style={{ background: accent.light }}>
-                <RotateCcw className="w-5 h-5" style={{ color: accent.dark }} aria-hidden="true" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-[1.125rem] font-semibold text-[#525252]">บทเรียนใน Unit {unitNumber}</h2>
-                <p className="text-sm font-medium mt-0.5 text-[#525252]">เลือกบทเรียนที่ต้องการเรียน</p>
-              </div>
-              <button
-                onClick={() => setIsLessonMenuOpen(false)}
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                aria-label="ปิด"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Lesson list */}
-            <div className="overflow-y-auto p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {siblings.map((s, i) => {
-                  const isCurrent = s.id === currentLessonId;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => {
-                        setIsLessonMenuOpen(false);
-                        if (!isCurrent) onSiblingSelect?.(s.id);
-                      }}
-                      className={`group block w-full bg-white rounded-2xl border p-5 text-left ${
-                        isCurrent ? 'border-current' : 'border-[#BFDFEB]'
-                      }`}
-                      style={isCurrent ? { borderColor: accent.base } : undefined}
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <h3 className="font-bold text-slate-800 text-[1rem] leading-snug">
-                              บทที่ {i + 1} — {s.title}
-                            </h3>
-                            {isCurrent && (
-                              <span className="text-xs font-semibold shrink-0" style={{ color: accent.dark }}>
-                                บทปัจจุบัน
-                              </span>
-                            )}
-                            {!isCurrent && s.completed && (
-                              <span className="text-xs font-semibold text-emerald-600 shrink-0">✓ ผ่านแล้ว</span>
-                            )}
-                          </div>
-                        </div>
-                        <div
-                          className="p-2 rounded-full flex items-center justify-center shrink-0"
-                          style={{ background: accent.light }}
-                        >
-                          <ArrowRight className="w-5 h-5" style={{ color: accent.dark }} aria-hidden="true" />
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

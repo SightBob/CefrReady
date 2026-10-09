@@ -291,7 +291,6 @@ export default function SetQuizPage() {
   const setSelectorProps = {
     availableSets,
     currentSetId: setId,
-    onSetSelect: (id: number) => router.push(`/tests/${sectionId}/${id}`),
   };
 
   // PostHog tracking
@@ -681,7 +680,6 @@ export default function SetQuizPage() {
         setId={setId}
         setName={setData.name}
         availableSets={availableSets}
-        onSetSelect={(id) => router.push(`/tests/${sectionId}/${id}`)}
         onFinish={(s, total) => { setScore(s); setFormMeaningTotalBlanks(total); setIsFinished(true); }}
         onAttemptId={(id) => setAttemptId(id)}
       />
