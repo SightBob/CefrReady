@@ -123,7 +123,7 @@ export default function HomeHero() {
           </Link>
 
           <Link
-            href="/demo"
+            href="/demo/intro"
             className="flex h-[65px] w-[243px] max-w-full items-center justify-center rounded-[14px] border border-[#EAEAEA] bg-white px-[20px] py-[10px] text-[18px] font-bold text-[#797253] shadow-[3px_4px_0px_#D5D3D3] max-md:h-[50px] max-md:w-[227px] max-md:text-[15px] max-md:shadow-[2px_3px_0px_#D5D3D3]"
           >
             โหมดตัวอย่าง

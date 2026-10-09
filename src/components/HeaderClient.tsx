@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { href: '/tests', label: 'ข้อสอบ CEFR' },
   { href: '/#levels', label: 'ระดับ A1-C2' },
   { href: '/#packages', label: 'แพ็กเกจ' },
-  { href: '/contact', label: 'ติวต่อเรา' },
+  { href: '/contact', label: 'ติดต่อเรา' },
 ];
 
 export default function HeaderClient() {
