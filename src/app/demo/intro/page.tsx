@@ -56,7 +56,7 @@ export default async function DemoIntroPage() {
   const questionCount = await loadDemoQuestionCount();
 
   return (
-    <div className="intro-fluid flex h-[100vh] flex-col bg-[#F7F7F7]">
+    <div className="intro-fluid flex min-h-svh flex-col bg-[#F7F7F7]">
       {/* Detail card — โครงเดียวกับหน้า intro ของชุดข้อสอบจริง */}
       <div className="relative mx-auto mt-[var(--intro-card-mt)] h-[var(--intro-card-h)] w-[var(--intro-card-w)] max-w-full shrink-0 rounded-[30px] bg-white">
         {/* Close — กลับหน้าแรก */}
@@ -106,8 +106,9 @@ export default async function DemoIntroPage() {
         </div>
       </div>
 
-      {/* Bottom bar — ปุ่มเดียว: เริ่มทำข้อสอบ */}
-      <div className="mt-auto flex w-full shrink-0 justify-center bg-white shadow-[0_0_3.3px_rgba(172,172,172,0.25)]">
+      {/* Bottom bar — ปุ่มเดียว: เริ่มทำข้อสอบ
+          sticky bottom-0: กันปุ่มตกไปใต้จอตอนเลื่อน เหมือนหน้า intro ของชุดข้อสอบจริง */}
+      <div className="sticky bottom-0 mt-auto flex w-full shrink-0 justify-center bg-white shadow-[0_0_3.3px_rgba(172,172,172,0.25)]">
         <div className="flex w-full max-w-[1061px] items-center justify-center px-4 py-4 md:justify-end md:pr-[var(--intro-bar-pr)] xl:px-0">
           <Link
             href="/demo/exam"

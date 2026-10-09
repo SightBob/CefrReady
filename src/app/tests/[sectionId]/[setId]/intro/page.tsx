@@ -59,7 +59,7 @@ export default async function TestSetIntroPage({ params }: { params: IntroParams
     : quizHref;
 
   return (
-    <div className="intro-fluid flex h-[100vh] flex-col bg-[#F7F7F7]">
+    <div className="intro-fluid flex min-h-svh flex-col bg-[#F7F7F7]">
       {/* Detail card — mobile 200:7664 (355×494, r30, ขอบ 18px) → desktop 75:68796
           (1061×546); ทุกขนาดไหลระหว่างสองเฟรมด้วย .intro-fluid */}
       <div className="relative mx-auto mt-[var(--intro-card-mt)] h-[var(--intro-card-h)] w-[var(--intro-card-w)] max-w-full shrink-0 rounded-[30px] bg-white">
@@ -118,8 +118,11 @@ export default async function TestSetIntroPage({ params }: { params: IntroParams
         </div>
       </div>
 
-      {/* Bottom bar — mobile 200:7727 (h94, pt16 pb32, ปุ่ม 326×44), desktop 75:68810 */}
-     <div className="mt-auto flex w-full shrink-0 justify-center bg-white shadow-[0_0_3.3px_rgba(172,172,172,0.25)]">
+      {/* Bottom bar — mobile 200:7727 (h94, pt16 pb32, ปุ่ม 326×44), desktop 75:68810
+          sticky bottom-0: บนจอที่เตี้ยกว่าเนื้อหา (~594px) การ์ด 494px + แถบนี้จะล้นจอ
+          ทำให้ปุ่มต้องเลื่อนถึงจะเห็น — sticky ยังตรึงปุ่มไว้ขอบจอเสมอ
+          (เมื่อจอสูงพอไม่มีการเลื่อน ตำแหน่งเดิมจึงไม่เปลี่ยน) */}
+     <div className="sticky bottom-0 mt-auto flex w-full shrink-0 justify-center bg-white shadow-[0_0_3.3px_rgba(172,172,172,0.25)]">
   <div className="flex w-full max-w-[1061px] items-center justify-center px-4 py-4 md:justify-end md:pr-[var(--intro-bar-pr)] xl:px-0">
     <Link
       href={nextHref}
