@@ -8,7 +8,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
-import FormMeaningArticleCard from '@/components/FormMeaningArticleCard';
+import FormMeaningFillCard from '@/components/FormMeaningFillCard';
 import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
 import TestTapSelectCard from '@/components/TestTapSelectCard';
 import type { TapExerciseData } from '@/lib/test-set-slots';
@@ -459,11 +459,11 @@ function ReviewQuestionCard({
         }
 
         return (
-          <FormMeaningArticleCard
+          <FormMeaningFillCard
             article={q.article}
             answers={answers}
-            isSubmitted
             onInputChange={() => {}}
+            revealed
             disabled
           />
         );
