@@ -1,0 +1,67 @@
+import { describe, expect, it } from 'vitest';
+import {
+  SKILL_OUTCOME_MESSAGES,
+  estimateCefrLevel,
+  skillOutcomeMessage,
+} from './cefr-estimator';
+
+describe('estimateCefrLevel', () => {
+  it('แบ่งช่วงคะแนนตามเดิม (ใช้เป็นค่า fallback ของข้อความให้กำลังใจ)', () => {
+    expect(estimateCefrLevel(100)).toBe('C2');
+    expect(estimateCefrLevel(90)).toBe('C2');
+    expect(estimateCefrLevel(89)).toBe('C1');
+    expect(estimateCefrLevel(78)).toBe('C1');
+    expect(estimateCefrLevel(77)).toBe('B2');
+    expect(estimateCefrLevel(65)).toBe('B2');
+    expect(estimateCefrLevel(64)).toBe('B1');
+    expect(estimateCefrLevel(52)).toBe('B1');
+    expect(estimateCefrLevel(51)).toBe('A2');
+    expect(estimateCefrLevel(38)).toBe('A2');
+    expect(estimateCefrLevel(37)).toBe('A1');
+    expect(estimateCefrLevel(0)).toBe('A1');
+  });
+});
+
+describe('skillOutcomeMessage (การ์ดคะแนน Figma 75:70702)', () => {
+  it('ระดับบนสุดคงข้อความตามดีไซน์เดิม', () => {
+    expect(skillOutcomeMessage('C2', 100)).toBe('และความหมายของคุณอยู่ในเกณฑ์สูงมาก');
+    expect(SKILL_OUTCOME_MESSAGES.C2).toBe('และความหมายของคุณอยู่ในเกณฑ์สูงมาก');
+  });
+
+  it('คะแนนน้อยต้องไม่ได้ข้อความ "สูงมาก" อีก (บั๊กเดิม: ทุกคะแนนขึ้นเหมือนกันหมด)', () => {
+    for (const percentage of [0, 20, 37, 45, 60, 70, 80]) {
+      expect(skillOutcomeMessage(null, percentage)).not.toContain('สูงมาก');
+    }
+    expect(skillOutcomeMessage('A1', 10)).not.toContain('สูงมาก');
+  });
+
+  it('ทุกข้อความขึ้นต้นด้วย "และ" + พูดถึง "ของคุณ" เพื่อต่อท้ายป้ายทักษะได้ทุกแบบ', () => {
+    for (const message of Object.values(SKILL_OUTCOME_MESSAGES)) {
+      expect(message.startsWith('และ')).toBe(true);
+      expect(message).toContain('ของคุณ');
+    }
+  });
+
+  it('ทุกข้อความยาวพอ ๆ กับข้อความเดิม (ไม่เกิน 50 ตัวอักษร) การ์ดคะแนนจะได้ไม่สูงขึ้น', () => {
+    const original = 'และความหมายของคุณอยู่ในเกณฑ์สูงมาก';
+    for (const message of Object.values(SKILL_OUTCOME_MESSAGES)) {
+      expect(message.length).toBeLessThanOrEqual(50);
+      expect(Math.abs(message.length - original.length)).toBeLessThanOrEqual(16);
+    }
+  });
+
+  it('ใช้ระดับที่ส่งมาเป็นตัวตัดสินหลัก (Full Test ส่งค่าระดับจาก server)', () => {
+    // percentage สูง แต่ระดับที่ส่งมาเป็น B1 → ต้องใช้ข้อความของ B1
+    expect(skillOutcomeMessage('B1', 100)).toBe(SKILL_OUTCOME_MESSAGES.B1);
+    // ตัวพิมพ์เล็ก/มีช่องว่าง ก็ต้องรู้จัก
+    expect(skillOutcomeMessage(' b2 ', 0)).toBe(SKILL_OUTCOME_MESSAGES.B2);
+  });
+
+  it('ไม่ส่งระดับ หรือส่งค่าที่ไม่รู้จัก → ประมาณจาก percentage เหมือนการ์ดคะแนน', () => {
+    expect(skillOutcomeMessage(null, 95)).toBe(SKILL_OUTCOME_MESSAGES.C2);
+    expect(skillOutcomeMessage(undefined, 80)).toBe(SKILL_OUTCOME_MESSAGES.C1);
+    expect(skillOutcomeMessage('', 30)).toBe(SKILL_OUTCOME_MESSAGES.A1);
+    expect(skillOutcomeMessage('unknown', 60)).toBe(SKILL_OUTCOME_MESSAGES.B1);
+    expect(skillOutcomeMessage(null, 70)).toBe(SKILL_OUTCOME_MESSAGES.B2);
+  });
+});

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { usePostHog } from '@/lib/posthog';
 import { apiFetch } from '@/lib/api-fetch';
-import { estimateCefrLevel } from '@/lib/cefr-estimator';
+import { estimateCefrLevel, skillOutcomeMessage } from '@/lib/cefr-estimator';
 import TestResultsDemo from './TestResultsDemo';
 
 /** หนึ่งแถวในรายการ "เฉลยและทบทวนข้อสอบ" (Figma 75:70726) */
@@ -32,8 +32,6 @@ const SECTION_SKILL_LABEL: Record<string, string> = {
   // ข้อความกำกับของ Full Test (ไม่มีในเฟรม Figma ของการ์ดคะแนน 75:70702 ซึ่งทำไว้เฉพาะพาร์ทเดี่ยว)
   'full-test': 'ทักษะภาษาอังกฤษครบทั้ง 4 พาร์ท',
 };
-/** บรรทัดที่สองของการ์ดคะแนน — ข้อความตามดีไซน์ (node 75:70702) */
-const SKILL_OUTCOME_LABEL = 'และความหมายของคุณอยู่ในเกณฑ์สูงมาก';
 
 const RATINGS = [1, 2, 3, 4, 5];
 /** จำกัดความยาวความคิดเห็นให้ตรงกับ zod ที่ /api/tests/feedback ใช้ (max 1000) */
@@ -115,6 +113,9 @@ export default function TestResults({
   const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
   const cefrLevel = cefrLevelOverride ?? estimateCefrLevel(percentage);
   const skillLabel = SECTION_SKILL_LABEL[sectionId ?? 'focus-form'];
+  // บรรทัดที่สองของการ์ดคะแนน (Figma 75:70702) — เปลี่ยนตามระดับที่ประเมินได้
+  // เดิมใช้ข้อความ "…อยู่ในเกณฑ์สูงมาก" กับทุกคะแนน (ได้ 20% ก็ยังขึ้นว่าสูงมาก)
+  const skillOutcome = skillOutcomeMessage(cefrLevel, percentage);
   // แถบบนสุดนับ "ทำครบกี่ข้อ" — ถ้ามีเฉลยรายข้อให้ยึดตามจำนวนข้อที่ตอบจริง
   const hasReviewList = !!reviewItems?.length;
   const answeredCount = hasReviewList
@@ -246,7 +247,7 @@ export default function TestResults({
           <p className="relative mt-9 w-[434px] max-w-full px-2 text-center text-[13px] leading-[22px] text-[#475569]">
             ได้คะแนน <span className="font-semibold text-[#059669]">{score} / {totalQuestions}</span> (คิดเป็น {percentage}%) {skillLabel}
             <br />
-            {SKILL_OUTCOME_LABEL}
+            {skillOutcome}
           </p>
         </div>
 

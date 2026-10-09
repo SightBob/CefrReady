@@ -29,6 +29,41 @@ export const CEFR_GRADIENT: Record<CefrLevel, string> = {
   C2: 'from-purple-500 to-pink-500',
 };
 
+/**
+ * ข้อความให้กำลังใจต่อท้ายชื่อทักษะบนการ์ดคะแนน (Figma node 75:70702)
+ *
+ * เดิมการ์ดคะแนนใช้ข้อความเดียว ("และความหมายของคุณอยู่ในเกณฑ์สูงมาก") กับทุกคะแนน
+ * ทำให้คนที่ได้ 20% ก็เห็นว่า "สูงมาก" — ค่าชุดนี้จึงแยกตามระดับที่ประเมินได้
+ * โดยใช้คีย์เดียวกับระดับที่โชว์บนการ์ด (CEFR) ข้อความจึงไม่ขัดกับ "ระดับที่ประเมินได้: …"
+ * ระดับบนสุดคงข้อความตามดีไซน์เดิม ส่วนระดับอื่นเป็นคำที่เขียนเพิ่ม (ให้กำลังใจทุกช่วง)
+ * และจะต่อท้ายป้ายทักษะได้ทุกแบบ (เช่น "ทักษะการฟังและเข้าใจภาษาพูด")
+ */
+export const SKILL_OUTCOME_MESSAGES: Record<CefrLevel, string> = {
+  C2: 'และความหมายของคุณอยู่ในเกณฑ์สูงมาก',
+  C1: 'และความหมายของคุณอยู่ในเกณฑ์สูง อีกนิดก็สมบูรณ์',
+  B2: 'และความหมายของคุณอยู่ในเกณฑ์ดีมาก ใช้ทำงานได้สบาย',
+  B1: 'และความหมายของคุณอยู่ในเกณฑ์ดี พื้นฐานแน่นแล้ว',
+  A2: 'และความหมายของคุณอยู่ในเกณฑ์พื้นฐาน กำลังไปได้ดี',
+  A1: 'และความหมายของคุณอยู่ในช่วงเริ่มต้น ฝึกต่อไปได้เลย',
+};
+
+const CEFR_LEVELS: CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+/** แปลงค่า level ที่รับมาเป็นคีย์ที่รู้จัก (ไม่รู้จัก/ว่าง = null ให้ไปประมาณจาก percentage) */
+function asCefrLevel(value: string | null | undefined): CefrLevel | null {
+  const key = (value ?? '').trim().toUpperCase();
+  return CEFR_LEVELS.find((level) => level === key) ?? null;
+}
+
+/**
+ * ข้อความต่อท้ายชื่อทักษะตามระดับ — `level` คือระดับที่โชว์บนการ์ด (Full Test ส่งมาจาก server)
+ * ถ้าไม่ส่งหรือค่าที่ไม่รู้จัก จะประมาณจาก percentage เหมือนที่การ์ดคำนวณระดับอยู่แล้ว
+ */
+export function skillOutcomeMessage(level: string | null | undefined, percentage: number): string {
+  const resolved = asCefrLevel(level) ?? estimateCefrLevel(percentage);
+  return SKILL_OUTCOME_MESSAGES[resolved];
+}
+
 export const CEFR_DESCRIPTIONS: Record<CefrLevel, string> = {
   A1: 'ผู้เริ่มต้น — เข้าใจประโยคพื้นฐานง่ายๆ',
   A2: 'ระดับพื้นฐาน — สื่อสารเรื่องใกล้ตัวได้',
