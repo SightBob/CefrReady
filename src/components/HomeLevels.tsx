@@ -114,7 +114,7 @@ export default function HomeLevels() {
       strokeLinecap="round"
     />
   </svg>
-    <h2 className="max-md:px-[17px] text-center text-[26px] max-md:text-[20px] font-bold text-[#63717C]">
+    <h2 className="max-md:px-[17px] text-center text-[26px] max-md:text-[20px] font-bold text-[#63717C] pt-[29px]">
           ระดับคะแนน&ensp;A1 - C2
         </h2>
 
