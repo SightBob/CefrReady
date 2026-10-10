@@ -72,13 +72,11 @@ Flow เฉพาะ Tap & Select: เลือกตัวเลือก → �
 ### ขั้นตอนที่ 1: Run Database Migrations
 ```bash
 npm run db:push
-# หรือ
-npx drizzle-kit push:pg
 ```
 
 ### ขั้นตอนที่ 2: Seed ข้อมูลเริ่มต้น
 ```bash
-npx tsx scripts/seed-admin.ts
+# หมายเหตุ: scripts/seed-admin.ts ไม่มีใน repo แล้ว จึงยังไม่มีคำสั่ง seed ที่ใช้ได้
 ```
 
 สคริปต์นี้จะสร้าง:
@@ -142,10 +140,10 @@ http://localhost:3000/admin
 ## 🔧 การปรับแต่งเพิ่มเติม
 
 ### เพิ่มการ Authentication
-ปัจจุบัน Admin Panel ยังไม่มีการตรวจสอบสิทธิ์ คุณควร:
-1. เพิ่ม middleware ตรวจสอบ admin role
-2. ใช้ NextAuth.js หรือ Auth0
-3. เพิ่มฟิลด์ `isAdmin` ในตาราง users (มีอยู่แล้วใน schema)
+Admin Panel ตรวจสิทธิ์แล้ว:
+- ทุก admin API route เรียก `requireAdmin()` (`src/lib/admin-auth.ts`) ซึ่งตรวจ NextAuth session, Origin ของ mutation และฟิลด์ `users.isAdmin` ใน DB ทุกครั้ง
+- อีเมลที่ตั้งใน `ADMIN_EMAIL` (หรือค่า default) ผ่านเสมอ เป็นทางกู้คืนสิทธิ์
+- ตั้งสิทธิ์ admin ให้ผู้ใช้ผ่านฟิลด์ `users.isAdmin` ใน DB
 
 ### เพิ่มฟีเจอร์อื่นๆ
 - **Bulk Import**: นำเข้าข้อสอบจาก CSV/Excel
@@ -200,7 +198,7 @@ http://localhost:3000/admin
 ## 🎯 Next Steps
 
 1. **Run migrations**: `npm run db:push`
-2. **Seed data**: `npx tsx scripts/seed-admin.ts`
+2. **Seed data**: ขั้นตอน seed ข้อมูลเริ่มต้น (scripts/seed-admin.ts ไม่มีแล้ว)
 3. **Start dev server**: `npm run dev`
 4. **Access admin**: http://localhost:3000/admin
 5. **Add authentication** (recommended)

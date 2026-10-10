@@ -33,7 +33,7 @@
 - รายงานปัญหาข้อสอบ
 
 ## Tech Stack
-- **Framework**: Next.js 15 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Auth**: NextAuth v5 + Google OAuth
 - **Database**: PostgreSQL + Drizzle ORM
 - **UI**: Tailwind CSS + Lucide icons

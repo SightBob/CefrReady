@@ -1,20 +1,26 @@
 # CEFR Ready
 
-A full-stack application with Next.js frontend and Drizzle ORM backend with PostgreSQL.
+Free online CEFR practice tests (A1–C2) for Thai students, built as a single Next.js app with PostgreSQL (Drizzle ORM).
 
 ## Project Structure
 
 ```
 cefr-ready/
-├── frontend/     # Next.js application
-├── backend/      # Drizzle ORM with PostgreSQL
-└── package.json  # Root workspace configuration
+├── src/
+│   ├── app/        # Next.js App Router pages and API routes (api/, admin/, tests/, ...)
+│   ├── lib/        # Shared logic: auth, rate limiting, AI (OpenRouter), scoring, verb banks
+│   ├── db/         # Drizzle schema and DB client
+│   └── components/ # UI components
+├── drizzle/        # SQL migrations
+├── scripts/        # Seed and maintenance scripts (tsx)
+└── public/         # Static assets
 ```
 
 ## Prerequisites
 
 - Node.js 18+
 - PostgreSQL database
+- Upstash Redis credentials (rate limiting and runtime settings)
 
 ## Setup
 
@@ -24,30 +30,36 @@ cefr-ready/
    ```
 
 2. Configure environment variables:
-   - Copy `backend/.env.example` to `backend/.env`
-   - Update the database connection string
+   - Copy `.env.example` to `.env` (or `.env.local`)
+   - Set the database connection string and the other values listed in `.env.example`
 
-3. Run database migrations:
+3. Apply the database schema:
    ```bash
    npm run db:push
    ```
 
 ## Development
 
-Run both frontend and backend:
 ```bash
-npm run dev
+npm run dev     # Next.js dev server on http://localhost:3000
 ```
 
-Run individually:
-```bash
-npm run frontend  # Next.js on port 3000
-npm run backend   # API server on port 3001
-```
+## Scripts
+
+- `npm run build` - Production build
+- `npm run start` - Start the production server
+- `npm run lint` - ESLint on `src/`
+- `npm run test:unit` - Vitest unit tests
+- `npm run test:watch` - Vitest in watch mode
+- `npm test` - Runs `next build` (not the unit tests)
 
 ## Database Management
 
-- `npm run db:generate` - Generate migrations
+- `npm run db:generate` - Generate migrations from schema changes
 - `npm run db:migrate` - Run migrations
 - `npm run db:push` - Push schema changes directly
 - `npm run db:studio` - Open Drizzle Studio
+
+## Admin
+
+See [ADMIN_SETUP.md](ADMIN_SETUP.md) for the admin panel and AI setup.
