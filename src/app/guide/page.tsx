@@ -10,7 +10,7 @@ export const revalidate = 3600;
 const BASE_URL = 'https://cefr-ready.site';
 
 export const metadata: Metadata = {
-  title: 'CEFR Guide — คู่มือเตรียมสอบตามมาตรฐาน CEFR | CEFR Ready',
+  title: 'CEFR Guide — คู่มือเตรียมสอบตามมาตรฐาน CEFR',
   description: 'คู่มือเตรียมสอบภาษาอังกฤษตามมาตรฐาน CEFR ทุกระดับ A1-C2 เทคนิค วิธีฝึก และเปรียบเทียบกับ IELTS TOEFL',
   keywords: ['CEFR Guide', 'คู่มือ CEFR', 'เตรียมสอบ CEFR', 'CEFR A1-C2', 'ฝึกภาษาอังกฤษ', 'เทียบ CEFR IELTS'],
   alternates: { canonical: `${BASE_URL}/guide` },

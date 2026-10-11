@@ -28,10 +28,23 @@ export async function generateMetadata({ params }: { params: IntroParams }): Pro
   const { sectionId, setId } = await params;
   const section = await getSection(sectionId);
   const testSet = section?.testSets.find((item) => String(item.id) === setId);
-  if (!section || !testSet) return { title: 'CEFR Ready' };
+  if (!section || !testSet) return { title: 'ไม่พบชุดข้อสอบ' };
+  const description = testSet.description ?? `รายละเอียดชุดข้อสอบ ${testSet.name}`;
+  const url = `https://cefr-ready.site/tests/${sectionId}/${setId}/intro`;
   return {
-    title: `${testSet.name} | CEFR Ready`,
-    description: testSet.description ?? `รายละเอียดชุดข้อสอบ ${testSet.name}`,
+    title: testSet.name,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${testSet.name} | CEFR Ready`,
+      description,
+      url,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${testSet.name} | CEFR Ready`,
+      description,
+    },
   };
 }
 

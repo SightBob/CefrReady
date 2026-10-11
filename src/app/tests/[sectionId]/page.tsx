@@ -29,11 +29,24 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { sectionId } = await params;
   const section = await getSection(sectionId);
-  if (!section) return { title: 'CEFR Ready' };
+  if (!section) return { title: 'ไม่พบพาร์ทข้อสอบ' };
+  const description =
+    section.description ?? `ข้อสอบหมวด ${section.name} ครอบคลุมเนื้อหาทั้งหมดของ CEFR Ready`;
+  const url = `https://cefr-ready.site/tests/${sectionId}`;
   return {
-    title: `${section.name} | CEFR Ready`,
-    description:
-      section.description ?? `ข้อสอบหมวด ${section.name} ครอบคลุมเนื้อหาทั้งหมดของ CEFR Ready`,
+    title: section.name,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${section.name} | CEFR Ready`,
+      description,
+      url,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${section.name} | CEFR Ready`,
+      description,
+    },
   };
 }
 

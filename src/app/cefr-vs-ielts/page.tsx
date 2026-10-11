@@ -13,13 +13,13 @@ export const revalidate = 3600;
 const BASE_URL = 'https://cefr-ready.site';
 
 export const metadata: Metadata = {
-  title: 'เทียบ CEFR กับ IELTS TOEFL — ตารางเปรียบคะแนนอัปรัย | CEFR Ready',
-  description: 'ตารางเปรียบคะแนน CEFR กับ IELTS TOEFL ดูว่าคะแนนระดับใดแต่ละอันอย่างไร เลือกสอบอะไรดี และเตรียมตัวอย่าง',
-  keywords: ['CEFR vs IELTS', 'CEFR vs TOEFL', 'ตารางเปรียบ CEFR IELTS', 'คะแนน CEFR IELTS', 'CEFR B2 เท่ากับ IELTS กี่', 'IELTS 6.5 เท่ากับ CEFR', 'เทียบมาตรฐานภาษา'],
+  title: 'เทียบ CEFR กับ IELTS TOEFL — ตารางเปรียบคะแนน',
+  description: 'ตารางเปรียบคะแนน CEFR กับ IELTS TOEFL ดูว่าคะแนนระดับใดเทียบเท่ากับอะไร เลือกสอบอะไรดี และเตรียมตัวอย่างไร',
+  keywords: ['CEFR vs IELTS', 'CEFR vs TOEFL', 'ตารางเปรียบเทียบ CEFR IELTS', 'คะแนน CEFR IELTS', 'CEFR B2 เท่ากับ IELTS กี่', 'IELTS 6.5 เท่ากับ CEFR', 'เทียบมาตรฐานภาษา'],
   alternates: { canonical: `${BASE_URL}/cefr-vs-ielts` },
   openGraph: {
     title: 'เทียบ CEFR กับ IELTS TOEFL | CEFR Ready',
-    description: 'ตารางเปรียบคะแนน CEFR กับ IELTS TOEFL อัปรัยดูว่าคะแนนระดบใดต่างกันอย่างไร',
+    description: 'ตารางเปรียบคะแนน CEFR กับ IELTS TOEFL ดูว่าคะแนนระดับใดเทียบเท่ากันอย่างไร',
     url: `${BASE_URL}/cefr-vs-ielts`,
     type: 'article',
   },

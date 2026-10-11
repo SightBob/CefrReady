@@ -5,9 +5,22 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { isSectionInMaintenance } from '@/lib/test-section-maintenance';
 
+const FULL_TEST_DESCRIPTION = 'ข้อสอบ CEFR 45 ข้อ ครบทุกพาร์ท ระบบ Adaptive ปรับระดับตามคำตอบ';
+
 export const metadata: Metadata = {
-  title: 'สอบจำลองเต็มรูปแบบ | CEFR Ready',
-  description: 'ข้อสอบ CEFR 45 ข้อ ครบทุกพาร์ท ระบบ Adaptive ปรับระดับตามคำตอบ',
+  title: 'สอบจำลองเต็มรูปแบบ',
+  description: FULL_TEST_DESCRIPTION,
+  alternates: { canonical: 'https://cefr-ready.site/tests/full' },
+  openGraph: {
+    title: 'สอบจำลองเต็มรูปแบบ | CEFR Ready',
+    description: FULL_TEST_DESCRIPTION,
+    url: 'https://cefr-ready.site/tests/full',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'สอบจำลองเต็มรูปแบบ | CEFR Ready',
+    description: FULL_TEST_DESCRIPTION,
+  },
 };
 
 const CEFR_TABLE = [

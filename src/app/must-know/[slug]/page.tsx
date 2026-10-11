@@ -27,7 +27,7 @@ export async function generateMetadata(props: ArticlePageProps): Promise<Metadat
     .limit(1);
 
   if (!article || !article.isPublished) {
-    return { title: 'Article Not Found' };
+    return { title: 'ไม่พบบทความ' };
   }
 
   const plainDesc = (article.content || '')
@@ -43,6 +43,7 @@ export async function generateMetadata(props: ArticlePageProps): Promise<Metadat
     openGraph: {
       title: article.title,
       description,
+      url: `https://cefr-ready.site/must-know/${slug}`,
       type: 'article',
       tags: Array.isArray(article.tags) ? (article.tags as string[]) : [],
       publishedTime: article.createdAt.toISOString(),

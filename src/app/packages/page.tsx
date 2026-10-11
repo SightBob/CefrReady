@@ -2,12 +2,16 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
+const DESCRIPTION = 'แพ็กเกจและแผนการใช้งาน CEFR Ready — เร็วๆ นี้';
+
 export const metadata: Metadata = {
-  title: 'แพ็กเกจ — CEFR Ready',
-  description: 'แพ็กเกจและแผนการใช้งาน CEFR Ready — เร็วๆ นี้',
+  title: 'แพ็กเกจ',
+  description: DESCRIPTION,
+  alternates: { canonical: 'https://cefr-ready.site/packages' },
   openGraph: {
-    title: 'แพ็กเกจ — CEFR Ready',
-    description: 'แพ็กเกจและแผนการใช้งาน CEFR Ready — เร็วๆ นี้',
+    title: 'แพ็กเกจ | CEFR Ready',
+    description: DESCRIPTION,
+    url: 'https://cefr-ready.site/packages',
   },
 };
 

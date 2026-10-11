@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { getSection, SECTION_BADGES } from '@/lib/test-section-display';
 
 export const metadata: Metadata = {
-  title: 'ปิดปรับปรุงชั่วคราว | CEFR Ready',
+  title: 'ปิดปรับปรุงชั่วคราว',
   description: 'พาร์ทข้อสอบนี้อยู่ระหว่างปิดปรับปรุงชั่วคราว ขออภัยในความไม่สะดวก',
   robots: { index: false, follow: false },
 };

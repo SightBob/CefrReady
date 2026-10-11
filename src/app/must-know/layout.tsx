@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Must Know — ข้อมูลสำคัญก่อนสอบ | CEFR Ready',
+  title: 'Must Know — ข้อมูลสำคัญก่อนสอบ CEFR',
   description: 'รวมไวยากรณ์และคำศัพท์ภาษาอังกฤษที่ต้องรู้ก่อนสอบ CEFR แบ่งตามระดับ A1-C2',
   alternates: { canonical: 'https://cefr-ready.site/must-know' },
   openGraph: {

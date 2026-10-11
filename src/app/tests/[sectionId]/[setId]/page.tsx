@@ -184,9 +184,8 @@ export default function SetQuizPage() {
   // หลายเรื่องไว้จะเด้ง intro+explain ของเรื่องนั้นตอนขึ้นเรื่องใหม่
   const [topicExplains, setTopicExplains] = useState<Record<string, TestExplainContent>>({});
   const [explainsLoaded, setExplainsLoaded] = useState(false);
-  const [pendingTopic, setPendingTopic] = useState<{
-    explain: TestExplainContent;
-  } | null>(null);
+  /** คิวอธิบายทุกเรื่องของชุด — แสดงทีละเรื่องหลังหน้า intro ตอนเริ่มชุด (เรื่องแรกอยู่หัวคิว) */
+  const [introQueue, setIntroQueue] = useState<TestExplainContent[]>([]);
   /** เรื่องที่เด้งไปแล้วในรอบนี้ — เด้งครั้งเดียวต่อเรื่องต่อการทำชุดหนึ่งครั้ง */
   const seenTopics = useRef(new Set<string>());
 
@@ -261,17 +260,25 @@ export default function SetQuizPage() {
   useEffect(() => {
     if (!setData || !explainsLoaded) return;
     if (currentQuestion !== 0) return; // เด้งเฉพาะตอนเริ่มชุด (ข้อแรก)
-    const run = topicRunForSlot(topicRuns, currentQuestion);
-    if (!run || !run.topic) return;
-    const explain = topicExplains[run.topic];
-    if (!explain || seenTopics.current.has(run.topic)) return;
-    seenTopics.current.add(run.topic);
+    // คิวถูกสร้างครั้งเดียวต่อการทำชุดหนึ่งครั้ง (fetchSet ล้าง seenTopics เมื่อเปลี่ยนชุด)
+    if (seenTopics.current.size > 0) return;
+    // รวมทุกเรื่องของชุดตามลำดับข้อสอบ (เรื่องซ้ำที่ไม่ติดกันแสดงครั้งเดียว)
+    const queue: TestExplainContent[] = [];
+    for (const run of topicRuns) {
+      const topic = run.topic;
+      if (!topic || seenTopics.current.has(topic)) continue;
+      const explain = topicExplains[topic];
+      if (!explain) continue;
+      seenTopics.current.add(topic);
+      queue.push(explain);
+    }
+    if (queue.length === 0) return;
     if (wasSetExplainRead(sectionId, setId)) {
       // เพิ่งอ่านจากหน้า /explain แล้ว — ข้าม และรีเซ็ต flag ให้ครั้งถัดไปเด้งตามปกติ
       clearSetExplainRead(sectionId, setId);
       return;
     }
-    setPendingTopic({ explain });
+    setIntroQueue(queue);
   }, [currentQuestion, explainsLoaded, setData, topicExplains, topicRuns, explainRuns, sectionId, setId]);
 
   useEffect(() => {
@@ -301,7 +308,7 @@ export default function SetQuizPage() {
     // เปลี่ยนชุด (dropdown) = เริ่มนับเรื่องใหม่ — ไม่งั้นชุดใหม่ที่ใช้ชื่อเรื่อง
     // เดิมจะไม่เด้ง intro ให้อีก
     seenTopics.current.clear();
-    setPendingTopic(null);
+    setIntroQueue([]);
     try {
       // เนื้อหา explain รายเรื่องโหลดคู่กับตัวชุดไปเลย เพื่อให้รู้ก่อนข้อแรกว่ามีเรื่อง
       // อะไรให้เด้ง — ถ้าโหลดไม่ได้ก็เข้าสอบต่อได้ (แค่ไม่มีหน้า intro ของเรื่อง)
@@ -504,6 +511,7 @@ export default function SetQuizPage() {
         body: JSON.stringify({
           testTypeId: sectionId,
           testSetId: setId,
+          preview: previewMode,
           startedAt: testStartedAt,
           answers: buildTestSubmissionAnswers(setData.questions, mainSlots, answers, toStoredAnswer),
           // ส่งเหตุผลที่พิมพ์ไปเก็บด้วย — server เก็บเฉพาะที่มีข้อความจริง (รอ admin ให้คะแนน)
@@ -644,7 +652,7 @@ export default function SetQuizPage() {
     setIsFinished(false);
     // ทำชุดใหม่ = เห็นหน้า intro ของทุกเรื่องอีกครั้ง
     seenTopics.current.clear();
-    setPendingTopic(null);
+    setIntroQueue([]);
     Object.keys(tapRequestVersions.current).forEach(key => { tapRequestVersions.current[key] += 1; });
     setTapReasons({});
     setTapReasonResults({});
@@ -744,13 +752,13 @@ export default function SetQuizPage() {
 
   // ขึ้นเรื่องแรกของชุด → เด้งหน้าเนื้อหาอธิบายเต็มจอ (UI เดียวกับ "โหมดทบทวน")
   // ปิดแล้วเข้าข้อสอบต่อได้ทันที · หน้าการ์ด intro รายเรื่องถูกลบไปแล้ว (ไม่ใช้แล้ว)
-  const topicGate = pendingTopic ? (
+  const topicGate = introQueue.length > 0 ? (
     <TestExplainOverlay
-      key={pendingTopic.explain.id}
-      explain={pendingTopic.explain}
+      key={introQueue[0].id}
+      explain={introQueue[0]}
       open
       sectionId={sectionId}
-      onClose={() => setPendingTopic(null)}
+      onClose={() => setIntroQueue((queue) => queue.slice(1))}
     />
   ) : null;
 

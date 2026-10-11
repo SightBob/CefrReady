@@ -13,12 +13,12 @@ export const revalidate = 3600;
 const BASE_URL = 'https://cefr-ready.site';
 
 export const metadata: Metadata = {
-  title: 'CEFR คืออะไร? — คู่มทำความเข้าใจ CEFR A1-C2 | CEFR Ready',
-  description: 'เรียนรู้จัก 6 ระดับ CEFR (A1, A2, B1, B2, C1, C2) คะแนนที่ต้องได้ วิธีฝึก และเทียบกับ IELTS TOEFL ดูคู่มิภาษาอังกฤษ',
+  title: 'CEFR คืออะไร? — คู่มือทำความเข้าใจ CEFR A1-C2',
+  description: 'เรียนรู้จัก 6 ระดับ CEFR (A1, A2, B1, B2, C1, C2) คะแนนที่ต้องได้ วิธีฝึก และเทียบกับ IELTS TOEFL ดูคู่มือภาษาอังกฤษ',
   keywords: ['CEFR คืออะไร', 'CEFR levels', 'ระดับ CEFR', 'CEFR A1 A2 B1 B2 C1 C2', 'ฝึกทดสอบ CEFR', 'เทียบ CEFR IELTS', 'มาตรฐาน CEFR', 'Common European Framework'],
   alternates: { canonical: `${BASE_URL}/cefr` },
   openGraph: {
-    title: 'CEFR คืออะไร? — คู่มทำความเข้าใจ | CEFR Ready',
+    title: 'CEFR คืออะไร? — คู่มือทำความเข้าใจ | CEFR Ready',
     description: 'เรียนรู้จัก 6 ระดับ CEFR คะแนนที่ต้องได้ และวิธีฝึกภาษาอังกฤษตามมาตรฐาน CEFR',
     url: `${BASE_URL}/cefr`,
     type: 'article',

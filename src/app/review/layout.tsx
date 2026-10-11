@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'ดูเฉลยข้อสอบ | CEFR Ready',
+  title: 'ดูเฉลยข้อสอบ',
   description: 'ทบทวนคำตอบแต่ละข้อพร้อมคำอธิบาย วิเคราะห์จุดแข็งและจุดที่ควรพัฒนา',
   openGraph: {
     title: 'ดูเฉลยข้อสอบ | CEFR Ready',

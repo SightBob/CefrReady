@@ -15,13 +15,16 @@ import Link from "next/link";
 import Image from 'next/image';
 
 export const metadata: Metadata = {
+  // หน้าหลักคือ route เดียวที่ title ไม่ผ่าน template ของ root layout
   title: "CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR",
   description:
     "ฝึกข้อสอบ CEFR ฟรี Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2 พร้อมเฉลย",
+  alternates: { canonical: "https://cefr-ready.site" },
   openGraph: {
     title: "CEFR Ready — ฝึกภาษาอังกฤษด้วยข้อสอบมาตรฐาน CEFR",
     description:
       "ฝึกข้อสอบ CEFR ฟรี Focus on Form, Focus on Meaning, Form & Meaning และ Listening ระดับ A1-C2 พร้อมเฉลย",
+    url: "https://cefr-ready.site",
     images: [
       {
         url: "/opengraph-image.png",

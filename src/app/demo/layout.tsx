@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'ทดลองทำข้อสอบ CEFR ฟรี',
   description: 'ลองทดสอบภาษาอังกฤษฟรีโดยไม่ต้องสมัครสมาชิก — Focus on Form, Focus on Meaning, Form & Meaning, และ Listening',
-  alternates: { canonical: 'https://cefr-ready.site/demo' },
+  // ไม่ใส่ alternates ที่นี่: canonical จะ cascade ไปหน้าลูก (เช่น /demo/exam)
+  // แล้วชี้กลับ /demo — แต่ละหน้าลูกประกาศ canonical ของตัวเอง
   openGraph: {
     title: 'ทดลองทำข้อสอบ CEFR ฟรี | CEFR Ready',
     description: 'ลองทดสอบภาษาอังกฤษฟรีโดยไม่ต้องสมัครสมาชิก — Focus on Form, Focus on Meaning, Form & Meaning, และ Listening',

@@ -3,7 +3,7 @@ import DemoTestsSection, { DemoInfoNote } from '@/components/DemoTestsSection';
 import TestsLandingShell from '@/components/TestsLandingShell';
 
 export const metadata: Metadata = {
-  title: 'ทดลองทำข้อสอบ CEFR ฟรี — Demo Tests',
+  title: 'ทดลองทำข้อสอบ CEFR ฟรี',
   description: 'ลองทำข้อสอบ CEFR ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ครอบคลุม Focus on Form, Meaning, Listening ระดับ A1-C2',
   alternates: { canonical: 'https://cefr-ready.site/demo' },
   openGraph: {

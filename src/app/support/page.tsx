@@ -4,7 +4,7 @@ import { ArrowLeft, Coffee, Heart, ShieldCheck } from 'lucide-react';
 import DownloadQRButton from './DownloadQRButton';
 
 export const metadata = {
-  title: 'เลี้ยงค่ากาแฟ | CEFR Ready',
+  title: 'เลี้ยงค่ากาแฟ',
   description: 'สนับสนุน CEFR Ready ผ่าน QR code แบบ static',
   robots: { index: false, follow: false },
 };

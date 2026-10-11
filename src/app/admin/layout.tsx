@@ -7,7 +7,7 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const metadata: Metadata = {
-  title: 'Admin Panel | CEFR Ready',
+  title: 'Admin Panel',
   description: 'หน้าจัดการระบบสำหรับผู้ดูแล',
   robots: { index: false, follow: false },
 };

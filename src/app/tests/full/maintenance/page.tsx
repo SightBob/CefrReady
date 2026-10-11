@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'สอบจำลองเต็มรูปแบบ ปิดปรับปรุงชั่วคราว | CEFR Ready',
+  title: 'สอบจำลองเต็มรูปแบบ ปิดปรับปรุงชั่วคราว',
   description: 'พาร์ท Full Test อยู่ระหว่างปิดปรับปรุงชั่วคราว ขออภัยในความไม่สะดวก',
   robots: { index: false, follow: false },
 };

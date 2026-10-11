@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { BookOpen, Home } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: '404 — ไม่พบหน้านี้ | CEFR Ready',
+  title: '404 — ไม่พบหน้านี้',
   description: 'ไม่พบหน้าที่คุณต้องการ กรุณากลับสู่หน้าหลัก',
 };
 

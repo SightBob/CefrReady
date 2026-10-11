@@ -23,13 +23,13 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
 
   const article = rows[0];
   if (!article || !article.isPublished) {
-    return { title: 'ไม่พบหน้า | CEFR Ready' };
+    return { title: 'ไม่พบหน้า' };
   }
 
   const plainDesc = (article.content || '').slice(0, 200).replace(/#+\s/g, '').replace(/[\*_`>\[\]]/g, '').trim();
 
   return {
-    title: `${article.title} | CEFR Ready`,
+    title: article.title,
     description: plainDesc,
     alternates: { canonical: `${BASE_URL}/guide/${slug}` },
     openGraph: {

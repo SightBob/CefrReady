@@ -13,13 +13,13 @@ export const revalidate = 3600;
 const BASE_URL = 'https://cefr-ready.site';
 
 export const metadata: Metadata = {
-  title: 'ระดับ CEFR A1 A2 B1 B2 C1 C2 — ต่างกันอย่างไร คะแนนต้องได้ | CEFR Ready',
-  description: 'เปรียบทุกรมีระดับ CEFR 6 ระดับ A1-C2 คะแนนที่ต้องทำ ความเข้าใจ ทักษะที่ต้องรู้ พร้อมตัวอย่างเทียบกับ IELTS',
+  title: 'ระดับ CEFR A1 A2 B1 B2 C1 C2 — ต่างกันอย่างไร คะแนนต้องได้',
+  description: 'เปรียบเทียบระดับ CEFR ทั้ง 6 ระดับ A1-C2 คะแนนที่ต้องได้ ทักษะที่ต้องรู้ พร้อมตัวอย่างเทียบกับ IELTS',
   keywords: ['ระดับ CEFR', 'CEFR A1', 'CEFR A2', 'CEFR B1', 'CEFR B2', 'CEFR C1', 'CEFR C2', 'CEFR คะแนน', 'เทียบ CEFR IELTS'],
   alternates: { canonical: `${BASE_URL}/cefr-levels` },
   openGraph: {
     title: 'ระดับ CEFR A1-C2 ต่างกันอย่างไร | CEFR Ready',
-    description: 'เปรียบทุกระดับ CEFR พร้อมคะแนนเป้าหนสอบ และทักษะที่ต้องรู้',
+    description: 'เปรียบเทียบระดับ CEFR พร้อมคะแนนเป้าหมายสอบ และทักษะที่ต้องรู้',
     url: `${BASE_URL}/cefr-levels`,
     type: 'article',
   },

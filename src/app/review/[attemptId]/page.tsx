@@ -9,6 +9,7 @@ import Link from 'next/link';
 import FocusFormQuestionCard from '@/components/FocusFormQuestionCard';
 import FocusMeaningConversationCard from '@/components/FocusMeaningConversationCard';
 import FormMeaningFillCard from '@/components/FormMeaningFillCard';
+import ExplanationText from '@/components/ExplanationText';
 import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
 import TestTapSelectCard from '@/components/TestTapSelectCard';
 import type { TapExerciseData } from '@/lib/test-set-slots';
@@ -234,7 +235,7 @@ export default function ReviewPage() {
                       </button>
                     ) : (
                       <RailCell
-                        key={orderedItems[cell.itemIndex].questionId}
+                        key={`${orderedItems[cell.itemIndex].questionId}-${cell.itemIndex}`}
                         index={cell.itemIndex}
                         isCorrect={orderedItems[cell.itemIndex].isCorrect}
                         isActive={cell.itemIndex === currentIndex}
@@ -286,7 +287,7 @@ export default function ReviewPage() {
               >
                 {orderedItems.map((item, index) => (
                   <RailCell
-                    key={item.questionId}
+                    key={`${item.questionId}-${index}`}
                     index={index}
                     isCorrect={item.isCorrect}
                     isActive={index === currentIndex}
@@ -492,7 +493,7 @@ function ReviewQuestionCard({
               <p className="font-medium text-slate-800 mb-1">
                 {item.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
               </p>
-              <p className="text-slate-600">{q.explanation}</p>
+              <ExplanationText text={q.explanation} className="text-slate-600" />
             </div>
           )}
         </div>

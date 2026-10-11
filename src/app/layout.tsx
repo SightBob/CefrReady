@@ -43,9 +43,9 @@ export const metadata: Metadata = {
     'Focus on Form', 'Focus on Meaning', 'Listening CEFR',
     'ข้อสอบมาตรฐาน CEFR A1 A2 B1 B2 C1 C2',
   ],
-  alternates: {
-    canonical: BASE_URL,
-  },
+  // NOTE: ห้ามใส่ alternates.canonical ที่นี่ — metadata ของ layout จะ cascade
+  // ไปทุก route ที่ไม่ประกาศ canonical เอง (เช่น /packages, /review จะชี้กลับหน้าหลัก)
+  // แต่ละหน้าประกาศ canonical ของตัวเอง · หน้าหลักประกาศใน src/app/page.tsx
   openGraph: {
     type: 'website',
     locale: 'th_TH',
@@ -82,9 +82,9 @@ export const metadata: Metadata = {
   },
   verification: { google: '1-4RDuUm7NJv9vcUaVgh3o02J-A49I1Ydw7FrZn4xt0' },
   icons: {
-    icon: '/icon',
-    shortcut: '/icon',
-    apple: '/apple-icon',
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/apple-icon.png',
   },
 };
 

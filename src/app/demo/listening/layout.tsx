@@ -1,9 +1,17 @@
 import type { Metadata } from 'next';
 
+const DESCRIPTION =
+  'ลองทำข้อสอบฟังภาษาอังกฤษ Listening ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ระดับ A1-C2';
+
 export const metadata: Metadata = {
-  title: 'ทดลองทำข้อสอบ Listening — CEFR Ready',
-  description: 'ลองทำข้อสอบฟังภาษาอังกฤษ Listening ตัวอย่างฟรี ไม่ต้องสมัครสมาชิก ระดับ A1-C2',
+  title: 'ทดลองทำข้อสอบ Listening',
+  description: DESCRIPTION,
   alternates: { canonical: 'https://cefr-ready.site/demo/listening' },
+  openGraph: {
+    title: 'ทดลองทำข้อสอบ Listening | CEFR Ready',
+    description: DESCRIPTION,
+    url: 'https://cefr-ready.site/demo/listening',
+  },
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

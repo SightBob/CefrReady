@@ -365,6 +365,7 @@ export default function FullTestExamPage() {
         body: JSON.stringify({
           attemptId: attemptIdRef.current,
           questionId: question.id,
+          questionIndex,
           selectedAnswer: selectedAnswerRef.current ?? "",
           timeRemaining: remainingNow,
         }),
