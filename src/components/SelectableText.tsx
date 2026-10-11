@@ -192,18 +192,6 @@ export default function SelectableText({
 
   return (
     <>
-      {/* Selection highlight color */}
-      <style>{`
-        .selectable-text ::selection {
-          background: #fbbf24;
-          color: #1e1b4b;
-        }
-        .selectable-text ::-moz-selection {
-          background: #fbbf24;
-          color: #1e1b4b;
-        }
-      `}</style>
-
       <Container ref={containerRef} className={`selectable-text relative ${className}`}>
         <TextWrapper className={inline ? '' : 'leading-relaxed '}>
           {tokens.map((token, i) => {

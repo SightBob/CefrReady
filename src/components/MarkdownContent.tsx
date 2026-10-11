@@ -1,7 +1,7 @@
 'use client';
 
 import DOMPurify from 'dompurify';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 export function MarkdownContent({ content }: { content: string }) {
   const html = content
@@ -16,10 +16,15 @@ export function MarkdownContent({ content }: { content: string }) {
     .replace(/\n\n/g, '</p><p class="mb-[1.125rem]">')
     .replace(/^(?!<[hdp])([^\n]+)$/gm, '<p class="mb-[1.125rem]">$1</p>');
 
-  const cleanHtml = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'p', 'div', 'span', 'strong', 'em', 'code', 'ul', 'ol', 'li', 'br'],
-    ALLOWED_ATTR: ['class'],
-  });
+  // DOMPurify needs the browser DOM. Keep SSR and the initial hydration identical;
+  // only insert content after it has been sanitised in the browser.
+  const [cleanHtml, setCleanHtml] = useState('');
+  useEffect(() => {
+    setCleanHtml(DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['h1', 'h2', 'h3', 'p', 'div', 'span', 'strong', 'em', 'code', 'ul', 'ol', 'li', 'br'],
+      ALLOWED_ATTR: ['class'],
+    }));
+  }, [html]);
 
   return (
     <div

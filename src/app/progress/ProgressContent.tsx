@@ -112,7 +112,7 @@ function TestTypeFilter({
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label="เลือกประเภทข้อสอบ"
-        className="bg-[#f8f7f2] h-[30px] w-[127px] rounded-[8px] pt-[6px] pb-[4px] pl-[9px] pr-[8px] flex flex-col text-left hover:bg-[#f2f1ec] transition-colors"
+        className="bg-[#f8f7f2] h-[30px] w-[127px] max-w-full rounded-[8px] pt-[6px] pb-[4px] pl-[9px] pr-[8px] flex flex-col text-left hover:bg-[#f2f1ec] transition-colors"
       >
         <span className="flex items-center gap-[9px] w-[110px]">
           <span className="text-[#6b6b6b] text-[11px] font-medium leading-[normal] w-[87px] truncate">
@@ -271,7 +271,7 @@ export default function ProgressContent({
                   </div>
 
                   {/* 172:7264 → 166×34 pill; desktop 172:487 → full-width 47px bar */}
-                  <div className="bg-[#e6f0f8] rounded-[7px] h-[34px] w-[166px] min-[992px]:h-[47px] min-[992px]:w-full px-[12px] flex items-center justify-center">
+                  <div className="bg-[#e6f0f8] rounded-[7px] h-[34px] w-[166px] max-w-full min-[992px]:h-[47px] min-[992px]:w-full px-[12px] flex items-center justify-center">
                     <div className="flex gap-[5px] items-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -297,7 +297,7 @@ export default function ProgressContent({
               <div className="flex items-center justify-between w-full min-[992px]:justify-start min-[992px]:gap-[12px]">
                 {/* 172:7273 → "ผลลัพธ์ตามประเภทข้อสอบ" semibold 14px (mobile)
                     172:567 → "ผลลัพธ์แบ่งตามประเภทข้อสอบ" bold 16px (desktop) */}
-                <h2 className="font-semibold text-[14px] text-[#334155] leading-[normal] whitespace-nowrap lg:hidden">
+                <h2 className="font-semibold text-[14px] text-[#334155] leading-[normal] min-w-0 lg:hidden">
                   ผลลัพธ์ตามประเภทข้อสอบ
                 </h2>
                 <h2 className="hidden lg:block font-bold text-[16px] text-[#334155] leading-[normal] whitespace-nowrap">

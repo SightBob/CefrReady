@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import SelectableText from './SelectableText';
+import RichText from './RichText';
 
 interface Option {
   key: string;
@@ -356,7 +357,8 @@ export default function ListeningAudioPlayer({
                 <span className="leading-[1.3125rem]">
                   {isCorrect ? 'คุณตอบได้ดีเลย!' : 'แวะอ่านสักนิด ครั้งหน้าทำได้แน่'}
                 </span>
-                <span className="font-bold leading-[1.3125rem]">“ {explanation} ”</span>
+                {/* เฉลยเก็บ inline markup ไว้ (**bold** / ==highlight==) — เรนเดอร์ให้ ไม่ใช่โชว์เครื่องหมายดิบ */}
+                <span className="font-bold leading-[1.3125rem]">“ <RichText text={explanation} as="span" /> ”</span>
               </div>
             </div>
           </div>

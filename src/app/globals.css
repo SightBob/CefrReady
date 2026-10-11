@@ -409,3 +409,15 @@
   cursor: not-allowed;
 }
 
+/* SelectableText — สีไฮไลต์ตอนลากเลือกคำ/วลี. ประกาศที่นี่ครั้งเดียว เพราะ
+   เมื่อก่อนทุกอินสแตนซ์ฉีด <style> ชุดเดียวกันเอง (แต่ละข้อที่เปิด = กฎซ้ำอีกชุด) */
+.selectable-text ::selection {
+  background: #fbbf24;
+  color: #1e1b4b;
+}
+
+.selectable-text ::-moz-selection {
+  background: #fbbf24;
+  color: #1e1b4b;
+}
+
