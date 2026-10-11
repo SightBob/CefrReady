@@ -32,6 +32,17 @@ describe('TestLayout primary teaching action', () => {
     expect(preview.indexOf('โหมดพรีวิวสำหรับแอดมิน')).toBeLessThan(preview.indexOf('<p>Question</p>'));
   });
 
+  it('keeps the exit confirmation out of the DOM until it is opened', () => {
+    // เดิมกล่องนี้อยู่ใน DOM ตลอดเวลาและซ่อนด้วย opacity-0 ปุ่มที่มองไม่เห็นจึงยัง
+    // focus ได้ และกด Enter ก็ออกจากข้อสอบได้ทั้งที่ผู้ใช้ไม่เห็นปุ่ม
+    const html = renderToStaticMarkup(
+      <TestLayout totalQuestions={2} currentQuestion={0} answers={[null, null]}><p>Question</p></TestLayout>
+    );
+    expect(html).not.toContain('ออกจากข้อสอบ?');
+    expect(html).not.toContain('role="dialog"');
+    expect(html).not.toContain('คำตอบของคุณจะไม่ถูกบันทึก');
+  });
+
   it('can label submission separately after the final Tap feedback', () => {
     const html = renderToStaticMarkup(<TestLayout totalQuestions={1} currentQuestion={0} answers={['A']} primaryAction={{ label: 'ส่งคำตอบ', onClick: () => undefined }}><p>Question</p></TestLayout>);
     expect(html).toContain('>ส่งคำตอบ</span>');

@@ -203,6 +203,54 @@ export default function TestLayout({
     };
   }, [isVerbBankOpen]);
 
+  const exitTriggerRef = useRef<HTMLButtonElement>(null);
+  const exitDialogRef = useRef<HTMLDivElement>(null);
+
+  // ปิดกล่องยืนยันโดยคืน focus กลับไปที่ปุ่ม "จบการสอบ" ที่เปิดมันขึ้นมา
+  const closeExitConfirm = () => {
+    setShowExitConfirm(false);
+    exitTriggerRef.current?.focus();
+  };
+
+  // กล่องยืนยันออกจากข้อสอบ: ตัวที่ทำให้ปุ่มที่มองไม่เห็นไม่โผล่ใน tab order /
+  // accessibility tree คือการไม่ render ตอนปิด (เมื่อก่อนซ่อนด้วย opacity-0 เท่านั้น
+  // จึงโฟกัสได้และกด Enter ออกจากข้อสอบได้) ตอนเปิด: โฟกัสเริ่มที่ตัวเลือกปลอดภัย,
+  // Tab วนอยู่ในกล่อง, Escape ปิดได้ และหน้าการสอบด้านหลังไม่เลื่อน
+  useEffect(() => {
+    if (!showExitConfirm) return;
+    const dialog = exitDialogRef.current;
+    dialog?.querySelector<HTMLButtonElement>("[data-safe-choice]")?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeExitConfirm();
+        return;
+      }
+      if (e.key !== "Tab" || !dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>("button"));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !dialog.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !dialog.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showExitConfirm]);
+
   const currentSetIndex =
     availableSets?.findIndex((s) => s.id === currentSetId) ?? -1;
   // ป้ายชื่อชุด: ใช้ชื่อชุดจริงจากชุดที่กำลังทำ — ถ้าไม่รู้ชื่อ (ไม่ส่ง availableSets) ใช้ "ชุด n"
@@ -545,6 +593,8 @@ export default function TestLayout({
           </div>
 
           <button
+            ref={exitTriggerRef}
+            type="button"
             onClick={() => setShowExitConfirm(true)}
             className="shrink-0 bg-white border-b-2 border-r-2 border-[#C0BFB7] rounded-lg shadow-[0_0_0.3px_0_rgba(0,0,0,0.25)] w-[2.7rem] h-[2.4rem] grid place-items-center hover:bg-slate-50 transition-colors"
             aria-label="จบการสอบ"
@@ -694,16 +744,20 @@ export default function TestLayout({
         </div>
       </div>
       {/* Old Mobile Bottom Bar — replaced by universal bottom bar below */}
-      {!isSubmitted && (
+      {!isSubmitted && showExitConfirm && (
         <div
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity ${showExitConfirm ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-          onClick={() => setShowExitConfirm(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-in fade-in duration-150"
+          onClick={closeExitConfirm}
         >
           <div
+            ref={exitDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exit-confirm-title"
             className="bg-white rounded-2xl shadow-xl p-6 mx-4 max-w-sm w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-slate-900 mb-2">
+            <h3 id="exit-confirm-title" className="text-lg font-bold text-slate-900 mb-2">
               ออกจากข้อสอบ?
             </h3>
             <p className="text-sm text-slate-600 mb-1">
@@ -721,12 +775,15 @@ export default function TestLayout({
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => setShowExitConfirm(false)}
+                type="button"
+                data-safe-choice
+                onClick={closeExitConfirm}
                 className="flex-1 py-2.5 px-4 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 ทำต่อ
               </button>
               <button
+                type="button"
                 onClick={() => {
                   if (onExit) onExit();
                   else router.push("/tests");

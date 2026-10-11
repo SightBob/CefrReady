@@ -17,7 +17,11 @@ export async function apiFetch(url: string, options?: RequestInit): Promise<Resp
     throw new ApiError(`RATE_LIMITED:${seconds}`, 429);
   }
   if (!res.ok) {
-    throw new ApiError(`HTTP ${res.status}`, res.status);
+    // Preserve machine-readable error codes for callers (e.g. exam expiry).
+    const body: unknown = await res.json().catch(() => null);
+    const message = body && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
+      ? body.error : `HTTP ${res.status}`;
+    throw new ApiError(message, res.status);
   }
   return res;
 }

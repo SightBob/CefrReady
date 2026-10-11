@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { userAnswers, testAttempts } from '@/db/schema';
 
 const mocks = vi.hoisted(() => ({
   ip: vi.fn(),
@@ -9,10 +10,12 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   execute: vi.fn(),
   settings: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock('@/lib/api-security', () => ({ checkIpThrottle: mocks.ip, checkUserRateLimit: mocks.userLimit }));
 vi.mock('@/lib/auth-utils', () => ({ getCurrentUser: mocks.currentUser }));
+vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: vi.fn(async () => false) }));
 vi.mock('@/lib/rate-limit', () => ({
   rateLimit: vi.fn(),
   rateLimitResponse: vi.fn(),
@@ -20,6 +23,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }));
 vi.mock('@/db', () => ({
   db: {
+    transaction: (...args: unknown[]) => mocks.transaction(...args),
     select: (...args: unknown[]) => mocks.select(...args),
     insert: (...args: unknown[]) => mocks.insert(...args),
     execute: (...args: unknown[]) => mocks.execute(...args),
@@ -47,6 +51,7 @@ const request = (body: Record<string, unknown> = {}) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       testTypeId: 'focus-form',
+      testSetId: 20,
       answers: [{ questionId: 1, selectedAnswer: JSON.stringify({ 0: 'B' }) }],
       tapReasons: { 1: { 0: 'เพราะ She เป็นเอกพจน์' } },
       ...body,
@@ -56,7 +61,10 @@ const request = (body: Record<string, unknown> = {}) =>
 const questionsChain = () => {
   const chain: Record<string, unknown> = {};
   chain.from = vi.fn(() => chain);
-  chain.where = vi.fn(() => Promise.resolve([dbQuestion]));
+  chain.where = vi.fn(() => chain);
+  chain.innerJoin = vi.fn(() => chain);
+  chain.orderBy = vi.fn(async () => [{ question: dbQuestion }]);
+  chain.then = (resolve: (rows: unknown[]) => unknown) => Promise.resolve([dbQuestion]).then(resolve);
   return chain;
 };
 
@@ -95,9 +103,83 @@ beforeEach(() => {
   mocks.currentUser.mockResolvedValue({ id: 'learner' });
   mocks.settings.mockResolvedValue({ autoAward: true, points: 50 });
   mocks.select.mockReset();
-  mocks.select.mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
+  mocks.select.mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
   mocks.insert.mockReset().mockImplementation(() => insertChain());
   mocks.execute.mockReset().mockResolvedValue(undefined);
+  mocks.transaction.mockImplementation(async (callback) => callback({ insert: mocks.insert, execute: mocks.execute, select: mocks.select }));
+});
+
+describe('submission integrity', () => {
+  it('does not let real submissions omit the authored set', async () => {
+    expect((await POST(request({ testSetId: undefined }))).status).toBe(400);
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+  it('rejects duplicate and unknown question IDs', async () => {
+    expect((await POST(request({ answers: [{ questionId: 1, selectedAnswer: '' }, { questionId: 1, selectedAnswer: '' }] }))).status).toBe(400);
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect((await POST(request({ answers: [{ questionId: 999, selectedAnswer: '' }] }))).status).toBe(400);
+  });
+  it.each(['null', '{"0":3}', '[]'])('returns 400 for structured answer %s', async (answer) => {
+    expect((await POST(request({ answers: [{ questionId: 1, selectedAnswer: answer }] }))).status).toBe(400);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+  it('returns failure rather than success when the transaction cannot persist answers', async () => {
+    mocks.transaction.mockRejectedValueOnce(new Error('answer storage down'));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try { expect((await POST(request())).status).toBe(500); }
+    finally { log.mockRestore(); }
+  });
+  it('rolls back when answer storage fails and succeeds on retry', async () => {
+    let committed = false;
+    mocks.transaction.mockImplementationOnce(async (callback) => {
+      const tx = { select: mocks.select, execute: mocks.execute, insert: (...args: unknown[]) => {
+        if (args[0] === userAnswers) return { values: async () => { throw new Error('answers unavailable'); } };
+        return mocks.insert(...args);
+      } };
+      const result = await callback(tx);
+      committed = true;
+      return result;
+    });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect((await POST(request())).status).toBe(500);
+      expect(committed).toBe(false);
+      mocks.select.mockReset().mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
+      expect((await POST(request())).status).toBe(200);
+    } finally { log.mockRestore(); }
+  });
+  it('returns the same attempt for a retry without writing answers or progress again', async () => {
+    const startedAt = '2026-01-01T00:00:00.000Z';
+    let saved: Record<string, unknown> | undefined;
+    const originalInsert = mocks.insert.getMockImplementation() as (table: unknown) => { values: ReturnType<typeof vi.fn> };
+    mocks.insert.mockImplementation((table) => {
+      const chain = originalInsert(table) as { values: ReturnType<typeof vi.fn> };
+      const values = chain.values.getMockImplementation() as (value: unknown) => unknown;
+      chain.values.mockImplementation((value) => { if (table === testAttempts) saved = value; return values(value); });
+      return chain;
+    });
+    const empty = { from: () => empty, where: () => empty, limit: async () => [] };
+    mocks.select.mockReturnValueOnce(empty);
+    expect((await POST(request({ startedAt }))).status).toBe(200);
+    const writes = mocks.insert.mock.calls.length;
+    const existing = { from: () => existing, where: () => existing, limit: async () => [{ ...saved, id: 55 }] };
+    mocks.select.mockReset().mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(existing);
+    const retry = await POST(request({ startedAt }));
+    expect((await retry.json()).data.attemptId).toBe(55);
+    expect(mocks.insert).toHaveBeenCalledTimes(writes);
+  });
+  it('uses every authored question as denominator when an answer is omitted', async () => {
+    const chain: Record<string, unknown> = {};
+    chain.from = chain.innerJoin = chain.where = vi.fn(() => chain);
+    chain.orderBy = vi.fn(async () => [
+      { question: { id: 1, testTypeId: 'focus-form', correctAnswer: 'A', explanation: null } },
+      { question: { id: 2, testTypeId: 'focus-form', correctAnswer: 'B', explanation: null } },
+    ]);
+    mocks.select.mockReset().mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(chain).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(testTypeChain());
+    const response = await POST(request({ testSetId: 20, answers: [{ questionId: 1, selectedAnswer: 'A' }], tapReasons: {} }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toMatchObject({ score: 50, totalQuestions: 2, correctAnswers: 1 });
+  });
 });
 
 describe('POST /api/tests/submit — Tap & Select reward points', () => {
@@ -123,7 +205,7 @@ describe('POST /api/tests/submit — Tap & Select reward points', () => {
     mocks.select.mockReset();
     mocks.select
       .mockReturnValueOnce(questionsChain())
-      .mockReturnValueOnce(testTypeChain());
+      .mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
     mocks.settings.mockResolvedValue({ autoAward: true, points: 7 });
 
     const response = await POST(
