@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 const mocks = vi.hoisted(() => ({ path: '/' }));
 vi.mock('next/navigation', () => ({ usePathname: () => mocks.path }));
+vi.mock('./Header', () => ({ default: () => <header>Site header</header> }));
+vi.mock('./Footer', () => ({ default: () => <footer>Site footer</footer> }));
 import ChromeShell from './ChromeShell';
+
 describe('ChromeShell server slots', () => {
   it.each([
     ['/', true, true], ['/tests', true, true], ['/tests/focus-form', false, true],
@@ -10,8 +13,14 @@ describe('ChromeShell server slots', () => {
     ['/tests/full', true, true], ['/admin/ai-settings', false, false],
   ])('preserves header/footer on %s', (path, header, footer) => {
     mocks.path = path;
-    const html = renderToStaticMarkup(<ChromeShell header={<header>Site header</header>} footer={<footer>Site footer</footer>} headerFallback={null} mainFallback={null}><p>Content</p></ChromeShell>);
-    expect(html.includes('Site header')).toBe(header); expect(html.includes('Site footer')).toBe(footer);
-    expect(html).toContain('Content'); expect(html.includes('pt-[64px]')).toBe(header);
+    const html = renderToStaticMarkup(
+      <ChromeShell headerFallback={null} mainFallback={null}>
+        <p>Content</p>
+      </ChromeShell>,
+    );
+    expect(html.includes('Site header')).toBe(header);
+    expect(html.includes('Site footer')).toBe(footer);
+    expect(html).toContain('Content');
+    expect(html.includes('pt-[64px]')).toBe(header);
   });
 });

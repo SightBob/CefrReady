@@ -15,6 +15,7 @@ module.exports = {
         ibm: ['var(--font-ibm)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         momo: ['var(--font-momo)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         caveat: ['var(--font-caveat)'],
+        itim: ['var(--font-itim)'],
       },
       colors: {
         primary: {

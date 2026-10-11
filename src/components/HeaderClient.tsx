@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { ChevronDown, LogOut, UserRound } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 // Figma 249:3559-249:3566 — 4 ช่อง 114×46; ช่องที่ 3-4 ในดีไซน์เป็น "ข้อสอบ" ซ้ำกัน
 // จึงแก้ช่องที่ 4 เป็น "ติวต่อเรา" เพื่อไม่ให้เมนูซ้ำ
 const NAV_ITEMS = [
   { href: '/tests', label: 'ข้อสอบ CEFR' },
   { href: '/#levels', label: 'ระดับ A1-C2' },
-  { href: '/#packages', label: 'แพ็กเกจ' },
+  { href: '/packages', label: 'ราคา' },
   { href: '/contact', label: 'ติดต่อเรา' },
 ];
 
@@ -21,6 +21,44 @@ export default function HeaderClient() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const profileRef = useRef<HTMLDivElement>(null);
+  // hash ของ section ที่กำลังอ่านอยู่ ใช้ไฮไลต์เมนูแบบ /#xxx
+  const [activeHash, setActiveHash] = useState('');
+  // hash ที่ถูกกดจากหน้าอื่น — รอนำทางเสร็จแล้วค่อยเลื่อนนุ่มเอง
+  const pendingHashRef = useRef<string | null>(null);
+  // hash ที่เลื่อนให้แล้ว — กัน effect รันซ้ำแล้วเด้งกลับบน
+  const router = useRouter();
+
+  // เมนูแบบ hash ไม่มี pathname ตรงเป๊ะ จึงต้องเลี้ยงค่าไว้จาก hash ปัจจุบัน
+  // และจากการ scroll เข้า/ออก viewport ของแต่ละ section
+  useEffect(() => {
+    const hashItems = NAV_ITEMS.map((i) => i.href.split('#')[1]).filter(Boolean) as string[];
+    if (hashItems.length === 0) return;
+
+    const sync = () => {
+      const current = window.location.hash.replace('#', '');
+      if (current && hashItems.includes(current)) {
+        setActiveHash(current);
+        return;
+      }
+      // ไม่มี hash — เลือก section ที่กำลังอยู่กลางจอ
+      const mid = window.innerHeight / 2;
+      const visible = hashItems.find((id) => {
+        const el = document.getElementById(id);
+        if (!el) return false;
+        const b = el.getBoundingClientRect();
+        return b.top <= mid && b.bottom >= mid;
+      });
+      setActiveHash(visible ?? '');
+    };
+
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('hashchange', sync);
+    return () => {
+      window.removeEventListener('scroll', sync);
+      window.removeEventListener('hashchange', sync);
+    };
+  }, []);
 
   const handleLogout = () => {
     setIsProfileOpen(false);
@@ -59,58 +97,127 @@ export default function HeaderClient() {
     setIsMenuOpen(false);
   }, [pathname]);
 
-  // Smooth-scroll for in-page hash links when already on home
+  // เลื่อนไปยัง section แบบนุ่ม
+  //
+  // ใช้ smooth ของเบราว์เซอร์เองแทนการวน rAF เอง เพราะ:
+  //   - เบราว์เซอร์จัดการ easing ได้นุ่มกว่า และยกเลิก animation ตอนผู้ใช้แตะ/เลื่อนเอง
+  //   - เคารพ prefers-reduced-motion ให้เอง (ลด motion → กระโดดทันที)
+  //   - ระยะเวลาปรับตามระยะทางจริง ไม่ต้องเดา duration เอง
   const scrollToTarget = (target: HTMLElement, id: string) => {
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const headerOffset = 92;
-    const startY = window.scrollY;
-    const endY = target.getBoundingClientRect().top + startY - headerOffset;
-    const distance = endY - startY;
+    // header สูง 64px บนมือถือ / 88px ตั้งแต่ 992px (รวม border-b 1px แล้ว)
+    // อ่านค่าจริงจาก DOM เพื่อไม่ต้องเดา และให้มี gap 4px ไม่ชนขอบ header
+    const headerOffset = (document.querySelector('header')?.getBoundingClientRect().height ?? 88) + 4;
+    const endY = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+    window.scrollTo({ top: Math.max(0, endY), behavior: 'smooth' });
+    history.replaceState(null, '', `#${id}`);
+  };
 
-    const root = document.documentElement;
-    const prevScrollBehavior = root.style.scrollBehavior;
+  // รอให้ layout นิ่งก่อนเลื่อน — รูปด้านบนโหลดช้าแล้วดันตำแหน่ง section ทำให้เลื่อนผิดจุด
+  // วนจนกว่าตำแหน่งคงที่ 2 เฟรมติด หรือครบเวลา (ป้องกันลูปไม่จบ)
+  const waitForStableLayout = (el: HTMLElement, cb: () => void) => {
+    let lastTop = Number.NaN;
+    let stableFrames = 0;
+    let elapsed = 0;
+    const tick = () => {
+      const top = el.getBoundingClientRect().top;
+      if (Number.isFinite(lastTop) && Math.abs(top - lastTop) < 0.5) {
+        stableFrames++;
+      } else {
+        stableFrames = 0;
+        lastTop = top;
+      }
+      elapsed += 16;
+      if (stableFrames >= 3 || elapsed > 1200) {
+        cb();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
 
-    if (prefersReduced || Math.abs(distance) < 2) {
-      window.scrollTo(0, endY);
-      history.pushState(null, '', `#${id}`);
+  // App Router ไม่เลื่อนไป anchor เองเมื่อเปลี่ยน pathname ด้วย client-side nav —
+  // ข้ามจากหน้าอื่นมาที่ /#levels จะได้แค่หน้าแรกที่ scroll 0 ต้องเลื่อนเองที่นี่
+  // ผูกกับ pathname เท่านั้น ถ้าใส่ state ตัวอื่นใน deps จะรันซ้ำแล้วเด้งกลับบน
+  useEffect(() => {
+    if (!isHome) return;
+    const id = pendingHashRef.current || window.location.hash.replace('#', '');
+    if (!id) return;
+
+    let raf = 0;
+    let cancelled = false;
+    let waited = 0;
+
+    const start = () => {
+      const target = document.getElementById(id);
+      if (!target) {
+        // หน้าแรกมีรูปหนัก ๆ render ช้า — รอได้ถึง 5 วินาทีไม่ใช่แค่ไม่กี่เฟรม
+        waited += 16;
+        if (waited < 5000) raf = requestAnimationFrame(start);
+        return;
+      }
+      // กันเบราว์เซอร์กระโดดแบบ instant ไปยัง anchor ก่อน แล้วค่อยเลื่อนนุ่มทีเดียว
+      // (StrictMode เรียก effect ซ้ำ — รอบสองค่อยเลื่อนต่อจากตำแหน่งปัจจุบัน
+      //  ผลลัพธ์เดียวกัน คือไปยังเป้าหมาย ไม่ต้องพึ่ง guard ที่บล็อกรอบสอง)
+      const root = document.documentElement;
+      const prev = root.style.scrollBehavior;
+      root.style.scrollBehavior = 'auto';
+      window.scrollTo(0, 0);
+      root.style.scrollBehavior = prev;
+
+      waitForStableLayout(target, () => {
+        if (cancelled) return;
+        scrollToTarget(target, id);
+        pendingHashRef.current = null;
+      });
+    };
+
+    raf = requestAnimationFrame(start);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [pathname, isHome]);
+
+  const handleHashNav = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    // ctrl/cmd/shift+click และ middle-click = เปิดแท็บใหม่ ต้องไม่ interfere
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    const id = href.split('#')[1];
+    if (!id) return;
+
+    // อยู่หน้าแรกแล้ว — เลื่อนในหน้าเดียว
+    if (isHome) {
+      const target = document.getElementById(id);
+      if (!target) return;
+      e.preventDefault();
+      setIsMenuOpen(false);
+      waitForStableLayout(target, () => scrollToTarget(target, id));
       return;
     }
 
-    // CSS `scroll-behavior: smooth` on html fights per-frame scrollTo — disable it during the animation
-    root.style.scrollBehavior = 'auto';
-
-    const duration = Math.min(900, Math.max(400, Math.abs(distance) * 0.5));
-    const start = performance.now();
-    const easeInOutCubic = (t: number) =>
-      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-    const step = (now: number) => {
-      const progress = Math.min(1, (now - start) / duration);
-      window.scrollTo(0, startY + distance * easeInOutCubic(progress));
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        root.style.scrollBehavior = prevScrollBehavior;
-        history.pushState(null, '', `#${id}`);
-      }
-    };
-    requestAnimationFrame(step);
-  };
-
-  const handleHashNav = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    if (!isHome) return;
-    const id = href.split('#')[1];
-    const target = id ? document.getElementById(id) : null;
-    if (!target) return;
+    // ข้ามหน้า — ปิดกั้น native anchor jump ของเบราว์เซอร์ (มันจะกระโดดทันที
+    // ทำให้เห็นเป็นการกระโดด ไม่ใช่เลื่อนนุ่ม) แล้วค่อยเลื่อนเองหลัง render เสร็จ
     e.preventDefault();
     setIsMenuOpen(false);
-    scrollToTarget(target, id);
+    pendingHashRef.current = id;
+    router.push(`/#${id}`, { scroll: false });
+  };
+
+  // ลิงก์แบบ #xxx ไม่มี pathname ตรงเป๊ะ (pathname คือ '/') จึงต้องดู hash
+// รวมถึงไฮไลต์ตอนเลื่อนมาถึง section นั้นด้วย ไม่ใช่เฉพาะหลังคลิก
+  const isNavActive = (href: string) => {
+    if (href.includes('#')) {
+      const id = href.split('#')[1];
+      if (!isHome) return false;
+      return id === activeHash;
+    }
+    return pathname === href;
   };
 
   // Figma 249:3559-249:3566 — 16px semibold #343434 บนช่องกว้าง 114 สูง 46
   const navLinkCls = (href: string) =>
     `flex h-[46px] w-auto items-center justify-center px-[10px] text-center text-[16px] font-semibold tracking-[0.32px] transition-colors ${
-      pathname === href ? 'text-[#5A95C6]' : 'text-[#343434] hover:text-[#5A95C6]'
+      isNavActive(href) ? 'text-[#5A95C6]' : 'text-[#343434] hover:text-[#5A95C6]'
     }`;
 
   return (

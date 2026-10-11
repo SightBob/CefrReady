@@ -2,6 +2,8 @@
 
 import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
+import Header from './Header';
+import Footer from './Footer';
 
 // Exam pages render their own chrome — no site header/footer
 // Covers section sets (/tests/[sectionId]/[setId]), full mock exam + results,
@@ -17,14 +19,17 @@ export default function ChromeShell({
   children,
   headerFallback,
   mainFallback,
-  header,
-  footer,
 }: {
   children: React.ReactNode;
-  header: React.ReactNode;
-  footer: React.ReactNode;
   headerFallback: React.ReactNode;
   mainFallback: React.ReactNode;
+  // Header/Footer ถูก import มาในไฟล์นี้ ไม่ใช่รับเป็น prop จาก layout
+  //
+  // ถ้า layout.tsx ส่ง header={<Header />} (element ที่สร้างไว้แล้ว) React จะ
+  // bail out เมื่อ render element เดิมซ้ำ ทำให้ usePathname() ใน HeaderClient
+  // ไม่อัปเดต — เมนูจะไฮไลต์ผิดหน้า และ effect ที่ผูกกับ pathname
+  // (เช่นเลื่อนไป #levels จากหน้าอื่น) จะไม่ทำงาน
+  // ส่ง function ข้าม server→client ก็ไม่ได้ (RSC ไม่อนุญาต) จึงต้อง import ในไฟล์นี้
 }) {
   const pathname = usePathname();
   const isExamPage = EXAM_PATH.test(pathname);
@@ -36,14 +41,14 @@ export default function ChromeShell({
     <div className="min-h-screen flex flex-col font-sans">
       {!hideHeader && (
         <Suspense fallback={headerFallback}>
-          {header}
+          <Header />
         </Suspense>
       )}
       {/* pt matches the header: 64px on mobile (Figma 172:7380), 88px from lg up. */}
       <main className={hideHeader ? 'flex-1' : 'flex-1 pt-[64px] min-[992px]:pt-[88px] bg-white'}>
         <Suspense fallback={mainFallback}>{children}</Suspense>
       </main>
-      {!isFullScreenPage && footer}
+      {!isFullScreenPage && <Footer />}
     </div>
   );
 }

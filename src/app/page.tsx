@@ -121,7 +121,7 @@ export default async function Home() {
                 </p>
 
                 <Link
-                  href="/demo"
+                  href="/contact"
                   className="text-center text-[18px] max-md:text-[15px] font-semibold leading-normal text-[#524924] rounded-[14px] mt-[15px] border border-[#EAEAEA] bg-white shadow-[3px_3px_0_0_#D5D3D3] flex w-[229px] max-md:w-full h-[60px] max-md:h-[44px] items-center justify-center gap-2 px-5 py-3">
                   ติดต่อเรา
                   <ArrowRight className="w-4 h-4" />
@@ -174,8 +174,8 @@ export default async function Home() {
       เริ่มสอบเลย
     </Link>
 
-     <Link
-      href="/tests"
+<Link
+      href="/packages"
       className="text-center
         text-[18px]
         max-md:text-[15px]
@@ -190,7 +190,7 @@ export default async function Home() {
         max-md:mt-[18px]
         "
     >
-      ดูแพ็กเกจ
+      ดูราคา
     </Link>
   </div>
 </section>
