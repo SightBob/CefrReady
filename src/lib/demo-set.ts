@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { questions } from '@/db/schema';
 import { isSectionInMaintenance } from '@/lib/test-section-maintenance';
@@ -7,13 +7,15 @@ import type { Article, ConversationLine } from '@/types/test';
 
 /**
  * ชุดข้อสอบ demo แบบ "ปนทุกทักษะ" — แหล่งความจริงเดียวของ flow โหมดตัวอย่างใหม่
- * (/demo/intro → /demo/exam) ใช้โครงชุดข้อสอบที่แอดมินกำหนดเหมือนชุดจริง
- * (is_demo + demoOrder + tap/article slots) จากทั้ง 4 ทักษะมาผสมกันแบบ
- * round-robin เป็นชุดเดียว
+ * (/demo/intro → /demo/exam)
+ *
+ * ลำดับข้อใช้ demoOrder ที่แอดมินตั้งใน /admin/questions เรียงเป็นชุดเดียวทั้งชุด
+ * (เลขน้อยก่อน · ข้อที่ยังไม่ตั้งเลขไปต่อท้าย · เท่ากันเทียบด้วย id) ตรงกับที่
+ * /demo/[ทักษะ] แต่ละหน้าใช้ — ไม่สลับทักษะแบบ round-robin อีกแล้ว เพราะทำให้
+ * ลำดับที่แอดมินตั้งไว้ไม่ตรงกับลำดับที่ผู้เรียนเห็นในหน้า /demo/exam
  */
 
 export const DEMO_TEST_TYPES = ['focus-form', 'focus-meaning', 'form-meaning', 'listening'] as const;
-export const DEMO_MAX_PER_TYPE = 10;
 export const DEMO_MAX_TOTAL = 10;
 
 export interface DemoQuestionRow extends TestSetQuestionLike {
@@ -36,8 +38,20 @@ export interface DemoQuestionRow extends TestSetQuestionLike {
   tapExercise: TapExerciseData | null;
 }
 
-/** ดึงข้อ demo ของทักษะเดียว (เรียงตาม demoOrder ที่แอดมินกำหนด) */
-async function fetchDemoPool(testTypeName: string): Promise<DemoQuestionRow[]> {
+/**
+ * ชุด demo ผสมทุกทักษะ — เรียงตาม demoOrder ที่แอดมินกำหนดทั้งชุด แล้วตัดที่
+ * DEMO_MAX_TOTAL · ทักษะที่แอดมินปิดปรับปรุง (maintenance) จะไม่มีข้อออกมา
+ * (เรียงใน SQL เพราะต้องเรียงก่อน limit ไม่งั้นจะได้ 10 ข้อแบบสุ่มจากทั้งคลัง)
+ */
+export async function fetchMixedDemoQuestions(): Promise<DemoQuestionRow[]> {
+  const activeTypes = (
+    await Promise.all(
+      DEMO_TEST_TYPES.map(async (type) => ((await isSectionInMaintenance(type)) ? null : type))
+    )
+  ).filter((type): type is (typeof DEMO_TEST_TYPES)[number] => type !== null);
+
+  if (activeTypes.length === 0) return [];
+
   return (await db
     .select({
       id: questions.id,
@@ -59,34 +73,9 @@ async function fetchDemoPool(testTypeName: string): Promise<DemoQuestionRow[]> {
       tapExercise: questions.tapExercise,
     })
     .from(questions)
-    .where(and(eq(questions.testTypeId, testTypeName), eq(questions.isDemo, true)))
+    .where(and(inArray(questions.testTypeId, activeTypes), eq(questions.isDemo, true)))
     .orderBy(sql`${questions.demoOrder} ASC NULLS LAST`, asc(questions.id))
-    .limit(DEMO_MAX_PER_TYPE)) as DemoQuestionRow[];
-}
-
-/**
- * ชุด demo ผสมทุกทักษะ: หมุนวนทักษะทีละข้อ (round-robin) เพื่อให้ชุดผสมจริง
- * ไม่รวมเป็นก้อน — ทักษะที่แอดมินยังไม่ได้ตั้งข้อ demo จะถูกข้ามไปโดยอัตโนมัติ
- */
-export async function fetchMixedDemoQuestions(): Promise<DemoQuestionRow[]> {
-  // ทักษะที่แอดมินปิดปรับปรุง (maintenance) ต้องไม่มีข้อออกจากชุด demo
-  const activeTypes = (
-    await Promise.all(
-      DEMO_TEST_TYPES.map(async (type) => ((await isSectionInMaintenance(type)) ? null : type))
-    )
-  ).filter((type): type is (typeof DEMO_TEST_TYPES)[number] => type !== null);
-
-  const pools = await Promise.all(activeTypes.map((type) => fetchDemoPool(type)));
-
-  const mixed: DemoQuestionRow[] = [];
-  let cursor = 0;
-  while (mixed.length < DEMO_MAX_TOTAL && pools.some((pool) => pool.length > 0)) {
-    const pool = pools[cursor % pools.length];
-    cursor += 1;
-    const next = pool.shift();
-    if (next) mixed.push(next);
-  }
-  return mixed;
+    .limit(DEMO_MAX_TOTAL)) as DemoQuestionRow[];
 }
 
 /** จำนวน slot ทั้งหมดของชุด demo (MC/tap item/cloze blank นับแบบเดียวกับชุดจริง) */

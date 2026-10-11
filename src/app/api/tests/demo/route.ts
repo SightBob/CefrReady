@@ -11,7 +11,7 @@ import { fetchMixedDemoQuestions } from '@/lib/demo-set';
  * ที่ src/lib/demo-set.ts
  *
  * กติกาความปลอดภัยเดียวกับ /api/tests/[type] โหมด demo:
- * - จำกัดรวมไม่เกิน 10 ข้อ (max 10 ข้อต่อทักษะก่อนผสม)
+ * - จำกัดรวมไม่เกิน 10 ข้อ เรียงตาม demoOrder ที่แอดมินตั้งไว้ทั้งชุด
  * - ส่ง correctAnswer + explanation ออกได้เพราะเป็นข้อมูลสาธารณะที่ตั้งใจให้เฉลยทันที
  * - ทักษะที่แอดมินปิดปรับปรุง (maintenance) จะไม่มีข้อออกจาก API
  */

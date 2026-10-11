@@ -1,46 +1,29 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { and, asc, eq, sql } from 'drizzle-orm';
-import { db } from '@/db';
-import { questions } from '@/db/schema';
-import { countTestSetSlots } from '@/lib/demo-set';
+import { countTestSetSlots, fetchMixedDemoQuestions } from '@/lib/demo-set';
+
+const DEMO_INTRO_DESCRIPTION =
+  'ลองทำข้อสอบตัวอย่างที่ปนกันทุกทักษะ Focus on Form, Meaning, Form & Meaning และ Listening ฟรี ไม่ต้องสมัครสมาชิก ไม่บันทึกผล';
 
 export const metadata: Metadata = {
-  title: 'โหมดตัวอย่าง — ทดลองทำข้อสอบปนทุกทักษะ | CEFR Ready',
-  description:
-    'ลองทำข้อสอบตัวอย่างที่ปนกันทุกทักษะ Focus on Form, Meaning, Form & Meaning และ Listening ฟรี ไม่ต้องสมัครสมาชิก ไม่บันทึกผล',
+  title: 'โหมดตัวอย่าง — ทดลองทำข้อสอบปนทุกทักษะ',
+  description: DEMO_INTRO_DESCRIPTION,
+  alternates: { canonical: 'https://cefr-ready.site/demo/intro' },
+  openGraph: {
+    title: 'โหมดตัวอย่าง — ทดลองทำข้อสอบปนทุกทักษะ | CEFR Ready',
+    description: DEMO_INTRO_DESCRIPTION,
+    url: 'https://cefr-ready.site/demo/intro',
+  },
 };
 
-const DEMO_TEST_TYPES = ['focus-form', 'focus-meaning', 'form-meaning', 'listening'] as const;
-
 /**
- * ดึงข้อ demo จากทุกทักษะมาผสมกัน (โครงเดียวกับ GET /api/tests/demo)
- * เพื่อนับจำนวน slot จริงบนหน้า intro — ใช้โครงชุดข้อสอบที่แอดมินกำหนด
- * (tap = 1 ช่องต่อ item, cloze = 1 ช่องต่อ blank, MC = 1 ช่อง)
+ * นับจำนวน slot จริงบนหน้า intro จากชุดเดียวกับที่ /demo/exam ได้ไป (fetchMixedDemoQuestions)
+ * — สำคัญ: ถ้าดึงชุดเองจะนับไม่ตรงกับข้อสอบจริงเมื่อคลังข้อ demo เปลี่ยน
  */
 async function loadDemoQuestionCount(): Promise<number> {
   try {
-    const pools = await Promise.all(
-      DEMO_TEST_TYPES.map((testTypeName) =>
-        db
-          .select({
-            id: questions.id,
-            testTypeId: questions.testTypeId,
-            questionText: questions.questionText,
-            article: questions.article,
-            tapExercise: questions.tapExercise,
-          })
-          .from(questions)
-          .where(and(eq(questions.testTypeId, testTypeName), eq(questions.isDemo, true)))
-          .orderBy(sql`${questions.demoOrder} ASC NULLS LAST`, asc(questions.id))
-          .limit(10)
-      )
-    );
-
-    const mixed = pools.flat().slice(0, 10);
-    // โครง select เฉพาะที่จำเป็นต่อการนับ slot — cast ให้ตรง TestSetQuestionLike
-    return countTestSetSlots(mixed as Parameters<typeof countTestSetSlots>[0]);
+    return countTestSetSlots(await fetchMixedDemoQuestions());
   } catch (error) {
     console.error('[demo/intro] Failed to count demo questions:', error);
     return 0;
