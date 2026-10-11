@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { and, asc, count, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
 import { db } from '@/db';
 import { questions, testExplains } from '@/db/schema';
 import { requireAdmin } from '@/lib/admin-auth';
@@ -113,6 +114,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: `หัวข้อ "${duplicateTopic}" ถูกเนื้อหาอธิบายอื่นใช้อยู่แล้ว — หัวข้อเดียวเชื่อมได้เนื้อหาเดียว` }, { status: 409 });
     }
     const [created] = await db.insert(testExplains).values(payload).returning();
+    // หน้า /tests/[setId]/explain กับ /tests/full โหลดผ่าน unstable_cache ที่ติดแท็ก test-explains
+    // ถ้าไม่ล้าง ผู้เรียนจะเห็นเนื้อหาเก่าต่อไปอีก 300 วินาที
+    revalidateTag('test-explains', { expire: 0 });
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create explain content';

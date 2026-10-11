@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { and, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
 import { requireAdmin } from '@/lib/admin-auth';
@@ -87,6 +88,8 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       updatedAt: new Date(),
     }).where(eq(testExplains.id, explainId)).returning();
     if (!updated) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+    // หน้า /tests/[setId]/explain กับ /tests/full โหลดผ่าน unstable_cache ที่ติดแท็ก test-explains
+    revalidateTag('test-explains', { expire: 0 });
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error('[admin/test-explains/id] PATCH error:', error);
@@ -103,6 +106,7 @@ export async function DELETE(_request: NextRequest, props: { params: Promise<{ i
   try {
     const [deleted] = await db.delete(testExplains).where(eq(testExplains.id, explainId)).returning({ id: testExplains.id });
     if (!deleted) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+    revalidateTag('test-explains', { expire: 0 });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[admin/test-explains/id] DELETE error:', error);

@@ -3,12 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
+  revalidateTag: vi.fn(),
   select: vi.fn(),
   insert: vi.fn(),
   update: vi.fn(),
   inserted: [] as unknown[],
 }));
 
+vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock('@/db', () => ({
   db: {
@@ -81,6 +83,7 @@ const importRequest = (body: unknown) =>
 
 beforeEach(() => {
   mocks.inserted.length = 0;
+  mocks.revalidateTag.mockReset();
   mocks.requireAdmin.mockReset().mockResolvedValue({ error: null, session: null });
   // ไม่มี explain เดิมที่ใช้หัวข้อนี้ → เส้นทาง insert
   mocks.select.mockReset().mockReturnValue(builder([]));
@@ -132,6 +135,18 @@ describe('POST /api/admin/test-explains/export — นำเข้า', () => {
     expect(payload.success).toBe(false);
     expect(payload.results[0].message).toContain('ต้องมีเนื้อหา explain อย่างน้อย 1 ส่วน');
     expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('ล้างแคช test-explains เมื่อมีรายการเขียนลงจริง', async () => {
+    await POST(importRequest({ explains: [typeBreakdownExplain] }));
+    expect(mocks.revalidateTag).toHaveBeenCalledExactlyOnceWith('test-explains', { expire: 0 });
+  });
+
+  it('ไม่ล้างแคชเมื่อทุกรายการผิด — แคชที่ยังใช้ได้ต้องอยู่', async () => {
+    await POST(importRequest({
+      explains: [{ grammarTopic: 'ZZTest Empty', title: 'ว่าง', sections: [{ type: 'importantNote', heading: '   ' }] }],
+    }));
+    expect(mocks.revalidateTag).not.toHaveBeenCalled();
   });
 
   it('คืนคำเตือนเมื่อเคสของ Type Breakdown ยังไม่มีโครงสร้างหรือตัวอย่าง', async () => {

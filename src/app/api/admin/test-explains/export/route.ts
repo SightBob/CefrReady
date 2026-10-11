@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { asc, eq, inArray, or, sql } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
 import { lessonSectionsHaveContent, normalizeLessonSections } from '@/lib/lesson-sections';
@@ -153,6 +154,8 @@ export async function POST(request: Request) {
     const updated = results.filter((r) => r.status === 'updated').length;
     const failed = results.filter((r) => r.status === 'error');
     const warningCount = results.reduce((sum, r) => sum + (r.warnings?.length ?? 0), 0);
+    // ล้างแคชเฉพาะเมื่อมีรายการเขียนลงจริง — ถ้าทั้งไฟล์ผิดหมดไม่ต้องเสียแคชที่ยังใช้ได้
+    if (created + updated > 0) revalidateTag('test-explains', { expire: 0 });
     return NextResponse.json({
       success: failed.length === 0,
       message: `นำเข้าสำเร็จ: สร้างใหม่ ${created} · อัปเดต ${updated} · ผิดพลาด ${failed.length}${warningCount ? ` · คำเตือน ${warningCount}` : ''}`,
