@@ -15,10 +15,9 @@ export const metadata: Metadata = {
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
 
-  let isAdmin = session?.user?.isAdmin === true || isAdminEmail(session?.user?.email);
+  let isAdmin = isAdminEmail(session?.user?.email);
 
-  // Refresh the DB flag for older JWTs that were issued before the admin claim
-  // was added or after an account was promoted.
+  // JWT role claims may be stale after promotion or revocation. The DB is authoritative.
   if (!isAdmin && session?.user?.email) {
     const dbUser = await db
       .select({ isAdmin: users.isAdmin })
