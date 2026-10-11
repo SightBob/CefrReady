@@ -22,9 +22,8 @@ export interface RevealGuardInput {
  * in `question_selection_logs`, so the newest log row for the attempt IS the
  * question the learner is looking at. When that log exists it is authoritative.
  *
- * Fallback (an attempt whose selection logging failed): allow only a question
- * that belongs to the part of the current slot, so probing other parts — the
- * realistic way to farm keys ahead of time — is still blocked.
+ * If neither persisted slot state nor a selection log exists, fail closed;
+ * knowing the current part does not prove any particular question was selected.
  */
 export function canRevealAnswer({
   requestedQuestionId,
@@ -42,7 +41,6 @@ export function canRevealAnswer({
   if (!expectedPart) {
     return { allowed: false, reason: 'attempt has no current slot' };
   }
-  return requestedTestTypeId === expectedPart
-    ? { allowed: true, reason: 'current part (no selection log)' }
-    : { allowed: false, reason: 'different part than the current slot' };
+  // A part alone does not prove this question was selected. Fail closed.
+  return { allowed: false, reason: 'no current selection' };
 }

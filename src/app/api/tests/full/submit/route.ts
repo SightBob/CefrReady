@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth-utils';
 import { submitAttempt } from '@/lib/full-test/submit-attempt';
 import { validateOrigin, checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 
-const bodySchema = z.object({ attemptId: z.number() });
+const bodySchema = z.object({ attemptId: z.number().int().positive() });
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +23,11 @@ export async function POST(request: NextRequest) {
   const rateLimitError = await checkUserRateLimit(user.id, { windowMs: 60_000, maxRequests: 10, keySuffix: 'submit' });
   if (rateLimitError) return rateLimitError;
 
-  const parsed = bodySchema.safeParse(await request.json());
+  let body: unknown;
+  try { body = await request.json(); } catch {
+    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
+  }
+  const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 400 });
   }
@@ -42,6 +46,7 @@ export async function POST(request: NextRequest) {
     if (message.includes('cancelled') || message.includes('already')) {
       return NextResponse.json({ success: false, error: message }, { status: 409 });
     }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    console.error('[full/submit] Failed to save result:', err);
+    return NextResponse.json({ success: false, error: 'Failed to save test result' }, { status: 500 });
   }
 }

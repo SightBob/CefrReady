@@ -6,6 +6,7 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { validateOrigin, checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 import { canRevealAnswer } from '@/lib/full-test/reveal-guard';
+import { readSelection } from '@/lib/full-test/state';
 
 const bodySchema = z.object({
   attemptId: z.number().int(),
@@ -31,7 +32,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const parsed = bodySchema.safeParse(await request.json());
+  let body: unknown;
+  try { body = await request.json(); } catch {
+    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
+  }
+  const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 400 });
   }
@@ -54,6 +59,7 @@ export async function POST(request: NextRequest) {
       .select({
         id: testAttempts.id,
         status: testAttempts.status,
+        currentLevels: testAttempts.currentLevels,
         // Only the LENGTH of adaptivePath is needed by the guard;
         // jsonb_array_length keeps the (multi-KB) JSONB payload inside Postgres.
         answeredCount: sql<number>`jsonb_array_length(coalesce(${testAttempts.adaptivePath}, '[]'::jsonb))`,
@@ -93,7 +99,7 @@ export async function POST(request: NextRequest) {
   // on, so the bank cannot be harvested question by question.
   const guard = canRevealAnswer({
     requestedQuestionId: questionId,
-    latestSelectedQuestionId: latestSelection?.questionId ?? null,
+    latestSelectedQuestionId: readSelection(attempt.currentLevels)?.questionId ?? latestSelection?.questionId ?? null,
     requestedTestTypeId: question.testTypeId,
     answeredCount: Number(attempt.answeredCount ?? 0),
   });

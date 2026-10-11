@@ -6,7 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { validateOrigin, checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
 
-const bodySchema = z.object({ attemptId: z.number() });
+const bodySchema = z.object({ attemptId: z.number().int().positive() });
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,11 @@ export async function POST(request: NextRequest) {
   const rateLimitError = await checkUserRateLimit(user.id, { windowMs: 60_000, maxRequests: 10, keySuffix: 'cancel' });
   if (rateLimitError) return rateLimitError;
 
-  const parsed = bodySchema.safeParse(await request.json());
+  let body: unknown;
+  try { body = await request.json(); } catch {
+    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
+  }
+  const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 400 });
   }

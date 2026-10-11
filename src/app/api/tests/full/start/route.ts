@@ -14,6 +14,7 @@ import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
 import { getCachedQuestionPool } from '@/lib/full-test/question-pool';
 import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
+import { withSelection } from '@/lib/full-test/state';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
         userId,
         testTypeId: 'full-test',
         status: 'in_progress',
-        currentLevels: initialLevels,
+        currentLevels: withSelection(initialLevels, { questionId: firstResult.question.id, slot: 0, reused: firstResult.reused }),
         timeRemainingSeconds: FULL_TEST_TOTAL_SECONDS,
         lastActivityAt: new Date(),
         adaptivePath: [],

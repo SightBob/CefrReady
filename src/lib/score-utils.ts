@@ -50,6 +50,19 @@ interface ScoreCalculation {
  * For form-meaning, selectedAnswer is JSON-encoded per-blank answers
  * (e.g. {"1":"running","2":"is"}) and scoring is done per-blank.
  */
+/** JSON answers must be a string record, never null, an array or numeric values. */
+export function parseStructuredAnswer(value: string): Record<string, string> | null {
+  if (value.trim() === '') return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    if (Object.values(parsed).some((entry) => typeof entry !== 'string')) return null;
+    return parsed as Record<string, string>;
+  } catch {
+    return null;
+  }
+}
+
 export function calculateScore(
   answers: Answer[],
   dbQuestions: DbQuestion[]
@@ -57,24 +70,18 @@ export function calculateScore(
   let correctCount = 0;
   let totalItems = 0;
 
-  const results: ScoreResult[] = answers.map((answer) => {
-    const question = dbQuestions.find((q) => q.id === answer.questionId);
-
-    if (!question) {
-      totalItems++;
-      return {
-        questionId: answer.questionId,
-        isCorrect: false,
-        userAnswer: answer.selectedAnswer,
-        correctAnswer: null,
-        explanation: null,
-      };
-    }
+  const answerMap = new Map(answers.map((answer) => [answer.questionId, answer.selectedAnswer]));
+  if (answerMap.size !== answers.length) throw new Error('Duplicate question IDs');
+  if (answers.some((answer) => !dbQuestions.some((question) => question.id === answer.questionId))) {
+    throw new Error('Unknown question IDs');
+  }
+  // The server's question list is authoritative, including unanswered questions.
+  const results: ScoreResult[] = dbQuestions.map((question) => {
+    const answer = { questionId: question.id, selectedAnswer: answerMap.get(question.id) ?? '' };
 
     // Tap & Select: selectedAnswer is JSON keyed by item index; each item counts independently.
     if (question.tapExercise?.items?.length) {
-      let parsedAnswers: Record<string, string> = {};
-      try { parsedAnswers = JSON.parse(answer.selectedAnswer); } catch {}
+      const parsedAnswers = parseStructuredAnswer(answer.selectedAnswer) ?? {};
       let itemCorrect = 0;
       const correctJson: Record<string, string> = {};
       question.tapExercise.items.forEach((item, index) => {
@@ -99,8 +106,7 @@ export function calculateScore(
     if (question.testTypeId === 'form-meaning' && question.article) {
       const art = question.article as { title: string; text: string; blanks: ArticleBlank[] };
       let blankCorrect = 0;
-      let parsedAnswers: Record<string, string> = {};
-      try { parsedAnswers = JSON.parse(answer.selectedAnswer); } catch {}
+      const parsedAnswers = parseStructuredAnswer(answer.selectedAnswer) ?? {};
 
       const correctJson: Record<string, string> = {};
       art.blanks.forEach((blank) => {
@@ -124,7 +130,7 @@ export function calculateScore(
 
     // MCQ types: direct string comparison
     totalItems++;
-    const isCorrect = answer.selectedAnswer.toLowerCase().trim() === (question.correctAnswer ?? '').toLowerCase().trim();
+    const isCorrect = !!question.correctAnswer?.trim() && answer.selectedAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
     if (isCorrect) correctCount++;
 
     return {

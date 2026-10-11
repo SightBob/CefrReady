@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testAttempts, userAnswers, questions, testTypes } from '@/db/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, asc } from 'drizzle-orm';
+import type { AttemptPathEntry } from '@/lib/full-test/state';
 import type { DbQuestion } from '@/db/schema';
 import { getCurrentUser } from '@/lib/auth-utils';
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
       .limit(1)
       .then(rows => rows[0]);
 
-    if (!attempt) {
+    if (!attempt || attempt.status !== 'completed') {
       return NextResponse.json(
         { success: false, error: 'Attempt not found' },
         { status: 404 }
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
     const answers = await db
       .select()
       .from(userAnswers)
-      .where(eq(userAnswers.attemptId, attemptId));
+      .where(eq(userAnswers.attemptId, attemptId)).orderBy(asc(userAnswers.id));
 
     // Fetch all questions referenced by the answers
     const questionIds = answers.map(a => a.questionId);
@@ -74,8 +75,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
     }
 
     // Build review items: question + user answer merged
-    const reviewItems = answers.map(answer => {
-      const question = dbQuestions.find(q => q.id === answer.questionId);
+    const path = (attempt.adaptivePath ?? []) as AttemptPathEntry[];
+    const legacyReviewItems = answers.map((answer, index) => {
+      const question = path[index]?.questionSnapshot ?? dbQuestions.find(q => q.id === answer.questionId);
       return {
         questionId: answer.questionId,
         question: question ? {
@@ -95,13 +97,19 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
           tapExercise: question.tapExercise,
           cefrLevel: question.cefrLevel,
           difficulty: question.difficulty,
-          orderIndex: question.orderIndex,
+          orderIndex: index,
         } : null,
         userAnswer: answer.selectedAnswer,
         isCorrect: answer.isCorrect,
       };
     });
 
+    // New regular attempts keep immutable Review data in existing JSONB.
+    let reviewItems = legacyReviewItems;
+    if (attempt.currentLevels?.__review) {
+      const snapshot: unknown = JSON.parse(attempt.currentLevels.__review);
+      if (Array.isArray(snapshot)) reviewItems = snapshot as typeof legacyReviewItems;
+    }
     return NextResponse.json({
       success: true,
       data: {
@@ -117,7 +125,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
         },
         reviewItems,
       },
-    });
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     console.error('Error fetching attempt review:', error);
     return NextResponse.json(

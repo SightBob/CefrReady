@@ -10,6 +10,7 @@ import { submitAttempt } from '@/lib/full-test/submit-attempt';
 import { determineSelectionMode, logQuestionSelection } from '@/lib/full-test/log-selection';
 import { getCachedQuestionPool } from '@/lib/full-test/question-pool';
 import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
+import { partLevels, readSelection, withSelection } from '@/lib/full-test/state';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
     (Date.now() - new Date(attempt.lastActivityAt ?? attempt.startedAt).getTime()) / 1000
   );
   const stored = Math.max(0, Math.min(FULL_TEST_TOTAL_SECONDS, attempt.timeRemainingSeconds ?? FULL_TEST_TOTAL_SECONDS));
-  const realRemaining = stored - elapsedSeconds;
+  const realRemaining = Math.min(stored - elapsedSeconds, FULL_TEST_TOTAL_SECONDS - Math.floor((Date.now() - new Date(attempt.startedAt).getTime()) / 1000));
 
   if (realRemaining <= 0) {
     const result = await submitAttempt(attempt.id, userId);
@@ -69,16 +70,18 @@ export async function GET(request: Request) {
   }
 
   const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
-  const rawLevels = attempt.currentLevels as PerTypeLevels | null;
-  const currentLevels: PerTypeLevels = (rawLevels && Object.keys(rawLevels).length > 0)
-    ? rawLevels
-    : getInitialLevels('B1');
+  const currentLevels: PerTypeLevels = partLevels(attempt.currentLevels, getInitialLevels('B1'));
+  const currentSelection = readSelection(attempt.currentLevels);
   const nextTypeLevel = (currentLevels[nextPart] as CefrLevel) ?? 'B1';
 
   const seenIds = new Set(path.map((p) => p.questionId));
   const pool = await getCachedQuestionPool(nextPart);
 
-  const selection = selectQuestion({
+  const persistedQuestion = currentSelection?.slot === nextIndex
+    ? pool.find((entry) => entry.id === currentSelection.questionId) : null;
+  const selection = persistedQuestion && currentSelection
+    ? { question: persistedQuestion, reused: currentSelection.reused }
+    : selectQuestion({
     questions: pool,
     seenQuestionIds: seenIds,
     targetLevel: nextTypeLevel,
@@ -92,8 +95,10 @@ export async function GET(request: Request) {
 
   const selectionMode = determineSelectionMode(selection.reused, selection.question.cefrLevel, nextTypeLevel);
 
-  const [questionRows] = await Promise.all([
+  const [questionRows, updatedRows] = await Promise.all([
     db.select().from(questions).where(eq(questions.id, selection.question.id)),
+    db.update(testAttempts).set({ currentLevels: withSelection(currentLevels, { questionId: selection.question.id, slot: nextIndex, reused: selection.reused }) })
+      .where(and(eq(testAttempts.id, attempt.id), eq(testAttempts.status, 'in_progress'), sql`jsonb_array_length(${testAttempts.adaptivePath}) = ${nextIndex}`)).returning({ id: testAttempts.id }),
     logQuestionSelection({
       attemptId: attempt.id,
       testTypeId: nextPart,
@@ -103,6 +108,7 @@ export async function GET(request: Request) {
       mode: selectionMode,
     }),
   ]);
+  if (!updatedRows.length) return NextResponse.json({ success: false, error: 'Attempt advanced; resume again' }, { status: 409 });
   const fullQuestion = questionRows[0];
 
   if (!fullQuestion) {

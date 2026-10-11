@@ -1,371 +1,132 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { db } from "@/db";
-import { testAttempts, questions } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import {
-  validateOrigin,
-  checkIpThrottle,
-  checkUserRateLimit,
-} from "@/lib/api-security";
-import {
-  FULL_TEST_PART_DISTRIBUTION,
-  FULL_TEST_TOTAL_QUESTIONS,
-  FULL_TEST_TOTAL_SECONDS,
-  type CefrLevel,
-  type PerTypeLevels,
-  cefrIndex,
-  CEFR_LEVELS,
-} from "@/lib/full-test/constants";
-import {
-  getNextLevel,
-  selectQuestion,
-  getPerTypeAnswerHistory,
-  getInitialLevels,
-} from "@/lib/full-test/algorithm";
-import {
-  determineSelectionMode,
-  logQuestionSelection,
-} from "@/lib/full-test/log-selection";
-import { getCachedQuestionPool } from "@/lib/full-test/question-pool";
-import { sanitizeQuestionForClient } from "@/lib/sanitize-question";
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { db } from '@/db';
+import { testAttempts, questions, questionSelectionLogs } from '@/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
+import { validateOrigin, checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
+import { FULL_TEST_PART_DISTRIBUTION, FULL_TEST_TOTAL_QUESTIONS, FULL_TEST_TOTAL_SECONDS, type CefrLevel, cefrIndex, CEFR_LEVELS } from '@/lib/full-test/constants';
+import { getNextLevel, selectQuestion, getPerTypeAnswerHistory, getInitialLevels } from '@/lib/full-test/algorithm';
+import { determineSelectionMode } from '@/lib/full-test/log-selection';
+import { getCachedQuestionPool } from '@/lib/full-test/question-pool';
+import { sanitizeQuestionForClient } from '@/lib/sanitize-question';
+import { parseStructuredAnswer } from '@/lib/score-utils';
+import { partLevels, readSelection, withSelection, type AttemptPathEntry } from '@/lib/full-test/state';
 
 const bodySchema = z.object({
-  attemptId: z.number().int(),
-  questionId: z.number().int(),
-  selectedAnswer: z.string(),
+  attemptId: z.number().int().positive(),
+  questionId: z.number().int().positive(),
+  questionIndex: z.number().int().min(0).max(FULL_TEST_TOTAL_QUESTIONS - 1),
+  selectedAnswer: z.string().max(20_000),
   timeRemaining: z.number().int().min(0).max(FULL_TEST_TOTAL_SECONDS),
 });
 
-interface PathEntry {
-  questionId: number;
-  testTypeId: string;
-  cefrLevel: CefrLevel;
-  difficulty: string | null;
-  wasCorrect: boolean;
-  selectedAnswer: string;
-  orderIndex: number;
-  reused?: boolean;
-}
-
-interface GradeableQuestion {
-  testTypeId: string;
-  cefrLevel: string;
-  difficulty: string | null;
-  correctAnswer: string | null;
-  article: unknown;
-}
-
-function gradeAnswer(
-  question: GradeableQuestion,
-  selectedAnswer: string,
-): boolean {
-  if (
-    question.testTypeId === "form-meaning" &&
-    question.article &&
-    typeof question.article === "object"
-  ) {
-    const art = question.article as {
-      blanks?: Array<{ id: number; correctAnswer: string }>;
-    };
-    if (Array.isArray(art.blanks) && art.blanks.length > 0) {
-      let parsed: Record<string, string> = {};
-      try {
-        parsed = JSON.parse(selectedAnswer);
-      } catch {
-        // Leave parsed empty; the blanks comparison below will fail gracefully.
-      }
-      const blanksCorrect = art.blanks.filter(
-        (b) =>
-          (parsed[String(b.id)] ?? "").toLowerCase().trim() ===
-          b.correctAnswer.toLowerCase().trim(),
-      ).length;
-      return blanksCorrect === art.blanks.length;
-    }
-  }
-  return (
-    selectedAnswer.toLowerCase().trim() ===
-    (question.correctAnswer ?? "").toLowerCase().trim()
-  );
-}
-
-// For adaptive purposes, treat form-meaning as a single aggregate entry.
-// (Score granularity is per-blank in submit-attempt.ts, but adaptive
-//  granularity is per-question — avoid multiple level jumps from one question.)
-function applyAdaptiveLevel(
-  path: PathEntry[],
-  beforeLevels: PerTypeLevels,
-  testTypeId: string,
-): PerTypeLevels {
-  const levels = { ...beforeLevels };
-  const history = getPerTypeAnswerHistory(path, testTypeId);
-  levels[testTypeId] = getNextLevel(
-    (levels[testTypeId] as CefrLevel) ?? "B1",
-    history,
-  );
-  return levels;
-}
-
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   const originError = validateOrigin(request);
   if (originError) return originError;
-
-  // JWT session carries user.id — skips a users-table round trip per request.
   const session = await auth();
   const userId = session?.user?.id;
-  if (!userId) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+  if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  let body: unknown;
+  try { body = await request.json(); } catch {
+    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
   }
-
-  const parsed = bodySchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return NextResponse.json(
-      { success: false, error: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
-
-  const { attemptId, questionId, selectedAnswer, timeRemaining } = parsed.data;
-
-  // Reading the attempt does not depend on the Redis throttle, so start it
-  // before awaiting the throttle: the two then share one round-trip window
-  // (~110ms redis) instead of running back to back.
-  const attemptPromise = db
-    .select({
-      id: testAttempts.id,
-      status: testAttempts.status,
-      adaptivePath: testAttempts.adaptivePath,
-      currentLevels: testAttempts.currentLevels,
-      timeRemainingSeconds: testAttempts.timeRemainingSeconds,
-      lastActivityAt: testAttempts.lastActivityAt,
-      startedAt: testAttempts.startedAt,
-    })
-    .from(testAttempts)
-    .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId)))
-    .limit(1);
-
-  const [ipThrottleError, rateLimitError] = await Promise.all([
-    checkIpThrottle(request, { keySuffix: "full-next" }),
-    checkUserRateLimit(userId, {
-      windowMs: 60_000,
-      maxRequests: 30,
-      keySuffix: "next",
-    }),
+  const parsed = bodySchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 400 });
+  const { attemptId, questionId, questionIndex, selectedAnswer, timeRemaining } = parsed.data;
+  const errors = await Promise.all([
+    checkIpThrottle(request, { keySuffix: 'full-next' }),
+    checkUserRateLimit(userId, { maxRequests: 30, keySuffix: 'next' }),
   ]);
-  if (ipThrottleError) return ipThrottleError;
-  if (rateLimitError) return rateLimitError;
+  for (const error of errors) if (error) return error;
 
-  const [attempt] = await attemptPromise;
-
-  if (!attempt || attempt.status !== "in_progress") {
-    return NextResponse.json(
-      { success: false, error: "Attempt not found" },
-      { status: 404 },
-    );
-  }
-
-  // Time authority (server-side): นาฬิกา client ไม่น่าเชื่อถือ — ผู้สอบที่แก้
-  // เวลาเครื่องหรือหยุด JS ไม่ควรตอบข้อต่อไปได้เกินกรอบ 60 นาที คิดสองทาง:
-  // (1) ตามบัญชีเดียวกับ /resume: เวลาคงเหลือที่บันทึกไว้ ลบเวลาที่ผ่านไป
-  //     ตั้งแต่ lastActivityAt
-  // (2) เพดานสัมบูรณ์จาก startedAt — ปิดช่องที่ client รายงานเวลาปลิ้น
-  // เกินทั้งคู่ → 403 EXAM_TIME_EXPIRED (client จะ finalize ด้วย /submit เอง)
-  const now = Date.now();
-  const remainingByStored =
-    (attempt.timeRemainingSeconds ?? FULL_TEST_TOTAL_SECONDS) -
-    (now - new Date(attempt.lastActivityAt ?? attempt.startedAt).getTime()) /
-      1000;
-  const remainingByStartedAt =
-    FULL_TEST_TOTAL_SECONDS -
-    (now - new Date(attempt.startedAt).getTime()) / 1000;
-  if (Math.min(remainingByStored, remainingByStartedAt) <= 0) {
-    return NextResponse.json(
-      { success: false, error: "EXAM_TIME_EXPIRED" },
-      { status: 403 },
-    );
-  }
-
-  const currentPath = (attempt.adaptivePath ?? []) as PathEntry[];
-  const beforeLevels: PerTypeLevels =
-    (attempt.currentLevels as PerTypeLevels) ?? getInitialLevels("B1");
-
-  // Idempotent: question already processed — return current state instead of erroring.
-  // This handles double-clicks, React strict mode re-renders, and page refreshes.
-  const isDuplicate = currentPath.some((p) => p.questionId === questionId);
-  const nextIndex = isDuplicate ? currentPath.length : currentPath.length + 1;
-
-  // The next part is fixed by position in the test and the grading fetch is
-  // keyed by the request body — both can start before any adaptive logic runs,
-  // so the pool and grade queries share one round-trip window.
-  const isFinishing = nextIndex >= FULL_TEST_TOTAL_QUESTIONS;
-  const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
-  const poolPromise = isFinishing ? null : getCachedQuestionPool(nextPart);
-  const gradePromise = isDuplicate
-    ? null
-    : db
-        .select({
-          testTypeId: questions.testTypeId,
-          cefrLevel: questions.cefrLevel,
-          difficulty: questions.difficulty,
-          correctAnswer: questions.correctAnswer,
-          article: questions.article,
-        })
-        .from(questions)
-        .where(eq(questions.id, questionId))
-        .limit(1);
-
-  let newPath: PathEntry[] = currentPath;
-  let levels: PerTypeLevels = beforeLevels;
-
-  if (gradePromise) {
-    const [question] = await gradePromise;
-
-    if (!question) {
-      return NextResponse.json(
-        { success: false, error: "Question not found" },
-        { status: 404 },
+  try {
+    return await db.transaction(async (tx) => {
+      const [attempt] = await tx.select().from(testAttempts)
+        .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.userId, userId), eq(testAttempts.testTypeId, 'full-test')))
+        .limit(1).for('update');
+      if (!attempt || attempt.status !== 'in_progress') {
+        return NextResponse.json({ success: false, error: 'Attempt not found' }, { status: 404 });
+      }
+      const now = Date.now();
+      const remaining = Math.min(
+        (attempt.timeRemainingSeconds ?? FULL_TEST_TOTAL_SECONDS) - (now - new Date(attempt.lastActivityAt ?? attempt.startedAt).getTime()) / 1000,
+        FULL_TEST_TOTAL_SECONDS - (now - new Date(attempt.startedAt).getTime()) / 1000,
       );
-    }
-
-    newPath = [
-      ...currentPath,
-      {
-        questionId,
-        testTypeId: question.testTypeId,
-        cefrLevel: question.cefrLevel as CefrLevel,
-        difficulty: question.difficulty,
-        wasCorrect: gradeAnswer(question, selectedAnswer),
-        selectedAnswer,
-        orderIndex: currentPath.length,
-        reused: false,
-      },
-    ];
-    levels = applyAdaptiveLevel(newPath, beforeLevels, question.testTypeId);
-  }
-
-  if (isFinishing) {
-    if (!isDuplicate) {
-      await db
-        .update(testAttempts)
-        .set({
-          adaptivePath: newPath,
-          currentLevels: levels,
-          timeRemainingSeconds: timeRemaining,
-          lastActivityAt: new Date(),
-        })
-        .where(eq(testAttempts.id, attemptId));
-    }
-    return NextResponse.json({ success: true, data: { finished: true } });
-  }
-
-  const nextTypeLevel = (levels[nextPart] as CefrLevel) ?? "B1";
-  const prevLevel = (beforeLevels[nextPart] as CefrLevel) ?? "B1";
-  const direction: "up" | "down" | "neutral" =
-    cefrIndex(nextTypeLevel) > cefrIndex(prevLevel)
-      ? "up"
-      : cefrIndex(nextTypeLevel) < cefrIndex(prevLevel)
-        ? "down"
-        : "neutral";
-
-  const seenQuestionIds = new Set(newPath.map((p) => p.questionId));
-  const pool = await poolPromise!;
-
-  let selection = selectQuestion({
-    questions: pool,
-    seenQuestionIds,
-    targetLevel: nextTypeLevel,
-    requiredTestTypeId: nextPart,
-    direction,
-  });
-
-  if (!selection) {
-    if (!isDuplicate) {
-      await db
-        .update(testAttempts)
-        .set({
-          adaptivePath: newPath,
-          timeRemainingSeconds: timeRemaining,
-          lastActivityAt: new Date(),
-        })
-        .where(eq(testAttempts.id, attemptId));
-    }
-    return NextResponse.json({
-      success: true,
-      data: { finished: true, reason: "pool_exhausted" },
+      if (remaining <= 0) return NextResponse.json({ success: false, error: 'EXAM_TIME_EXPIRED' }, { status: 403 });
+      const path = (attempt.adaptivePath ?? []) as AttemptPathEntry[];
+      const current = readSelection(attempt.currentLevels);
+      // Retries are keyed by slot, not question ID: reuse is a genuine new answer.
+      if (questionIndex < path.length) {
+        const previous = path[questionIndex];
+        if (previous?.questionId !== questionId || previous.selectedAnswer !== selectedAnswer) {
+          return NextResponse.json({ success: false, error: 'Answer already committed' }, { status: 409 });
+        }
+        if (path.length >= FULL_TEST_TOTAL_QUESTIONS) return NextResponse.json({ success: true, data: { finished: true } });
+        if (!current || current.slot !== path.length) return NextResponse.json({ success: false, error: 'Resume the attempt first' }, { status: 409 });
+        const [nextQuestion] = await tx.select().from(questions).where(eq(questions.id, current.questionId));
+        if (!nextQuestion) throw new Error('Current question missing');
+        return NextResponse.json({ success: true, data: { question: sanitizeQuestionForClient(nextQuestion), questionIndex: path.length, finished: false } });
+      }
+      if (questionIndex !== path.length) return NextResponse.json({ success: false, error: 'Invalid question slot' }, { status: 409 });
+      let selectedId = current?.slot === path.length ? current.questionId : null;
+      let reused = current?.reused ?? false;
+      // Existing attempts created before slot state was introduced use the selection log.
+      if (selectedId === null) {
+        const [log] = await tx.select().from(questionSelectionLogs).where(eq(questionSelectionLogs.attemptId, attemptId))
+          .orderBy(desc(questionSelectionLogs.createdAt), desc(questionSelectionLogs.id)).limit(1);
+        selectedId = log?.questionId ?? null;
+        reused = log?.mode === 'reuse';
+      }
+      if (selectedId !== questionId) return NextResponse.json({ success: false, error: 'Not the current question' }, { status: 403 });
+      const [question] = await tx.select().from(questions).where(eq(questions.id, questionId)).limit(1);
+      if (!question || question.testTypeId !== FULL_TEST_PART_DISTRIBUTION[path.length] || !CEFR_LEVELS.includes(question.cefrLevel as CefrLevel)) {
+        return NextResponse.json({ success: false, error: 'Invalid current question' }, { status: 400 });
+      }
+      let wasCorrect: boolean;
+      if (question.testTypeId === 'form-meaning' && question.article) {
+        const answer = parseStructuredAnswer(selectedAnswer);
+        if (!answer) return NextResponse.json({ success: false, error: 'Invalid structured answer' }, { status: 400 });
+        const article = question.article as { blanks?: Array<{ id: number; correctAnswer: string }> };
+        wasCorrect = !!article.blanks?.length && article.blanks.every((blank) =>
+          !!answer[String(blank.id)]?.trim() && answer[String(blank.id)].trim().toLowerCase() === blank.correctAnswer.trim().toLowerCase());
+      } else {
+        wasCorrect = !!question.correctAnswer?.trim() && selectedAnswer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase();
+      }
+      const newPath: AttemptPathEntry[] = [...path, {
+        questionId, testTypeId: question.testTypeId, cefrLevel: question.cefrLevel as CefrLevel,
+        difficulty: question.difficulty, wasCorrect, selectedAnswer, orderIndex: path.length, reused, questionSnapshot: question,
+      }];
+      const levels = partLevels(attempt.currentLevels, getInitialLevels('B1'));
+      const oldLevels = { ...levels };
+      levels[question.testTypeId] = getNextLevel(levels[question.testTypeId], getPerTypeAnswerHistory(newPath, question.testTypeId));
+      const nextIndex = newPath.length;
+      const nextPart = FULL_TEST_PART_DISTRIBUTION[nextIndex];
+      let nextQuestion = null;
+      let selectionState = null;
+      if (nextIndex < FULL_TEST_TOTAL_QUESTIONS) {
+        const targetLevel = levels[nextPart];
+        const direction = cefrIndex(targetLevel) > cefrIndex(oldLevels[nextPart]) ? 'up' : cefrIndex(targetLevel) < cefrIndex(oldLevels[nextPart]) ? 'down' : 'neutral';
+        const pool = (await getCachedQuestionPool(nextPart)).filter((entry) => CEFR_LEVELS.includes(entry.cefrLevel as CefrLevel));
+        const selection = selectQuestion({ questions: pool, seenQuestionIds: new Set(newPath.map((entry) => entry.questionId)), targetLevel, requiredTestTypeId: nextPart, direction });
+        if (!selection) throw new Error('No questions available for the next slot');
+        [nextQuestion] = await tx.select().from(questions).where(eq(questions.id, selection.question.id));
+        if (!nextQuestion) throw new Error('Next question missing');
+        selectionState = { questionId: nextQuestion.id, slot: nextIndex, reused: selection.reused };
+        await tx.insert(questionSelectionLogs).values({ attemptId, testTypeId: nextPart, questionId: nextQuestion.id, targetLevel, selectedLevel: nextQuestion.cefrLevel, mode: determineSelectionMode(selection.reused, nextQuestion.cefrLevel, targetLevel) });
+      }
+      await tx.update(testAttempts).set({
+        adaptivePath: newPath, currentLevels: withSelection(levels, selectionState),
+        timeRemainingSeconds: Math.max(0, Math.floor(Math.min(remaining, timeRemaining))), lastActivityAt: new Date(now),
+      }).where(eq(testAttempts.id, attemptId));
+      return NextResponse.json({ success: true, data: nextQuestion
+        ? { question: sanitizeQuestionForClient(nextQuestion), questionIndex: nextIndex, finished: false }
+        : { finished: true } });
     });
+  } catch (error) {
+    console.error('[full/next] Failed to advance:', error);
+    return NextResponse.json({ success: false, error: 'Failed to advance test' }, { status: 500 });
   }
-
-  // Guard: if selected question has an invalid cefrLevel, re-select
-  if (!CEFR_LEVELS.includes(selection.question.cefrLevel as CefrLevel)) {
-    seenQuestionIds.add(selection.question.id);
-    const reselect = selectQuestion({
-      questions: pool,
-      seenQuestionIds,
-      targetLevel: nextTypeLevel,
-      requiredTestTypeId: nextPart,
-      direction,
-    });
-    if (!reselect && isDuplicate) {
-      return NextResponse.json({
-        success: true,
-        data: { finished: true, reason: "pool_exhausted" },
-      });
-    }
-    if (reselect) selection = reselect;
-  }
-
-  const selMode = determineSelectionMode(
-    selection.reused,
-    selection.question.cefrLevel,
-    nextTypeLevel,
-  );
-
-  // Persist path, hydrate the selected question, and log the selection
-  // concurrently — none of the three depends on another's result.
-  const [questionRows] = await Promise.all([
-    db.select().from(questions).where(eq(questions.id, selection.question.id)),
-    isDuplicate
-      ? Promise.resolve(null)
-      : db
-          .update(testAttempts)
-          .set({
-            adaptivePath: newPath,
-            currentLevels: levels,
-            timeRemainingSeconds: timeRemaining,
-            lastActivityAt: new Date(),
-          })
-          .where(eq(testAttempts.id, attemptId)),
-    logQuestionSelection({
-      attemptId,
-      testTypeId: nextPart,
-      questionId: selection.question.id,
-      targetLevel: nextTypeLevel,
-      selectedLevel: selection.question.cefrLevel,
-      mode: selMode,
-    }),
-  ]);
-  const fullQuestion = questionRows[0];
-
-  if (!fullQuestion) {
-    return NextResponse.json(
-      { success: false, error: "Question not found" },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-    data: {
-      // SECURITY: never send correctAnswer/explanation pre-submission (C3).
-      question: sanitizeQuestionForClient(fullQuestion),
-      questionIndex: nextIndex,
-      finished: false,
-    },
-  });
 }
