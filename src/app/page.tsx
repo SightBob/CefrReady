@@ -94,10 +94,9 @@ export default async function Home() {
       {/* ระดับคะแนน A1 - C2 — design Figma 42:1657 */}
       <HomeLevels />
 
-      {/* FAQ Section — visible on page for SEO
-          การ์ดเทา #F2F2F2 + เส้นประ #E2E8F0 ย้ายมาจาก HomeLevels ตามคำสั่งผู้ใช้ */}
+      {/* FAQ Section — visible on page for SEO */}
       <section className="px-4 sm:px-6 lg:px-8 bg-[#F8F8F8] py-20 max-md:py-[40px] mt-[70px] max-md:mt-[24px]">
-        <div className="max-w-[1251px] mx-auto rounded-t-[30px] bg-[#F2F2F2] px-6 pt-10 pb-14 max-md:px-[14px] max-md:pt-8 max-md:pb-10 border-4 border-dashed border-[#E2E8F0] border-b-0">
+        <div className="max-w-[1251px] mx-auto rounded-t-[30px] px-6 pt-10 pb-14 max-md:px-[14px] max-md:pt-8 max-md:pb-10">
           <div className="mx-auto flex max-[899px]:flex-col max-[899px]:items-start max-[899px]:justify-center">
             <div className="w-[35%] max-[899px]:w-[100%] text-start flex flex-col justify-between">
               <div className="">
