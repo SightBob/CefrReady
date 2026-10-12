@@ -53,13 +53,7 @@ export default async function CefrLevelsPage() {
         { name: 'ระดับ CEFR', url: `${BASE_URL}/cefr-levels` },
       ])} />
       <header className="bg-white border-b border-stone-200/60 sticky top-0 z-10 backdrop-blur-md bg-white/80">
-        <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link href="/must-know" className="group flex items-center text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">
-            <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center mr-3 group-hover:bg-stone-200 transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-            </div>
-            Back
-          </Link>
+        <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-end">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-stone-900 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-sm">
             <BarChart className="w-3.5 h-3.5" />
             CEFR Guide
