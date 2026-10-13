@@ -55,3 +55,4 @@ public/unlighthouse-urls-*.txt
 .claude/
 .freebuff/
 .env*
+opencode.json
