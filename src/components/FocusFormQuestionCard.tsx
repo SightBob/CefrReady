@@ -35,25 +35,29 @@ interface FocusFormQuestionCardProps {
   headerLabel?: string;
 }
 
+/**
+ * สีสถานะตัวเลือก — ผู้ใช้กำหนดเอง 2026-10-14
+ * เลือกแล้วยังไม่ตรวจ = เทา #EEEEEE · ตรวจแล้วถูก = เขียว · ตรวจแล้วผิด = ชมพูอ่อน #FEF2F2
+ * แยกสีให้ชัดเจนว่า “ยังไม่รู้ผล” กับ “รู้ผลแล้วว่าผิด” ไม่ใช่สีเดียวกัน
+ */
+const SELECTED_PENDING = 'ring-[#E2E8F0] bg-[#EEEEEE]';
+const WRONG_AFTER_CHECK = 'ring-[#FFD7D7] bg-[#FEF2F2]';
+/** ป้ายตัวอักษร A–D ของข้อที่เลือกแต่ยังไม่ตรวจคำตอบ */
+const PENDING_BADGE = 'bg-[#848484] text-white';
+
 const ACCENT: Record<string, {
-  selected: string;
-  badge: string;
   hover: string;
   speakerA: string;
   speakerB: string;
   headerText: string;
 }> = {
   primary: {
-    selected: 'border-primary-500 bg-primary-50 ring-1 ring-primary-500/20',
-    badge: 'bg-primary-500 text-white',
     hover: 'hover:border-primary-400 hover:bg-primary-50/50 hover:shadow-sm',
     speakerA: 'bg-[#FAE8FF] text-[#A21CAF]',
     speakerB: 'bg-[#FAE8FF] text-[#A21CAF]',
     headerText: 'text-primary-600',
   },
   emerald: {
-    selected: 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20',
-    badge: 'bg-emerald-500 text-white',
     hover: 'hover:border-emerald-400 hover:bg-primary-50/50 hover:shadow-sm',
     speakerA: 'bg-[#FAE8FF] text-[#A21CAF]',
     speakerB: 'bg-[#FAE8FF] text-[#A21CAF]',
@@ -211,14 +215,16 @@ export default function FocusFormQuestionCard({
 
           if (!showFeedback) {
             if (isSelected) {
-              buttonClass += theme.selected;
+              // เลือกแล้วยังไม่กดตรวจคำตอบ — เทา #EEEEEE (ยังไม่รู้ผล)
+              buttonClass += SELECTED_PENDING;
             } else {
               buttonClass += `ring-[#E2E8F0] bg-white ${theme.hover}`;
             }
           } else if (isCorrectOption) {
             buttonClass += 'ring-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20';
           } else if (isSelected) {
-            buttonClass += 'ring-red-400 bg-red-50 ring-1 ring-red-400/20';
+            // ตรวจแล้วผิด — ชมพูอ่อน #FEF2F2 ไม่ใช่เทา (เทา = ยังไม่ตรวจ)
+            buttonClass += WRONG_AFTER_CHECK;
           } else {
             buttonClass += 'ring-[#E2E8F0] bg-white opacity-40';
           }
@@ -234,7 +240,9 @@ export default function FocusFormQuestionCard({
               <span className={`qc-badge shrink-0 w-7 h-7 rounded-lg grid place-items-center text-sm font-bold ${
                     !showFeedback
                       ? isSelected
-                        ? theme.badge
+                        // เลือกแล้วยังไม่ตรวจคำตอบ — เทาเข้มให้ข้อความ A–D เด่นกว่าตัวที่ยังไม่เลือก
+                        // (ผู้ใช้กำหนด 2026-10-14 ให้ตรงกับ Tap & Select)
+                        ? PENDING_BADGE
                         : 'bg-[#F1F5F9] text-[#64748B]'
                       : isCorrectOption
                         ? 'bg-emerald-500 text-white'

@@ -90,6 +90,16 @@ interface RawQuestion {
   orderIndex: number;
 }
 
+/** ผลตรวจคำตอบหนึ่ง slot — เฉลยมาจาก POST /api/tests/check-answer ตอนผู้เรียนกดตรวจ */
+type AnswerCheck = {
+  isCorrect: boolean;
+  /** ป้ายเฉลยแบบต้นฉบับ (A/B/C/D) หรือ null ถ้าเป็นช่องกรอกคำ */
+  correctKey: string | null;
+  /** ข้อความเฉลยสำหรับช่องกรอกคำ */
+  correctText: string | null;
+  explanation: string | null;
+};
+
 /** คืนคีย์คำตอบถูกจากเฉลยที่ติดมากับ payload (ไม่มีในข้อมูลชนิด Public ที่ถูกถอดเฉลย) */
 function tapCorrectChoice(
   item: TapExerciseItem | Omit<TapExerciseItem, 'correct'> | undefined,
@@ -191,6 +201,12 @@ export default function SetQuizPage() {
 
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
+
+  // ANSWER HIDING: เฉลยมาจาก POST /api/tests/check-answer ตอนผู้เรียนกด "ตรวจคำตอบ"
+  // เท่านั้น payload ของชุดไม่มีเฉลยติดมา (Tap ใช้ tapReasonResults เป็นตัวบอกว่าตรวจแล้ว)
+  const [checkedSlots, setCheckedSlots] = useState<Record<number, AnswerCheck>>({});
+  const [checkingSlot, setCheckingSlot] = useState<Record<number, boolean>>({});
+  const [checkErrors, setCheckErrors] = useState<Record<number, string>>({});
 
   // Set selector dropdown
   const [availableSets, setAvailableSets] = useState<{ id: number; name: string; description?: string | null }[]>([]);
@@ -416,16 +432,79 @@ export default function SetQuizPage() {
 
   // ─── Answer + navigation handlers ────────────────────────────────
 
+  const tapStateKey = useCallback((slotIndex: number) => `${setId}-main-${slotIndex}`, [setId]);
+
+  /** slot นี้ผู้เรียนเปิดเฉลยแล้วหรือยัง (Tap ใช้ผลจาก AI เป็นตัวบอก) */
+  const isSlotChecked = useCallback((slotIndex: number, slot: TestSetSlot | undefined): boolean => {
+    if (slot?.kind === 'tap') return tapReasonResults[tapStateKey(slotIndex)] !== undefined;
+    return checkedSlots[slotIndex] !== undefined;
+  }, [checkedSlots, tapReasonResults, tapStateKey]);
+
+  /** ข้อนี้ยังต้องทำให้เสร็จ (ตอบ + ตรวจ) ก่อนข้างหน้าได้ */
+  const isSlotPendingCheck = useCallback((slotIndex: number, slot: TestSetSlot | undefined): boolean => {
+    return !isSlotChecked(slotIndex, slot);
+  }, [isSlotChecked]);
+
+  const clearSlotCheck = useCallback((slotIndex: number) => {
+    setCheckedSlots(current => { const next = { ...current }; delete next[slotIndex]; return next; });
+    setCheckErrors(current => { const next = { ...current }; delete next[slotIndex]; return next; });
+  }, []);
+
+  /**
+   * ตรวจคำตอบของ slot ที่ไม่ใช่ Tap (Tap ใช้ checkTapReason เพราะต้องการ AI ด้วย)
+   * คืนป้ายเฉลยแบบต้นฉบับจากเซิร์ฟเวอร์ แล้วแปลงเป็นป้ายที่ผู้เรียนเห็นบนจอ
+   */
+  const checkSlotAnswer = useCallback(async () => {
+    if (!setData || selectedAnswer === null || submitting) return;
+    const slotIndex = currentQuestion;
+    const slot = mainSlots[slotIndex];
+    if (!slot || slot.kind === 'tap' || checkingSlot[slotIndex]) return;
+    const question = setData.questions[slot.questionIndex];
+    setCheckingSlot(current => ({ ...current, [slotIndex]: true }));
+    setCheckErrors(current => { const next = { ...current }; delete next[slotIndex]; return next; });
+    try {
+      const response = await fetch('/api/tests/check-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testSetId: setId,
+          questionId: question.id,
+          ...(slot.kind === 'article' ? { blankId: slot.blankId } : {}),
+          selectedAnswer: toStoredAnswer(question, slot, selectedAnswer),
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const body = await response.json();
+      if (!response.ok || !body.success) throw new Error(body.error || 'ตรวจคำตอบไม่สำเร็จ กรุณาลองอีกครั้ง');
+      const result: AnswerCheck = {
+        isCorrect: Boolean(body.data.isCorrect),
+        correctKey: typeof body.data.correctKey === 'string' ? body.data.correctKey : null,
+        correctText: typeof body.data.correctText === 'string' ? body.data.correctText : null,
+        explanation: typeof body.data.explanation === 'string' ? body.data.explanation : null,
+      };
+      setCheckedSlots(current => ({ ...current, [slotIndex]: result }));
+    } catch (error) {
+      setCheckErrors(current => ({ ...current, [slotIndex]: error instanceof Error ? error.message : 'ตรวจคำตอบไม่สำเร็จ กรุณาลองอีกครั้ง' }));
+    } finally {
+      setCheckingSlot(current => ({ ...current, [slotIndex]: false }));
+    }
+  }, [checkingSlot, currentQuestion, mainSlots, selectedAnswer, setData, setId, submitting, toStoredAnswer]);
+
   const handleAnswer = (answer: string) => {
     if (!setData) return;
-    if (selectedAnswer !== null) return;
+    const slot = mainSlots[currentQuestion];
+    // เปลี่ยนคำตอบได้ตราบใดที่ยังไม่ได้กดตรวจ — หลังตรวจแล้วการ์ดจะ disable ปุ่มตัวเลือก
+    if (isSlotChecked(currentQuestion, slot)) return;
+    if (selectedAnswer === answer) return;
     const next = [...answers];
     next[currentQuestion] = answer;
     setAnswers(next);
     setSelectedAnswer(answer);
+    // คำตอบใหม่ = ผลตรวจของคำตอบเดิมใช้ไม่ได้แล้ว (กันเฉลย/feedback ค้างจากข้อเก่า)
+    if (slot?.kind === 'tap') clearTapFeedback(tapStateKey(currentQuestion));
+    else clearSlotCheck(currentQuestion);
   };
 
-  const tapStateKey = (slotIndex: number) => `${setId}-main-${slotIndex}`;
   const clearTapFeedback = (key: string) => {
     tapRequestVersions.current[key] = (tapRequestVersions.current[key] ?? 0) + 1;
     setTapReasonResults(current => { const next = { ...current }; delete next[key]; return next; });
@@ -490,10 +569,14 @@ export default function SetQuizPage() {
     setSelectedAnswer(null);
     const key = tapStateKey(index);
     clearTapFeedback(key);
+    clearSlotCheck(index);
     setTapReasons(current => ({ ...current, [key]: '' }));
   };
 
+  // ANSWER HIDING: ข้างหน้าได้ก็ต่อเมื่อข้อปัจจุบันผ่านการตรวจแล้ว — ทั้งปุ่มล่าง
+  // (ไม่มีปุ่ม "ข้อต่อไป" ก่อนตรวจ) และการคลิกเลขข้อใน sidebar
   const handleQuestionSelect = (index: number) => {
+    if (index > currentQuestion && !isSlotChecked(currentQuestion, mainSlots[currentQuestion])) return;
     setCurrentQuestion(index);
     setSelectedAnswer(answers[index]);
     if (answers[index] !== null && !audioPlayedMap[index]) {
@@ -514,6 +597,7 @@ export default function SetQuizPage() {
 
   const handleNext = () => {
     if (!setData) return;
+    if (!isSlotChecked(currentQuestion, mainSlots[currentQuestion])) return;
     if (currentQuestion < mainSlots.length - 1) {
       const next = currentQuestion + 1;
       setCurrentQuestion(next);
@@ -682,6 +766,9 @@ export default function SetQuizPage() {
     setTapReasonResults({});
     setTapReasonErrors({});
     setTapChecking({});
+    setCheckedSlots({});
+    setCheckingSlot({});
+    setCheckErrors({});
   };
 
   // form-meaning uses its own special renderer when all entries are articles.
@@ -758,6 +845,48 @@ export default function SetQuizPage() {
   const layoutCurrent = currentQuestion;
   const layoutAnswers = answers;
 
+  // ─── ANSWER HIDING: ปุ่มหลัก + เฉลยของ slot ปัจจุบัน ───────────────
+  // ข้อที่ผู้เรียนตอบแล้วต้องกด "ตรวจคำตอบ" ก่อนจึงจะข้างหน้าได้ (handleNext /
+  // handleQuestionSelect บล็อกไว้) ส่วนข้อที่ยังไม่ตอบข้ามได้เหมือนเดิม
+  // เฉลยของข้อเลือกมาจาก check-answer (payload ไม่มีเฉลย) — โหมดพรีวิวของแอดมิน
+  // ยังเห็นเฉลยจาก payload ได้เหมือนเดิม
+  const activeCheck = checkedSlots[activeSlotIndex];
+  const activeTapResult = activeSlot.kind === 'tap' ? tapReasonResults[tapStateKey(activeSlotIndex)] : undefined;
+  const activeChecked = activeSlot.kind === 'tap' ? activeTapResult !== undefined : activeCheck !== undefined;
+  const activeCheckBusy = activeSlot.kind === 'tap'
+    ? Boolean(tapChecking[tapStateKey(activeSlotIndex)])
+    : Boolean(checkingSlot[activeSlotIndex]);
+  const activeCheckError = activeSlot.kind === 'tap'
+    ? tapReasonErrors[tapStateKey(activeSlotIndex)]
+    : checkErrors[activeSlotIndex];
+  const activeAnswered = Boolean((answers[activeSlotIndex] ?? '').toString().trim());
+  const isLastSlot = activeSlotIndex >= layoutTotal - 1;
+  /** เฉลยที่ส่งเข้าการ์ด — null คือยังไม่ตรวจ การ์ดจะไม่เฉลยให้เห็น */
+  const revealedCorrectKey = activeSlot.kind === 'tap'
+    ? displayedCorrectAnswer
+    : activeChecked && !previewMode
+      ? getDisplayedChoiceAnswer(activeCheck?.correctKey ?? null, questionChoices)
+      : previewMode ? displayedCorrectAnswer : null;
+  const revealedExplanation = activeSlot.kind === 'tap'
+    ? null
+    : activeChecked ? activeCheck?.explanation ?? null : previewMode ? question.explanation ?? null : null;
+
+  const primaryAction = {
+    // ปุ่มล่างปุ่มเดียว: เลือกคำตอบ → กดตรวจ → เฉลย → ข้างหน้า
+    // "ข้อต่อไป" ไม่มีให้เห็นก่อนตรวจ และปุ่ม disabled ตอนยังไม่ได้เลือกคำตอบ
+    label: !activeChecked ? 'ตรวจคำตอบ' : isLastSlot ? 'ส่งคำตอบ' : 'ข้อต่อไป',
+    disabled: !activeChecked ? !activeAnswered || activeCheckBusy || submitting : activeCheckBusy || submitting,
+    onClick: () => {
+      if (!activeChecked) {
+        if (activeSlot.kind === 'tap') void checkTapReason();
+        else void checkSlotAnswer();
+        return;
+      }
+      if (isLastSlot) { void handleSubmit(); return; }
+      handleNext();
+    },
+  };
+
   // Shared modals — hoisted so every section branch renders them.
   const modalsFragment = (
     <>
@@ -809,6 +938,7 @@ export default function SetQuizPage() {
         onTimeUp={handleTimeUp}
         currentQuestionId={question.id}
         onResetAnswer={handleResetAnswer}
+        primaryAction={primaryAction}
       >
         <div className="space-y-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm md:p-8">
           <h2 className="text-xl font-bold text-slate-800">{question.article?.title || question.questionText}</h2>
@@ -818,11 +948,18 @@ export default function SetQuizPage() {
             <input
               value={selectedAnswer ?? ''}
               onChange={event => handleFreeTextAnswer(event.target.value)}
-              disabled={submitting}
+              disabled={submitting || activeChecked}
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-base focus:border-blue-400 focus:outline-none"
               placeholder={articleBlank.hint || 'พิมพ์คำตอบ'}
             />
           </label>
+          {/* ช่องกรอกคำไม่มีการ์ดสีถูก/ผิดเหมือนข้อเลือก จึงต้องบอกผลตรวจเอง */}
+          {activeCheckError && <p role="alert" className="text-sm font-medium text-red-600">{activeCheckError}</p>}
+          {activeChecked && activeCheck && (
+            <p role="status" className="text-sm font-medium text-emerald-700">
+              {activeCheck.isCorrect ? 'ถูกต้อง' : `ยังไม่ถูก — คำตอบคือ “${activeCheck.correctText}”`}
+            </p>
+          )}
         </div>
         {modalsFragment}
         {topicGate}
@@ -837,7 +974,7 @@ export default function SetQuizPage() {
     const result = tapReasonResults[key];
     const checking = tapChecking[key] ?? false;
     const continueAfterFeedback = () => layoutCurrent < layoutTotal - 1 ? handleNext() : void handleSubmit();
-    // เฉลยมาพร้อม payload → ขึ้นสีถูก/ผิดทันทีที่ผู้เรียนเลือก ไม่ต้องรอเรียกเซิร์ฟเวอร์
+    // เฉลยสำหรับโหมดพรีวิวของแอดมินเท่านั้น — ของผู้เรียนมาจาก checkTapReason
     const slotItem = activeSlot && activeSlot.kind === 'tap' ? question.tapExercise?.items[activeSlot.itemIndex] : undefined;
     const correctChoice = tapCorrectChoice(slotItem);
     const storedChoice = selectedAnswer === null ? null : toStoredAnswer(question, activeSlot!, selectedAnswer);
@@ -859,13 +996,10 @@ export default function SetQuizPage() {
           onTimeUp={handleTimeUp}
           currentQuestionId={question.id}
           onResetAnswer={handleResetAnswer}
-          primaryAction={selectedAnswer !== null && !result ? {
-            label: checking ? 'กำลังตรวจ…' : 'ตรวจคำตอบ',
-            onClick: () => void checkTapReason(),
-            disabled: submitting || checking,
-          } : result && layoutCurrent >= layoutTotal - 1 ? {
-            label: 'ส่งคำตอบ', onClick: () => void handleSubmit(), disabled: submitting,
-          } : undefined}
+          primaryAction={{
+            ...primaryAction,
+            label: checking && primaryAction.label === 'ตรวจคำตอบ' ? 'กำลังตรวจ…' : primaryAction.label,
+          }}
           reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
         >
           <TestTapSelectCard
@@ -876,7 +1010,8 @@ export default function SetQuizPage() {
             itemIndex={activeSlot.kind === 'tap' ? activeSlot.itemIndex : 0}
             selectedAnswer={selectedAnswer}
             onAnswer={handleAnswer}
-            answerIsCorrect={result?.isCorrect ?? choiceIsCorrect}
+            // เฉลยคำตอบมาจากผลตรวจ (หรือ payload ในโหมดพรีวิว) — ไม่เฉลยทันทีที่เลือก
+            answerIsCorrect={previewMode ? choiceIsCorrect : result?.isCorrect ?? null}
             note={reason}
             onNoteChange={value => { clearTapFeedback(key); setTapReasons(current => ({ ...current, [key]: value })); }}
             feedback={result}
@@ -915,6 +1050,7 @@ export default function SetQuizPage() {
         sectionColor="from-orange-500 to-amber-500"
         sectionLabel="Listening"
         onResetAnswer={handleResetAnswer}
+        primaryAction={primaryAction}
         reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
       >
         <ListeningAudioPlayer
@@ -924,12 +1060,14 @@ export default function SetQuizPage() {
           questionText={question.questionText}
           options={questionChoices}
           selectedAnswer={selectedAnswer}
-          correctAnswer={selectedAnswer !== null ? displayedCorrectAnswer : null}
-          explanation={selectedAnswer !== null ? (question.explanation || 'See transcript above.') : null}
+          // เฉลยมาหลังกด "ตรวจคำตอบ" เท่านั้น
+          correctAnswer={revealedCorrectKey}
+          explanation={revealedExplanation ?? (revealedCorrectKey ? 'See transcript above.' : null)}
           onAudioPlayed={() => setAudioPlayedMap(prev => ({ ...prev, [currentQuestion]: true }))}
           onAnswerSelect={handleAnswer}
           disabled={submitting}
         />
+        {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
         {modalsFragment}
       </TestLayout>
       <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
@@ -959,6 +1097,7 @@ export default function SetQuizPage() {
         sectionIcon={BookOpen}
         sectionColor="from-emerald-500 to-teal-500"
         onResetAnswer={handleResetAnswer}
+        primaryAction={primaryAction}
         reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
       >
       <FocusFormQuestionCard
@@ -966,13 +1105,15 @@ export default function SetQuizPage() {
           questionText={question.questionText}
           options={questionChoices}
           selectedAnswer={selectedAnswer}
-          correctAnswer={displayedCorrectAnswer}
-          explanation={question.explanation ?? null}
+          // เฉลยมาหลังกด "ตรวจคำตอบ" เท่านั้น
+          correctAnswer={revealedCorrectKey}
+          explanation={revealedExplanation}
           conversation={question.conversation ?? null}
           onAnswerSelect={handleAnswer}
           disabled={submitting}
           accent="emerald"
         />
+        {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
         {modalsFragment}
       </TestLayout>
       <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
@@ -983,8 +1124,10 @@ export default function SetQuizPage() {
 
   // ─── Focus Form (default MCQ) ─────────────────────────────────────
   const options: Option[] = questionChoices;
-  const correctAnswer = displayedCorrectAnswer ?? results[currentQuestion]?.correctAnswer ?? null;
-  const explanation = question.explanation ?? results[currentQuestion]?.explanation ?? null;
+  // หลังส่งคำตอบเสร็จ (ผลจากเซิร์ฟเวอร์) หรือโหมดพรีวิว → ใช้เฉลยได้เลย
+  // ระหว่างทำข้อสอบ เฉลยมาจาก check-answer หลังผู้เรียนกด "ตรวจคำตอบ" เท่านั้น
+  const correctAnswer = revealedCorrectKey ?? results[currentQuestion]?.correctAnswer ?? null;
+  const explanation = revealedExplanation ?? results[currentQuestion]?.explanation ?? null;
 
   return (
     <>
@@ -1003,6 +1146,7 @@ export default function SetQuizPage() {
       onTimeUp={handleTimeUp}
       currentQuestionId={question.id}
       onResetAnswer={handleResetAnswer}
+      primaryAction={primaryAction}
       reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
     >
       <FocusFormQuestionCard
@@ -1016,6 +1160,7 @@ export default function SetQuizPage() {
         onAnswerSelect={handleAnswer}
         disabled={submitting}
       />
+      {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}
     </TestLayout>
     <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />

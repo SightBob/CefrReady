@@ -8,6 +8,23 @@ import { filterQuestionsForLearners } from '@/lib/tap-visibility';
 
 export const dynamic = 'force-dynamic';
 
+type JsonRecord = Record<string, unknown>;
+
+/**
+ * ถอดเฉลยออกจากข้อที่จะส่งให้ผู้เรียน — เฉลยมาจาก POST /api/tests/check-answer
+ * ตอนกด "ตรวจคำตอบ" แทน ทำให้เบราว์เซอร์ไม่มีเฉลยไว้แอบอ่านหรือแก้เกม
+ */
+function stripAnswers(question: JsonRecord): JsonRecord {
+  const tap = question.tapExercise as { items?: JsonRecord[] } | null | undefined;
+  const article = question.article as { blanks?: JsonRecord[] } | null | undefined;
+  return {
+    ...question,
+    correctAnswer: null,
+    ...(tap ? { tapExercise: { ...tap, items: (tap.items ?? []).map(({ correct: _correct, ...item }) => item) } } : {}),
+    ...(article ? { article: { ...article, blanks: (article.blanks ?? []).map(({ correctAnswer: _answer, ...blank }) => blank) } } : {}),
+  };
+}
+
 /**
  * GET /api/test-sets/[id]
  * Auth-required endpoint: returns a test set with all its questions in order.
@@ -84,15 +101,19 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       return NextResponse.json({ success: false, error: 'Test set not found' }, { status: 404 });
     }
 
-    // PRODUCT DECISION (owner-approved): Tap & Select ใช้ flow
-    // เลือกคำตอบ → เฉลยคำตอบ → พิมพ์เหตุผล → กดตรวจคำตอบ → เหตุผลจาก AI
-    // จึงต้องส่ง item.correct มาพร้อม payload เพื่อให้หน้าเว็บขึ้นสีถูก/ผิดได้ทันทีโดยไม่รอ
-    // เซิร์ฟเวอร์ (ไม่มี request เพิ่ม) — endpoint นี้ถูกส่ง correctAnswer/explanation
-    // ของข้อปกติอยู่แล้ว จึงสอดคล้องกัน
+    // PRODUCT DECISION (owner-approved, 2026-10-14): flow เดิมส่งเฉลยมาพร้อม payload
+    // เพื่อให้ขึ้นสีถูก/ผิดทันทีที่ผู้เรียนเลือก — เปลี่ยนเป็น
+    // เลือกคำตอบ → พิมพ์เหตุผล → กดตรวจคำตอบ → เฉลย เพื่อให้ผู้เรียนได้คิดเหตุผลก่อน
     //
-    // CONTENT STATUS: กิจกรรม Tap & Select ที่ยังไม่เผยแพร่ (ฉบับร่าง/รอตรวจสอบ/ปิดชั่วคราว)
-    // ถูกตัดออกทั้งข้อสำหรับผู้เรียน — โหมดพรีวิวของแอดมินเท่านั้นที่เห็นครบ
-    const publicQuestions = preview ? setQuestions : filterQuestionsForLearners(setQuestions);
+    // ANSWER HIDING: flow ใหม่ = เลือกคำตอบ → พิมพ์เหตุผล → กด "ตรวจคำตอบ" → เฉลย
+    // เฉลยจึงไม่หลุดไปกับ payload ของผู้เรียน (ถอด correctAnswer / item.correct /
+    // blanks[].correctAnswer ออก) แล้วให้ POST /api/tests/check-answer เป็นคนเฉลยตอนผู้เรียน
+    // กดตรวจ — กันทั้งการแก้เกมในเบราว์เซอร์และการเดาข้อสุดท้าย
+    // โหมดพรีวิวของแอดมินยังได้เฉลยครบ เพื่อให้ตรวจเนื้อหาได้สะดวก
+    // โหมดพรีวิวของแอดมินได้เนื้อหาครบ (รวมที่ยังไม่เผยแพร่) พร้อมเฉลย เพื่อให้ตรวจงานได้
+    const publicQuestions = preview
+      ? setQuestions
+      : filterQuestionsForLearners(setQuestions).map(question => stripAnswers(question as Record<string, unknown>));
 
     return NextResponse.json({
       success: true,

@@ -39,13 +39,27 @@ describe('parallel test-set loading', () => {
   it('does not query before authentication', async () => {
     mocks.auth.mockResolvedValue(null); expect((await GET(request, params)).status).toBe(401); expect(mocks.select).not.toHaveBeenCalled();
   });
-  it('executes both queries together and ships the Tap answer key for instant reveal', async () => {
+  it('executes both queries together and keeps every answer key out of the learner payload', async () => {
     const response = await GET(request, params); const body = await response.json();
     expect(mocks.peak).toBe(2); expect(body.success).toBe(true);
     expect(body.data).toMatchObject({ id: 1, name: 'Practice', duration: 20 });
     expect(body.data.questions[0].orderIndex).toBe(0);
-    // PRODUCT DECISION: ต้องการให้เฉลยขึ้นทันทีที่ผู้เรียนเลือก (เลือก → เฉลย → พิมพ์เหตุผล)
-    // จึงส่ง item.correct มาด้วย — ไม่ต้องมี request เพิ่มตอนเลือกคำตอบ
+    // ANSWER HIDING: เฉลยมาจาก POST /api/tests/check-answer ตอนผู้เรียนกด "ตรวจคำตอบ"
+    // ไม่งั้นเบราว์เซอร์จะมีเฉลยของทุกข้อแอบอยู่
+    expect(body.data.questions[0].tapExercise.items[0]).toEqual({ prompt: 'She ___', choiceA: 'go', choiceB: 'goes' });
+    expect(body.data.questions[0].correctAnswer).toBeNull();
+  });
+  it('strips cloze answers but keeps the blanks themselves', async () => {
+    mocks.questions = [{
+      id: 1, orderIndex: 0, questionText: 'Fill',
+      article: { title: 'A', text: 'She ___ TV.', blanks: [{ id: 5, correctAnswer: 'watches', hint: 'verb' }] },
+    }];
+    const body = await (await GET(request, params)).json();
+    expect(body.data.questions[0].article.blanks).toEqual([{ id: 5, hint: 'verb' }]);
+  });
+  it('still ships answers to an admin in preview mode, so unreleased content can be checked', async () => {
+    mocks.isAdmin.mockResolvedValue(true);
+    const body = await (await GET(previewRequest, params)).json();
     expect(body.data.questions[0].tapExercise.items[0]).toEqual({ prompt: 'She ___', choiceA: 'go', choiceB: 'goes', correct: 1 });
   });
   it.each([null, { id: 1, isActive: false }])('never returns missing or inactive set data %#', async set => {

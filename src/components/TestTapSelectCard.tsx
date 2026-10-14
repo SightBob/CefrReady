@@ -9,6 +9,11 @@ import type { TapExerciseItem } from '@/lib/test-set-slots';
 /** Figma 172:12723 — ข้อความกล่องให้กำลังใจเมื่อตอบถูก */
 const AI_PRAISE = 'คุณตอบแม่นยำมาก ถ้าเข้าใจแบบนี้ได้แล้ว สามารถทำข้อสอบได้แน่นอน !';
 
+// สีสถานะตัวเลือก (ผู้ใช้กำหนด 2026-10-14) — เหมือนกับ FocusFormQuestionCard เพื่อให้ทั้งสอง
+// ชนิดข้อสอบดูเหมือนกัน: เลือกแล้วยังไม่ตรวจ = เทา · ตรวจแล้วผิด = ชมพูอ่อน (ไม่ใช่เทา)
+const SELECTED_PENDING = 'ring-[#E2E8F0] bg-[#EEEEEE]';
+const WRONG_AFTER_CHECK = 'ring-[#FFD7D7] bg-[#FEF2F2]';
+
 export default function TestTapSelectCard({
   title,
   hint,
@@ -103,34 +108,42 @@ export default function TestTapSelectCard({
             const isSelected = selectedAnswer === key;            const isAnswer = key === correctAnswer;
             // เขียวเฉพาะตัวที่เลือกและผ่านการตรวจ — ก่อนตอบห้ามบ่งชี้คำตอบถูก
             const badgeIsCorrect = isSelected ? verifiedAnswer === true : Boolean(revealAnswer && isAnswer);
+            // ป้ายตัวอักษรของข้อที่เลือกแต่ยังไม่ตรวจ = เทาเข้ม #848484 (ผู้ใช้กำหนด 2026-10-14)
+            // ให้ข้อความต่างจากตัวเลือกที่ยังไม่เลือก (เทาอ่อน #F1F5F9)
+            const badgeClass = badgeIsCorrect
+              ? 'bg-[#10B981] text-white'
+              : isSelected && verifiedAnswer === null
+                ? 'bg-[#848484] text-white'
+                : 'bg-[#F1F5F9] text-[#64748B]';
             const stateClass = !answered
   ? 'ring-[#E2E8F0] bg-white'
   : revealAnswer
     ? isAnswer
       ? 'ring-[#E2E8F0] bg-[#ECFDF5]'
       : isSelected
-        ? 'ring-[#E2E8F0] bg-[#EEEEEE]'
+        ? WRONG_AFTER_CHECK
         : 'ring-transparent bg-[#F8F8F8] opacity-70'
     : isSelected
-      // ยังไม่ตรวจ → วงแหวนน้ำเงิน #719CC0 (สี “ข้อที่เลือกอยู่” ของแถบนำทาง) ห้ามใช้เทาของผิด
+      // ยังไม่ตรวจ → เทา #EEEEEE (สถานะ “เลือกแล้ว ยังไม่รู้ผล”)
       ? verifiedAnswer === null
-        ? 'ring-[#719CC0] bg-white'
+        ? SELECTED_PENDING
         : verifiedAnswer === true
           ? 'ring-[#E2E8F0] bg-[#ECFDF5]'
-          : 'ring-[#E2E8F0] bg-[#EEEEEE]'
+          : WRONG_AFTER_CHECK
       : 'ring-[#E2E8F0] bg-white';
 
             return (
               <button
                 key={key}
                 type="button"
-                disabled={answered || disabled}
+                // เปลี่ยนคำตอบได้ตราบใดที่ยังไม่ตรวจ (verifiedAnswer === null) — หลังตรวจแล้วล็อก
+                disabled={disabled || (answered && verifiedAnswer !== null)}
                 onClick={() => onAnswer(key)}
                 className={`flex min-h-[4.75rem] w-full items-center gap-3 rounded-[14px] ring-[1.6px] ring-inset px-4 py-4 text-left transition-colors ${stateClass}`}
               >
                 {/* Figma 172:12690/12696 — กรอบตัวอักษร 28px r8: ถูกต้อง #10B981/ขาว,
-                    ยังไม่ตรวจหรือผิด #F1F5F9/#64748B */}
-                <span className={`grid size-7 shrink-0 place-items-center rounded-lg text-sm font-bold ${badgeIsCorrect ? 'bg-[#10B981] text-white' : 'bg-[#F1F5F9] text-[#64748B]'}`}>{key}</span>
+                    เลือกแล้วยังไม่ตรวจ #848484/ขาว, ยังไม่เลือกหรือผิด #F1F5F9/#64748B */}
+                <span className={`grid size-7 shrink-0 place-items-center rounded-lg text-sm font-bold ${badgeClass}`}>{key}</span>
                 <span className="min-w-0 flex-1 text-base font-medium leading-[26px] text-[#1E293B]">{value}</span>
                 {/* ดีไซน์ไม่มีไอคอน ✓/✗ — เก็บข้อความไว้ให้ screen reader อ่านแทน */}
                 {isSelected && verifiedAnswer !== null && (

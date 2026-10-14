@@ -90,6 +90,8 @@ export default function DemoExamPage() {
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  /** slot ที่ผู้เรียนกด "ตรวจคำตอบ" แล้ว = อนุญาตให้เห็นเฉลย */
+  const [checkedSlots, setCheckedSlots] = useState<Record<number, boolean>>({});
 
   const fetchQuestions = async () => {
     setLoading(true);
@@ -129,19 +131,40 @@ export default function DemoExamPage() {
   );
 
   const handleAnswer = (answer: string) => {
-    if (!activeSlot || answers[currentSlot] !== null) return;
+    if (!activeSlot) return;
+    // เปลี่ยนคำตอบได้ตราบใดที่ยังไม่ได้กดตรวจ (การ์ดจะ disable หลังเฉลยแล้ว)
+    if (checkedSlots[currentSlot]) return;
+    if (answers[currentSlot] === answer) return;
     setAnswers((prev) => prev.map((value, index) => (index === currentSlot ? answer : value)));
+    // ตอบใหม่ = ยังไม่ตรวจ ต้องกด "ตรวจคำตอบ" อีกครั้งจึงจะเห็นเฉลย
+    setCheckedSlots((prev) => { const next = { ...prev }; delete next[currentSlot]; return next; });
   };
 
+  // ANSWER HIDING: เดียวกับชุดข้อสอบจริง — ข้างหน้าได้ต่อเมื่อข้อปัจจุบันตรวจแล้ว
+  // (payload ของ demo ตั้งใจส่งเฉลยมา จึงคิดผลในเบราว์เซอร์ ไม่ต้องยิงเซิร์ฟเวอร์)
+  const isSlotChecked = (index: number) => checkedSlots[index] === true;
+  const isSlotPendingCheck = (index: number) => !isSlotChecked(index);
+
   const handleQuestionSelect = (index: number) => {
+    if (index > currentSlot && isSlotPendingCheck(currentSlot)) return;
     setCurrentSlot(index);
   };
 
   const handleNext = () => {
+    if (isSlotPendingCheck(currentSlot)) return;
     if (currentSlot < slots.length - 1) handleQuestionSelect(currentSlot + 1);
   };
   const handlePrevious = () => {
     if (currentSlot > 0) handleQuestionSelect(currentSlot - 1);
+  };
+
+  /** กด "ตรวจคำตอบ" — เปิดเฉลยของ slot ปัจจุบัน (คะแนนยังนับตอนส่งคำตอบเหมือนเดิม) */
+  const handleCheckAnswer = () => {
+    const slot = slots[currentSlot];
+    if (!slot || !answers[currentSlot] || isSlotChecked(currentSlot)) return;
+    const question = questions[slot.questionIndex];
+    if (!question) return;
+    setCheckedSlots((prev) => ({ ...prev, [currentSlot]: slotIsCorrect(question, slot, answers[currentSlot] ?? '') }));
   };
 
   const handleSubmit = () => {
@@ -268,6 +291,22 @@ export default function DemoExamPage() {
     />
   );
 
+  // ANSWER HIDING: ปุ่มเดียวสลับบทบาท — ยังไม่ตรวจ = "ตรวจคำตอบ", ตรวจแล้ว = "ข้อต่อไป"
+  // (ข้อสุดท้าย = "ส่งคำตอบ") ทำให้ข้างหน้าได้ก็ต่อเมื่อตรวจคำตอบแล้ว
+  const isLastSlot = currentSlot >= slots.length - 1;
+  const hasAnswer = Boolean(answers[currentSlot]);
+  const primaryAction = {
+    // ปุ่มเดียวเหมือนชุดจริง: ยังไม่ตรวจ → "ตรวจคำตอบ" (disabled ถ้ายังไม่ได้เลือกคำตอบ)
+    // ตรวจแล้ว → "ข้อต่อไป" หรือ "ส่งคำตอบ" ข้อสุดท้าย
+    label: !isSlotChecked(currentSlot) ? 'ตรวจคำตอบ' : isLastSlot ? 'ส่งคำตอบ' : 'ข้อต่อไป',
+    disabled: !isSlotChecked(currentSlot) && !hasAnswer,
+    onClick: () => {
+      if (!isSlotChecked(currentSlot)) { handleCheckAnswer(); return; }
+      if (isLastSlot) { handleSubmit(); return; }
+      handleNext();
+    },
+  };
+
   const layoutProps = {
     title: 'โหมดตัวอย่าง (ปนทุกทักษะ)',
     durationMinutes: 5,
@@ -283,6 +322,7 @@ export default function DemoExamPage() {
     sectionColor: meta.color,
     sectionLabel: meta.label,
     onExit: () => router.push('/'),
+    primaryAction,
   };
 
   // ─── Slot: tap & select item ─────────────────────────────────────
@@ -303,7 +343,8 @@ export default function DemoExamPage() {
             itemIndex={activeSlot.itemIndex}
             selectedAnswer={selectedAnswer}
             onAnswer={handleAnswer}
-            answerIsCorrect={storedChoice !== null && correctChoice !== null ? storedChoice === correctChoice : null}
+            // เฉลยมาหลังกด "ตรวจคำตอบ" เท่านั้น
+            answerIsCorrect={isSlotChecked(currentSlot) && storedChoice !== null && correctChoice !== null ? storedChoice === correctChoice : null}
             disabled={false}
           />
         </TestLayout>
@@ -328,10 +369,17 @@ export default function DemoExamPage() {
             <input
               value={selectedAnswer ?? ''}
               onChange={(event) => handleAnswer(event.target.value)}
+              disabled={isSlotChecked(currentSlot)}
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-base focus:border-blue-400 focus:outline-none"
               placeholder={blank?.hint || 'พิมพ์คำตอบ'}
             />
           </label>
+          {/* ช่องกรอกคำไม่มีการ์ดสีถูก/ผิด จึงต้องบอกผลตรวจเอง */}
+          {isSlotChecked(currentSlot) && (
+            <p role="status" className="text-sm font-medium text-emerald-700">
+              {checkedSlots[currentSlot] ? 'ถูกต้อง' : `ยังไม่ถูก — คำตอบคือ “${blank?.correctAnswer ?? ''}”`}
+            </p>
+          )}
         </div>
       </TestLayout>
         {confirmModal}
@@ -351,8 +399,9 @@ export default function DemoExamPage() {
           questionText={question.questionText}
           options={choices}
           selectedAnswer={selectedAnswer}
-          correctAnswer={selectedAnswer !== null ? question.correctAnswer : null}
-          explanation={selectedAnswer !== null ? question.explanation || 'See transcript above.' : null}
+          // เฉลยมาหลังกด "ตรวจคำตอบ" เท่านั้น
+          correctAnswer={isSlotChecked(currentSlot) ? question.correctAnswer : null}
+          explanation={isSlotChecked(currentSlot) ? question.explanation || 'See transcript above.' : null}
           onAudioPlayed={() => {}}
           onAnswerSelect={handleAnswer}
           disabled={false}
@@ -376,8 +425,9 @@ export default function DemoExamPage() {
           questionText={question.questionText}
           options={choices}
           selectedAnswer={selectedAnswer}
-          correctAnswer={isCorrect !== null ? question.correctAnswer : null}
-          explanation={selectedAnswer !== null ? question.explanation : null}
+          // เฉลยมาหลังกด "ตรวจคำตอบ" เท่านั้น
+          correctAnswer={isSlotChecked(currentSlot) ? question.correctAnswer : null}
+          explanation={isSlotChecked(currentSlot) ? question.explanation : null}
           conversation={question.conversation ?? null}
           onAnswerSelect={handleAnswer}
           disabled={false}

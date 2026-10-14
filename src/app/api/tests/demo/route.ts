@@ -12,7 +12,8 @@ import { fetchMixedDemoQuestions } from '@/lib/demo-set';
  *
  * กติกาความปลอดภัยเดียวกับ /api/tests/[type] โหมด demo:
  * - จำกัดรวมไม่เกิน 10 ข้อ เรียงตาม demoOrder ที่แอดมินตั้งไว้ทั้งชุด
- * - ส่ง correctAnswer + explanation ออกได้เพราะเป็นข้อมูลสาธารณะที่ตั้งใจให้เฉลยทันที
+ * - ส่ง correctAnswer + explanation ออกได้ เพราะเป็นชุดสาธารณะที่คนอื่นเห็นด้วย
+ *   แต่หน้า /demo/exam จะยังไม่เฉลยจนผู้เรียนกด "ตรวจคำตอบ" (เหมือนชุดข้อสอบจริง)
  * - ทักษะที่แอดมินปิดปรับปรุง (maintenance) จะไม่มีข้อออกจาก API
  */
 export async function GET(request: NextRequest) {

@@ -23,22 +23,41 @@ describe('Tap & Select reasoning UI', () => {
     const right = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" answerIsCorrect />);
     expect(right).toContain('bg-[#ECFDF5]');            // ถูก → เขียว
     expect(right).toContain('bg-[#10B981]');            // กรอบตัวอักษรเขียว
-    expect(right).not.toContain('bg-[#EEEEEE]');        // ไม่มีสีของ “ผิด”
+    expect(right).not.toContain('bg-[#FEF2F2]');        // ไม่มีสีของ “ผิด”
     expect(right).toContain('เฉลยแล้ว — พิมพ์เหตุผลของคุณ');
 
     const wrong = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" answerIsCorrect={false} />);
-    expect(wrong).toContain('bg-[#EEEEEE]');            // ผิด → เทา
+    expect(wrong).toContain('bg-[#FEF2F2]');            // ผิด → ชมพูอ่อน
+    expect(wrong).toContain('ring-[#FFD7D7]');
     expect(wrong).not.toContain('bg-[#ECFDF5]');
   });
-  it('never paints the selected choice as wrong before it can know the answer', () => {
-    const html = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" />);
-    // เคยเป็นบั๊ก: สถานะ “เลือกแล้วยังไม่รู้ผล” ใช้เทาเดียวกับ “ตอบผิด” ทำให้อ่านว่าตอบผิด
-    expect(html).not.toContain('bg-[#EEEEEE]');
-    expect(html).toContain(      'เลือกแล้ว — พิมพ์เหตุผล');
+  it('gives the letter badge a dark grey while the answer is still pending', () => {
+    // ป้าย A/B ต้องเด่นกว่าตัวที่ยังไม่เลือก (เทาอ่อน) แต่ยังไม่ใช่เขียวของ “ถูกต้อง”
+    const pending = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" />);
+    expect(pending).toContain('bg-[#848484] text-white');
+    const wrong = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" answerIsCorrect={false} />);
+    expect(wrong).not.toContain('bg-[#848484] text-white');
+  });
+  it('paints a pending choice grey and keeps it distinct from a wrong answer', () => {
+    const pending = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" />);
+    // เลือกแล้วยังไม่ตรวจ = เทา #EEEEEE · ตรวจแล้วผิด = ชมพูอ่อน #FEF2F2 (ผู้ใช้กำหนด 2026-10-14)
+    // ต้องไม่ใช้สีเดียวกันสองสถานะนี้ ไม่งั้นผู้เรียนอ่านว่าตอบผิดก่อนได้ผลตรวจ
+    expect(pending).toContain('bg-[#EEEEEE]');
+    expect(pending).toContain('ring-[#E2E8F0]');
+    expect(pending).not.toContain('bg-[#FEF2F2]');
+    expect(pending).toContain('เลือกแล้ว — พิมพ์เหตุผล');
   });
   it('escapes untrusted AI feedback instead of rendering HTML', () => {
     const html = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" feedback={{ isCorrect: true, ai: { understanding: 'correct', feedback: '<script>alert(1)</script>' } }} />);
     expect(html).not.toContain('<script>'); expect(html).toContain('&lt;script&gt;');
+  });
+  it('lets the learner switch the choice until the answer is checked, then locks it', () => {
+    // ยังไม่กดตรวจ → เปลี่ยนคำตอบได้ (ปุ่มไม่ disabled) เพื่อไม่ให้ผู้เรียนติดคำตอบแรกโดยไม่ได้คิด
+    const before = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" />);
+    expect(before).not.toContain('disabled=""');
+    // กดตรวจแล้ว = มีผลตรวจ → ล็อกตัวเลือก
+    const after = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" answerIsCorrect feedback={{ isCorrect: true, ai: { understanding: 'correct', feedback: 'เข้าใจถูกต้อง' } }} />);
+    expect(after).toContain('disabled=""');
   });
   it('disables the reason input while checking and exposes retry/skip errors', () => {
     const html = renderToStaticMarkup(<TestTapSelectCard {...props} selectedAnswer="A" checking error="ลองอีกครั้ง" onSkipFeedback={() => undefined} />);
