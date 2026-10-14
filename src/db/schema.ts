@@ -129,7 +129,7 @@ export const testExplains = pgTable('test_explains', {
   title: varchar('title', { length: 200 }).notNull(),
   intro: text('intro'),
   sections: jsonb('sections').$type<Array<{
-    type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice' | 'formulaBreakdown' | 'typeBreakdown';
+    type?: 'rule' | 'detailedRule' | 'importantNote' | 'practice' | 'formulaBreakdown' | 'typeBreakdown' | 'patternBreakdown';
     /** Layout "Core Formula breakdown" — เทียบสูตรซ้าย/ขวาทีละเคส */
     formula?: {
       cases: Array<{

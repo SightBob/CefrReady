@@ -3,6 +3,7 @@ import type {
   FormulaCase,
   FormulaColumn,
   LessonPracticeQuestion,
+  ReviewRow,
   ReviewTopic,
   TypeBreakdownCase,
 } from "@/lib/lesson-sections";
@@ -32,6 +33,13 @@ const C = {
   typeExampleText: "#6D5B16",
   typeNoteBg: "#C8E6FF",
   typeNoteText: "#555555",
+  // Pattern Breakdown (Figma 504:11343 "Quantifiers")
+  patternHeading: "#3B3B3B",
+  patternLabel: "#404040",
+  patternBarBg: "#FFF5CF",
+  patternBarText: "#6D5B16",
+  patternNoteBg: "#C8E6FF",
+  patternNoteText: "#555555",
   pill: "#F5F5F5",
   pillBorder: "#E8E8E8",
   result: "#FFF8D9",
@@ -404,6 +412,83 @@ function FormulaBreakdownCard({ heading, cases }: { heading?: string; cases: For
 }
 
 /**
+ * การ์ด “Pattern Breakdown” (Figma node 504:11343 — หัวข้อ Quantifiers)
+ *
+ * โครงต่างจากการ์ด rule เดิม: ไม่มีป้ายเทาต้นทางและไม่มีลูกศร
+ * แต่เป็น “ป้ายเงื่อนไข (label) → แถบตัวอย่างเต็มความกว้าง → ทริกสั้น”
+ * คำในแถบตัวอย่างที่ห่อด้วย ==...== แสดงเป็นชิปพื้นขาว
+ */
+function PatternBreakdownCard({
+  heading,
+  rows,
+  tip,
+}: {
+  heading?: string;
+  rows: ReviewRow[];
+  tip?: string;
+}) {
+  const visible = rows.filter((row) => (row.left ?? "").trim() || (row.right ?? "").trim());
+  return (
+    <section
+      className="flex w-[668px] max-w-full flex-col rounded-2xl p-4 max-md:w-full max-md:rounded-[16px]"
+      style={{ background: C.card, borderColor: C.cardBorder }}
+      aria-label={heading?.trim() || undefined}
+    >
+      {heading?.trim() && (
+        <h2 className="mb-[11px] text-[16px] font-semibold leading-6 max-sm:text-[14px]" style={{ color: C.patternHeading }}>
+          <RichText text={heading} highlightColor="#FFFFFF" highlightTextColor={C.patternHeading} as="span" />
+        </h2>
+      )}
+
+      <div className="flex w-full flex-col rounded-xl bg-white py-[17px] pl-5 pr-[19px] max-md:gap-[10px] max-md:px-[10px]">
+        {visible.map((row, index) => {
+          const label = (row.left ?? "").trim();
+          const example = (row.right ?? "").trim();
+          return (
+            <div
+              key={index}
+              className="flex w-full flex-col gap-[13px] max-md:gap-[10px] [&+&]:mt-[13px]"
+            >
+              {label && (
+                <p className="text-[14px] font-semibold leading-[22px] max-md:text-[12px]" style={{ color: C.patternLabel }}>
+                  <RichText text={label} highlightColor="#FFFFFF" highlightTextColor={C.patternLabel} as="span" />
+                </p>
+              )}
+              <div
+                className="flex min-h-[39px] w-full items-center justify-center rounded-[7px] px-[26px] py-[4px] max-md:px-[10px]"
+                style={{ background: C.patternBarBg }}
+              >
+                <p className="text-center text-[13px] font-medium leading-[22px] max-md:text-[12px]" style={{ color: C.patternBarText }}>
+                  <RichText
+                    text={example || label}
+                    highlightColor="#FFFFFF"
+                    highlightTextColor={C.patternBarText}
+                    highlightRadius={5}
+                    highlightPaddingX={4}
+                    as="span"
+                  />
+                </p>
+              </div>
+            </div>
+          );
+        })}
+
+        {tip?.trim() && (
+          <div className="mt-[13px] flex w-full items-center gap-[7px] max-md:gap-[14px]">
+            <div className="flex size-[17px] shrink-0 items-center justify-center rounded-[4px] p-[3px]" style={{ background: C.patternNoteBg }}>
+              <Image src="/logo-otter/star.png" alt="" width={11} height={11} />
+            </div>
+            <p className="min-w-0 flex-1 text-[13px] font-medium leading-[22px] max-md:text-[11px]" style={{ color: C.patternNoteText }}>
+              <RichText text={tip} highlightColor="#FFFFFF" highlightTextColor="#B39B3F" as="span" />
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
  * การ์ด “Type Breakdown” (Figma node 419:56446)
  * โครง: หัวการ์ด (อยู่บนพื้นฟ้า) → กล่องขาว [คำโปรย → เส้นคั่น → เคสละ 3 แถว]
  * แต่ละเคส: ป้าย Type (สีตามเคส) + คำอธิบาย → ช่องโครงสร้าง → ประโยคตัวอย่าง → บรรทัดสรุปพร้อมไอคอน
@@ -634,6 +719,8 @@ export default function ReviewContent({
     const isFormula = section.type === "formulaBreakdown" && formulaCases.length > 0;
     const typeCases = section.typeBreakdown?.cases ?? [];
     const isTypeBreakdown = section.type === "typeBreakdown" && typeCases.length > 0;
+    const patternRows = section.rows ?? [];
+    const isPattern = section.type === "patternBreakdown" && patternRows.length > 0;
     // Mini Quiz ที่ฝังมากับการ์ดเอง (ไม่ใช่ section type "practice" แยกต่างหาก)
     const ownQuizQuestions = (section.practice?.questions ?? []).filter((question) => question.sentence.trim());
     return (
@@ -642,6 +729,8 @@ export default function ReviewContent({
           <FormulaBreakdownCard heading={section.heading} cases={formulaCases} />
         ) : isTypeBreakdown ? (
           <TypeBreakdownCard heading={section.heading} description={section.description} cases={typeCases} />
+        ) : isPattern ? (
+          <PatternBreakdownCard heading={section.heading} rows={patternRows} tip={section.tip} />
         ) : (
         /* การ์ดกฎ: พื้นหลังอ่อน + เนื้อหาสีขาวด้านใน */
         <section
@@ -763,7 +852,7 @@ export default function ReviewContent({
                       </span>
                     </div>
                     <div
-                      className="flex min-h-[39px] min-w-0 flex-1 items-center rounded-[7px] px-[26px] py-[5px] max-md:px-[15px] max-md:min-h-[39px] max-md:w-full"
+                      className="flex min-h-[39px] min-w-0 flex-1 items-center rounded-[7px] px-[26px] py-[5px] max-md:px-[15px] max-md:min-h-[39px] max-md:w-full md:justify-center"
                       style={{ background: C.result }}
                     >
                       <span className="text-[13px] font-medium leading-[22px] text-[#555555]">

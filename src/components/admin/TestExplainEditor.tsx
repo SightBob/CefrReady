@@ -256,6 +256,8 @@ function sectionHasContent(section: SectionRow): boolean {
       return quiz || section.heading.trim().length > 0 || section.formula.some(formulaCaseHasContent);
     case 'typeBreakdown':
       return quiz || section.heading.trim().length > 0 || section.typeBreakdown.some(typeBreakdownCaseHasContent);
+    case 'patternBreakdown':
+      return quiz || Boolean(section.heading.trim() || section.tip.trim() || section.rows.some((row) => row.left.trim() || row.right.trim()));
   }
 }
 
@@ -309,6 +311,13 @@ function sectionToPayload(section: SectionRow) {
     if (cases.length) payload.typeBreakdown = { cases };
   }
   if (section.type === 'importantNote' && section.body.trim()) payload.body = section.body.trim();
+  if (section.type === 'patternBreakdown') {
+    if (section.heading.trim()) payload.heading = section.heading.trim();
+    if (section.tip.trim()) payload.tip = section.tip.trim();
+    // แถว 1 อัน = ป้ายเงื่อนไข (left) → ประโยคตัวอย่างในแถบเหลือง (right)
+    const rows = section.rows.filter((row) => row.left.trim() || row.right.trim());
+    if (rows.length) payload.rows = rows.map((row) => ({ left: row.left.trim(), right: row.right.trim() || undefined }));
+  }
   // Mini Quiz ส่งออกได้ทุก type — type 'practice' = การ์ดแยก, type อื่น = ฝังท้ายการ์ดนั้น
   const questions = section.practice.filter((question) => question.sentence.trim()).map((question) => ({
     sentence: question.sentence.trim(),
@@ -1244,6 +1253,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                     <option value="importantNote">Important Note / Key Point</option>
                     <option value="formulaBreakdown">Core Formula breakdown</option>
                     <option value="typeBreakdown">Type Breakdown / แยกตาม Type</option>
+                    <option value="patternBreakdown">Pattern Breakdown / ป้ายเงื่อนไข + ตัวอย่าง</option>
                     <option value="practice">Mini Quiz / Practice</option>
                   </select>
                 </div>
@@ -1587,6 +1597,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                 <option value="importantNote">Important Note / Key Point</option>
                 <option value="formulaBreakdown">Core Formula breakdown</option>
                 <option value="typeBreakdown">Type Breakdown / แยกตาม Type</option>
+                <option value="patternBreakdown">Pattern Breakdown / ป้ายเงื่อนไข + ตัวอย่าง</option>
                 <option value="practice">Mini Quiz / Practice</option>
               </select>
             </label>

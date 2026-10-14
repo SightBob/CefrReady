@@ -887,10 +887,6 @@ export default function TestLayout({
                       onClick={reviewAction.onClick}
                       className="flex-1 min-[890px]:flex-none min-[890px]:w-[13.875rem] h-14 min-[890px]:h-[3.375rem] rounded-[7px] flex items-center justify-center gap-2 border-2 text-[1rem] font-semibold text-[#524924] shadow-[3px_3px_0_0_#D5D3D3] hover:bg-blue-50 transition-colors"
                     >
-                      <RotateCcw
-                        className="w-4 h-4 shrink-0"
-                        aria-hidden="true"
-                      />
                       <span className="text-sm min-[890px]:text-base text-center font-bold whitespace-nowrap">
                         {reviewAction.label}
                       </span>

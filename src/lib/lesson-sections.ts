@@ -34,7 +34,7 @@ export interface LessonTable {
   rows: string[][];
 }
 
-export type LessonSectionType = 'rule' | 'detailedRule' | 'importantNote' | 'practice' | 'formulaBreakdown' | 'typeBreakdown';
+export type LessonSectionType = 'rule' | 'detailedRule' | 'importantNote' | 'practice' | 'formulaBreakdown' | 'typeBreakdown' | 'patternBreakdown';
 
 /**
  * โทนสีพื้นของแถบประโยคใน "Core Formula breakdown"
@@ -168,7 +168,7 @@ export interface ReviewTopic {
 
 export interface LessonSection extends ReviewTopic {}
 
-const SECTION_TYPES: readonly LessonSectionType[] = ['rule', 'detailedRule', 'importantNote', 'practice', 'formulaBreakdown', 'typeBreakdown'];
+const SECTION_TYPES: readonly LessonSectionType[] = ['rule', 'detailedRule', 'importantNote', 'practice', 'formulaBreakdown', 'typeBreakdown', 'patternBreakdown'];
 
 /** ชื่อ type เก่า/ชื่อเล่นที่ยอมรับสำหรับ layout Core Formula breakdown */
 const FORMULA_TYPE_ALIASES = ['formula', 'formulabreakdown', 'coreformula'];
