@@ -304,6 +304,16 @@ export default function SetQuizPage() {
   const posthog = usePostHog();
   const testStartedAtRef = useRef<number>(0);
 
+  // ปุ่ม "โหมดทบทวน" — ใช้ร่วมกันทุก skill (Form & Meaning / Tap & Select /
+  // Listening / Focus on Meaning / Focus on Form) แล้ว capture ก่อนเปิด overlay
+  const openReviewMode = useCallback(() => {
+    posthog?.capture('review_mode_opened', {
+      section_id: sectionId,
+      test_set_id: setId,
+    });
+    setShowTestExplain(true);
+  }, [posthog, sectionId, setId]);
+
   const fetchSet = useCallback(async () => {
     // เปลี่ยนชุด (dropdown) = เริ่มนับเรื่องใหม่ — ไม่งั้นชุดใหม่ที่ใช้ชื่อเรื่อง
     // เดิมจะไม่เด้ง intro ให้อีก
@@ -391,6 +401,19 @@ export default function SetQuizPage() {
     return answer;
   }, [choiceShuffleSeed, getQuestionChoices]);
 
+  /**
+   * ข้อความตัวเลือกที่ผู้เรียนเห็นแล้วกด — ส่งให้ AI แทนป้าย A/B เพราะหน้าจอสลับตัวเลือก
+   * ตาม seed ทำให้ป้ายบนจอไม่ตรงกับป้ายในฐานข้อมูล (เคยตอบผิดว่า “คุณเลือก B”
+   * ทั้งที่ผู้เรียนกด A)
+   */
+  const toDisplayedTapText = useCallback((question: RawQuestion, slot: TestSetSlot, answer: string): string | undefined => {
+    if (slot.kind !== 'tap' || (answer !== 'A' && answer !== 'B')) return undefined;
+    const item = question.tapExercise?.items[slot.itemIndex];
+    if (!item) return undefined;
+    const { item: displayItem } = shuffleTapExerciseChoices(item, `${choiceShuffleSeed}-${question.id}-tap-${slot.itemIndex}`);
+    return answer === 'A' ? displayItem.choiceA : displayItem.choiceB;
+  }, [choiceShuffleSeed]);
+
   // ─── Answer + navigation handlers ────────────────────────────────
 
   const handleAnswer = (answer: string) => {
@@ -432,7 +455,8 @@ export default function SetQuizPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           testSetId: setId, questionId: question.id, itemIndex: slot.itemIndex,
-          selectedAnswer: toStoredAnswer(question, slot, selectedAnswer), reason,
+          selectedAnswer: toStoredAnswer(question, slot, selectedAnswer),
+          selectedText: toDisplayedTapText(question, slot, selectedAnswer), reason,
         }),
         signal: AbortSignal.timeout(30_000),
       });
@@ -683,7 +707,7 @@ export default function SetQuizPage() {
       <>
       <FormMeaningQuiz
         questions={setData.questions}
-        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
+        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
         sectionId={sectionId}
         setId={setId}
         setName={setData.name}
@@ -842,7 +866,7 @@ export default function SetQuizPage() {
           } : result && layoutCurrent >= layoutTotal - 1 ? {
             label: 'ส่งคำตอบ', onClick: () => void handleSubmit(), disabled: submitting,
           } : undefined}
-          reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
+          reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
         >
           <TestTapSelectCard
             key={`${question.id}-${activeSlot.kind === 'tap' ? activeSlot.itemIndex : ''}`}
@@ -891,7 +915,7 @@ export default function SetQuizPage() {
         sectionColor="from-orange-500 to-amber-500"
         sectionLabel="Listening"
         onResetAnswer={handleResetAnswer}
-        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
+        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
       >
         <ListeningAudioPlayer
           key={question.id}
@@ -935,7 +959,7 @@ export default function SetQuizPage() {
         sectionIcon={BookOpen}
         sectionColor="from-emerald-500 to-teal-500"
         onResetAnswer={handleResetAnswer}
-        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
+        reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
       >
       <FocusFormQuestionCard
           key={question.id}
@@ -979,7 +1003,7 @@ export default function SetQuizPage() {
       onTimeUp={handleTimeUp}
       currentQuestionId={question.id}
       onResetAnswer={handleResetAnswer}
-      reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: () => setShowTestExplain(true) } : undefined}
+      reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
     >
       <FocusFormQuestionCard
         key={question.id}

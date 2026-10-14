@@ -13,7 +13,7 @@ import { POST } from './route';
 import { TapAiError } from '@/lib/openrouter';
 
 const row = { tapExercise: { title: 'Practice', items: [{ prompt: 'She ___ daily.', choiceA: 'go', choiceB: 'goes', correct: 1 }] }, explanation: 'Third-person singular', grammarTopic: 'Present simple' };
-const body = { testSetId: 1, questionId: 2, itemIndex: 0, selectedAnswer: 'B', reason: 'She เป็นเอกพจน์' };
+const body = { testSetId: 1, questionId: 2, itemIndex: 0, selectedAnswer: 'B', selectedText: 'goes', reason: 'She เป็นเอกพจน์' };
 const request = (patch = {}) => new NextRequest('http://localhost:3000/api/tests/tap-reason', { method: 'POST', body: JSON.stringify({ ...body, ...patch }) });
 function rows(data: unknown[]) {
   const builder: Record<string, unknown> = {};
@@ -87,9 +87,26 @@ describe('POST tap-reason', () => {
     expect((await POST(request())).status).toBe(404); expect(mocks.evaluate).not.toHaveBeenCalled();
   });
   it('checks the original stored choice, using database context for AI', async () => {
-    const response = await POST(request({ selectedAnswer: 'A' }));
+    const response = await POST(request({ selectedAnswer: 'A', selectedText: 'go' }));
     expect(await response.json()).toMatchObject({ success: true, data: { isCorrect: false, ai: { understanding: 'correct' } } });
-    expect(mocks.evaluate.mock.calls[0][1]).toMatchObject({ item: row.tapExercise.items[0], explanation: row.explanation, selectedAnswer: 'A' });
+    expect(mocks.evaluate.mock.calls[0][1]).toMatchObject({ item: row.tapExercise.items[0], explanation: row.explanation, selectedAnswer: 'A', selectedText: 'go' });
+  });
+  it('sends the choice text the learner saw, not the stored A/B label', async () => {
+    // หน้าจอสลับตัวเลือก: ผู้เรียนกดปุ่ม “A” ที่ข้อความ “goes” → client ส่ง selectedAnswer
+    // เป็นป้ายต้นฉบับ “B” และ selectedText “goes” — AI ต้องตัดสินจากข้อความนี้
+    await POST(request());
+    expect(mocks.evaluate.mock.calls[0][1]).toMatchObject({ selectedAnswer: 'B', selectedText: 'goes' });
+  });
+  it('falls back to the stored choice text when an older client omits it', async () => {
+    const response = await POST(request({ selectedText: undefined }));
+    expect(response.status).toBe(200);
+    expect(mocks.evaluate.mock.calls[0][1]).toMatchObject({ selectedText: 'goes' });
+  });
+  it('refuses a choice text that does not belong to the question', async () => {
+    // กัน client ส่งข้อความอะไรก็ได้มาให้ AI วิจารณ์ (หรือเนื้อหาข้อนี้ถูกแก้ระหว่างทำข้อสอบ)
+    const response = await POST(request({ selectedText: 'ข้อความที่ไม่ใช่ตัวเลือกของข้อนี้' }));
+    expect(response.status).toBe(409);
+    expect(mocks.evaluate).not.toHaveBeenCalled();
   });
   it('returns a clearly labeled choice-only check when AI is disabled', async () => {
     mocks.settings.mockResolvedValue(DEFAULT_TAP_AI_SETTINGS);

@@ -20,6 +20,10 @@ const bodySchema = z.object({
   questionId: z.number().int().positive(),
   itemIndex: z.number().int().nonnegative(),
   selectedAnswer: z.enum(['A', 'B']),
+  // ข้อความตัวเลือกที่ผู้เรียนเห็นแล้วกด — ตัวเลือกถูกสลับด้วย seed ฝั่งเบราว์เซอร์
+  // ป้าย A/B บนจอจึงไม่จำเป็นต้องตรงกับป้ายในฐานข้อมูล AI จึงต้องอ้างอิงด้วยข้อความ
+  // (ไม่บังคับ: client เก่าไม่ส่งมา — เดาจาก selectedAnswer ซึ่งเป็นป้ายต้นฉบับแทน)
+  selectedText: z.string().trim().min(1).max(1000).optional(),
   // เหตุผลของผู้เรียน — ว่างได้: ผู้เรียนกด “ตรวจคำตอบ” ทั้งที่ยังไม่ได้พิมพ์ เซิร์ฟเวอร์จะ prefill
   // วลีสำเร็จรูปให้ AI ช่วยอธิบายข้อนี้ตามปกติ (ไม่เรียกว่าเหตุผลของผู้เรียนเอง)
   reason: z.string().trim().max(MAX_TAP_REASON_LENGTH),
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: `กรุณาเลือกคำตอบก่อน (เหตุผลไม่เกิน ${MAX_TAP_REASON_LENGTH} ตัวอักษร)` }, { status: 400 });
   }
   try {
-    const { testSetId, questionId, itemIndex, selectedAnswer, reason: submittedReason } = parsed.data;
+    const { testSetId, questionId, itemIndex, selectedAnswer, selectedText: submittedText, reason: submittedReason } = parsed.data;
     const [row] = await db
       .select({ tapExercise: questions.tapExercise, explanation: questions.explanation, grammarTopic: questions.grammarTopic })
       .from(testSetQuestions)
@@ -63,6 +67,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'ไม่พบข้อย่อย Tap & Select' }, { status: 404 });
     }
     const isCorrect = selectedAnswer === (item.correct === 0 ? 'A' : 'B');
+    // ข้อความของตัวเลือกที่ผู้เรียนกด — ได้จากป้ายบนจอ (อาจสลับตำแหน่งกับฐานข้อมูล)
+    // ต้องตรงกับป้ายต้นฉบับเสมอ ไม่งั้นแปลว่าข้อมูลไม่ตรงกับข้อนี้ที่เซิร์ฟเวอร์อ่าน
+    const selectedText = (selectedAnswer === 'A' ? item.choiceA : item.choiceB).trim();
+    if (submittedText !== undefined && submittedText !== selectedText) {
+      return NextResponse.json({ success: false, error: 'เนื้อหาข้อนี้เปลี่ยนไปแล้ว กรุณารีเฟรชหน้าแล้วตรวจคำตอบอีกครั้ง' }, { status: 409 });
+    }
     // เหตุผลว่าง = ผู้เรียนกดตรวจโดยไม่พิมพ์ — prefill วลีสำเร็จรูปให้ AI อธิบายข้อนี้ตามปกติ
     // (ไม่ตัดสินเหตุผลของผู้เรียน เพราะไม่มีเหตุผลส่งมา)
     const reason = submittedReason || 'ผู้เรียนยังไม่ได้เขียนเหตุผล กรุณาอธิบายเฉลยของข้อนี้ให้เข้าใจ';
@@ -88,7 +98,7 @@ export async function POST(request: NextRequest) {
     };
     const ai = await evaluateTapReason(settings, {
       title: row.tapExercise!.title, hint: row.tapExercise!.hint,
-      item, selectedAnswer, reason, explanation: row.explanation, grammarTopic: row.grammarTopic,
+      item, selectedAnswer, selectedText, reason, explanation: row.explanation, grammarTopic: row.grammarTopic,
     }, usage => logTapUsage(usage));
     return NextResponse.json({ success: true, data: { isCorrect, ai } });
   } catch (error) {

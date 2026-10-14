@@ -3,7 +3,7 @@ import { evaluateTapReason } from './openrouter';
 import { DEFAULT_TAP_AI_SETTINGS, tapAiSettingsSchema } from './tap-ai';
 
 const settings = { ...DEFAULT_TAP_AI_SETTINGS, enabled: true, model: 'provider/model' };
-const context = { title: 'Practice', item: { prompt: 'She ___ daily.', choiceA: 'go', choiceB: 'goes', correct: 1 as const }, selectedAnswer: 'B' as const, reason: 'She เป็นเอกพจน์' };
+const context = { title: 'Practice', item: { prompt: 'She ___ daily.', choiceA: 'go', choiceB: 'goes', correct: 1 as const }, selectedAnswer: 'B' as const, selectedText: 'goes', reason: 'She เป็นเอกพจน์' };
 const fetchMock = vi.fn();
 
 // Retries back off with real timers, so fake them and flush explicitly - otherwise the
@@ -53,7 +53,13 @@ describe('OpenRouter Tap reason feedback', () => {
     expect(init.signal).toBeInstanceOf(AbortSignal);
     const body = JSON.parse(init.body);
     expect(body).toMatchObject({ model: 'provider/model', max_tokens: 1000, provider: { require_parameters: true }, response_format: { type: 'json_schema' } });
-    expect(JSON.parse(body.messages[1].content)).toMatchObject({ authoritativeQuestion: { correctAnswer: 'B' }, selectedAnswer: 'B', learnerReason: context.reason });
+    const learnerData = JSON.parse(body.messages[1].content);
+    expect(learnerData).toMatchObject({ authoritativeQuestion: { correctAnswerText: 'goes', choices: ['go', 'goes'] }, selectedAnswerText: 'goes', learnerReason: context.reason });
+    // ไม่มีป้าย A/B หลุดไปกับ prompt — ป้ายบนจอถูกสลับ ป้ายในฐานข้อมูลไม่ตรงกับที่ผู้เรียนเห็น
+    // (เคยทำให้ AI บอกว่า “คุณเลือก B” ทั้งที่ผู้เรียนกด A)
+    expect(learnerData.authoritativeQuestion).not.toHaveProperty('correctAnswer');
+    expect(learnerData).not.toHaveProperty('selectedAnswer');
+    expect(body.messages[0].content).toContain('ห้ามพูดว่า “เลือก A”');
     expect(body).not.toHaveProperty('user');
   });
   it('does not call the provider when the key is missing', async () => {

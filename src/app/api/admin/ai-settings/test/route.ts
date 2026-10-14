@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
       title: 'Subject–verb agreement',
       item: { prompt: 'She ___ to school every day.', choiceA: 'go', choiceB: 'goes', correct: 1 },
       selectedAnswer: 'B',
+      selectedText: 'goes',
       reason: 'She เป็นประธานเอกพจน์บุรุษที่สาม ใน present simple จึงใช้ goes',
       explanation: 'Third-person singular subjects take -s/-es in the present simple.',
     });
