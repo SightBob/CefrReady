@@ -827,6 +827,17 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
     return groups;
   }, []);
 
+  // ดัชนีชุดข้อสอบ → เนื้อหาที่ผูกไว้ — เดิมไล่ rows ทั้งตารางทุกชุด (ชุด × เนื้อหา)
+  // ลำดับในแต่ละชุดยังเป็นลำดับของ rows เหมือนเดิม
+  const explainsBySetId = rows.reduce((map, row) => {
+    for (const setId of row.testSetIds ?? []) {
+      const bound = map.get(setId);
+      if (bound) bound.push(row);
+      else map.set(setId, [row]);
+    }
+    return map;
+  }, new Map<number, typeof rows>());
+
   if (mode === 'list') {
     return (
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
@@ -864,7 +875,7 @@ export default function TestExplainEditor({ explainId, mode = 'list' }: { explai
                   <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{group.sectionName}</p>
                   <div className="mt-2 space-y-2">
                     {group.testSets.map((set) => {
-                      const bound = rows.filter((row) => (row.testSetIds ?? []).includes(set.id));
+                      const bound = explainsBySetId.get(set.id) ?? [];
                       return (
                         <div key={set.id} className="flex flex-wrap items-center gap-2 rounded-[12px] border-[1.4px] border-[#DEEBF6] px-3 py-2">
                           <span className="text-[13px] font-semibold leading-[20px] text-[#334155]">{set.name || `ชุด #${set.id}`}</span>
