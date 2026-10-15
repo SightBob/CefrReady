@@ -224,11 +224,6 @@ export default function SetQuizPage() {
     setCurrentQuestion(slotIndex);
   }, [previewTopic, setData, topicRuns, mainSlots.length]);
 
-  /** เรื่องที่จะได้เห็นหน้าเนื้อหาจริง — นับ "เรื่องที่ N จาก M" ให้ตรงกับที่ผู้เรียนจะเจอ */
-  const explainRuns = useMemo(
-    () => topicRuns.filter((run) => run.topic && topicExplains[run.topic]),
-    [topicRuns, topicExplains],
-  );
   const choiceShuffleSeed = `${setId}-${testStartedAt}`;
   const mainSlot = mainSlots[currentQuestion];
   const explainQuestionIndex = (mainSlot?.questionIndex ?? currentQuestion);
@@ -295,7 +290,7 @@ export default function SetQuizPage() {
       return;
     }
     setIntroQueue(queue);
-  }, [currentQuestion, explainsLoaded, setData, topicExplains, topicRuns, explainRuns, sectionId, setId]);
+  }, [currentQuestion, explainsLoaded, setData, topicExplains, topicRuns, sectionId, setId]);
 
   useEffect(() => {
     if (!showTestExplain) return;
@@ -439,11 +434,6 @@ export default function SetQuizPage() {
     if (slot?.kind === 'tap') return tapReasonResults[tapStateKey(slotIndex)] !== undefined;
     return checkedSlots[slotIndex] !== undefined;
   }, [checkedSlots, tapReasonResults, tapStateKey]);
-
-  /** ข้อนี้ยังต้องทำให้เสร็จ (ตอบ + ตรวจ) ก่อนข้างหน้าได้ */
-  const isSlotPendingCheck = useCallback((slotIndex: number, slot: TestSetSlot | undefined): boolean => {
-    return !isSlotChecked(slotIndex, slot);
-  }, [isSlotChecked]);
 
   const clearSlotCheck = useCallback((slotIndex: number) => {
     setCheckedSlots(current => { const next = { ...current }; delete next[slotIndex]; return next; });
