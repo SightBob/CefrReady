@@ -151,6 +151,9 @@ export default function AdminReportsPage() {
   const totalDist   = data?.scoreDistribution.reduce((s, b) => s + b.count, 0) ?? 0;
 
   const maxCefr = Math.max(...(data?.cefrDistribution.map((c) => c.count) ?? [1]), 1);
+  const trendMax       = Math.max(...(data?.questionReports.trend.map((t) => t.count) ?? [1]), 1);
+  const bucketMax      = Math.max(...(data?.attemptCountDistribution.map((b) => b.count) ?? [1]), 1);
+  const fullTestCefrMax = Math.max(...(data?.fullTestAnalytics.cefrDistribution.map((c) => c.count) ?? [1]), 1);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -435,8 +438,7 @@ export default function AdminReportsPage() {
                     <p className="text-xs text-slate-500 mb-2">แนวโน้ม 30 วัน</p>
                     <div className="flex items-end gap-1 h-12">
                       {data.questionReports.trend.map((w) => {
-                        const maxW = Math.max(...data.questionReports.trend.map((t) => t.count), 1);
-                        const h = Math.max(4, Math.round((w.count / maxW) * 48));
+                        const h = Math.max(4, Math.round((w.count / trendMax) * 48));
                         return (
                           <div
                             key={w.week}
@@ -463,8 +465,7 @@ export default function AdminReportsPage() {
                 ) : (
                   <div className="space-y-3">
                     {data.attemptCountDistribution.map((b, i) => {
-                      const maxBucket = Math.max(...data.attemptCountDistribution.map((x) => x.count), 1);
-                      const pct = Math.round((b.count / maxBucket) * 100);
+                      const pct = Math.round((b.count / bucketMax) * 100);
                       const share = data.overview.totalUsers > 0
                         ? Math.round((b.count / data.overview.totalUsers) * 100)
                         : 0;
@@ -679,8 +680,7 @@ export default function AdminReportsPage() {
                     <h3 className="text-sm font-semibold text-slate-700 mb-3">การกระจายระดับ CEFR</h3>
                     <div className="space-y-2">
                       {data.fullTestAnalytics.cefrDistribution.map((c) => {
-                        const maxCefr = Math.max(...data.fullTestAnalytics.cefrDistribution.map((x) => x.count), 1);
-                        const pct = maxCefr > 0 ? Math.round((c.count / maxCefr) * 100) : 0;
+                        const pct = fullTestCefrMax > 0 ? Math.round((c.count / fullTestCefrMax) * 100) : 0;
                         return (
                           <div key={c.level} className="flex items-center gap-3">
                             <div
