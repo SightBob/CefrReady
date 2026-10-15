@@ -318,12 +318,16 @@ export default function SetQuizPage() {
   // ปุ่ม "โหมดทบทวน" — ใช้ร่วมกันทุก skill (Form & Meaning / Tap & Select /
   // Listening / Focus on Meaning / Focus on Form) แล้ว capture ก่อนเปิด overlay
   const openReviewMode = useCallback(() => {
-    posthog?.capture('review_mode_opened', {
-      section_id: sectionId,
-      test_set_id: setId,
-    });
+    // โหมด preview ของแอดมินเปิดหน้าจอเดียวกันนี้ — ไม่ใช่การใช้งานของผู้เรียน
+    // ถ้านับรวมจะทำให้ตัวเลข review_mode_opened เพี้ยน
+    if (!previewMode) {
+      posthog?.capture('review_mode_opened', {
+        section_id: sectionId,
+        test_set_id: setId,
+      });
+    }
     setShowTestExplain(true);
-  }, [posthog, sectionId, setId]);
+  }, [posthog, sectionId, setId, previewMode]);
 
   const fetchSet = useCallback(async () => {
     // เปลี่ยนชุด (dropdown) = เริ่มนับเรื่องใหม่ — ไม่งั้นชุดใหม่ที่ใช้ชื่อเรื่อง
