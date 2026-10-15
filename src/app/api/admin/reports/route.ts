@@ -228,30 +228,52 @@ export async function GET(request: NextRequest) {
       else if (r.status === 'resolved') reportsByStatus.resolved = Number(r.count);
     }
 
-    // 6. CEFR level distribution — estimate from avg scores per user
-    const userAvgScores = await db
-      .select({
-        userId: testAttempts.userId,
-        avgScore: sql<number>`ROUND(AVG(CAST(${testAttempts.score} AS NUMERIC)), 1)`,
-      })
-      .from(testAttempts)
-      .groupBy(testAttempts.userId);
+    // 6, 6b, 7 — สาม aggregate ที่ไม่พึ่งผลของกัน รันพร้อมกันได้ (pool มี max: 3)
+    const [userAvgScores, completedAttemptsPerUser, fullTestAttempts] = await Promise.all([
+      // 6. CEFR level distribution — estimate from avg scores per user
+      db
+        .select({
+          userId: testAttempts.userId,
+          avgScore: sql<number>`ROUND(AVG(CAST(${testAttempts.score} AS NUMERIC)), 1)`,
+        })
+        .from(testAttempts)
+        .groupBy(testAttempts.userId),
+
+      // 6b. Attempt-count distribution — completed attempts per user, bucketed
+      db
+        .select({
+          userId: testAttempts.userId,
+          cnt: count(),
+        })
+        .from(testAttempts)
+        .where(sql`${testAttempts.status} = 'completed'`)
+        .groupBy(testAttempts.userId),
+
+      // 7. Full Mock Exam analytics
+      db
+        .select({
+          id: testAttempts.id,
+          userId: testAttempts.userId,
+          score: testAttempts.score,
+          status: testAttempts.status,
+          totalQuestions: testAttempts.totalQuestions,
+          correctAnswers: testAttempts.correctAnswers,
+          timeRemainingSeconds: testAttempts.timeRemainingSeconds,
+          adaptivePath: testAttempts.adaptivePath,
+          currentLevels: testAttempts.currentLevels,
+          startedAt: testAttempts.startedAt,
+          completedAt: testAttempts.completedAt,
+        })
+        .from(testAttempts)
+        .where(sql`${testAttempts.testTypeId} = 'full-test'`)
+        .orderBy(sql`${testAttempts.id} DESC`),
+    ]);
 
     const cefrDist: Record<string, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
     for (const u of userAvgScores) {
       const level = estimateCefrLevel(Number(u.avgScore));
       cefrDist[level] = (cefrDist[level] ?? 0) + 1;
     }
-
-    // 6b. Attempt-count distribution — completed attempts per user, bucketed
-    const completedAttemptsPerUser = await db
-      .select({
-        userId: testAttempts.userId,
-        cnt: count(),
-      })
-      .from(testAttempts)
-      .where(sql`${testAttempts.status} = 'completed'`)
-      .groupBy(testAttempts.userId);
 
     const ATTEMPT_BUCKET_DEFS = [
       { bucket: '0 ครั้ง', test: (n: number) => n === 0 },
@@ -274,25 +296,7 @@ export async function GET(request: NextRequest) {
       count: attemptBucketCounts[i],
     }));
 
-    // 7. Full Mock Exam analytics
-    const fullTestAttempts = await db
-      .select({
-        id: testAttempts.id,
-        userId: testAttempts.userId,
-        score: testAttempts.score,
-        status: testAttempts.status,
-        totalQuestions: testAttempts.totalQuestions,
-        correctAnswers: testAttempts.correctAnswers,
-        timeRemainingSeconds: testAttempts.timeRemainingSeconds,
-        adaptivePath: testAttempts.adaptivePath,
-        currentLevels: testAttempts.currentLevels,
-        startedAt: testAttempts.startedAt,
-        completedAt: testAttempts.completedAt,
-      })
-      .from(testAttempts)
-      .where(sql`${testAttempts.testTypeId} = 'full-test'`)
-      .orderBy(sql`${testAttempts.id} DESC`);
-
+    // 7. Full Mock Exam analytics — query already fetched above
     const totalFullTests = fullTestAttempts.length;
     const completedFullTests = fullTestAttempts.filter((a) => a.status === 'completed');
     const inProgressFullTests = fullTestAttempts.filter((a) => a.status === 'in_progress').length;

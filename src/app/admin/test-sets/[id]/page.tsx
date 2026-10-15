@@ -160,13 +160,33 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // ความผูก explain ↔ ชุดนี้ — แยก request และกลืน error ไว้ เพราะหน้าที่หลัก
+      // (ข้อสอบในชุด) ต้องเปิดได้แม้ endpoint นี้ล่ม
+      // ยิงพร้อมกับชุดข้อสอบได้เพราะไม่ขึ้นกับ sectionId — เดิมรอผลชุดข้อสอบ
+      // ก่อนจึงเสีย 1 round-trip ทุกครั้งที่เปิดหน้านี้
+      const explainsRequest = (async () => {
+        try {
+          const explainsRes = await fetch('/api/admin/test-explains');
+          if (explainsRes.ok) {
+            const explainsJson = await explainsRes.json();
+            if (explainsJson.success) {
+              setTopicExplains(Object.fromEntries(
+                (explainsJson.data as TopicExplainRow[]).map((row) => [normalizeTopic(row.grammarTopic), row]),
+              ));
+            }
+          }
+        } catch {
+          setTopicExplains({});
+        }
+      })();
+
       const res = await fetch(`/api/admin/test-sets/${setId}`);
       if (res.ok) {
         const json = await res.json();
         setTestSet(json.data);
         setQuestions(json.data.questions || []);
 
-        // Get section info
+        // Get section info — ต้องรอ sectionId จากชุดข้อสอบ จึงยังเรียงตามหลัง
         const sectionRes = await fetch('/api/admin/test-types');
         if (sectionRes.ok) {
           const sections = await sectionRes.json();
@@ -174,21 +194,8 @@ export default function TestSetDetailPage(props: { params: Promise<{ id: string 
           setSection(sec || null);
         }
       }
-      // ความผูก explain ↔ ชุดนี้ — แยก request และกลืน error ไว้ เพราะหน้าที่หลัก
-      // (ข้อสอบในชุด) ต้องเปิดได้แม้ endpoint นี้ล่ม
-      try {
-        const explainsRes = await fetch('/api/admin/test-explains');
-        if (explainsRes.ok) {
-          const explainsJson = await explainsRes.json();
-          if (explainsJson.success) {
-            setTopicExplains(Object.fromEntries(
-              (explainsJson.data as TopicExplainRow[]).map((row) => [normalizeTopic(row.grammarTopic), row]),
-            ));
-          }
-        }
-      } catch {
-        setTopicExplains({});
-      }
+
+      await explainsRequest;
     } finally {
       setLoading(false);
     }
