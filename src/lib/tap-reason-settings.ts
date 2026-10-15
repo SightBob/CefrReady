@@ -25,14 +25,18 @@ export const tapReasonRewardSettingsSchema = z.object({
     .max(MAX_TAP_REASON_POINTS, `คะแนนต้องไม่เกิน ${MAX_TAP_REASON_POINTS}`),
 }).strict();
 
+// Upstash REST client เป็น stateless HTTP wrapper — สร้างครั้งเดียวพอ (แบบเดียวกับ rate-limit.ts)
+let redis: Redis | null = null;
+
 function getRedis() {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
     throw new Error('Reward settings storage is not configured');
   }
-  return new Redis({
+  redis ??= new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
   });
+  return redis;
 }
 
 /** อ่านค่าที่แอดมินตั้งไว้ (ไม่มีคีย์ = ค่าเริ่มต้น) — throw เมื่อที่เก็บใช้ไม่ได้ */

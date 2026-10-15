@@ -3,14 +3,18 @@ import { DEFAULT_TAP_AI_SETTINGS, tapAiSettingsSchema, type TapAiSettings } from
 
 const SETTINGS_KEY = 'ai:tap-select:settings';
 
+// Upstash REST client เป็น stateless HTTP wrapper — สร้างครั้งเดียวพอ (แบบเดียวกับ rate-limit.ts)
+let redis: Redis | null = null;
+
 function getRedis() {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
     throw new Error('AI settings storage is not configured');
   }
-  return new Redis({
+  redis ??= new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
   });
+  return redis;
 }
 
 export async function getTapAiSettings(): Promise<TapAiSettings> {
