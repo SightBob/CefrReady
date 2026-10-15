@@ -9,13 +9,14 @@ async function cleanupTables() {
     // Drop legacy/unused tables (singular forms and unused tables)
     console.log('🗑️  Dropping legacy tables...');
 
+    // Drop legacy tables that no longer exist in the schema. `user_answers` is
+    // NOT here: it is still written by tests/submit and full-test/submit-attempt
+    // and read by admin/stats, admin/reports and tests/attempts.
     const tablesToDrop = [
       'account',              // Old singular (use 'accounts')
       'session',              // Old singular (use 'sessions')
       'user',                 // Old singular (use 'users')
       'verification_token',   // Old singular (use 'verification_tokens')
-      'user_answers',         // Not used in current schema
-      'test_sessions',        // Not used in current schema
     ];
 
     for (const table of tablesToDrop) {
