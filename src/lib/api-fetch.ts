@@ -25,19 +25,3 @@ export async function apiFetch(url: string, options?: RequestInit): Promise<Resp
   }
   return res;
 }
-
-export function handleApiError(err: unknown, fallbackMessage: string, router?: { push: (url: string) => void }, redirectPath?: string): void {
-  if (err instanceof ApiError) {
-    if (err.status === 401) {
-      if (router && redirectPath) {
-        router.push(redirectPath);
-      }
-      return;
-    }
-    if (err.status === 429) {
-      const secs = err.message.split(':')[1] || '60';
-      throw new Error(`ระบบทำงานช้า กรุณารอ ${secs} วินาทีแล้วลองใหม่`);
-    }
-  }
-  throw err instanceof Error ? err : new Error(fallbackMessage);
-}
