@@ -226,9 +226,15 @@ export default function QuestionsManagement() {
     fetchQuestions();
   }, [fetchQuestions]);
 
-  useEffect(() => {
+  // รีเซ็ตกลับหน้า 1 เมื่อตัวกรองเปลี่ยน — ปรับ state ระหว่าง render (รูปแบบที่ React แนะนำ)
+  // เดิมใช้ useEffect ซึ่งทำให้เมื่ออยู่หน้า 2+ แล้วเปลี่ยนฟิลเตอร์ จะยิงข้อมูล 2 รอบ
+  // (หน้าเดิมก่อน แล้วค่อยกลับมาหน้า 1) ตอนนี้ fetchQuestions เห็นค่าสุดท้ายเสมอ
+  const filterSignature = [selectedTestType, selectedDifficulty, selectedCefr, selectedTestSet, debouncedSearch, demoOnly, sortId, pageSize].join('|');
+  const [lastFilterSignature, setLastFilterSignature] = useState(filterSignature);
+  if (lastFilterSignature !== filterSignature) {
+    setLastFilterSignature(filterSignature);
     setCurrentPage(1);
-  }, [selectedTestType, selectedDifficulty, selectedCefr, selectedTestSet, debouncedSearch, demoOnly, sortId, pageSize]);
+  }
 
   const handleExportCSV = async () => {
     try {
