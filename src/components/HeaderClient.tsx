@@ -77,6 +77,14 @@ export default function HeaderClient() {
     ? [...NAV_ITEMS, { href: '/admin', label: 'แอดมิน' }]
     : NAV_ITEMS;
 
+  // ยังไม่ได้ login → ส่งไป flow ทดลองเล่นแทน เพราะการทำข้อสอบจริงต้องมีสมาชิก
+  // ระหว่างที่ session ยังโหลดไม่เสร็จ ใช้ลิงก์เดิมไว้ก่อน (พฤติกรรมเดิม ไม่ถอยหลัง)
+  const menuItems = navItems.map((item) =>
+    item.href === '/tests' && !isLoadingSession && !session?.user
+      ? { ...item, href: '/demo/intro' }
+      : item
+  );
+
   const isHome = pathname === '/';
 
   // Close profile dropdown on click outside
@@ -237,7 +245,7 @@ export default function HeaderClient() {
         {/* Center: nav links */}
         {/* Figma 249:3558 — 4 ช่อง 114 ชิดกัน รวม 456px */}
         <nav className="hidden min-[992px]:flex items-center gap-[40px]" aria-label="เมนูหลัก">
-          {navItems.map(({ href, label }) => (
+          {menuItems.map(({ href, label }) => (
             <Link
               key={label}
               href={href}
@@ -341,7 +349,7 @@ export default function HeaderClient() {
           aria-label="เมนูหลัก (มือถือ)"
         >
           <div className="flex flex-col gap-1">
-  {navItems.map(({ href, label }) => (
+  {menuItems.map(({ href, label }) => (
     <Link
       key={label}
       href={href}
