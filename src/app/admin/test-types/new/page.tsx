@@ -52,7 +52,7 @@ export default function NewTestTypePage() {
         const data = await response.json();
         setError(data.error || 'เกิดข้อผิดพลาดในการสร้างประเภทข้อสอบ');
       }
-    } catch (err) {
+    } catch {
       setError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
     } finally {
       setSaving(false);

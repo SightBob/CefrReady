@@ -164,15 +164,6 @@ export default function EditQuestion() {
       return;
     }
 
-    // if (isTapExercise && (
-    //   !formData.tapExercise?.title.trim()
-    //   || formData.tapExercise.items.length === 0
-    //   || formData.tapExercise.items.some(item => !item.prompt.trim() || !item.choiceA.trim() || !item.choiceB.trim())
-    // )) {
-    //   toast.error('กรุณากรอกชื่อกิจกรรมและข้อมูล item ให้ครบ');
-    //   return;
-    // }
-
     if (isMcq) {
       if (!formData.optionA || !formData.optionB || !formData.optionC || !formData.correctAnswer) {
         toast.error('กรุณากรอกตัวเลือก A, B, C และคำตอบที่ถูกต้อง');
