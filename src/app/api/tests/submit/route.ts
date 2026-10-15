@@ -96,11 +96,7 @@ async function submitRequest(request: NextRequest) {
   const questionIds = [...new Set(answers.map((a: { questionId: number }) => a.questionId))];
   if (questionIds.length !== answers.length) return NextResponse.json({ success: false, error: 'Duplicate question IDs' }, { status: 400 });
   if (preview && !(await isAdminRequest())) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  let dbQuestions = await db
-    .select()
-    .from(questions)
-    .where(and(eq(questions.testTypeId, testTypeId), inArray(questions.id, questionIds)));
-
+  let dbQuestions: (typeof questions.$inferSelect)[];
   if (testSetId !== undefined) {
     const [set] = await db.select().from(testSets).where(and(eq(testSets.id, testSetId), eq(testSets.sectionId, testTypeId), eq(testSets.isActive, true))).limit(1);
     if (!set) return NextResponse.json({ success: false, error: 'Invalid test set' }, { status: 400 });
@@ -108,6 +104,13 @@ async function submitRequest(request: NextRequest) {
       .innerJoin(questions, eq(questions.id, testSetQuestions.questionId))
       .where(eq(testSetQuestions.testSetId, testSetId)).orderBy(asc(testSetQuestions.orderIndex));
     dbQuestions = rows.map((row) => row.question);
+  } else {
+    // Authored set path above already returns the set's own question list, so this
+    // lookup only runs for demo submissions (every real submission requires a set).
+    dbQuestions = await db
+      .select()
+      .from(questions)
+      .where(and(eq(questions.testTypeId, testTypeId), inArray(questions.id, questionIds)));
   }
   if (!preview) dbQuestions = filterQuestionsForLearners(dbQuestions);
   if (!dbQuestions.length || questionIds.some((id) => !dbQuestions.some((question) => question.id === id))) {

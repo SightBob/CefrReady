@@ -103,7 +103,7 @@ beforeEach(() => {
   mocks.currentUser.mockResolvedValue({ id: 'learner' });
   mocks.settings.mockResolvedValue({ autoAward: true, points: 50 });
   mocks.select.mockReset();
-  mocks.select.mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
+  mocks.select.mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
   mocks.insert.mockReset().mockImplementation(() => insertChain());
   mocks.execute.mockReset().mockResolvedValue(undefined);
   mocks.transaction.mockImplementation(async (callback) => callback({ insert: mocks.insert, execute: mocks.execute, select: mocks.select }));
@@ -144,7 +144,7 @@ describe('submission integrity', () => {
     try {
       expect((await POST(request())).status).toBe(500);
       expect(committed).toBe(false);
-      mocks.select.mockReset().mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
+      mocks.select.mockReset().mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
       expect((await POST(request())).status).toBe(200);
     } finally { log.mockRestore(); }
   });
@@ -158,12 +158,13 @@ describe('submission integrity', () => {
       chain.values.mockImplementation((value) => { if (table === testAttempts) saved = value; return values(value); });
       return chain;
     });
-    const empty = { from: () => empty, where: () => empty, limit: async () => [] };
-    mocks.select.mockReturnValueOnce(empty);
+    // No attempt matches this startedAt yet — the first submission must create one.
+    const noAttemptYet = { from: () => noAttemptYet, where: () => noAttemptYet, limit: async () => [] };
+    mocks.select.mockReturnValueOnce(noAttemptYet);
     expect((await POST(request({ startedAt }))).status).toBe(200);
     const writes = mocks.insert.mock.calls.length;
     const existing = { from: () => existing, where: () => existing, limit: async () => [{ ...saved, id: 55 }] };
-    mocks.select.mockReset().mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(existing);
+    mocks.select.mockReset().mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(existing);
     const retry = await POST(request({ startedAt }));
     expect((await retry.json()).data.attemptId).toBe(55);
     expect(mocks.insert).toHaveBeenCalledTimes(writes);
@@ -175,7 +176,7 @@ describe('submission integrity', () => {
       { question: { id: 1, testTypeId: 'focus-form', correctAnswer: 'A', explanation: null } },
       { question: { id: 2, testTypeId: 'focus-form', correctAnswer: 'B', explanation: null } },
     ]);
-    mocks.select.mockReset().mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(chain).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(testTypeChain());
+    mocks.select.mockReset().mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(chain).mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(testTypeChain());
     const response = await POST(request({ testSetId: 20, answers: [{ questionId: 1, selectedAnswer: 'A' }], tapReasons: {} }));
     expect(response.status).toBe(200);
     expect((await response.json()).data).toMatchObject({ score: 50, totalQuestions: 2, correctAnswers: 1 });
@@ -204,8 +205,8 @@ describe('POST /api/tests/submit — Tap & Select reward points', () => {
   it('scores every reason with the same flat score, however many were written', async () => {
     mocks.select.mockReset();
     mocks.select
-      .mockReturnValueOnce(questionsChain())
-      .mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
+      .mockReturnValueOnce(testTypeChain())
+      .mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
     mocks.settings.mockResolvedValue({ autoAward: true, points: 7 });
 
     const response = await POST(
