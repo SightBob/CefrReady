@@ -214,11 +214,17 @@ export default function QuestionsManagement() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // ตัวเลือกในฟิลเตอร์ (ชนิดข้อสอบ / ชุดข้อสอบ) ไม่ขึ้นกับตัวกรองของตาราง — โหลดครั้งเดียว
+  // เดิม effect เดียวผูกทั้งสาม fetcher ทำให้เปลี่ยนหน้าหรือพิมพ์ค้นหาแล้วดึงชุดข้อมูล
+  // เดิมใหม่ทั้งคู่ (ทั้งสอง route เป็น force-dynamic) ทุกครั้ง
   useEffect(() => {
     fetchTestTypes();
     fetchTestSets();
+  }, [fetchTestTypes, fetchTestSets]);
+
+  useEffect(() => {
     fetchQuestions();
-  }, [fetchTestTypes, fetchTestSets, fetchQuestions]);
+  }, [fetchQuestions]);
 
   useEffect(() => {
     setCurrentPage(1);
