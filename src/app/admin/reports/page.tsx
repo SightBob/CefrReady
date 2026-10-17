@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { QuestionAnalytics } from '@/components/admin/QuestionAnalytics';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
+import LoadError from '@/components/admin/LoadError';
+import { fetchAdminJson } from '@/lib/admin-fetch';
 
 interface ReportData {
   overview: {
@@ -119,19 +121,19 @@ const ATTEMPT_BUCKET_COLORS = [
 export default function AdminReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch('/api/admin/reports');
-      const json = await res.json();
-      if (json.success) {
-        setData(json.data);
-        setLastUpdated(new Date());
-      }
+      const result = await fetchAdminJson<ReportData>('/api/admin/reports');
+      setData(result);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error('Failed to fetch reports:', err);
+      setError(err instanceof Error ? err.message : 'ไม่สามารถโหลดรายงานได้');
     } finally {
       setLoading(false);
     }
@@ -198,7 +200,7 @@ export default function AdminReportsPage() {
             <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
           </div>
         ) : !data ? (
-          <div className="text-center py-20 text-slate-500">ไม่สามารถโหลดข้อมูลได้</div>
+          <LoadError message={error ?? 'ไม่สามารถโหลดข้อมูลได้'} onRetry={fetchData} />
         ) : (
           <div className="space-y-6">
 

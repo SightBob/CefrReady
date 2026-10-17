@@ -33,9 +33,11 @@ export async function GET(req: NextRequest) {
       .where(status !== 'all' ? eq(questionReports.status, status) : undefined)
       .orderBy(desc(questionReports.createdAt));
 
-    return NextResponse.json(rows);
+    // ให้รูปแบบเดียวกับ admin endpoint อื่น ๆ (เดิมคืน array เปล่า ๆ
+    // ทำให้ฝั่งหน้าแยกไม่ออกว่า error หรือไม่มีข้อมูล)
+    return NextResponse.json({ success: true, data: rows });
   } catch (err) {
     console.error('[GET /api/admin/question-reports] error:', err);
-    return NextResponse.json({ error: 'Failed to fetch reports' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to fetch reports' }, { status: 500 });
   }
 }

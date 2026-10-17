@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import LoadError from '@/components/admin/LoadError';
+import { fetchAdminJson } from '@/lib/admin-fetch';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -44,17 +46,17 @@ export default function AdminQuestionReportsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchReports = async (statusFilter: string) => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/admin/question-reports?status=${statusFilter}`);
-      if (res.ok) {
-        const data = await res.json();
-        setReports(data);
-      }
+      const data = await fetchAdminJson<QuestionReport[]>(`/api/admin/question-reports?status=${statusFilter}`);
+      setReports(data);
     } catch (err) {
       console.error('Failed to fetch:', err);
+      setError(err instanceof Error ? err.message : 'ไม่สามารถโหลดรายงานปัญหาข้อสอบได้');
     } finally {
       setLoading(false);
     }
@@ -165,6 +167,8 @@ export default function AdminQuestionReportsPage() {
           <div className="flex justify-center py-24">
             <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
           </div>
+        ) : error ? (
+          <LoadError message={error} onRetry={() => fetchReports(filter)} />
         ) : reports.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-sm">
             <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">

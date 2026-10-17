@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, RefreshCw, Database } from 'lucide-react';
 import { QuestionPoolCoverageMatrix } from '@/components/admin/QuestionPoolCoverageMatrix';
+import LoadError from '@/components/admin/LoadError';
+import { fetchAdminJson } from '@/lib/admin-fetch';
 import { SelectionModeChart } from '@/components/admin/SelectionModeChart';
 import { ReachedLevelChart } from '@/components/admin/ReachedLevelChart';
 import type { CefrLevel } from '@/lib/full-test/constants';
@@ -44,19 +46,19 @@ interface QuestionPoolData {
 export default function QuestionPoolPage() {
   const [data, setData] = useState<QuestionPoolData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch('/api/admin/question-pool');
-      const json = await res.json();
-      if (json.success) {
-        setData(json.data);
-        setLastUpdated(new Date());
-      }
+      const result = await fetchAdminJson<QuestionPoolData>('/api/admin/question-pool');
+      setData(result);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error('Failed to fetch question pool data:', err);
+      setError(err instanceof Error ? err.message : 'ไม่สามารถโหลดข้อมูลคลังข้อสอบได้');
     } finally {
       setLoading(false);
     }
@@ -116,9 +118,7 @@ export default function QuestionPoolPage() {
             <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
           </div>
         ) : !data ? (
-          <div className="text-center py-20 text-slate-500">
-            ไม่สามารถโหลดข้อมูลได้
-          </div>
+          <LoadError message={error ?? 'ไม่สามารถโหลดข้อมูลได้'} onRetry={fetchData} />
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
