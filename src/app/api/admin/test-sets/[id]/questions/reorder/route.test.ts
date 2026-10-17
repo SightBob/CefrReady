@@ -25,6 +25,10 @@ const h = vi.hoisted(() => {
     updates: [] as { tbl: string | null; set: unknown }[],
     setIds: [] as number[],
     existingAssignmentIds: [] as number[],
+    /** จำนวน transaction ที่เปิด และจำนวน update ที่หลุดออกมานอก transaction */
+    transactions: 0,
+    updatesOutsideTransaction: 0,
+    depth: 0,
   };
 
   function resolve(ops: string[], tbl: string | null): unknown {
@@ -44,7 +48,10 @@ const h = vi.hoisted(() => {
       get(_t: unknown, prop: string | symbol) {
         if (prop === 'then') {
           return (res: (v: unknown) => void) => {
-            if (ops[0] === 'update') state.updates.push({ tbl, set: setValues as Record<string, unknown> });
+            if (ops[0] === 'update') {
+              state.updates.push({ tbl, set: setValues as Record<string, unknown> });
+              if (state.depth === 0) state.updatesOutsideTransaction++;
+            }
             res(resolve(ops, tbl));
           };
         }
@@ -67,7 +74,15 @@ const h = vi.hoisted(() => {
     get(_t, prop: string | symbol) {
       if (prop === 'then') return undefined;
       if (prop === 'transaction') {
-        return async (fn: (t: unknown) => Promise<unknown>) => fn(db);
+        return async (fn: (t: unknown) => Promise<unknown>) => {
+          state.transactions++;
+          state.depth++;
+          try {
+            return await fn(db);
+          } finally {
+            state.depth--;
+          }
+        };
       }
       return (...args: unknown[]) =>
         mk([String(prop)], ['from', 'insert', 'update'].includes(String(prop))
@@ -133,5 +148,15 @@ describe('PUT /api/admin/test-sets/[id]/questions/reorder', () => {
     const { body } = await run([10], [10, 20]);
     expect(body.success).toBe(false);
     expect(h.state.updates).toHaveLength(0);
+  });
+
+  it('ทั้งสองขั้นอยู่ใน transaction เดียวกัน', async () => {
+    h.state.transactions = 0;
+    h.state.updatesOutsideTransaction = 0;
+    await run([10, 20, 30], [10, 20, 30]);
+    // เลื่อนเป็น -id และเขียนค่าจริง ต้องอยู่ใน transaction เดียวกัน
+    // ถ้าหลุดออกมาข้างนอก ขั้นที่สองจะชน unique index ของขั้นที่หนึ่ง
+    expect(h.state.transactions).toBe(1);
+    expect(h.state.updatesOutsideTransaction).toBe(0);
   });
 });
