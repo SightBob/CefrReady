@@ -38,6 +38,7 @@
   "exclude": [
     "node_modules",
     "unlighthouse.config.ts",
-    "scripts/tmp-*.ts"
+    "scripts/tmp-*.ts",
+    ".next/dev/**"
   ]
 }
