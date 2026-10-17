@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testSetQuestions, questions, testSets } from '@/db/schema';
-import { eq, asc, count as drizzleCount } from 'drizzle-orm';
+import { eq, asc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -31,30 +31,23 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     const [set] = await db.select().from(testSets).where(eq(testSets.id, setId)).limit(1);
     if (!set) return NextResponse.json({ success: false, error: 'Set not found' }, { status: 404 });
 
-    // Get current max orderIndex
-    const [countRow] = await db
-      .select({ cnt: drizzleCount() })
+    // จุดเริ่มของ orderIndex ต้องเป็น max ไม่ใช่ count — count ผิดเมื่อชุดมีช่องว่าง
+    // และ migration 0044 บังคับ unique (test_set_id, order_index) แล้ว
+    const [maxRow] = await db
+      .select({ maxOrder: sql<number | null>`max(${testSetQuestions.orderIndex})` })
       .from(testSetQuestions)
       .where(eq(testSetQuestions.testSetId, setId));
+    const startOrder = (maxRow?.maxOrder ?? -1) + 1;
 
-    let nextOrder = countRow?.cnt ?? 0;
+    // insert ทีเดียวทั้งชุด — เดิมยิงทีละแถวใน loop
+    const inserted = await db
+      .insert(testSetQuestions)
+      .values(questionIds.map((qId, i) => ({ testSetId: setId, questionId: qId, orderIndex: startOrder + i })))
+      .onConflictDoNothing()
+      .returning();
 
-    const inserted: Array<{ testSetId: number; questionId: number; orderIndex: number }> = [];
-    const skipped: number[] = [];
-
-    for (const qId of questionIds) {
-      const [row] = await db
-        .insert(testSetQuestions)
-        .values({ testSetId: setId, questionId: qId, orderIndex: nextOrder })
-        .onConflictDoNothing()
-        .returning();
-      if (row) {
-        inserted.push(row);
-        nextOrder++;
-      } else {
-        skipped.push(qId);
-      }
-    }
+    const insertedQuestionIds = new Set(inserted.map((r) => r.questionId));
+    const skipped = questionIds.filter((qId) => !insertedQuestionIds.has(qId));
 
     return NextResponse.json({
       success: true,

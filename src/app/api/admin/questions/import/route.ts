@@ -39,6 +39,9 @@ const CSV_COLUMNS = [
 
 const MAX_ERROR_MESSAGES = 100;
 
+// จำนวนแถวสูงสุดต่อ statement INSERT (PostgreSQL จำกัด bind parameter)
+const INSERT_CHUNK_SIZE = 200;
+
 function snippet(value: string | null | undefined, max = 60): string {
   const s = (value ?? '').replace(/\s+/g, ' ').trim();
   return s.length > max ? `${s.slice(0, max)}…` : s;
@@ -480,6 +483,90 @@ export function allocateOrderIndex(
   return current;
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * จัดข้อสอบที่เพิ่ง insert เข้าชุด (ถ้า CSV ระบุ testSetId)
+ *
+ * เดิม loop ยิง 2 query ต่อแถว (เช็คชุดมีอยู่ไหม + เช็คข้อนี้อยู่ในชุดแล้วไหม)
+ * → import N แถว = O(N) round trip ตอนนี้ preload ทั้งหมด 3 query ก่อน loop
+ * แล้ววนเฉพาะในหน่วยความจำ
+ *
+ * @returns จำนวนข้อที่จัดเข้าชุดสำเร็จ
+ */
+async function assignQuestionsToTestSets(
+  tx: Tx,
+  rows: Record<string, string>[],
+  skipRows: Set<number>,
+  insertedByOriginalIndex: Map<number, { id: number }>,
+  allWarnings: string[],
+  rowNo: (idx: number) => number,
+): Promise<number> {
+  const assignments: (typeof testSetQuestions.$inferInsert)[] = [];
+
+  const targetSetIds = Array.from(
+    new Set(
+      rows
+        .filter((r, i) => !skipRows.has(i) && r.testSetId?.trim())
+        .map((r) => parseInt((r.testSetId as string).trim()))
+        .filter((id) => !isNaN(id))
+    )
+  );
+  if (targetSetIds.length === 0) return 0;
+
+  const insertedIds = Array.from(insertedByOriginalIndex.values(), (q) => q.id);
+  const existingSetIds = new Set<number>();
+  const maxOrderBySetId = new Map<number, number | null>();
+  const existingPairs = new Set<string>();
+
+  const [setRows, maxOrderRows, pairRows] = await Promise.all([
+    tx.select({ id: testSets.id }).from(testSets).where(inArray(testSets.id, targetSetIds)),
+    tx
+      .select({
+        testSetId: testSetQuestions.testSetId,
+        maxOrder: sql<number | null>`max(${testSetQuestions.orderIndex})`,
+      })
+      .from(testSetQuestions)
+      .where(inArray(testSetQuestions.testSetId, targetSetIds))
+      .groupBy(testSetQuestions.testSetId),
+    // เฉพาะข้อที่เพิ่ง insert — คู่ (setId, questionId) ที่มีอยู่แล้ว
+    tx
+      .select({ testSetId: testSetQuestions.testSetId, questionId: testSetQuestions.questionId })
+      .from(testSetQuestions)
+      .where(inArray(testSetQuestions.questionId, insertedIds)),
+  ]);
+  for (const r of setRows) existingSetIds.add(r.id);
+  for (const r of maxOrderRows) maxOrderBySetId.set(r.testSetId, r.maxOrder);
+  for (const r of pairRows) existingPairs.add(`${r.testSetId}:${r.questionId}`);
+
+  const nextOrderBySetId = new Map<number, number>();
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (skipRows.has(i)) continue;
+
+    if (row.testSetId?.trim()) {
+      const setId = parseInt(row.testSetId.trim());
+      const insertedQ = insertedByOriginalIndex.get(i);
+      if (!isNaN(setId) && insertedQ) {
+        if (existingSetIds.has(setId)) {
+          if (!existingPairs.has(`${setId}:${insertedQ.id}`)) {
+            const orderIndex = allocateOrderIndex(nextOrderBySetId, setId, maxOrderBySetId.get(setId) ?? null);
+            assignments.push({ questionId: insertedQ.id, testSetId: setId, orderIndex });
+          }
+        } else {
+          allWarnings.push(`Row ${rowNo(i)}: testSetId ${setId} ไม่มีอยู่ในระบบ — ข้อสอบถูกนำเข้าแล้วแต่ไม่ได้จัดเข้าชุด`);
+        }
+      }
+    }
+  }
+
+  // ทยอยก้อนละไม่เกิน 200 แถว — PostgreSQL จำกัดจำนวน bind parameter ต่อ statement
+  for (let i = 0; i < assignments.length; i += INSERT_CHUNK_SIZE) {
+    await tx.insert(testSetQuestions).values(assignments.slice(i, i + INSERT_CHUNK_SIZE));
+  }
+  return assignments.length;
+}
+
 export async function POST(request: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
@@ -669,9 +756,29 @@ export async function POST(request: NextRequest) {
 
     // ── Actual import ──────────────────────────────────────────────────
     const insertPayload = questionsToInsert.map(({ _originalIndex: _idx, ...rest }) => rest);
-    let inserted;
+    let inserted: (typeof questions.$inferSelect)[];
+    let assignedCount = 0;
     try {
-      inserted = await db.insert(questions).values(insertPayload).returning();
+      // transaction เดียว: ถ้า insert ข้อสอบสำเร็จ แต่จัดเข้าชุดพัง
+      // ต้อง rollback ข้อสอบด้วย ไม่ใช่เหลือข้อค้างในคลังโดยไม่อยู่ในชุดไหน
+      inserted = await db.transaction(async (tx) => {
+        const insertedRows = await tx.insert(questions).values(insertPayload).returning();
+
+        const insertedByOriginalIndex = new Map<number, (typeof insertedRows)[0]>();
+        questionsToInsert.forEach((q, insertIdx) => {
+          insertedByOriginalIndex.set(q._originalIndex, insertedRows[insertIdx]);
+        });
+
+        assignedCount = await assignQuestionsToTestSets(
+          tx,
+          rows,
+          skipRows,
+          insertedByOriginalIndex,
+          allWarnings,
+          rowNo,
+        );
+        return insertedRows;
+      });
     } catch (err) {
       // Surface the actual DB rejection — admin-only endpoint, so exposing
       // pg error code/detail is safe and saves a trip to the server logs.
@@ -697,70 +804,6 @@ export async function POST(request: NextRequest) {
         errors: ['บันทึกลงฐานข้อมูลไม่สำเร็จ — ฐานข้อมูลปฏิเสธคำสั่ง INSERT (ข้อมูลยังไม่ถูกบันทึกแถวใดเลย)', ...details],
         warnings: [],
       }, { status: 500 });
-    }
-
-    // Map inserted rows back to original row indices for test-set assignment
-    const insertedByOriginalIndex = new Map<number, typeof inserted[0]>();
-    questionsToInsert.forEach((q, insertIdx) => {
-      insertedByOriginalIndex.set(q._originalIndex, inserted[insertIdx]);
-    });
-
-    // Auto-assign to test sets if testSetId is provided
-    let assignedCount = 0;
-    const assignments: (typeof testSetQuestions.$inferInsert)[] = [];
-
-    // โหลด orderIndex สูงสุดของทุกชุดที่จะถูกเติม ครั้งเดียวก่อน loop
-    const targetSetIds = Array.from(
-      new Set(
-        rows
-          .filter((r, i) => !skipRows.has(i) && r.testSetId?.trim())
-          .map((r) => parseInt((r.testSetId as string).trim()))
-          .filter((id) => !isNaN(id))
-      )
-    );
-    const maxOrderBySetId = new Map<number, number | null>();
-    if (targetSetIds.length > 0) {
-      const maxOrderRows = await db
-        .select({
-          testSetId: testSetQuestions.testSetId,
-          maxOrder: sql<number | null>`max(${testSetQuestions.orderIndex})`,
-        })
-        .from(testSetQuestions)
-        .where(inArray(testSetQuestions.testSetId, targetSetIds))
-        .groupBy(testSetQuestions.testSetId);
-      for (const row of maxOrderRows) maxOrderBySetId.set(row.testSetId, row.maxOrder);
-    }
-    const nextOrderBySetId = new Map<number, number>();
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      if (skipRows.has(i)) continue;
-
-      if (row.testSetId?.trim()) {
-        const setId = parseInt(row.testSetId.trim());
-        const insertedQ = insertedByOriginalIndex.get(i);
-        if (!isNaN(setId) && insertedQ) {
-          const [set] = await db.select().from(testSets).where(eq(testSets.id, setId)).limit(1);
-          if (set) {
-            const [existing] = await db.select()
-              .from(testSetQuestions)
-              .where(and(eq(testSetQuestions.testSetId, setId), eq(testSetQuestions.questionId, insertedQ.id)));
-
-            if (!existing) {
-              const orderIndex = allocateOrderIndex(nextOrderBySetId, setId, maxOrderBySetId.get(setId) ?? null);
-
-              assignments.push({ questionId: insertedQ.id, testSetId: setId, orderIndex });
-            }
-          } else {
-            allWarnings.push(`Row ${rowNo(i)}: testSetId ${setId} ไม่มีอยู่ในระบบ — ข้อสอบถูกนำเข้าแล้วแต่ไม่ได้จัดเข้าชุด`);
-          }
-        }
-      }
-    }
-
-    if (assignments.length > 0) {
-      await db.insert(testSetQuestions).values(assignments);
-      assignedCount = assignments.length;
     }
 
     // มีข้อใหม่เข้าคลังจริงเท่านั้นจึงล้าง cache (mirror ของ verb-banks import)
