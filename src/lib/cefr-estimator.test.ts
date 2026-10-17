@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   SKILL_OUTCOME_MESSAGES,
   estimateCefrLevel,
@@ -19,6 +21,34 @@ describe('estimateCefrLevel', () => {
     expect(estimateCefrLevel(38)).toBe('A2');
     expect(estimateCefrLevel(37)).toBe('A1');
     expect(estimateCefrLevel(0)).toBe('A1');
+  });
+
+  // ช่วงที่ local copy ใน admin/reports เคยให้ผลต่างออกไป
+  // (local ใช้ A2≥40 / B1≥60 / B2≥70 / C1≥80)
+  it('ช่วงที่เคยขัดกันระหว่างกราฟกับตารางในหน้า admin reports', () => {
+    // local ให้ A2 — lib ให้ B1
+    expect(estimateCefrLevel(55)).toBe('B1');
+    expect(estimateCefrLevel(59)).toBe('B1');
+    // local ให้ B1 — lib ให้ B2
+    expect(estimateCefrLevel(65)).toBe('B2');
+    expect(estimateCefrLevel(69)).toBe('B2');
+    // local ให้ B2 — lib ให้ C1
+    expect(estimateCefrLevel(78)).toBe('C1');
+    expect(estimateCefrLevel(79)).toBe('C1');
+    // local ให้ A1 — lib ให้ A2
+    expect(estimateCefrLevel(38)).toBe('A2');
+    expect(estimateCefrLevel(39)).toBe('A2');
+    expect(estimateCefrLevel(40)).toBe('A2');
+  });
+
+  it('หน้า admin/reports ต้องไม่มี local copy ของ threshold แล้ว', () => {
+    const src = readFileSync(
+      join(process.cwd(), 'src/app/admin/reports/page.tsx'),
+      'utf8'
+    );
+    // ถ้ามี local copy กลับมา ตัวเลขบนกราฟจะขัดกับตารางอีก
+    expect(src).not.toMatch(/function estimateCefrLevel/);
+    expect(src).toContain("from '@/lib/cefr-estimator'");
   });
 });
 

@@ -11,6 +11,7 @@ import {
   PlayCircle,
 } from 'lucide-react';
 import { QuestionAnalytics } from '@/components/admin/QuestionAnalytics';
+import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 interface ReportData {
   overview: {
@@ -111,14 +112,9 @@ const ATTEMPT_BUCKET_COLORS = [
   '#94A3B8', '#60A5FA', '#34D399', '#10B981', '#059669', '#047857', '#065F46',
 ];
 
-function estimateCefrLevel(score: number): string {
-  if (score >= 90) return 'C2';
-  if (score >= 80) return 'C1';
-  if (score >= 70) return 'B2';
-  if (score >= 60) return 'B1';
-  if (score >= 40) return 'A2';
-  return 'A1';
-}
+// threshold CEFR มีที่เดียวเดียว: '@/lib/cefr-estimator'
+// (เดิมหน้านี้มี local copy ที่ใช้ A2≥40 / B1≥60 ทำให้ตัวเลขบนกราฟ
+//  ขัดกับตาราง top performers ในหน้าเดียวกัน)
 
 export default function AdminReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
