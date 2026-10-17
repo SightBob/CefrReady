@@ -3,13 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Trophy } from '@phosphor-icons/react';
 import type { CefrLevel } from '@/lib/cefr-estimator';
-import { CEFR_GRADIENT, CEFR_DESCRIPTIONS, SCORE_RANGES } from '@/lib/cefr-estimator';
+import { CEFR_GRADIENT, CEFR_DESCRIPTIONS, CEFR_MIN_SCORES, SCORE_RANGES } from '@/lib/cefr-estimator';
 
 const CEFR_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
-
-const CEFR_THRESHOLDS: Record<string, number> = {
-  A1: 38, A2: 52, B1: 65, B2: 78, C1: 90, C2: 101,
-};
 
 interface CefrLevelBannerProps {
   level: CefrLevel;
@@ -101,9 +97,10 @@ export default React.memo(function CefrLevelBanner({
 }: CefrLevelBannerProps) {
   const idx = CEFR_ORDER.indexOf(level);
   const next = idx < CEFR_ORDER.length - 1 ? CEFR_ORDER[idx + 1] : null;
-  const prevThresh =
-    idx > 0 ? CEFR_THRESHOLDS[CEFR_ORDER[idx - 1] as string] : 0;
-  const nextThresh = next ? CEFR_THRESHOLDS[level] : 100;
+  // ขอบล่างของระดับนี้ = คะแนนต่ำสุดของมันเอง
+  // ขอบบน = คะแนนต่ำสุดของระดับถัดไป (C2 ไม่มีถัดไป → เต็ม 100)
+  const prevThresh = CEFR_MIN_SCORES[level];
+  const nextThresh = next ? CEFR_MIN_SCORES[next] : 100;
   const rawPct =
     nextThresh !== prevThresh
       ? ((averageScore - prevThresh) / (nextThresh - prevThresh)) * 100

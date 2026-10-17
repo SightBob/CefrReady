@@ -2,13 +2,25 @@ import { type CefrLevel } from '@/lib/full-test/constants';
 
 export type { CefrLevel };
 
+/**
+ * คะแนนต่ำสุดที่ยังได้ระดับนั้น — แหล่งความจริงเดียวของเส้นแบ่ง CEFR
+ * ทุกจุดที่ต้องการขอบเขตระดับต้องดึงจากตารางนี้
+ */
+export const CEFR_MIN_SCORES: Record<CefrLevel, number> = {
+  A1: 0,
+  A2: 38,
+  B1: 52,
+  B2: 65,
+  C1: 78,
+  C2: 90,
+};
+
 export function estimateCefrLevel(averageScore: number): CefrLevel {
-  if (averageScore >= 90) return 'C2';
-  if (averageScore >= 78) return 'C1';
-  if (averageScore >= 65) return 'B2';
-  if (averageScore >= 52) return 'B1';
-  if (averageScore >= 38) return 'A2';
-  return 'A1';
+  let level: CefrLevel = 'A1';
+  for (const candidate of ['A2', 'B1', 'B2', 'C1', 'C2'] as const) {
+    if (averageScore >= CEFR_MIN_SCORES[candidate]) level = candidate;
+  }
+  return level;
 }
 
 export const CEFR_COLORS: Record<CefrLevel, string> = {
