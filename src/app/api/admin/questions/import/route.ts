@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Papa from 'papaparse';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
-import { eq, count as drizzleCount, and, sql, inArray } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 
@@ -460,6 +460,26 @@ export function normalizeTap(raw: unknown): string {
   ].join('::');
 }
 
+/**
+ * จอง orderIndex ถัดไปของชุดข้อสอบ โดยไม่ถาม DB ซ้ำ
+ *
+ * เดิม loop ใช้ COUNT(*) ต่อแถว แต่ insert เกิดหลัง loop เสร็จ COUNT จึงคืนค่าเดิมทุกรอบ
+ * → ทุกข้อที่ import เข้าชุดเดียวกันได้ orderIndex เท่ากันหมด (เรียงข้อผิด)
+ *
+ * @param state ตัวนับชั่วคราวของชุดนี้ import (แยกต่อ setId)
+ * @param maxOrder orderIndex สูงสุดที่โหลดมาก่อน loop — null = ชุดยังว่าง
+ */
+export function allocateOrderIndex(
+  state: Map<number, number>,
+  setId: number,
+  maxOrder: number | null,
+): number {
+  if (!state.has(setId)) state.set(setId, maxOrder === null ? 0 : maxOrder + 1);
+  const current = state.get(setId) as number;
+  state.set(setId, current + 1);
+  return current;
+}
+
 export async function POST(request: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
@@ -687,7 +707,30 @@ export async function POST(request: NextRequest) {
 
     // Auto-assign to test sets if testSetId is provided
     let assignedCount = 0;
-    const assignments: { questionId: number; testSetId: number }[] = [];
+    const assignments: (typeof testSetQuestions.$inferInsert)[] = [];
+
+    // โหลด orderIndex สูงสุดของทุกชุดที่จะถูกเติม ครั้งเดียวก่อน loop
+    const targetSetIds = Array.from(
+      new Set(
+        rows
+          .filter((r, i) => !skipRows.has(i) && r.testSetId?.trim())
+          .map((r) => parseInt((r.testSetId as string).trim()))
+          .filter((id) => !isNaN(id))
+      )
+    );
+    const maxOrderBySetId = new Map<number, number | null>();
+    if (targetSetIds.length > 0) {
+      const maxOrderRows = await db
+        .select({
+          testSetId: testSetQuestions.testSetId,
+          maxOrder: sql<number | null>`max(${testSetQuestions.orderIndex})`,
+        })
+        .from(testSetQuestions)
+        .where(inArray(testSetQuestions.testSetId, targetSetIds))
+        .groupBy(testSetQuestions.testSetId);
+      for (const row of maxOrderRows) maxOrderBySetId.set(row.testSetId, row.maxOrder);
+    }
+    const nextOrderBySetId = new Map<number, number>();
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -704,13 +747,9 @@ export async function POST(request: NextRequest) {
               .where(and(eq(testSetQuestions.testSetId, setId), eq(testSetQuestions.questionId, insertedQ.id)));
 
             if (!existing) {
-              const [countRow] = await db
-                .select({ cnt: drizzleCount() })
-                .from(testSetQuestions)
-                .where(eq(testSetQuestions.testSetId, setId));
-              const nextOrder = countRow?.cnt ?? 0;
+              const orderIndex = allocateOrderIndex(nextOrderBySetId, setId, maxOrderBySetId.get(setId) ?? null);
 
-              assignments.push({ questionId: insertedQ.id, testSetId: setId, ...{ orderIndex: nextOrder } } as never);
+              assignments.push({ questionId: insertedQ.id, testSetId: setId, orderIndex });
             }
           } else {
             allWarnings.push(`Row ${rowNo(i)}: testSetId ${setId} ไม่มีอยู่ในระบบ — ข้อสอบถูกนำเข้าแล้วแต่ไม่ได้จัดเข้าชุด`);

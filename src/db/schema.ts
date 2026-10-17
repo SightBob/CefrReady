@@ -213,6 +213,8 @@ export const testSetQuestions = pgTable('test_set_questions', {
 }, (table) => ({
   setIdx: index('tsq_set_idx').on(table.testSetId),
   uniqueSetQuestion: index('tsq_unique').on(table.testSetId, table.questionId),
+  // Migration 0044 — orderIndex ต้องไม่ซ้ำภายในชุดเดียวกัน
+  uniqueSetOrder: uniqueIndex('tsq_set_order_unique').on(table.testSetId, table.orderIndex),
 }));
 
 // Test attempts: score stored as string (percentage with 2 decimal places)
