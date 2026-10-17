@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets, testTypes } from '@/db/schema';
-import { eq, count as drizzleCount } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 import { resolveTapExerciseStatus } from '@/lib/tap-visibility';
@@ -121,13 +121,15 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       })
       .returning();
 
-    // Get next order index in the set
-    const [countRow] = await db
-      .select({ cnt: drizzleCount() })
+    // orderIndex ต้องต่อจาก max ไม่ใช่ count — count ผิดเมื่อชุดมีช่องว่าง
+    // (0,1,5 → count=3 ซึ่งชนกับแถวเดิม) และ migration 0044 บังคับ
+    // unique (test_set_id, order_index) แล้ว
+    const [maxRow] = await db
+      .select({ maxOrder: sql<number | null>`max(${testSetQuestions.orderIndex})` })
       .from(testSetQuestions)
       .where(eq(testSetQuestions.testSetId, setId));
 
-    const nextOrder = countRow?.cnt ?? 0;
+    const nextOrder = (maxRow?.maxOrder ?? -1) + 1;
 
     // Assign to the test set
     const [assignment] = await db

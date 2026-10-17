@@ -246,12 +246,27 @@ async function main() {
     if (idByText.size !== rows.length) fail(`บันทึกข้อสอบได้ ${idByText.size} จาก ${rows.length} ข้อ`);
 
     // ── ผูกข้อเข้าชุดตามลำดับเรื่อง ──────────────────────────────────────
+    // ชุดที่ reuse อาจมีข้อเดิมอยู่แล้ว → orderIndex ต้องต่อจาก max เดิม
+    // ไม่ใช่เริ่มที่ 0 ไม่งั้นชน unique (test_set_id, order_index) จาก migration 0044
+    const existingMax = new Map<number, number>();
+    for (const setId of setIds) {
+      const [row] = await tx
+        .select({ maxOrder: sql<number | null>`max(${testSetQuestions.orderIndex})` })
+        .from(testSetQuestions)
+        .where(eq(testSetQuestions.testSetId, setId));
+      existingMax.set(setId, row?.maxOrder ?? -1);
+    }
+
+    const nextOrderBySetId = new Map<number, number>();
     const links: Array<{ testSetId: number; questionId: number; orderIndex: number }> = [];
     planned.forEach((plan, bundleIdx) => {
-      plan.rows.forEach((row, inSetIndex) => {
+      const setId = setIds[bundleIdx];
+      plan.rows.forEach((row) => {
         const questionId = idByText.get(row.questionText);
         if (!questionId) fail(`หา id ของข้อไม่เจอ: "${row.questionText.slice(0, 60)}…"`);
-        links.push({ testSetId: setIds[bundleIdx], questionId, orderIndex: inSetIndex });
+        const orderIndex = (nextOrderBySetId.get(setId) ?? (existingMax.get(setId) ?? -1) + 1);
+        nextOrderBySetId.set(setId, orderIndex + 1);
+        links.push({ testSetId: setId, questionId, orderIndex });
       });
     });
 

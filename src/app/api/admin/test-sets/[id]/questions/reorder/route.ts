@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { testSetQuestions, testSets } from '@/db/schema';
 import { requireAdmin } from '@/lib/admin-auth';
@@ -35,6 +35,14 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     }
 
     await db.transaction(async (tx) => {
+      // เลื่อนทั้งชุดออกจากช่วง 0..N-1 ก่อน — Postgres ตรวจ unique index ต่อ
+      // statement ไม่ใช่ต่อ transaction การเขียน 0,1,2... ทีละแถวจึงชนกับแถว
+      // ที่ยังถือค่าเดิมอยู่ migration 0044 บังคับ unique (test_set_id, order_index)
+      // -id ให้ค่าติดลบเสมอ (id เป็น serial บวก) และไม่ซ้ำในตัวเอง
+      await tx.update(testSetQuestions)
+        .set({ orderIndex: sql`-(${testSetQuestions.id})` })
+        .where(eq(testSetQuestions.testSetId, setId));
+
       for (const [orderIndex, assignmentId] of assignmentIds.entries()) {
         await tx.update(testSetQuestions)
           .set({ orderIndex })
