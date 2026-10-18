@@ -212,7 +212,8 @@ export const testSetQuestions = pgTable('test_set_questions', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   setIdx: index('tsq_set_idx').on(table.testSetId),
-  uniqueSetQuestion: index('tsq_unique').on(table.testSetId, table.questionId),
+  // DB สร้างด้วย CREATE UNIQUE INDEX (scripts/migrate-test-sets.ts) — ประกาศตรงกัน
+  uniqueSetQuestion: uniqueIndex('tsq_unique').on(table.testSetId, table.questionId),
   // Migration 0044 — orderIndex ต้องไม่ซ้ำภายในชุดเดียวกัน
   uniqueSetOrder: uniqueIndex('tsq_set_order_unique').on(table.testSetId, table.orderIndex),
 }));
