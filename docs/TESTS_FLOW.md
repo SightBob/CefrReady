@@ -87,7 +87,7 @@ tap & select พิเศษ: เลือก A/B → กด "ตรวจคำ
 | `src/app/tests/page.tsx` + `TestsPageClient.tsx` | หน้ารวม + ปุ่ม /tests/full |
 | `src/app/tests/[sectionId]/page.tsx` | รายการชุดในหมวด (+ maintenance redirect) |
 | `src/components/SectionTestSetCard.tsx` | การ์ดชุด → ลิงก์ /intro |
-| `src/app/tests/[sectionId]/[setId]/intro/page.tsx` | หน้าแนะนำชุด (RSC, revalidate 300) |
+| `src/app/tests/[sectionId]/[setId]/intro/page.tsx` | หน้าแนะนำชุด (RSC, dynamic ทุก request) |
 | `src/app/tests/[sectionId]/[setId]/explain/page.tsx` | เนื้อหาอธิบายระดับชุด (RSC) |
 | `src/components/TestSetExplainView.tsx` | ตัวเรนเดอร์ explain ระดับชุด |
 | `src/app/tests/[sectionId]/[setId]/page.tsx` | หน้าสอบหลัก + topic gate + modals |

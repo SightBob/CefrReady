@@ -170,7 +170,7 @@ await db
 ใช้ `unstable_cache` ใน `/api/admin/question-pool`:
 
 - tag: `question-pool`
-- revalidate: 60 วินาที
+- revalidate: 30 วินาที
 
 ## Security
 
