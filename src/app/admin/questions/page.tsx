@@ -309,14 +309,22 @@ export default function QuestionsManagement() {
           setBulkDeleting(true);
           try {
             const ids = Array.from(selectedIds);
-            await Promise.all(
-              ids.map((id) =>
-                fetch(`/api/admin/questions/${id}`, { method: 'DELETE' })
-              )
+            // คำขอเดียวแทน Promise.all ทีละข้อ — ตัวเดิมโดน 429 เมื่อเลือกเกิน 60 ข้อ
+            const response = await fetch('/api/admin/questions/bulk-delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || 'เกิดข้อผิดพลาดในการลบข้อสอบ');
+            }
+            const deleted = new Set(
+              (result.data?.deletedIds ?? []) as number[]
             );
-            setQuestions(questions.filter((q) => !selectedIds.has(q.id)));
+            setQuestions(questions.filter((q) => !deleted.has(q.id)));
             setSelectedIds(new Set());
-            toast.success(`ลบ ${ids.length} ข้อสอบสำเร็จ`);
+            toast.success(`ลบ ${result.data.deleted} ข้อสอบสำเร็จ`);
           } catch (error) {
             console.error('Error bulk deleting questions:', error);
             toast.error('เกิดข้อผิดพลาดในการลบข้อสอบ');
