@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Sparkle } from '@phosphor-icons/react';
 import SelectableText from './SelectableText';
 import ExplanationText from './ExplanationText';
+import { useScrollIntoViewOnReveal } from '@/lib/use-scroll-on-reveal';
 
 const OTTER_AVATAR = '/logo-otter/otter-avatar.png';
 const OTTER_FLAG = '/logo-otter/otter-flag1.png';
@@ -82,24 +83,12 @@ export default function FocusFormQuestionCard({
   const isCorrect = selectedAnswer === correctAnswer;
   const showExplanation = selectedAnswer !== null && explanation !== null && correctAnswer !== null;
 
-  // เลื่อนไปคำอธิบายแบบ smooth เมื่อ user ตอบ (unanswered -> answered) — pattern เดียวกับ ListeningAudioPlayer
-  const explanationRef = useRef<HTMLDivElement | null>(null);
-  const prevSelectedRef = useRef<string | null>(selectedAnswer);
-  const isMountedRef = useRef(false);
-  useEffect(() => {
-    if (!isMountedRef.current) {
-      // ข้าม render แรก: หน้า review render ด้วยคำตอบที่ fill มาแล้ว ไม่ควรเลื่อนเอง
-      isMountedRef.current = true;
-      return;
-    }
-    const wasUnanswered = prevSelectedRef.current === null;
-    prevSelectedRef.current = selectedAnswer;
-    if (!wasUnanswered || selectedAnswer === null || !showExplanation) return;
-    const id = window.setTimeout(() => {
-      explanationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
-    return () => window.clearTimeout(id);
-  }, [selectedAnswer, showExplanation]);
+  // เลื่อนไปคำอธิบายแบบ smooth เมื่อเฉลยโผล่ (เฉพาะเมื่อมองไม่เห็นครบ)
+  // ref callback ยึดกับการ mount ของกล่อง `{showExplanation && ...}` = ตอนเฉลยโผล่
+  // เดิมใช้ effect ที่ดู selectedAnswer ซึ่งตายมาตั้งแต่ flow เปลี่ยนเป็น
+  // เลือก → ตรวจคำตอบ → เฉลย (เลือกตอนยังไม่มีเฉลย เฉลยโผล่ตอน selectedAnswer
+  // ไม่เปลี่ยนแล้ว จึงไม่มี dep ไหนเปลี่ยนพร้อมกัน)
+  const explanationRef = useScrollIntoViewOnReveal();
 
 
   // Parse "Speaker: textSpeaker: text" into [{speaker, text}] lines (fallback when no structured conversation)

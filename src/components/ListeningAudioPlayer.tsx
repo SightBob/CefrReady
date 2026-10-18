@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import SelectableText from './SelectableText';
 import RichText from './RichText';
+import { useScrollIntoViewOnReveal } from '@/lib/use-scroll-on-reveal';
 
 interface Option {
   key: string;
@@ -47,20 +48,7 @@ export default function ListeningAudioPlayer({
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playedCallbackRef = useRef(false);
-  const explanationRef = useRef<HTMLDivElement | null>(null);
-  const prevSelectedRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const wasUnanswered = prevSelectedRef.current === null;
-    prevSelectedRef.current = selectedAnswer;
-    // Only scroll on the unanswered -> answered transition, not on mount
-    // (review pages render with selectedAnswer pre-filled)
-    if (!wasUnanswered || selectedAnswer === null || hideFeedback) return;
-    const id = window.setTimeout(() => {
-      explanationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
-    return () => window.clearTimeout(id);
-  }, [selectedAnswer, hideFeedback]);
+  const explanationRef = useScrollIntoViewOnReveal();
 
   useEffect(() => {
     // Reset state for new audio
