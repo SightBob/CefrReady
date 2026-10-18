@@ -3,7 +3,7 @@ import Papa from 'papaparse';
 import { db } from '@/db';
 import { questions, testSetQuestions } from '@/db/schema';
 import { eq, and, asc, inArray, notInArray, ilike } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +47,7 @@ interface CsvRow {
 }
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:questions:export', maxRequests: 20 });
   if (error) return error;
 
   try {

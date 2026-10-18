@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, users, userAnswers } from '@/db/schema';
 import { eq, count, desc, sql } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { unstable_cache } from 'next/cache';
 
 const getCachedStats = unstable_cache(
@@ -54,7 +54,7 @@ const getCachedStats = unstable_cache(
 );
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:stats', maxRequests: 20 });
   if (error) return error;
   try {
     const stats = await getCachedStats();

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { asc, count, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import type { ExplainTopicSetRef, QuestionTopicOption } from '@/lib/test-explain-topics';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ const HAS_TOPIC = sql`${questions.grammarTopic} IS NOT NULL AND TRIM(${questions
 
 /** GET /api/admin/test-explains/topics — หัวข้อที่มีข้อสอบจริง + ชุดที่ใช้แต่ละหัวข้อ */
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-explains:topics', maxRequests: 20 });
   if (error) return error;
   try {
     const topicCounts = await db

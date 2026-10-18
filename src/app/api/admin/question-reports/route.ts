@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questionReports, questions, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:question-reports', maxRequests: 20 });
   if (error) return error;
 
   try {

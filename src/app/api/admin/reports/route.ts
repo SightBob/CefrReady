@@ -5,13 +5,13 @@ import {
   userAnswers, questions, questionReports,
 } from '@/db/schema';
 import { count, sql } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:reports', maxRequests: 20 });
   if (error) return error;
 
   try {

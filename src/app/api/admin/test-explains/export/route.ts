@@ -4,7 +4,7 @@ import { revalidateTag } from 'next/cache';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
 import { lessonSectionsHaveContent, normalizeLessonSections } from '@/lib/lesson-sections';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { collectItemIssues } from '@/lib/test-explain-validation';
 import { resolveContentStatus } from '@/lib/explain-visibility';
 
@@ -15,7 +15,7 @@ import { resolveContentStatus } from '@/lib/explain-visibility';
 // - GET ?id=<number> → a single explain (ทีละบท) wrapped in the same explains array
 //   so the per-lesson file can go straight back through the same import endpoint.
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-explains:export', maxRequests: 20 });
   if (error) return error;
   try {
     const idParam = new URL(request.url).searchParams.get('id');
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
 // Sections always pass through normalizeLessonSections, so legacy shapes and
 // unknown extra keys are tolerated the same way the single-item API does.
 export async function POST(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-explains:export', maxRequests: 20 });
   if (error) return error;
   try {
     const body = (await request.json()) as {

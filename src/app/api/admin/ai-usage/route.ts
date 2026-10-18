@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { aiUsageLogs, users } from '@/db/schema';
 import { and, count, desc, eq, gte, sql, sum } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { unstable_cache } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
@@ -79,7 +79,7 @@ const getCachedUsage = unstable_cache(
 );
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:ai-usage', maxRequests: 20 });
   if (error) return error;
   const windowParam = request.nextUrl.searchParams.get('window') ?? 'all';
   const window: WindowKey = windowSchema.has(windowParam as WindowKey) ? (windowParam as WindowKey) : 'all';

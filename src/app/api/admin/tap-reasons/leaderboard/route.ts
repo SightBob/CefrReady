@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { tapReasonSubmissions, users } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,7 @@ export interface TapReasonLeaderboardRow {
  * ส่วนคนที่ไม่เคยเขียนเหตุผลเลยจะไม่ปรากฏ เพราะไม่มีแถวในตารางนี้
  */
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:tap-reasons:leaderboard', maxRequests: 20 });
   if (error) return error;
 
   try {

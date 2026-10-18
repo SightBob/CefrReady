@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { asc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { questions } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import type { CoverageQuestion } from '@/lib/explain-coverage';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ const TOPIC_EXPR = sql<string>`TRIM(${questions.grammarTopic})`;
  * หมายเหตุ: `params.topic` ถูก decode มาจาก Next แล้ว จึง trim เท่านั้น ไม่ decode ซ้ำ
  */
 export async function GET(_request: NextRequest, props: { params: Promise<{ topic: string }> }) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-explains:topics:[topic]:questions', maxRequests: 20 });
   if (error) return error;
 
   const params = await props.params;
