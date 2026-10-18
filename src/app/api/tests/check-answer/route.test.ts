@@ -34,6 +34,12 @@ beforeEach(() => {
   mocks.select.mockReturnValue(rows([row]));
 });
 
+const limited = (retryAfter = '60') =>
+  new Response(JSON.stringify({ success: false, error: 'Too many requests' }), {
+    status: 429,
+    headers: { 'Retry-After': retryAfter },
+  });
+
 describe('POST check-answer', () => {
   it('rejects a disallowed origin before any auth or database work', async () => {
     const error = new Response('no');
@@ -47,17 +53,51 @@ describe('POST check-answer', () => {
     mocks.auth.mockResolvedValue(null);
     expect((await POST(request())).status).toBe(401);
     expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.rate).not.toHaveBeenCalled();
   });
 
-  it('rates a learner per minute so one set cannot be brute-forced', async () => {
-    const error = new Response('limited');
-    mocks.rate.mockResolvedValue(error);
-    expect(await POST(request())).toBe(error);
-    expect(mocks.rate).toHaveBeenCalledWith('learner', { keySuffix: 'check-answer', maxRequests: 120 });
+  it('จำกัด 20 ครั้งต่อนาทีและเพดาน 300 ครั้งต่อวันต่อผู้เรียน', async () => {
+    await POST(request());
+    const calls = mocks.rate.mock.calls.map(c => c[1]);
+    expect(calls).toContainEqual({ keySuffix: 'check-answer', maxRequests: 20 });
+    expect(calls).toContainEqual({
+      keySuffix: 'check-answer:day',
+      maxRequests: 300,
+      windowMs: 86_400_000,
+    });
+    expect(mocks.rate).toHaveBeenCalledWith('learner', expect.anything());
   });
 
-  it.each([{ selectedAnswer: '' }, { testSetId: 0 }, { itemIndex: -1 }, { correctKey: 'A' }])('rejects malformed or client-supplied grading input %#', async patch => {
+  it('เกินโควตานาทีได้ 429 พร้อม Retry-After และข้อความที่ผู้เรียนอ่านรู้เรื่อง', async () => {
+    mocks.rate.mockImplementation(async (_id: string, opts: { keySuffix: string }) =>
+      opts.keySuffix === 'check-answer' ? limited('42') : null
+    );
+    const res = await POST(request());
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('42');
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('ตรวจคำตอบถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง');
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+
+  it('เกินเพดานรายวันได้ 429 เหมือนกัน', async () => {
+    mocks.rate.mockImplementation(async (_id: string, opts: { keySuffix: string }) =>
+      opts.keySuffix === 'check-answer:day' ? limited('3600') : null
+    );
+    const res = await POST(request());
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('3600');
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+
+  it.each([{ selectedAnswer: '' }, { testSetId: 0 }, { correctKey: 'A' }])('rejects malformed or client-supplied grading input %#', async patch => {
     expect((await POST(request(patch))).status).toBe(400);
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+
+  it('ปิด branch itemIndex ที่หน้าเว็บไม่เรียก (tap ใช้ /api/tests/tap-reason)', async () => {
+    expect((await POST(request({ selectedAnswer: 'B', itemIndex: 0 }))).status).toBe(400);
     expect(mocks.select).not.toHaveBeenCalled();
   });
 
@@ -71,23 +111,15 @@ describe('POST check-answer', () => {
     expect(body.data).toMatchObject({ isCorrect: false, correctKey: 'B' });
   });
 
-  it('grades a Tap & Select item and returns the chosen text for the AI prompt', async () => {
-    const body = await (await POST(request({ selectedAnswer: 'B', itemIndex: 0 }))).json();
-    expect(body.data).toMatchObject({ isCorrect: true, correctKey: 'B', correctText: 'goes' });
-  });
-
   it('grades a cloze blank and returns the expected word', async () => {
     const body = await (await POST(request({ selectedAnswer: 'Watches', blankId: 4 }))).json();
     expect(body.data).toMatchObject({ isCorrect: true, correctKey: null, correctText: 'watches' });
   });
 
-  it.each([
-    [{ itemIndex: 9 }, 'ไม่พบข้อย่อย Tap & Select'],
-    [{ blankId: 99 }, 'ไม่พบช่องคำตอบ'],
-  ])('404s an unknown slot %#', async (patch, message) => {
-    const response = await POST(request(patch));
+  it('404s an unknown blank slot', async () => {
+    const response = await POST(request({ blankId: 99 }));
     expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ success: false, error: message });
+    expect(await response.json()).toEqual({ success: false, error: 'ไม่พบช่องคำตอบ' });
   });
 
   it('404s a question that is not in the set, so ids cannot be probed', async () => {

@@ -21,13 +21,31 @@ export const dynamic = 'force-dynamic';
 const bodySchema = z.object({
   testSetId: z.number().int().positive(),
   questionId: z.number().int().positive(),
-  // Tap & Select: เลขข้อย่อยในกิจกรรม · article blank: id ของช่อง
-  itemIndex: z.number().int().nonnegative().optional(),
+  // article blank: id ของช่อง
   blankId: z.number().int().positive().optional(),
   selectedAnswer: z.string().trim().min(1).max(1500),
 }).strict();
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
+
+/** 20/นาที กันยิงรัวในหนึ่งชุด + 300/วัน กันไล่เดาทีละข้อทั้งคลัง */
+const MINUTE_LIMIT = { keySuffix: 'check-answer', maxRequests: 20 } as const;
+const DAILY_LIMIT = {
+  keySuffix: 'check-answer:day',
+  maxRequests: 300,
+  windowMs: 86_400_000,
+} as const;
+
+/** คงสถานะและ Retry-After จากระบบ rate limit เดิม แต่เปลี่ยนข้อความเป็นภาษาไทย */
+function localizedLimitError(res: Response): Response {
+  return NextResponse.json(
+    { success: false, error: 'ตรวจคำตอบถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง' },
+    {
+      status: res.status,
+      headers: { 'Retry-After': res.headers.get('Retry-After') ?? '60' },
+    },
+  );
+}
 
 export async function POST(request: NextRequest) {
   const originError = validateOrigin(request);
@@ -36,17 +54,18 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, error: 'กรุณาเข้าสู่ระบบก่อนตรวจคำตอบ' }, { status: 401 });
   }
-  // ไม่จำกัดเข้มเหมือน AI (เรียกทุกข้อ) แต่ก็ไม่ปล่อยไว้ยิงรัว
-  const rateLimitError = await checkUserRateLimit(session.user.id, {
-    keySuffix: 'check-answer', maxRequests: 120,
-  });
-  if (rateLimitError) return rateLimitError;
+  // SECURITY: endpoint นี้คืนเฉลยจริงของข้อนั้น ๆ การจำกัดแค่รายนาทีเดียว
+  // เปิดให้เดินไล่เฉลยทั้งคลังทีละข้อได้ จึงมีทั้งเพดานรายนาทีและรายวัน
+  for (const limit of [MINUTE_LIMIT, DAILY_LIMIT]) {
+    const limited = await checkUserRateLimit(session.user.id, limit);
+    if (limited) return localizedLimitError(limited);
+  }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ success: false, error: 'คำขอตรวจคำตอบไม่ถูกต้อง' }, { status: 400 });
   }
-  const { testSetId, questionId, itemIndex, blankId, selectedAnswer } = parsed.data;
+  const { testSetId, questionId, blankId, selectedAnswer } = parsed.data;
 
   try {
     const [row] = await db
@@ -69,22 +88,6 @@ export async function POST(request: NextRequest) {
       .limit(1);
     if (!row) {
       return NextResponse.json({ success: false, error: 'ไม่พบข้อคำถาม' }, { status: 404 });
-    }
-
-    // ─── Tap & Select: ข้อย่อยในกิจกรรม ────────────────────────────
-    if (itemIndex !== undefined) {
-      const item = row.tapExercise?.items[itemIndex];
-      if (!item || (item.correct !== 0 && item.correct !== 1)) {
-        return NextResponse.json({ success: false, error: 'ไม่พบข้อย่อย Tap & Select' }, { status: 404 });
-      }
-      const correctKey = item.correct === 0 ? 'A' : 'B';
-      const correctText = item.correct === 0 ? item.choiceA : item.choiceB;
-      return NextResponse.json({ success: true, data: {
-        isCorrect: selectedAnswer === correctKey,
-        correctKey,
-        correctText,
-        explanation: row.explanation ?? null,
-      } });
     }
 
     // ─── ช่องกรอกคำในบทความ (form-meaning) ──────────────────────────
