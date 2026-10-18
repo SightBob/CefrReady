@@ -32,7 +32,7 @@ Invoke-WebRequest -Uri 'https://cefr-ready.site/' -MaximumRedirection 0 -Timeout
 | ทั้งเว็บ | `maintenance:mode` | `src/lib/maintenance.ts` | มี SWR 30 วิ (`REVALIDATE_MS`) |
 | รายพาร์ทข้อสอบ | `tests:maintenance:sections` | `src/lib/test-section-maintenance.ts` | **ไม่มี cache** ยิง Upstash ทุกครั้ง |
 
-ผลข้อสอบ: หน้า `/tests/[sectionId]` มี `export const revalidate = 300` จึงเปิด/ปิดพาร์ทมีผลช้าสูงสุด ~5 นาทีอยู่แล้ว ไม่ใช่ทันที — ตอนออกแบบ cache ต้องคำนึงถึงชั้น ISR ข้างหน้า
+ผลข้อสอบ: หน้า `/tests/[sectionId]` เป็น `ƒ` (Dynamic) ทุก request — `export const revalidate` ถูกลบไปแล้ว (เฟส 5) และถึงตอนที่ยังอยู่ก็ไม่มีผล เพราะ root `layout.tsx` อ่าน `headers()`; ส่วน flag พาร์ทอ่านจาก Upstash ตรงทุกครั้งใน `isSectionInMaintenance()` จึง **เปิด/ปิดมีผลกับ request ถัดไปทันที** ไม่มีชั้น ISR หน่วง — ชั้น cache ที่ยังมีจริงและเกี่ยวกับหน้านี้มีชั้นเดียว: `getCachedSections()` = `unstable_cache` TTL 300 วิ (tag `sections`) ซึ่งแคชรายการพาร์ท/ชุดข้อสอบจาก DB ไม่เกี่ยวกับ flag และไม่มี `revalidateTag('sections')` ในโปรเจกต์จึงหมดอายุเองทุก 5 นาที
 
 ## งานจาก Figma
 - ห้ามเดาค่า design: สี/ขนาด/เงา/ฟอนต์/spacing ต้องมาจาก get_metadata,
