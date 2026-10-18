@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testAttempts, users, testTypes } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  // ดึง attempt 5,000 แถวพร้อมชื่อ-อีเมลผู้เรียน — จำกัดโควตาเข้มกว่า admin route อื่น
+  const { error } = await withAdmin({ keySuffix: 'admin-export', maxRequests: 5, windowMs: 5 * 60_000 });
   if (error) return error;
 
   try {
