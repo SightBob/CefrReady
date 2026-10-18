@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: lint / typecheck / test / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Next 16 requires >=20.9.0 (node_modules/next/package.json engines).
+          # No `engines` field and no .nvmrc in this repo — pin to match local dev (24.x).
+          node-version: '24'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # No DATABASE_URL on purpose: src/app/api/verb-banks/schema-live.test.ts is a
+      # live-DB integration test that self-skips when the variable is absent.
+      # Setting a dummy URL makes those 6 tests fail instead (they try to connect).
+      # next build needs no database either — every page is dynamic (ƒ) and
+      # sitemap.ts wraps its DB import in try/catch.
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: Build
+        run: npx next build
