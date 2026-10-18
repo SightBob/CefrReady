@@ -55,9 +55,6 @@ export default function ListeningAudioPlayer({
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playedCallbackRef = useRef(false);
-  const explanationRef = useScrollIntoViewOnReveal();
-  // ไม่ส่ง ref = ไม่มีการเลื่อนเลย (หน้า review / explain / demo เฉพาะทักษะ)
-  const explanationBoxRef = scrollToExplanationOnReveal ? explanationRef : undefined;
 
   useEffect(() => {
     // Reset state for new audio
@@ -151,6 +148,11 @@ export default function ListeningAudioPlayer({
 
   const isCorrect = selectedAnswer === correctAnswer;
   const showExplanation = selectedAnswer !== null && !hideFeedback;
+
+  // ประกาศหลัง showExplanation เพราะ hook ต้องรู้ว่าเฉลยปรากฏแล้วหรือยัง
+  const explanationRef = useScrollIntoViewOnReveal(
+    scrollToExplanationOnReveal && showExplanation && explanation !== null,
+  );
 
   const renderTranscript = (text: string) => {
     if (!text) return null;
@@ -322,7 +324,7 @@ export default function ListeningAudioPlayer({
 
       {/* 60:4496 — ป้าย + กล่องคำอธิบาย */}
       {showExplanation && explanation && (
-        <div ref={explanationBoxRef} className="w-full flex flex-col">
+        <div ref={explanationRef} className="w-full flex flex-col">
           {/* 60:4497 — ป้าย 252×35: รูปหมี 52×35 ทับซ้าย, แถบ #f7f5ed 242×24, หัวใจ 12px */}
           <div className="relative shrink-0 w-[252px] h-[35px] mb-[-2px]">
             <div className="absolute left-0 top-0 z-20 w-[52px] h-[35px] overflow-hidden">

@@ -91,13 +91,11 @@ export default function FocusFormQuestionCard({
   const showExplanation = selectedAnswer !== null && explanation !== null && correctAnswer !== null;
 
   // เลื่อนไปคำอธิบายแบบ smooth เมื่อเฉลยโผล่ (เฉพาะเมื่อมองไม่เห็นครบ)
-  // ref callback ยึดกับการ mount ของกล่อง `{showExplanation && ...}` = ตอนเฉลยโผล่
-  // เดิมใช้ effect ที่ดู selectedAnswer ซึ่งตายมาตั้งแต่ flow เปลี่ยนเป็น
-  // เลือก → ตรวจคำตอบ → เฉลย (เลือกตอนยังไม่มีเฉลย เฉลยโผล่ตอน selectedAnswer
-  // ไม่เปลี่ยนแล้ว จึงไม่มี dep ไหนเปลี่ยนพร้อมกัน)
-  const explanationRef = useScrollIntoViewOnReveal();
-  // ไม่ส่ง ref = ไม่มีการเลื่อนเลย (หน้า review / explain / demo เฉพาะทักษะ)
-  const explanationBoxRef = scrollToExplanationOnReveal ? explanationRef : undefined;
+  // hook ผูกกับ showExplanation จึงยิงตรงกับตอนเฉลยปรากฏ ไม่ต้องพึ่งจังหวะ
+  // mount/detach ของ ref ซึ่ง StrictMode เรียกซ้ำจนการเลื่อนหายไป
+  const explanationRef = useScrollIntoViewOnReveal(
+    scrollToExplanationOnReveal && showExplanation,
+  );
 
 
   // Parse "Speaker: textSpeaker: text" into [{speaker, text}] lines (fallback when no structured conversation)
@@ -259,7 +257,7 @@ export default function FocusFormQuestionCard({
       </div>
 
       {showExplanation && (
-  <div ref={explanationBoxRef} className="mt-6">
+  <div ref={explanationRef} className="mt-6">
     {/* Header — Otter + caption */}
     <div className="relative z-20 inline-flex items-end gap-2 pl-[2.6rem]">
       <Image

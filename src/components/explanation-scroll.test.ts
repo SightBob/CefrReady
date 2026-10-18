@@ -17,22 +17,20 @@ const CARDS = [
 ] as const;
 
 describe('explanation reveal scroll is opt-in', () => {
-  it.each(CARDS)('%s defaults the flag to off', (file) => {
+  it.each(CARDS)('%s defaults the flag to off and gates the hook with it', (file) => {
     const source = readFileSync(resolve(file), 'utf8');
     expect(source).toContain('scrollToExplanationOnReveal = false');
-    // ปิดไว้เป็นค่าเริ่มต้น = ไม่ส่ง ref = React ไม่มีอะไรให้เรียก = ไม่เลื่อน
-    expect(source).toContain(
-      'const explanationBoxRef = scrollToExplanationOnReveal ? explanationRef : undefined;',
-    );
-    expect(source).toContain('ref={explanationBoxRef}');
+    // ปิดไว้เป็นค่าเริ่มต้น = hook ได้รับ false = ไม่มีการเลื่อน
+    expect(source).toMatch(/useScrollIntoViewOnReveal\(\s*scrollToExplanationOnReveal &&/);
+    expect(source).toContain('ref={explanationRef}');
   });
 
-  // เงื่อนไข render ยังต้องอยู่ ไม่ว่าจะเลื่อนหรือไม่ — hook อาศัยการ mount
-  // ของกล่องนี้เป็นสัญญาณว่าเฉลยเพิ่งโผล่
+  // เงื่อนไข render ยังต้องอยู่ ไม่ว่าจะเลื่อนหรือไม่ — กล่องเฉลยต้องไม่โผล่
+  // ก่อนผู้เรียนกดตรวจคำตอบ
   it.each(CARDS)('%s renders the explanation box only once it is revealed', (file) => {
     const source = readFileSync(resolve(file), 'utf8');
     expect(source).toMatch(
-      /\{showExplanation\s*&&\s*(?:explanation\s*&&\s*)?\(?\s*<div ref=\{explanationBoxRef\}/,
+      /\{showExplanation\s*&&\s*(?:explanation\s*&&\s*)?\(?\s*<div ref=\{explanationRef\}/,
     );
   });
 });
@@ -97,11 +95,14 @@ describe('reveal timing must wait for paint, not a guessed delay', () => {
     expect(source).toMatch(/requestAnimationFrame\([\s\S]*?requestAnimationFrame\(/);
   });
 
-  // ref callback ถูกเรียกซ้ำได้ตอน re-mount — สั่งซ้ำระหว่างที่ animation
-  // กำลังวิ่งจะทำให้หน้ากระตุก ต้องมีธงกัน
-  it('guards against issuing the scroll twice for the same explanation', () => {
-    expect(source).toContain('scrolledNodeRef');
-    expect(source).toMatch(/scrolledNodeRef\.current === node/);
+  // ยึดกับ showExplanation ไม่ใช่ ref callback — StrictMode เรียก ref callback
+  // สองครั้ง (attach → detach → attach) ทำให้การจองงานถูกยกเลิกแล้ว
+  // ธงกันซ้ำก็บล็อกการ attach ครั้งถัดไป สุดท้ายคือไม่เลื่อนเลย
+  it('drives the scroll from showExplanation, not from a ref callback', () => {
+    expect(source).toContain('useEffect');
+    expect(source).toMatch(/\}, \[showExplanation\]\)/);
+    expect(source).not.toContain('scrolledNodeRef');
+    expect(source).not.toMatch(/useCallback/);
   });
 
   it('cancels pending frames on unmount', () => {
