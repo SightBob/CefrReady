@@ -57,6 +57,20 @@ describe('scrollIntoViewIfClipped', () => {
     scrollIntoViewIfClipped(el, VIEWPORT, 'start');
     expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'start' });
   });
+
+  // กล่องสูงกว่าจอ = จัดกึ่งกลางไม่ได้ เบราว์เซอร์จะ clamp ที่ขอบจอ
+  // ซึ่งดูเหมือนกระโดดทันที ต้องดันขอบบนขึ้นไปชิดขอบบนจอแทน
+  it('anchors to the top when the explanation is taller than the screen', () => {
+    const { el, scrollIntoView } = fakeElement(-500, 2000);
+    scrollIntoViewIfClipped(el, VIEWPORT);
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'start' });
+  });
+
+  it('keeps centring a box that fits the screen even when it is clipped', () => {
+    const { el, scrollIntoView } = fakeElement(700, 1000); // สูง 300 < 800
+    scrollIntoViewIfClipped(el, VIEWPORT);
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'center' });
+  });
 });
 
 describe('isFullyVisible', () => {
