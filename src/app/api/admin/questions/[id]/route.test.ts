@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   revalidateTag: vi.fn(),
   update: vi.fn(),
+  checkUserRateLimit: vi.fn(),
   /** payload ที่ route ส่งให้ db.update().set() — ใช้ยืนยันว่าสถานะถูกบันทึกจริง */
   setPayload: null as unknown,
 }));
@@ -28,7 +29,7 @@ function builder(result: unknown) {
   return b;
 }
 
-vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: mocks.checkUserRateLimit }));
 import { PUT } from './route';
 
 const tapExercise = (status?: string) => ({
@@ -51,6 +52,34 @@ beforeEach(() => {
   mocks.setPayload = null;
   mocks.requireAdmin.mockReset().mockResolvedValue({ error: null });
   mocks.update.mockReset().mockReturnValue(builder([{ id: 7 }]));
+  mocks.checkUserRateLimit.mockReset().mockResolvedValue(null);
+});
+
+describe('keySuffix ของ route ที่มี [id] ต้องคงที่', () => {
+  // ถ้า keySuffix ผสม id จริง ผู้ใช้คนเดียวจะยิงข้าม id ไม่ได้
+  // และตัวจำกัดโควตาจะกลายเป็นไม่จำกัด
+  it.each(['7', '999', '12345'])('เรียก id=%s แล้วใช้ key เดียวกันทุกครั้ง', async (id) => {
+    mocks.requireAdmin.mockResolvedValue({ error: null, session: { user: { id: 'admin-1' } } });
+
+    await PUT(request({}), { params: Promise.resolve({ id }) });
+
+    expect(mocks.checkUserRateLimit).toHaveBeenCalledWith(
+      'admin-1',
+      { keySuffix: 'admin:questions:[id]', maxRequests: 60 },
+    );
+  });
+
+  it('สอง id ต่างกันใช้ keySuffix เดียวกัน ไม่แยกตัวนับ', async () => {
+    mocks.requireAdmin.mockResolvedValue({ error: null, session: { user: { id: 'admin-1' } } });
+
+    await PUT(request({}), { params: Promise.resolve({ id: '1' }) });
+    await PUT(request({}), { params: Promise.resolve({ id: '2' }) });
+
+    const keys = mocks.checkUserRateLimit.mock.calls.map((call) => (call[1] as { keySuffix: string }).keySuffix);
+    expect(keys).toEqual(['admin:questions:[id]', 'admin:questions:[id]']);
+    expect(new Set(keys).size).toBe(1);
+    expect(keys.join()).not.toContain('1');
+  });
 });
 
 describe('PUT /api/admin/questions/[id] — Tap & Select status', () => {
