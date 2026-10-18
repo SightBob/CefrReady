@@ -402,6 +402,7 @@ export default function DemoExamPage() {
         <TestLayout {...layoutProps}>
         <ListeningAudioPlayer
           key={question.id}
+          scrollToExplanationOnReveal
           audioUrl={question.audioUrl ?? undefined}
           transcript={question.transcript ?? question.questionText}
           questionText={question.questionText}
@@ -430,6 +431,7 @@ export default function DemoExamPage() {
       <TestLayout {...layoutProps}>
         <FocusFormQuestionCard
           key={question.id}
+          scrollToExplanationOnReveal
           questionText={question.questionText}
           options={choices}
           selectedAnswer={selectedAnswer}

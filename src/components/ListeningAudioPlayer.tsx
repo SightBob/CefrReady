@@ -24,6 +24,12 @@ interface ListeningAudioPlayerProps {
   disabled?: boolean;
   hideFeedback?: boolean;
   showTranscriptOnAnswer?: boolean;
+  /**
+   * เลื่อนหน้าไปที่คำอธิบายเมื่อเฉลยโผล่ — เปิดเฉพาะหน้าทำข้อสอบเท่านั้น
+   * หน้า review/explain เฉลยมาพร้อมหน้าเลย ไม่ต้องให้หน้ากระโดด
+   * (ผู้ใช้กำหนด 2026-10-18: เลื่อนเฉพาะหน้าทำข้อสอบ)
+   */
+  scrollToExplanationOnReveal?: boolean;
 }
 
 export default function ListeningAudioPlayer({
@@ -39,6 +45,7 @@ export default function ListeningAudioPlayer({
   disabled = false,
   hideFeedback = false,
   showTranscriptOnAnswer = true,
+  scrollToExplanationOnReveal = false,
 }: ListeningAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
@@ -49,6 +56,8 @@ export default function ListeningAudioPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playedCallbackRef = useRef(false);
   const explanationRef = useScrollIntoViewOnReveal();
+  // ไม่ส่ง ref = ไม่มีการเลื่อนเลย (หน้า review / explain / demo เฉพาะทักษะ)
+  const explanationBoxRef = scrollToExplanationOnReveal ? explanationRef : undefined;
 
   useEffect(() => {
     // Reset state for new audio
@@ -313,7 +322,7 @@ export default function ListeningAudioPlayer({
 
       {/* 60:4496 — ป้าย + กล่องคำอธิบาย */}
       {showExplanation && explanation && (
-        <div ref={explanationRef} className="w-full flex flex-col">
+        <div ref={explanationBoxRef} className="w-full flex flex-col">
           {/* 60:4497 — ป้าย 252×35: รูปหมี 52×35 ทับซ้าย, แถบ #f7f5ed 242×24, หัวใจ 12px */}
           <div className="relative shrink-0 w-[252px] h-[35px] mb-[-2px]">
             <div className="absolute left-0 top-0 z-20 w-[52px] h-[35px] overflow-hidden">

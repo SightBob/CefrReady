@@ -1075,6 +1075,7 @@ export default function SetQuizPage() {
       >
         <ListeningAudioPlayer
           key={question.id}
+          scrollToExplanationOnReveal
           audioUrl={question.audioUrl ?? undefined}
           transcript={question.transcript ?? question.questionText}
           questionText={question.questionText}
@@ -1123,6 +1124,7 @@ export default function SetQuizPage() {
       >
       <FocusFormQuestionCard
           key={question.id}
+          scrollToExplanationOnReveal
           questionText={question.questionText}
           options={questionChoices}
           selectedAnswer={selectedAnswer}
@@ -1173,6 +1175,7 @@ export default function SetQuizPage() {
     >
       <FocusFormQuestionCard
         key={question.id}
+        scrollToExplanationOnReveal
         questionText={question.questionText}
         options={options}
         selectedAnswer={selectedAnswer}

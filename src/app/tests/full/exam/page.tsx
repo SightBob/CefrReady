@@ -546,6 +546,7 @@ export default function FullTestExamPage() {
         {question.testTypeId === "focus-form" ? (
           <div key={question.id}>
             <FocusFormQuestionCard
+              scrollToExplanationOnReveal
               questionText={question.questionText}
               options={mcqOptions}
               selectedAnswer={selectedAnswer}
@@ -560,6 +561,7 @@ export default function FullTestExamPage() {
           <div key={question.id}>
             {question.testTypeId === "listening" && (
               <ListeningAudioPlayer
+                scrollToExplanationOnReveal
                 audioUrl={question.audioUrl ?? undefined}
                 transcript={question.transcript ?? question.questionText}
                 questionText={question.questionText}
@@ -575,6 +577,7 @@ export default function FullTestExamPage() {
             {/* Focus on Meaning — UI เดียวกับชุดข้อสอบ (FocusFormQuestionCard accent="emerald") */}
             {question.testTypeId === "focus-meaning" && (
               <FocusFormQuestionCard
+                scrollToExplanationOnReveal
                 questionText={question.questionText}
                 options={mcqOptions}
                 selectedAnswer={selectedAnswer}

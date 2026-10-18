@@ -34,6 +34,12 @@ interface FocusFormQuestionCardProps {
   accent?: 'primary' | 'emerald';
   headerIcon?: React.ElementType;
   headerLabel?: string;
+  /**
+   * เลื่อนหน้าไปที่คำอธิบายเมื่อเฉลยโผล่ — เปิดเฉพาะหน้าทำข้อสอบเท่านั้น
+   * หน้า review/explain เฉลยมาพร้อมหน้าเลย ไม่ต้องให้หน้ากระโดด
+   * (ผู้ใช้กำหนด 2026-10-18: เลื่อนเฉพาะหน้าทำข้อสอบ)
+   */
+  scrollToExplanationOnReveal?: boolean;
 }
 
 /**
@@ -78,6 +84,7 @@ export default function FocusFormQuestionCard({
   accent = 'primary',
   headerIcon: HeaderIcon,
   headerLabel,
+  scrollToExplanationOnReveal = false,
 }: FocusFormQuestionCardProps) {
   const theme = ACCENT[accent] ?? ACCENT.primary;
   const isCorrect = selectedAnswer === correctAnswer;
@@ -89,6 +96,8 @@ export default function FocusFormQuestionCard({
   // เลือก → ตรวจคำตอบ → เฉลย (เลือกตอนยังไม่มีเฉลย เฉลยโผล่ตอน selectedAnswer
   // ไม่เปลี่ยนแล้ว จึงไม่มี dep ไหนเปลี่ยนพร้อมกัน)
   const explanationRef = useScrollIntoViewOnReveal();
+  // ไม่ส่ง ref = ไม่มีการเลื่อนเลย (หน้า review / explain / demo เฉพาะทักษะ)
+  const explanationBoxRef = scrollToExplanationOnReveal ? explanationRef : undefined;
 
 
   // Parse "Speaker: textSpeaker: text" into [{speaker, text}] lines (fallback when no structured conversation)
@@ -250,7 +259,7 @@ export default function FocusFormQuestionCard({
       </div>
 
       {showExplanation && (
-  <div ref={explanationRef} className="mt-6">
+  <div ref={explanationBoxRef} className="mt-6">
     {/* Header — Otter + caption */}
     <div className="relative z-20 inline-flex items-end gap-2 pl-[2.6rem]">
       <Image
