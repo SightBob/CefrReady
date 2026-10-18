@@ -19,6 +19,17 @@ import { withSelection } from '@/lib/full-test/state';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  try {
+    return await handleStart(request);
+  } catch (error) {
+    // ไม่ให้ throw ออกไปเป็น HTML 500 — client รอ { success, data }
+    // ข้อความภายในของ error ห้ามหลุดไปถึง client
+    console.error('[full/start] Failed to start:', error);
+    return NextResponse.json({ success: false, error: 'Failed to start test' }, { status: 500 });
+  }
+}
+
+async function handleStart(request: Request) {
   const originError = validateOrigin(request);
   if (originError) return originError;
 

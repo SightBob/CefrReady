@@ -15,6 +15,17 @@ import { partLevels, readSelection, withSelection } from '@/lib/full-test/state'
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  try {
+    return await handleResume(request);
+  } catch (error) {
+    // ไม่ให้ throw ออกไปเป็น HTML 500 — client รอ { success, data }
+    // ข้อความภายในของ error ห้ามหลุดไปถึง client
+    console.error('[full/resume] Failed to resume:', error);
+    return NextResponse.json({ success: false, error: 'Failed to resume test' }, { status: 500 });
+  }
+}
+
+async function handleResume(request: Request) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) {
