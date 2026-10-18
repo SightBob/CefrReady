@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { verbBanks } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { firstVerbError, validateVerbEntry } from '@/lib/verb-bank';
 import { revalidateTag } from 'next/cache';
 
@@ -24,7 +24,7 @@ interface ImportRow {
  * - แถวที่ validate ไม่ผ่าน = รายงานเลขบรรทัดกลับไป โดยไม่หยุดแถวอื่น
  */
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:verb-banks:import', maxRequests: 5, windowMs: 300_000 });
   if (error) return error;
 
   try {

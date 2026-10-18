@@ -3,7 +3,7 @@ import Papa from 'papaparse';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { eq, and, sql, inArray } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 
 export const dynamic = 'force-dynamic';
@@ -568,7 +568,7 @@ async function assignQuestionsToTestSets(
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:questions:import', maxRequests: 5, windowMs: 300_000 });
   if (error) return error;
   try {
     const body = await request.json();

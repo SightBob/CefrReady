@@ -33,6 +33,7 @@ function builder(result: unknown) {
   return b;
 }
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET, POST } from './route';
 
 const jsonRequest = (body: unknown) =>

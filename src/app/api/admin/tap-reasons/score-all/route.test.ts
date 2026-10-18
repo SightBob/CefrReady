@@ -29,6 +29,7 @@ function builder(result: unknown) {
   return b;
 }
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { POST } from './route';
 
 beforeEach(() => {

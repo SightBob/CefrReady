@@ -31,6 +31,7 @@ function builder(result: unknown) {
   return b;
 }
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET, POST } from './route';
 
 /** payload ของ explain ที่มีเนื้อหาอยู่ใน Type Breakdown การ์ดเดียว (ไม่มี heading/body) */

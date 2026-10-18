@@ -11,6 +11,7 @@ vi.mock('@upstash/redis', () => ({
   },
 }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET, PUT } from './route';
 
 const putRequest = (body: unknown) =>

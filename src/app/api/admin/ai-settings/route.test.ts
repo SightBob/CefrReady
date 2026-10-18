@@ -4,6 +4,7 @@ import { DEFAULT_TAP_AI_SETTINGS } from '@/lib/tap-ai';
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), get: vi.fn(), save: vi.fn(), key: vi.fn() }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.auth }));
 vi.mock('@/lib/tap-ai-settings', () => ({ getTapAiSettings: mocks.get, saveTapAiSettings: mocks.save, hasOpenRouterKey: mocks.key }));
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET, PUT } from './route';
 const request = (body: unknown) => new NextRequest('http://localhost:3000/api/admin/ai-settings', { method: 'PUT', body: JSON.stringify(body) });
 beforeEach(() => { vi.clearAllMocks(); mocks.auth.mockResolvedValue({ error: null }); mocks.get.mockResolvedValue(DEFAULT_TAP_AI_SETTINGS); mocks.save.mockResolvedValue(undefined); mocks.key.mockReturnValue(true); });

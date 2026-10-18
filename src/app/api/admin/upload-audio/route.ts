@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadToR2 } from '@/lib/r2';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 const ALLOWED_AUDIO_TYPES = [
   'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
@@ -43,7 +43,7 @@ export function detectAudioKind(b: Uint8Array): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:upload-audio', maxRequests: 5, windowMs: 300_000 });
   if (error) return error;
 
   try {

@@ -81,6 +81,7 @@ vi.mock('@/db/schema', () => ({
 vi.mock('@/db', () => ({ get db() { return h.db; } }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: async () => ({ error: null, session: null }) }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { POST } from './route';
 
 function makeReq(questionIds: number[]) {

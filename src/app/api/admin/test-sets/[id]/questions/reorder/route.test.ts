@@ -102,6 +102,7 @@ vi.mock('@/db/schema', () => ({
 vi.mock('@/db', () => ({ get db() { return h.db; } }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: async () => ({ error: null, session: null }) }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { PUT } from './route';
 
 /** orderIndex ที่ถูกเขียน — undefined เมื่อค่าเป็น SQL expression ไม่ใช่ตัวเลข */

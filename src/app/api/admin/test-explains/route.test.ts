@@ -21,6 +21,7 @@ vi.mock('@/db', () => ({
   },
 }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { POST } from './route';
 
 const validPayload = {

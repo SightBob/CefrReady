@@ -13,6 +13,7 @@ vi.mock('@/lib/test-section-maintenance', () => ({
     ['focus-form', 'focus-meaning', 'form-meaning', 'listening', 'full'].includes(v),
 }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET, POST } from './route';
 import { getSectionMaintenanceMap, setSectionMaintenance } from '@/lib/test-section-maintenance';
 import { NextRequest } from 'next/server';

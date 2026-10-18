@@ -9,6 +9,7 @@ vi.mock('@/db', () => ({ db: {} }));
 vi.mock('@/db/schema', () => ({ questions: {}, testSetQuestions: {}, testSets: {} }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: async () => ({ error: null, session: null }) }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { validateQuestion, normalizeTap, GET } from './route';
 import Papa from 'papaparse';
 

@@ -26,6 +26,7 @@ function builder(result: unknown) {
   return b;
 }
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { PUT, DELETE } from './route';
 
 const jsonRequest = (id: string, body: unknown) =>

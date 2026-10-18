@@ -23,6 +23,7 @@ function builder(result: unknown) {
   return b;
 }
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET } from './route';
 
 const request = () => new NextRequest('http://localhost/api/admin/test-explains/topics/Quantifiers/questions');

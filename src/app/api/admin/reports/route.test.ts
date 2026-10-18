@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({ requireAdmin: vi.fn(), select: vi.fn(), querie
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET } from './route';
 
 beforeEach(() => {

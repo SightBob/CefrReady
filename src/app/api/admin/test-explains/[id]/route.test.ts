@@ -19,6 +19,7 @@ vi.mock('@/db', () => ({
   },
 }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { PATCH, DELETE } from './route';
 
 const validBody = {

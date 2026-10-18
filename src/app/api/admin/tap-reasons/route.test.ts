@@ -27,6 +27,7 @@ function builder(result: unknown) {
   return b;
 }
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET, PATCH } from './route';
 
 const url = (query = '') => new NextRequest(`http://localhost/api/admin/tap-reasons${query}`);

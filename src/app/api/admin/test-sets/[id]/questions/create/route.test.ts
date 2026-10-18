@@ -90,6 +90,7 @@ vi.mock('@/db', () => ({ get db() { return h.db; } }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: async () => ({ error: null, session: null }) }));
 vi.mock('@/lib/full-test/question-pool', () => ({ revalidateQuestionPool: () => {} }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { POST } from './route';
 
 async function run(maxOrder: number | null) {

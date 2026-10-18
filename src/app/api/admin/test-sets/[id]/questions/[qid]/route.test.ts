@@ -69,6 +69,7 @@ vi.mock('@/db/schema', () => ({
 vi.mock('@/db', () => ({ get db() { return h.db; } }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: async () => ({ error: null, session: null }) }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import * as route from './route';
 
 function callDelete(id: string, qid: string) {

@@ -7,10 +7,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ requireAdmin: vi.fn(), upload: vi.fn() }));
-vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
+const mocks = vi.hoisted(() => ({ withAdmin: vi.fn(), upload: vi.fn() }));
+vi.mock('@/lib/admin-route', () => ({ withAdmin: mocks.withAdmin }));
 vi.mock('@/lib/r2', () => ({ uploadToR2: mocks.upload }));
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { POST, detectAudioKind } from './route';
 
 /** ไฟล์เสียงจริงแบบเล็กที่สุดที่แต่ละชนิดยอมรับได้ */
@@ -46,7 +47,7 @@ function fileOf(bytes: number[], type: string, name = 'audio.mp3') {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.requireAdmin.mockResolvedValue({ error: null, session: { user: { id: 'admin-1' } } });
+  mocks.withAdmin.mockResolvedValue({ error: null, session: { user: { id: 'admin-1' } } });
   mocks.upload.mockResolvedValue('https://cdn.example/audio.mp3');
 });
 
@@ -111,5 +112,38 @@ describe('POST /api/admin/upload-audio', () => {
     const formData = new FormData();
     const res = await POST({ formData: async () => formData } as never);
     expect(res.status).toBe(400);
+  });
+});
+
+describe('admin write-heavy route (withAdmin)', () => {
+  it('ขอโควตา 5 ครั้ง / 5 นาที', async () => {
+    await POST(reqWith(fileOf(REAL.mp3.bytes, 'audio/mpeg')));
+    expect(mocks.withAdmin).toHaveBeenCalledWith({
+      keySuffix: 'admin:upload-audio',
+      maxRequests: 5,
+      windowMs: 300_000,
+    });
+  });
+
+  it('เกินโควตาได้ 429 พร้อม Retry-After และไม่ขึ้น R2', async () => {
+    mocks.withAdmin.mockResolvedValue({
+      error: new Response(JSON.stringify({ success: false, error: 'Too many requests' }), {
+        status: 429,
+        headers: { 'Retry-After': '90' },
+      }),
+      session: null,
+    });
+    const res = await POST(reqWith(fileOf(REAL.mp3.bytes, 'audio/mpeg')));
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('90');
+    expect(mocks.upload).not.toHaveBeenCalled();
+  });
+
+  it('ยังได้ 403 เมื่อไม่ใช่แอดมินเหมือนเดิม', async () => {
+    mocks.withAdmin.mockResolvedValue({
+      error: new Response('Forbidden - Admin access required', { status: 403 }),
+      session: null,
+    });
+    expect((await POST(reqWith(fileOf(REAL.mp3.bytes, 'audio/mpeg')))).status).toBe(403);
   });
 });

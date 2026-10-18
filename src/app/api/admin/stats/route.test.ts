@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({ admin: vi.fn(), select: vi.fn(), pending: 0, p
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.admin }));
 vi.mock('next/cache', () => ({ unstable_cache: (fn: unknown) => fn }));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET } from './route';
 beforeEach(() => {
   mocks.pending = 0; mocks.peak = 0; mocks.calls = [];

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { asc, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { tapReasonSubmissions } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { getTapReasonRewardSettings } from '@/lib/tap-reason-settings';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ const MAX_BACKFILL_ROWS = 500;
  * จำกัดต่อครั้ง: ถ้ายังเหลือ ให้ผู้เรียกกดซ้ำ (ตอบ remaining = true)
  */
 export async function POST() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:tap-reasons:score-all', maxRequests: 5, windowMs: 300_000 });
   if (error) return error;
 
   let points: number;

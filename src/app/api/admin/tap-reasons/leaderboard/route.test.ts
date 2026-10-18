@@ -21,6 +21,7 @@ function builder(result: unknown) {
   return b;
 }
 
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: async () => null }));
 import { GET } from './route';
 
 /** แถวดิบแบบที่ pg ส่งกลับจริง — SUM/COUNT ของ integer มาเป็น string */
