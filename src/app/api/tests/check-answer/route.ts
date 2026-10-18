@@ -28,11 +28,11 @@ const bodySchema = z.object({
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
 
-/** 20/นาที กันยิงรัวในหนึ่งชุด + 300/วัน กันไล่เดาทีละข้อทั้งคลัง */
+/** 20/นาที กันยิงรัวในหนึ่งชุด + 600/วัน กันไล่เดาทีละข้อทั้งคลัง */
 const MINUTE_LIMIT = { keySuffix: 'check-answer', maxRequests: 20 } as const;
 const DAILY_LIMIT = {
   keySuffix: 'check-answer:day',
-  maxRequests: 300,
+  maxRequests: 600,
   windowMs: 86_400_000,
 } as const;
 

@@ -56,13 +56,13 @@ describe('POST check-answer', () => {
     expect(mocks.rate).not.toHaveBeenCalled();
   });
 
-  it('จำกัด 20 ครั้งต่อนาทีและเพดาน 300 ครั้งต่อวันต่อผู้เรียน', async () => {
+  it('จำกัด 20 ครั้งต่อนาทีและเพดาน 600 ครั้งต่อวันต่อผู้เรียน', async () => {
     await POST(request());
     const calls = mocks.rate.mock.calls.map(c => c[1]);
     expect(calls).toContainEqual({ keySuffix: 'check-answer', maxRequests: 20 });
     expect(calls).toContainEqual({
       keySuffix: 'check-answer:day',
-      maxRequests: 300,
+      maxRequests: 600,
       windowMs: 86_400_000,
     });
     expect(mocks.rate).toHaveBeenCalledWith('learner', expect.anything());
