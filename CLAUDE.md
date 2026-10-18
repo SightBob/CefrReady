@@ -39,10 +39,10 @@ CefrReady is an English proficiency testing platform aligned with the CEFR (Comm
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Next.js 14 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Language | TypeScript 5.4 (strict mode) |
 | Styling | Tailwind CSS 3.4 + `@tailwindcss/typography` + `tailwindcss-animate` |
-| Database | PostgreSQL (Neon serverless) via Drizzle ORM |
+| Database | PostgreSQL via Drizzle ORM (`pg` Pool) |
 | Auth | NextAuth v5 beta — JWT strategy + Google OAuth |
 | Cache | Upstash Redis (rate limiting) |
 | Storage | Cloudflare R2 (audio files for listening tests) |
@@ -56,8 +56,10 @@ CefrReady is an English proficiency testing platform aligned with the CEFR (Comm
 
 ```bash
 npm run dev          # Start dev server
-npm run build        # Production build (also used as "test")
+npm run build        # Production build
 npm run lint         # ESLint
+npm run typecheck    # tsc --noEmit --incremental false
+npx vitest run       # Unit tests
 npm run db:generate  # Generate Drizzle migration from schema changes
 npm run db:migrate   # Apply migrations to database
 npm run db:push      # Push schema directly (dev only)
@@ -70,7 +72,6 @@ npm run db:seed      # Seed admin user
 ```
 src/
 ├── app/                    # Next.js App Router
-│   ├── (pages)/            # Public pages: /, /tests, /progress, etc.
 │   ├── admin/              # Admin panel pages
 │   ├── api/                # API route handlers
 │   │   ├── admin/          # Admin-only endpoints (guarded by requireAdmin)
@@ -80,13 +81,13 @@ src/
 ├── components/             # React components
 ├── db/
 │   ├── schema.ts           # All Drizzle table definitions
-│   └── index.ts            # DB connection (Neon serverless)
+│   └── index.ts            # DB connection (pg Pool)
 ├── lib/
 │   ├── auth.ts             # Full NextAuth config (server-side, uses DB)
 │   ├── auth.config.ts      # Edge-safe auth config (no DB imports)
 │   ├── admin-auth.ts       # requireAdmin() helper for API routes
 │   └── rate-limit.ts       # Upstash rate limiting
-├── middleware.ts            # Edge middleware — route protection
+├── proxy.ts                # Edge proxy — route protection + per-request CSP nonce
 └── types/                  # Shared TypeScript types
 ```
 
@@ -96,10 +97,10 @@ src/
 
 Auth is split into two files to work around Edge Runtime limitations:
 
-- **`src/lib/auth.config.ts`** — Edge-safe. No DB imports. Used by `middleware.ts` for route protection via `authorized()` callback.
+- **`src/lib/auth.config.ts`** — Edge-safe. No DB imports. Used by `proxy.ts` for route protection via `authorized()` callback.
 - **`src/lib/auth.ts`** — Full config with DrizzleAdapter. Imports `authConfig` and adds JWT callbacks + DB adapter. Used by server components and API routes.
 
-JWT strategy is used (not database sessions) so middleware can verify sessions without querying the DB on every request. The adapter still handles OAuth account linking and user creation.
+JWT strategy is used (not database sessions) so the proxy can verify sessions without querying the DB on every request. The adapter still handles OAuth account linking and user creation.
 
 ### Admin Authorization
 
@@ -112,7 +113,7 @@ JWT strategy is used (not database sessions) so middleware can verify sessions w
 
 - All tables defined in single file: `src/db/schema.ts`
 - Migrations in `drizzle/` directory
-- Connection via Neon serverless driver (`@neondatabase/serverless`)
+- Connection via `pg` Pool (`src/db/index.ts`)
 - `AnyTable` type assertion required for DrizzleAdapter compatibility (known issue with NextAuth v5 + Drizzle)
 
 ### Content & Testing Model
@@ -123,12 +124,15 @@ JWT strategy is used (not database sessions) so middleware can verify sessions w
 
 ### Security Headers
 
-CSP and security headers configured in `next.config.mjs`. Key allowed origins:
+Page CSP is issued **per request with a nonce from `src/proxy.ts`** (see `src/lib/csp.ts`).
+`next.config.mjs` sets the non-CSP headers (HSTS, X-Frame-Options, …) plus a static
+`default-src 'none'` CSP for `/api/*` only — do not add the page CSP there or the two
+headers collide and break nonce handling. Key allowed origins:
 - Google OAuth, Google Analytics, Google Fonts
 - Cloudflare R2 for media (`pub-e915c92ac05f48ccabfe327469bf4599.r2.dev`)
 - Vercel Analytics scripts
 
-When adding external scripts/resources, update the CSP headers in `next.config.mjs`.
+When adding external scripts/resources, update `src/lib/csp.ts`.
 
 ## Conventions
 
@@ -144,15 +148,16 @@ When adding external scripts/resources, update the CSP headers in `next.config.m
 - Public routes under `/api/*`
 
 ### Styling
-- Custom fonts: **Prompt** (Thai-compatible sans), **Pridi** (serif)
+- Site-wide font: **IBM Plex Sans Thai** (`--font-ibm`); `sans` and `serif` both alias to it
+- Display aliases: `momo` (Momo Trust Display), `caveat`, `itim` — defined in `src/app/fonts.css`
 - Custom colors: `primary` (sky-blue scale), `accent` (fuchsia/pink scale)
 - Custom animations: `fade-in`, `slide-up`, `pulse-slow`
 - Tailwind classes only — no CSS modules
 
 ### Components
 - Client components explicitly marked with `"use client"`
-- Large client components: `TestLayout.tsx` (~35KB), `MustKnowClient.tsx` (~17KB)
-- Admin editor components in `src/components/` (e.g., `GrammarArticleEditor.tsx`)
+- Large client components: `TestLayout.tsx` (~42KB)
+- Admin editor components in `src/components/` (e.g., `ArticleEditor.tsx`)
 
 ## Environment Variables
 
@@ -189,7 +194,7 @@ SENTRY_PROJECT           # Optional — Sentry project
 ### Adding a new page
 1. Create directory under `src/app/` with `page.tsx`
 2. Add metadata export for SEO
-3. If protected, add route to `src/middleware.ts` matcher
+3. If protected, add route to `src/proxy.ts` matcher
 
 ### Adding an admin API endpoint
 1. Create route under `src/app/api/admin/[resource]/route.ts`
@@ -200,7 +205,7 @@ SENTRY_PROJECT           # Optional — Sentry project
 ## Rules
 - Never use `any` type — use proper TypeScript types or `unknown`
 - Always use Drizzle ORM — no raw SQL queries
-- Never import from `src/lib/auth.ts` in middleware or Edge functions
+- Never import from `src/lib/auth.ts` in proxy or Edge functions
 - Always call `requireAdmin()` at the top of admin API handlers
 
 ## Current Focus
@@ -209,7 +214,16 @@ Working on: [ใส่ feature ที่กำลังทำ]
 ## Known Issues / Gotchas
 - NextAuth v5 + DrizzleAdapter requires `as AnyTable` cast — already handled in `src/lib/auth.ts`
 - Edge Runtime cannot import `src/lib/auth.ts` (has DB) — use `auth.config.ts` instead
-- CSP headers must be updated in `next.config.mjs` when adding external scripts
+- CSP headers must be updated in `src/lib/csp.ts` when adding external scripts
 
 ## Testing
-No unit test framework. Use `npm run build` to verify — it's the closest thing to a test pass.
+Vitest, wired into CI (`.github/workflows/ci.yml`) — currently **826 tests across 100 files**.
+
+```bash
+npx vitest run        # run once
+npx vitest            # watch mode
+```
+
+`src/app/api/verb-banks/schema-live.test.ts` is the one exception: it is a live-DB
+integration test and **skips itself when `DATABASE_URL` is not set** — so never set a
+dummy value for it in CI or it will fail trying to connect.
