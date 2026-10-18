@@ -78,6 +78,37 @@ describe('which pages scroll to the explanation', () => {
   });
 });
 
+describe('reveal timing must wait for paint, not a guessed delay', () => {
+  const HOOK = 'src/lib/use-scroll-on-reveal.ts';
+  const source = readFileSync(resolve(HOOK), 'utf8');
+
+  // เดิมใช้ setTimeout(100) ซึ่งเป็นการเดาเวลา ไม่ใช่การรอจริง
+  // ถ้า 100ms ไม่พอ (ฟอนต์/ข้อความยังไม่ลง) จะวัดตำแหน่งผิด
+  // แล้วหน้าขยับตามทีหลัง ซึ่งผู้ใช้รู้สึกเป็น "กระตุก/กระโดด"
+  it('no longer schedules the scroll on a magic timeout', () => {
+    // เช็คเฉพาะฝั่งโค้ด — คำว่า setTimeout ยังปรากฏในคอมเมนต์ที่อธิบายว่าเคยใช้
+    expect(source).not.toMatch(/window\.setTimeout\(/);
+    expect(source).not.toMatch(/delayMs/);
+  });
+
+  // rAF ชั้นแรก = หลัง commit · ชั้นที่สอง = หลังเบราว์เซอร์ paint
+  it('waits two animation frames so layout has settled before measuring', () => {
+    expect(source).toContain('requestAnimationFrame');
+    expect(source).toMatch(/requestAnimationFrame\([\s\S]*?requestAnimationFrame\(/);
+  });
+
+  // ref callback ถูกเรียกซ้ำได้ตอน re-mount — สั่งซ้ำระหว่างที่ animation
+  // กำลังวิ่งจะทำให้หน้ากระตุก ต้องมีธงกัน
+  it('guards against issuing the scroll twice for the same explanation', () => {
+    expect(source).toContain('scrolledNodeRef');
+    expect(source).toMatch(/scrolledNodeRef\.current === node/);
+  });
+
+  it('cancels pending frames on unmount', () => {
+    expect(source).toContain('cancelAnimationFrame');
+  });
+});
+
 describe('bottom bar must be measurable', () => {
   // ถ้า TestLayout เปลี่ยน class ของแถบล่างจนหลุดจาก selector ที่วัดไว้
   // เฉลยที่อยู่ใต้แถบจะถูกนับว่า "เห็นครบ" แล้วเลื่อนไม่ทำงานอีก

@@ -1,122 +1,72 @@
-import { describe, expect, it, vi } from 'vitest';
-import { isFullyVisible, scrollIntoViewIfClipped } from './scroll-into-view';
-
-/** ทำ fake element ที่รายงานตำแหน่งตามที่กำหนด — ไม่ต้องมี DOM จริง */
-function fakeElement(top: number, bottom: number) {
-  const scrollIntoView = vi.fn();
-  const el = {
-    getBoundingClientRect: () => ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top }),
-    scrollIntoView,
-  };
-  return { el: el as unknown as HTMLElement, scrollIntoView };
-}
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { prefersReducedMotion, revealScrollOffset } from './scroll-into-view';
 
 const VIEWPORT = 800;
+const BAR = 216; // ความสูงแถบล่าง fixed บนมือถือ
 
-describe('scrollIntoViewIfClipped', () => {
-  it('does nothing when there is no element to scroll to', () => {
-    expect(() => scrollIntoViewIfClipped(null, VIEWPORT)).not.toThrow();
-    expect(() => scrollIntoViewIfClipped(undefined, VIEWPORT)).not.toThrow();
+/** กล่องที่อยู่ตำแหน่ง top และสูง height — พื้นที่ที่มองเห็นจริงคือ 0..(800-216)=584 */
+const box = (top: number, height: number) => ({ top, height });
+
+describe('revealScrollOffset', () => {
+  it('asks for no movement when the explanation already fits on screen', () => {
+    expect(revealScrollOffset(box(300, 180), VIEWPORT, BAR)).toBeNull();
   });
 
-  // กรณีปกติบนเดสก์ท็อป — เฉลยสั้นและอยู่ในจออยู่แล้ว ต้องไม่ขยับหน้า
-  it('leaves the page still when the explanation already fits on screen', () => {
-    const { el, scrollIntoView } = fakeElement(300, 480);
-    scrollIntoViewIfClipped(el, VIEWPORT);
-    expect(scrollIntoView).not.toHaveBeenCalled();
+  it('asks for no movement when nothing is covered by the bar (no inset)', () => {
+    expect(revealScrollOffset(box(300, 180), VIEWPORT, 0)).toBeNull();
   });
 
-  it('scrolls when the explanation runs past the bottom of the screen', () => {
-    const { el, scrollIntoView } = fakeElement(600, 1400);
-    scrollIntoViewIfClipped(el, VIEWPORT);
-    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'center' });
+  it('treats an explanation sitting under the fixed bar as not visible', () => {
+    // 500..620 — อยู่ใน viewport (800) แต่โดนแถบที่บังตั้งแต่ 584
+    expect(revealScrollOffset(box(500, 120), VIEWPORT, BAR)).not.toBeNull();
   });
 
-  it('scrolls when the explanation starts above the top of the screen', () => {
-    const { el, scrollIntoView } = fakeElement(-120, 260);
-    scrollIntoViewIfClipped(el, VIEWPORT);
-    expect(scrollIntoView).toHaveBeenCalledOnce();
+  it('treats an explanation flush with the bar as fully visible', () => {
+    // 460..584 — ขอบล่างพอดีชนแถบ = ยังอยู่เหนือแถบทั้งหมด
+    expect(revealScrollOffset(box(460, 124), VIEWPORT, BAR)).toBeNull();
   });
 
-  // เฉลยยาวกว่าจอ — มองไม่เห็นครบแน่นอน ต้องเลื่อนเสมอ
-  it('scrolls when the explanation is taller than the whole screen', () => {
-    const { el, scrollIntoView } = fakeElement(-500, 2000);
-    scrollIntoViewIfClipped(el, VIEWPORT);
-    expect(scrollIntoView).toHaveBeenCalledOnce();
+  it('centres a box that fits the visible area instead of the whole viewport', () => {
+    // 700..900 — ล้นแถบล่าง สูง 200 พอดีในพื้นที่ 584
+    // กึ่งกลางที่ควรเห็น = (584-200)/2 = 192 → ต้องเลื่อนลง 700-192 = 508
+    expect(revealScrollOffset(box(700, 200), VIEWPORT, BAR)).toBeCloseTo(508);
   });
 
-  // เลขมิลลิเมตร: พอดีขอบล่างของจอ = เห็นครบ ไม่ต้องขยับ
-  it('treats an explanation flush with the bottom edge as fully visible', () => {
-    const { el, scrollIntoView } = fakeElement(500, VIEWPORT);
-    scrollIntoViewIfClipped(el, VIEWPORT);
-    expect(scrollIntoView).not.toHaveBeenCalled();
+  it('anchors the top when the box is taller than the visible area', () => {
+    // สูง 900 > 584 → ยึดขอบบนของกล่องชิดบนจอ → เลื่อนลงเท่าตำแหน่งปัจจุบัน
+    expect(revealScrollOffset(box(300, 900), VIEWPORT, BAR)).toBeCloseTo(300);
   });
 
-  // หน้าสอบมีแถบล่าง fixed สูง ~216px บนมือถือ เฉลยที่อยู่ใต้แถบนั้น
-  // ผู้เรียนมองไม่เห็น ต้องเลื่อน ไม่ใช่ถือว่า "อยู่ในจอแล้ว"
-  it('counts the fixed bottom bar as covered, not as visible', () => {
-    const { el, scrollIntoView } = fakeElement(600, 700); // สูง 100
-    scrollIntoViewIfClipped(el, VIEWPORT, 'center', 216); // ขอบบนที่มองเห็นจริง = 584
-    expect(scrollIntoView).toHaveBeenCalledOnce();
+  it('never returns a clamp-inducing centre for a box bigger than the screen', () => {
+    const offset = revealScrollOffset(box(0, 2000), VIEWPORT, 0);
+    // block:'center' ตรงนี้จะถูกเบราว์เซอร์ clamp ที่ขอบจอ = กระโดด
+    // ต้องเป็นการยึดขอบบน (0) ไม่ใช่ค่ากึ่งกลางที่ลบออกเอง
+    expect(offset).toBe(0);
   });
 
-  it('still skips scrolling when the explanation clears the bottom bar', () => {
-    const { el, scrollIntoView } = fakeElement(300, 480); // จบที่ 480 < 584
-    scrollIntoViewIfClipped(el, VIEWPORT, 'center', 216);
-    expect(scrollIntoView).not.toHaveBeenCalled();
-  });
-
-  it('treats an explanation flush with the bar as still covered', () => {
-    const { el, scrollIntoView } = fakeElement(400, 600); // จบที่ 600 > 584
-    scrollIntoViewIfClipped(el, VIEWPORT, 'center', 216);
-    expect(scrollIntoView).toHaveBeenCalledOnce();
-  });
-
-  it('anchors to the top only when the box outgrows the space above the bar', () => {
-    const tall = fakeElement(-500, 2000); // สูง 2500 > 800-216
-    scrollIntoViewIfClipped(tall.el, VIEWPORT, 'center', 216);
-    expect(tall.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'start' });
-
-    const short = fakeElement(700, 1000); // สูง 300 < 584
-    scrollIntoViewIfClipped(short.el, VIEWPORT, 'center', 216);
-    expect(short.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'center' });
-  });
-
-  it('honours a different block position when asked', () => {
-    const { el, scrollIntoView } = fakeElement(900, 1200);
-    scrollIntoViewIfClipped(el, VIEWPORT, 'start');
-    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'start' });
-  });
-
-  // กล่องสูงกว่าจอ = จัดกึ่งกลางไม่ได้ เบราว์เซอร์จะ clamp ที่ขอบจอ
-  // ซึ่งดูเหมือนกระโดดทันที ต้องดันขอบบนขึ้นไปชิดขอบบนจอแทน
-  it('anchors to the top when the explanation is taller than the screen', () => {
-    const { el, scrollIntoView } = fakeElement(-500, 2000);
-    scrollIntoViewIfClipped(el, VIEWPORT);
-    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'start' });
-  });
-
-  it('keeps centring a box that fits the screen even when it is clipped', () => {
-    const { el, scrollIntoView } = fakeElement(700, 1000); // สูง 300 < 800
-    scrollIntoViewIfClipped(el, VIEWPORT);
-    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'center' });
+  it('treats a box starting above the top edge as clipped', () => {
+    expect(revealScrollOffset(box(-120, 300), VIEWPORT, BAR)).not.toBeNull();
   });
 });
 
-describe('isFullyVisible', () => {
-  it('is false whenever any part sits outside the viewport', () => {
-    expect(isFullyVisible(fakeElement(-1, 100).el, VIEWPORT)).toBe(false);
-    expect(isFullyVisible(fakeElement(700, 801).el, VIEWPORT)).toBe(false);
+describe('prefersReducedMotion', () => {
+  // ฟังก์ชันอ่าน window.matchMedia — stub ที่ window โดยตรง
+  const stubMatchMedia = (matches: boolean) =>
+    vi.stubGlobal('window', { matchMedia: vi.fn(() => ({ matches })) });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it('is true only when both edges sit inside', () => {
-    expect(isFullyVisible(fakeElement(0, VIEWPORT).el, VIEWPORT)).toBe(true);
-    expect(isFullyVisible(fakeElement(100, 700).el, VIEWPORT)).toBe(true);
+  it('reports the user setting so the scroll can fall back to instant', () => {
+    stubMatchMedia(true);
+    expect(prefersReducedMotion()).toBe(true);
+    stubMatchMedia(false);
+    expect(prefersReducedMotion()).toBe(false);
   });
 
-  it('shrinks the usable area by the bottom bar that covers it', () => {
-    // จบที่ 600 — อยู่ในจอ (800) แต่โดนแถบล่างที่สูง 216 บัง
-    expect(isFullyVisible(fakeElement(400, 600).el, VIEWPORT, 0)).toBe(true);
-    expect(isFullyVisible(fakeElement(400, 600).el, VIEWPORT, 216)).toBe(false);
+  it('does not throw on browsers without matchMedia', () => {
+    vi.stubGlobal('window', {});
+    expect(prefersReducedMotion()).toBe(false);
   });
 });
