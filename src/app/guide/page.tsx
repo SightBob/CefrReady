@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import type { Metadata } from 'next';
 
-export const revalidate = 3600;
 
 const BASE_URL = 'https://cefr-ready.site';
 

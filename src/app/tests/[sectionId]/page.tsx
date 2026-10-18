@@ -6,7 +6,6 @@ import { getCachedSections } from '@/lib/sections';
 import { isSectionInMaintenance } from '@/lib/test-section-maintenance';
 import SectionTestSetCard from '@/components/SectionTestSetCard';
 
-export const revalidate = 300;
 
 async function getSections() {
   try {

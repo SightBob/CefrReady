@@ -6,7 +6,6 @@ import { getCachedSections } from '@/lib/sections';
 import { getCachedExplainsForSet, getCachedSetTopicRuns } from '@/lib/test-explains';
 import { usesSetLevelExplain } from '@/lib/test-set-topics';
 
-export const revalidate = 300;
 
 async function getSections() {
   try {

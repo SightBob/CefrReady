@@ -8,7 +8,6 @@ import { ArrowLeft, BookOpen } from 'lucide-react';
 import JsonLd, { articleSchema, breadcrumbSchema } from '@/components/JsonLd';
 import type { Metadata } from 'next';
 
-export const revalidate = 3600;
 
 const BASE_URL = 'https://cefr-ready.site';
 

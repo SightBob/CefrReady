@@ -21,6 +21,10 @@
 > ตัวเลข bundle ทั้งหมดข้างต้นมาจาก `next build` จริง และผมตรวจแล้วว่า home page มี `async:true` = **0** — คือทุก chunk ที่นับเป็น **initial load จริง** ไม่ใช่ lazy chunk
 
 > หมายเหตุสำคัญ: แม้ตั้ง `revalidate` ไว้ 11 จุด แต่ build แสดงผลเป็น `ƒ` (Dynamic) **ทุกหน้า** เพราะ `headers()` ใน layout ดังนั้นค่า `revalidate` เหล่านั้น **ยังไม่เคยมีผลจริง** — ดู C2
+>
+> **อัปเดต 18 ต.ค. 2026:** ลบ `revalidate` ที่หลอกออกแล้ว 9 จุด (เหลือเฉพาะ `sitemap.ts` ที่มีผลจริง)
+> แต่**ยังไม่ทำให้หน้าเป็น static** เพราะ `layout.tsx` ยังอ่าน `headers()` เพื่อดึง CSP nonce
+> ทำให้ทุกหน้ายังเป็น `ƒ` — ดูสถานะจริงใน C2
 
 ---
 
@@ -59,25 +63,43 @@ src: url('/fonts/Caveat-VariableFont_wght.ttf') format('truetype-variations'),
 
 ### C2 — `layout.tsx` อ่าน `headers()` ทำให้ ISR ตายทั้งเว็บ
 
-**Before (วัดจาก build output — ทุกหน้าขึ้น `ƒ` Dynamic)**
-```
-ƒ /cefr          ← มี revalidate = 3600
-ƒ /tests         ← มี revalidate = 300
-ƒ /guide/[slug]  ← มี revalidate = 3600
-```
-Build ระบุ **0 หน้า** ที่ static ได้ (นอกจาก icon/robots/sitemap) ทั้งที่โค้ดตั้ง `revalidate` ไว้ 11 จุด — **ค่าเหล่านี้จึงไม่เคยมีผลจริง**
+**สถานะจริง (ยังไม่แก้ — ตัดสินใจไม่ทำ)**
 
-**สาเหตุ** — [layout.tsx:106](src/app/layout.tsx#L106)
-```ts
-const nonce = (await headers()).get('x-nonce') ?? undefined;
-```
-อ่าน `headers()` = ทำให้ทั้ง tree กลายเป็น dynamic ทุก request
+โค้ดยังอ่าน `headers()` ใน [layout.tsx](src/app/layout.tsx) เพื่อดึง CSP nonce ทำให้
+**ทุกหน้าเป็น dynamic ทุก request** ดังนั้น `export const revalidate` ที่ระดับ
+route segment ของหน้าที่ render ผ่าน root layout **ไม่มีผลจริง**
 
-**Change** — ย้าย logic ที่ต้องใช้ nonce ออกจาก root layout ให้ไปอยู่เฉพาะจุดที่ render `<script>` จริง (JsonLd) แล้วอ่าน header ใน component นั้นแทน
+วัดจาก `next build` (ตรวจเมื่อ 18 ต.ค. 2026) — 141 route:
+
+```
+○ /sitemap.xml  1h 1y     ← static ได้จริง เพราะเป็น metadata route
+                            ที่ไม่ผ่าน layout.tsx → revalidate มีผล
+○ /robots.txt
+○ /icon.png, /apple-icon.png, /opengraph-image.png
+ƒ ทุกหน้าที่เหลือ (137 route) — รวม /cefr /guide/* /tests/*
+```
+
+**สิ่งที่ทำแล้ว:** ลบ `export const revalidate` ที่หลอกออก **9 จุด** เพราะไม่มีทาง
+ทำงาน — ได้แก่ `/cefr`, `/cefr-levels`, `/cefr-vs-ielts`, `/guide`,
+`/guide/[slug]`, `/tests`, `/tests/[sectionId]`, `/tests/[sectionId]/[setId]/explain`,
+`/tests/[sectionId]/[setId]/intro` — แล้วรัน build ยืนยันว่า**ตาราง route เหมือนเดิม
+ทุกบรรทัด** (141 route, ไม่มี route ไหนเปลี่ยนจาก `○` เป็น `ƒ` หรือกลับกัน)
+
+**คงไว้ 1 จุด:** `src/app/sitemap.ts` มี `export const revalidate = 3600` และ**มีผลจริง**
+(สลับแล้ว build แสดง `○ /sitemap.xml 1h 1y` คงเดิม) เพราะเป็น metadata route ที่ไม่ได้
+render ผ่าน root layout จึงไม่ติดปัญหา CSP nonce
+
+**กลไกอื่นที่ยังทำงานอยู่และไม่ได้แตะ:** `unstable_cache` (`revalidate` + `tags`) 15 จุด
+ใน `src/lib/*` และ `src/app/api/*` · `{ next: { revalidate } }` ใน `api/dictionary` ·
+ไม่มี `revalidatePath` ในโปรเจกต์เลย
+
+**Change (ถ้าจะทำในอนาคต)** — ย้าย logic ที่ต้องใช้ nonce ออกจาก root layout ให้ไปอยู่
+เฉพาะจุดที่ render `<script>` จริง (JsonLd) แล้วอ่าน header ใน component นั้นแทน
 
 **ความเสี่ยง UX/UI: ต่ำ** — nonce ยังทำงานเหมือนเดิม ทุกหน้าที่ไม่มี inline script ไม่ต้อง dynamic
 
-**คาดว่าจะได้:** `/cefr`, `/guide/*`, `/must-know/*` กลายเป็น static จริง → TTFB ลดจาก **~20ms warm** เหลือ **edge cache 0ms** และประหยัด Neon query ทุก request
+**คาดว่าจะได้:** `/cefr`, `/guide/*`, `/must-know/*` กลายเป็น static จริง → TTFB ลดจาก
+**~20ms warm** เหลือ **edge cache 0ms** และประหยัด Neon query ทุก request
 
 > หมายเหตุ: ถ้าคุณต้องการ CSP nonce ที่ยากแกะที่สุด อาจต้องยอม trade-off เรื่องนี้ — ผมจะถามก่อนลงมือ
 

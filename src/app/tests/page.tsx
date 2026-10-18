@@ -4,7 +4,6 @@ import { auth } from '@/lib/auth';
 import { getSectionMaintenanceMap } from '@/lib/test-section-maintenance';
 import TestsPageClient from './TestsPageClient';
 
-export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'ข้อสอบ CEFR ทุกทักษะ',
