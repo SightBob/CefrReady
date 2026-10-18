@@ -568,7 +568,7 @@ async function assignQuestionsToTestSets(
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await withAdmin({ keySuffix: 'admin:questions:import', maxRequests: 5, windowMs: 300_000 });
+  const { error } = await withAdmin({ keySuffix: 'admin:questions:import', maxRequests: 10, windowMs: 300_000 });
   if (error) return error;
   try {
     const body = await request.json();
@@ -832,6 +832,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  // ดาวน์โหลดเทมเพลตเป็นการอ่านข้อมูลคงที่ ไม่ใช่งานเขียนฐานข้อมูล
+  // จึงแยกออกจากโควตาหนักของ POST ไปใช้ 60/นาที
+  const { error } = await withAdmin({ keySuffix: 'admin:questions:import:template', maxRequests: 60 });
+  if (error) return error;
+
   // Return CSV template with all test types — generated via PapaParse for correctness
   const templateRows = [
     {
