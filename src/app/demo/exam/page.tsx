@@ -307,12 +307,20 @@ export default function DemoExamPage() {
     },
   };
 
+  // แถบความคืบหน้าเดินตาม "ตรวจคำตอบ" แบบชุดข้อสอบจริง — เลือกคำตอบอย่างเดียว
+  // ยังข้ามไปข้อถัดไปไม่ได้ ตัวเลขนี้จึงต้องไม่เดินก่อนตรวจ
+  const checkedCount = slots.reduce(
+    (count, _slot, index) => (isSlotChecked(index) ? count + 1 : count),
+    0,
+  );
+
   const layoutProps = {
     title: 'โหมดตัวอย่าง (ปนทุกทักษะ)',
     durationMinutes: 5,
     totalQuestions: slots.length,
     currentQuestion: currentSlot,
     answers,
+    checkedCount,
     onQuestionSelect: handleQuestionSelect,
     onPrevious: handlePrevious,
     onNext: handleNext,

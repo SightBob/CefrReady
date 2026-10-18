@@ -853,6 +853,14 @@ export default function SetQuizPage() {
   const layoutTotal = mainSlots.length;
   const layoutCurrent = currentQuestion;
   const layoutAnswers = answers;
+  // แถบความคืบหน้านับเฉพาะ slot ที่ผ่าน "ตรวจคำตอบ" แล้ว — เลือกคำตอบอย่างเดียว
+  // ยังข้ามไปข้อถัดไปไม่ได้ (handleNext/handleQuestionSelect บล็อกไว้) ตัวเลขนี้
+  // จึงเดินเร็วกว่าที่ผู้เรียนข้ามหน้าได้จริง ส่วน `answers` ยังเป็นตัวที่ส่ง
+  // ตอน submit จึงไม่แตะ
+  const layoutCheckedCount = mainSlots.reduce(
+    (count, slot, index) => (isSlotChecked(index, slot) ? count + 1 : count),
+    0,
+  );
 
   // ─── ANSWER HIDING: ปุ่มหลัก + เฉลยของ slot ปัจจุบัน ───────────────
   // ข้อที่ผู้เรียนตอบแล้วต้องกด "ตรวจคำตอบ" ก่อนจึงจะข้างหน้าได้ (handleNext /
@@ -940,6 +948,7 @@ export default function SetQuizPage() {
         totalQuestions={layoutTotal}
         currentQuestion={layoutCurrent}
         answers={layoutAnswers}
+        checkedCount={layoutCheckedCount}
         onQuestionSelect={handleQuestionSelect}
         onPrevious={handlePrevious}
         onNext={handleNext}
@@ -998,6 +1007,7 @@ export default function SetQuizPage() {
           totalQuestions={layoutTotal}
           currentQuestion={layoutCurrent}
           answers={layoutAnswers}
+          checkedCount={layoutCheckedCount}
           onQuestionSelect={handleQuestionSelect}
           onPrevious={handlePrevious}
           onNext={handleNext}
@@ -1049,6 +1059,7 @@ export default function SetQuizPage() {
         totalQuestions={layoutTotal}
         currentQuestion={layoutCurrent}
         answers={layoutAnswers}
+        checkedCount={layoutCheckedCount}
         onQuestionSelect={handleQuestionSelect}
         onPrevious={handlePrevious}
         onNext={handleNext}
@@ -1097,6 +1108,7 @@ export default function SetQuizPage() {
         totalQuestions={layoutTotal}
         currentQuestion={layoutCurrent}
         answers={layoutAnswers}
+        checkedCount={layoutCheckedCount}
         onQuestionSelect={handleQuestionSelect}
         onPrevious={handlePrevious}
         onNext={handleNext}
@@ -1148,6 +1160,7 @@ export default function SetQuizPage() {
       totalQuestions={layoutTotal}
       currentQuestion={layoutCurrent}
       answers={layoutAnswers}
+      checkedCount={layoutCheckedCount}
       onQuestionSelect={handleQuestionSelect}
       onPrevious={handlePrevious}
       onNext={handleNext}

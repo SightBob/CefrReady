@@ -37,6 +37,13 @@ interface TestLayoutProps {
   totalQuestions?: number;
   currentQuestion?: number;
   answers?: Array<string | number | null>;
+  /**
+   * จำนวนข้อที่ "ตรวจคำตอบ" ผ่านแล้ว — ใช้นับแถบความคืบหน้าแทน `answers`
+   * เฉพาะหน้าที่บังคับให้ตรวจก่อนเฉลย (ชุดข้อสอบจริง + demo) เพราะเลือกคำตอบ
+   * อย่างเดียวยังไปข้างหน้าไม่ได้ ตัวเลขนี้จึงต้องไม่เดินจนกว่าจะตรวจ
+   * ไม่ส่ง = นับตามที่เลือกคำตอบ (หน้าที่ไม่มีปุ่มตรวจ) เหมือนเดิม
+   */
+  checkedCount?: number;
   onTimeUp?: () => void;
   sections?: Section[];
   onQuestionSelect?: (index: number) => void;
@@ -170,6 +177,7 @@ export default function TestLayout({
   reviewAction,
   primaryAction,
   notice,
+  checkedCount,
 }: TestLayoutProps) {
   const router = useRouter();
   const [showNavPanel, setShowNavPanel] = useState(true);
@@ -271,6 +279,9 @@ export default function TestLayout({
 
   const answeredCount = answers.filter((a) => a !== null).length;
   const unansweredCount = totalQuestions - answeredCount;
+  // แถบความคืบหน้าเดินตาม "ตรวจคำตอบ" ไม่ใช่ตามที่เลือก — ดู checkedCount
+  // ส่วน answeredCount ใช้กับปุ่มส่ง/กล่องออก ซึ่งยังนับตามที่ตอบจริง
+  const progressCount = checkedCount ?? answeredCount;
 
   // กติกา navigation (ทุกโหมด): คลิกได้เฉพาะข้อที่ "ไปถึง" แล้ว — คือข้อ
   // ปัจจุบันหรือข้อใดๆ ก่อนหน้า (ตอบแล้วหรือข้ามไปก็ตาม) ห้ามกระโดดข้ามข้อ
@@ -579,7 +590,7 @@ export default function TestLayout({
                   style={{
                     width:
                       totalQuestions > 0
-                        ? `${(answeredCount / totalQuestions) * 100}%`
+                        ? `${(progressCount / totalQuestions) * 100}%`
                         : "0%",
                   }}
                 >
@@ -587,7 +598,7 @@ export default function TestLayout({
                 </div>
               </div>
               <span className="shrink-0 text-[0.6875rem] font-bold tracking-[0.06em] text-[#3F4A36] max-[644px]:hidden">
-                {answeredCount}/{totalQuestions}
+                {progressCount}/{totalQuestions}
               </span>
             </div>
           </div>

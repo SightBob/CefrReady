@@ -48,3 +48,52 @@ describe('TestLayout primary teaching action', () => {
     expect(html).toContain('>ส่งคำตอบ</span>');
   });
 });
+
+describe('TestLayout progress bar', () => {
+  // หน้าที่บังคับให้กด "ตรวจคำตอบ" ก่อนเฉลย: เลือกคำตอบอย่างเดียวยังข้าม
+  // ข้อถัดไปไม่ได้ แถบจึงต้องนับเฉพาะข้อที่ตรวจแล้ว ไม่ใช่ข้อที่เลือกแล้ว
+  it('holds the bar at 0% while a choice is selected but not yet checked', () => {
+    const html = renderToStaticMarkup(
+      <TestLayout totalQuestions={2} currentQuestion={0} answers={['A', null]} checkedCount={0}>
+        <p>Question</p>
+      </TestLayout>
+    );
+    expect(html).toContain('width:0%');
+    expect(html).toContain('>0/2</span>');
+  });
+
+  it('advances by one only after the check, not by the selected choice', () => {
+    const html = renderToStaticMarkup(
+      <TestLayout totalQuestions={2} currentQuestion={1} answers={['A', 'B']} checkedCount={1}>
+        <p>Question</p>
+      </TestLayout>
+    );
+    expect(html).toContain('width:50%');
+    expect(html).toContain('>1/2</span>');
+  });
+
+  // ไม่ส่ง checkedCount = หน้าที่ไม่มีปุ่มตรวจ (full exam, demo เฉพาะทักษะ)
+  // ต้องยังนับตามที่เลือกคำตอบเหมือนเดิม ไม่ให้แถบหายทั้งหมด
+  it('falls back to counting selected answers when checkedCount is not passed', () => {
+    const html = renderToStaticMarkup(
+      <TestLayout totalQuestions={4} currentQuestion={0} answers={['A', 'B', 'C', null]}>
+        <p>Question</p>
+      </TestLayout>
+    );
+    expect(html).toContain('width:75%');
+    expect(html).toContain('>3/4</span>');
+  });
+
+  // แผงเลขข้อ/กติกาส่งยังนับจาก "ตอบแล้ว" เพราะเป็นคนละเรื่องกับความคืบหน้า
+  // ข้อ 1 เลือกแล้วแต่ยังไม่ตรวจ → ต้องยังขึ้นว่า "ตอบแล้ว" ไม่ใช่ "ยังไม่ได้ตอบ"
+  // ขณะที่แถบความคืบหน้ายังเป็น 0
+  it('keeps the question map on answeredCount while the bar follows checkedCount', () => {
+    const html = renderToStaticMarkup(
+      <TestLayout totalQuestions={2} currentQuestion={0} answers={['A', null]} checkedCount={0}>
+        <p>Question</p>
+      </TestLayout>
+    );
+    expect(html).toContain('aria-label="ข้อ 1: ตอบแล้ว"');
+    expect(html).toContain('width:0%');
+  });
+});
