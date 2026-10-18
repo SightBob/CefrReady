@@ -8,6 +8,40 @@ const ALLOWED_AUDIO_TYPES = [
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+const startsWith = (b: Uint8Array, offset: number, sig: number[]) =>
+  b.length >= offset + sig.length && sig.every((byte, i) => b[offset + i] === byte);
+
+const ascii = (b: Uint8Array, offset: number, text: string) =>
+  startsWith(b, offset, [...text].map((c) => c.charCodeAt(0)));
+
+/**
+ * อ่านชนิดไฟล์จาก magic bytes ของเนื้อไฟล์จริง
+ *
+ * `file.type` มาจาก Content-Type ที่ browser ส่ง ปลอมได้ง่ายมาก การเช็ค
+ * เนื้อไฟล์จริงเป็นชั้นป้องกันที่ต้องมี ครอบคลุมเฉพาะชนิดที่อยู่ใน
+ * ALLOWED_AUDIO_TYPES เท่านั้น — ไม่เพิ่มชนิดใหม่
+ */
+export function detectAudioKind(b: Uint8Array): string | null {
+  if (b.length < 4) return null;
+
+  // MP3 (ID3 tag หรือ MPEG frame sync FF Ex)
+  if (ascii(b, 0, 'ID3')) return 'mp3-id3';
+  if (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) {
+    // ADTS/AAC ใช้ sync เหมือนกันแต่บิต layer เป็น 00
+    return (b[1] & 0x06) === 0x00 ? 'aac' : 'mp3';
+  }
+  // WAV = RIFF....WAVE
+  if (ascii(b, 0, 'RIFF') && ascii(b, 8, 'WAVE')) return 'wav';
+  // Ogg
+  if (ascii(b, 0, 'OggS')) return 'ogg';
+  // WebM / Matroska (EBML header)
+  if (startsWith(b, 0, [0x1a, 0x45, 0xdf, 0xa3])) return 'webm';
+  // MP4 / M4A (ftyp box)
+  if (ascii(b, 4, 'ftyp')) return 'mp4';
+
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
@@ -35,6 +69,15 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    // file.type ปลอมได้ — ยืนยันกับเนื้อไฟล์จริงอีกชั้น
+    const kind = detectAudioKind(new Uint8Array(buffer));
+    if (!kind) {
+      return NextResponse.json(
+        { success: false, error: 'File content is not a recognised audio format' },
+        { status: 400 }
+      );
+    }
 
     const id = Date.now().toString();
     const originalName = file.name || 'audio.mp3';
