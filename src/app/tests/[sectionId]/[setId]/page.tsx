@@ -156,8 +156,8 @@ export default function SetQuizPage() {
 
   // Gate: พาร์ทนี้ถูก admin ปิดปรับปรุง → หน้าแจ้งเฉพาะพาร์ท (เช่น เข้าทาง URL ตรง)
   useEffect(() => {
-    fetch('/api/tests-maintenance')
-      .then((res) => (res.ok ? res.json() : null))
+    apiFetch('/api/tests-maintenance')
+      .then((res) => res.json())
       .then((data: { sections?: Record<string, boolean> } | null) => {
         if (data?.sections?.[sectionId]) {
           setMaintenanceBlocked(true);
@@ -234,7 +234,7 @@ export default function SetQuizPage() {
 
   useEffect(() => {
     if (status !== 'authenticated') return;
-    fetch(`/api/test-sets?sectionId=${sectionId}`)
+    apiFetch(`/api/test-sets?sectionId=${sectionId}`)
       .then(r => r.json())
       .then(d => { if (d.success) setAvailableSets(d.data); })
       .catch(() => {});
@@ -253,8 +253,8 @@ export default function SetQuizPage() {
       return;
     }
     setTestExplain(null);
-    fetch(`/api/test-explains/lookup?topic=${encodeURIComponent(explainTopic)}&setId=${setId}${previewMode ? '&preview=1' : ''}`, { cache: 'no-store' })
-      .then((response) => response.ok ? response.json() : null)
+    apiFetch(`/api/test-explains/lookup?topic=${encodeURIComponent(explainTopic)}&setId=${setId}${previewMode ? '&preview=1' : ''}`, { cache: 'no-store' })
+      .then((response) => response.json())
       .then((payload) => {
         if (requestId !== explainRequestId.current) return;
         const result = payload?.success && payload.data ? payload.data as import('@/components/TestExplainOverlay').TestExplainContent : null;
@@ -343,8 +343,8 @@ export default function SetQuizPage() {
       // เนื้อหา explain รายเรื่องโหลดคู่กับตัวชุดไปเลย เพื่อให้รู้ก่อนข้อแรกว่ามีเรื่อง
       // อะไรให้เด้ง — ถ้าโหลดไม่ได้ก็เข้าสอบต่อได้ (แค่ไม่มีหน้า intro ของเรื่อง)
       const [res, explainsRes] = await Promise.all([
-        fetch(`/api/test-sets/${setId}${previewMode ? '?preview=1' : ''}`, { signal }),
-        fetch(`/api/test-sets/${setId}/explains${previewMode ? '?preview=1' : ''}`, { signal }).catch(() => null),
+        apiFetch(`/api/test-sets/${setId}${previewMode ? '?preview=1' : ''}`, { signal }),
+        apiFetch(`/api/test-sets/${setId}/explains${previewMode ? '?preview=1' : ''}`, { signal }).catch(() => null),
       ]);
       const data = await res.json();
       // รอบนี้ถูกยกเลิกไปแล้ว (มีการสลับชุดหรือ unmount) — ห้ามแตะ state
@@ -666,7 +666,7 @@ export default function SetQuizPage() {
             wrong_question_ids: wrongIds,
             score_percentage: scorePct,
           });
-          fetch('/api/progress')
+          apiFetch('/api/progress')
             .then(r => r.json())
             .then(progress => {
               if (progress.success && progress.data?.overall?.averageScore != null) {
