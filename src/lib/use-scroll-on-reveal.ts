@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { scrollIntoViewIfClipped } from './scroll-into-view';
+import { measureBottomBarInset, scrollIntoViewIfClipped } from './scroll-into-view';
 
 /**
  * ref callback สำหรับผูกกับกล่องคำอธิบาย — เลื่อนเข้ากลางจอแบบ smooth
@@ -41,7 +41,9 @@ export function useScrollIntoViewOnReveal(delayMs = 100) {
       // หน่วงเล็กน้อยรอให้ React วางเฉลยลง DOM ครบก่อนวัดตำแหน่ง
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
-        scrollIntoViewIfClipped(node, window.innerHeight);
+        // หักแถบล่างแบบ fixed ออก — ไม่งั้นเฉลยที่อยู่ใต้แถบจะถูกตัดสิน
+        // ว่า "เห็นครบ" แล้วไม่เลื่อน ทั้งที่ผู้เรียนมองไม่เห็น
+        scrollIntoViewIfClipped(node, window.innerHeight, 'center', measureBottomBarInset());
       }, delayMs);
     },
     [delayMs],

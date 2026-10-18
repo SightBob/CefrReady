@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { BOTTOM_BAR_SELECTOR } from '@/lib/scroll-into-view';
+
 /**
  * การเลื่อนไปคำอธิบายเป็น opt-in — เปิดเฉพาะหน้าทำข้อสอบ (ผู้ใช้กำหนด 2026-10-18)
  * หน้าที่เฉลยมาพร้อมหน้าเลย (review / explain) ต้องไม่ให้หน้ากระโดด
@@ -73,5 +75,15 @@ describe('which pages scroll to the explanation', () => {
     const source = readFileSync(resolve(file), 'utf8');
     expect(source).not.toContain('FocusFormQuestionCard');
     expect(source).not.toContain('ListeningAudioPlayer');
+  });
+});
+
+describe('bottom bar must be measurable', () => {
+  // ถ้า TestLayout เปลี่ยน class ของแถบล่างจนหลุดจาก selector ที่วัดไว้
+  // เฉลยที่อยู่ใต้แถบจะถูกนับว่า "เห็นครบ" แล้วเลื่อนไม่ทำงานอีก
+  it('the fixed bottom bar carries the attribute the measurement looks for', () => {
+    const source = readFileSync(resolve('src/components/TestLayout.tsx'), 'utf8');
+    expect(source).toContain(BOTTOM_BAR_SELECTOR.replace(/[[\]']/g, ''));
+    expect(source).toMatch(/data-quiz-bottom-bar[^"]*"[^"]*fixed bottom-0/);
   });
 });

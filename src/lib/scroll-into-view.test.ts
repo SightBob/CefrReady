@@ -52,6 +52,36 @@ describe('scrollIntoViewIfClipped', () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
+  // หน้าสอบมีแถบล่าง fixed สูง ~216px บนมือถือ เฉลยที่อยู่ใต้แถบนั้น
+  // ผู้เรียนมองไม่เห็น ต้องเลื่อน ไม่ใช่ถือว่า "อยู่ในจอแล้ว"
+  it('counts the fixed bottom bar as covered, not as visible', () => {
+    const { el, scrollIntoView } = fakeElement(600, 700); // สูง 100
+    scrollIntoViewIfClipped(el, VIEWPORT, 'center', 216); // ขอบบนที่มองเห็นจริง = 584
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+  });
+
+  it('still skips scrolling when the explanation clears the bottom bar', () => {
+    const { el, scrollIntoView } = fakeElement(300, 480); // จบที่ 480 < 584
+    scrollIntoViewIfClipped(el, VIEWPORT, 'center', 216);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('treats an explanation flush with the bar as still covered', () => {
+    const { el, scrollIntoView } = fakeElement(400, 600); // จบที่ 600 > 584
+    scrollIntoViewIfClipped(el, VIEWPORT, 'center', 216);
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+  });
+
+  it('anchors to the top only when the box outgrows the space above the bar', () => {
+    const tall = fakeElement(-500, 2000); // สูง 2500 > 800-216
+    scrollIntoViewIfClipped(tall.el, VIEWPORT, 'center', 216);
+    expect(tall.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'start' });
+
+    const short = fakeElement(700, 1000); // สูง 300 < 584
+    scrollIntoViewIfClipped(short.el, VIEWPORT, 'center', 216);
+    expect(short.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ behavior: 'smooth', block: 'center' });
+  });
+
   it('honours a different block position when asked', () => {
     const { el, scrollIntoView } = fakeElement(900, 1200);
     scrollIntoViewIfClipped(el, VIEWPORT, 'start');
@@ -82,5 +112,11 @@ describe('isFullyVisible', () => {
   it('is true only when both edges sit inside', () => {
     expect(isFullyVisible(fakeElement(0, VIEWPORT).el, VIEWPORT)).toBe(true);
     expect(isFullyVisible(fakeElement(100, 700).el, VIEWPORT)).toBe(true);
+  });
+
+  it('shrinks the usable area by the bottom bar that covers it', () => {
+    // จบที่ 600 — อยู่ในจอ (800) แต่โดนแถบล่างที่สูง 216 บัง
+    expect(isFullyVisible(fakeElement(400, 600).el, VIEWPORT, 0)).toBe(true);
+    expect(isFullyVisible(fakeElement(400, 600).el, VIEWPORT, 216)).toBe(false);
   });
 });

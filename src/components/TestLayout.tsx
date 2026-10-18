@@ -808,7 +808,7 @@ export default function TestLayout({
         </div>
       )}
       {/* Universal Bottom Bar — Figma 60:3843: 1536×97, drop-shadow 3.3px, เนื้อหากว้าง 1144px, pt16/pb32 */}
-      <div className="fixed bottom-0 left-0 w-full bg-white z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_3.3px_0_rgba(172,172,172,0.25)]">
+      <div data-quiz-bottom-bar className="fixed bottom-0 left-0 w-full bg-white z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_0_3.3px_0_rgba(172,172,172,0.25)]">
         {/* Mobile question-order nav — Figma 200:8492: sits directly above the action
       bar, so both live in this one fixed stack and can never overlap. Cell
       colours reuse getQuestionButtonClass, so mobile and the sidebar share a
