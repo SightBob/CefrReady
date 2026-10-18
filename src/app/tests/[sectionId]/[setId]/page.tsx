@@ -9,6 +9,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
+import { createLatestRequestGuard, isAbortError } from '@/lib/latest-request';
 import { MAX_TAP_REASON_LENGTH, tapAiFeedbackSchema, type TapReasonResult } from '@/lib/tap-ai';
 
 import type { QuestionResult, Option, Blank } from '@/types/test';
@@ -189,6 +190,8 @@ export default function SetQuizPage() {
   const [showTestExplain, setShowTestExplain] = useState(false);
   const explainCache = useRef(new Map<string, TestExplainContent | null>());
   const explainRequestId = useRef(0);
+  // กัน response ของชุดเก่าทับ state ของชุดใหม่ตอนสลับชุดเร็ว ๆ
+  const setRequestGuard = useRef(createLatestRequestGuard()).current;
 
   // เนื้อหา explain ของทุกเรื่องที่ผูกกับชุดนี้ (คีย์ตาม grammarTopic) — ชุดที่รวม
   // หลายเรื่องไว้จะเด้ง intro+explain ของเรื่องนั้นตอนขึ้นเรื่องใหม่
@@ -334,14 +337,18 @@ export default function SetQuizPage() {
     // เดิมจะไม่เด้ง intro ให้อีก
     seenTopics.current.clear();
     setIntroQueue([]);
+    // สลับชุดเร็ว ๆ response ของชุดเก่าจะกลับมาทีหลังแล้วทับของชุดใหม่
+    const { signal, isCurrent } = setRequestGuard.begin();
     try {
       // เนื้อหา explain รายเรื่องโหลดคู่กับตัวชุดไปเลย เพื่อให้รู้ก่อนข้อแรกว่ามีเรื่อง
       // อะไรให้เด้ง — ถ้าโหลดไม่ได้ก็เข้าสอบต่อได้ (แค่ไม่มีหน้า intro ของเรื่อง)
       const [res, explainsRes] = await Promise.all([
-        fetch(`/api/test-sets/${setId}${previewMode ? '?preview=1' : ''}`),
-        fetch(`/api/test-sets/${setId}/explains${previewMode ? '?preview=1' : ''}`).catch(() => null),
+        fetch(`/api/test-sets/${setId}${previewMode ? '?preview=1' : ''}`, { signal }),
+        fetch(`/api/test-sets/${setId}/explains${previewMode ? '?preview=1' : ''}`, { signal }).catch(() => null),
       ]);
       const data = await res.json();
+      // รอบนี้ถูกยกเลิกไปแล้ว (มีการสลับชุดหรือ unmount) — ห้ามแตะ state
+      if (!isCurrent()) return;
       try {
         const explainsData = explainsRes ? await explainsRes.json() : null;
         setTopicExplains(explainsData?.success && explainsData.data ? explainsData.data : {});
@@ -357,13 +364,21 @@ export default function SetQuizPage() {
       } else {
         setNotFound(true);
       }
-    } catch {
+    } catch (err) {
+      // ถูกยกเลิกเองไม่ใช่ข้อผิดพลาด — ห้ามเด้งหน้า notFound
+      if (isAbortError(err)) return;
+      if (!isCurrent()) return;
       setNotFound(true);
     } finally {
-      setExplainsLoaded(true);
-      setLoading(false);
+      if (isCurrent()) {
+        setExplainsLoaded(true);
+        setLoading(false);
+      }
     }
-  }, [setId, previewMode]);
+  }, [setId, previewMode, setRequestGuard]);
+
+  // ยกเลิก request ที่ค้างอยู่ตอนออกจากหน้า
+  useEffect(() => () => setRequestGuard.abort(), [setRequestGuard]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
