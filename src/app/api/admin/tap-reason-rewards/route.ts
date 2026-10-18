@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import {
   getTapReasonRewardSettings,
   saveTapReasonRewardSettings,
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/tap-reason-rewards — คะแนนเหมาที่ตั้งไว้ (ไม่มีคีย์ = ค่าเริ่มต้น 50) */
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:tap-reason-rewards', maxRequests: 60 });
   if (error) return error;
   try {
     return NextResponse.json({ success: true, data: await getTapReasonRewardSettings() });
@@ -21,7 +21,7 @@ export async function GET() {
 
 /** PUT /api/admin/tap-reason-rewards — บันทึกคะแนนเหมา (autoAward + points) */
 export async function PUT(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:tap-reason-rewards', maxRequests: 60 });
   if (error) return error;
 
   const parsed = tapReasonRewardSettingsSchema.safeParse(await request.json().catch(() => null));

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets, testTypes } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 import { resolveTapExerciseStatus } from '@/lib/tap-visibility';
 
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets:[id]:questions:create', maxRequests: 60 });
   if (error) return error;
 
   const setId = parseInt(params.id);

@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testSetQuestions, questions, testSets } from '@/db/schema';
 import { eq, asc, sql } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
 /** POST /api/admin/test-sets/[id]/questions — add one or more questions to a set */
 export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets:[id]:questions', maxRequests: 60 });
   if (error) return error;
 
   const setId = parseInt(params.id);
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
 /** GET /api/admin/test-sets/[id]/questions — list questions in set with pool info */
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets:[id]:questions', maxRequests: 60 });
   if (error) return error;
 
   const setId = parseInt(params.id);

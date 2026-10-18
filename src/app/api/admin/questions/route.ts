@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, testSetQuestions, testSets } from '@/db/schema';
 import { eq, asc, desc, inArray, notInArray, and, sql, count as drizzleCount, ilike, ne } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 
 const PAGE_SIZE = 20;
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:questions', maxRequests: 60 });
   if (error) return error;
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:questions', maxRequests: 60 });
   if (error) return error;
   try {
     const body = await request.json();

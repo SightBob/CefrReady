@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,7 @@ const bodySchema = z.object({
  */
 export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets:[id]:explains', maxRequests: 60 });
   if (error) return error;
 
   const setId = parseInt(params.id);

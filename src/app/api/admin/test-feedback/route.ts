@@ -3,12 +3,12 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { testFeedback, testAttempts, testTypes, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-feedback', maxRequests: 60 });
   if (error) return error;
 
   try {
@@ -48,7 +48,7 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-feedback', maxRequests: 60 });
   if (error) return error;
 
   try {
@@ -75,7 +75,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-feedback', maxRequests: 60 });
   if (error) return error;
 
   try {

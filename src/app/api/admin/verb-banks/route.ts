@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { verbBanks } from '@/db/schema';
 import { asc, ilike, or } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { firstVerbError, validateVerbEntry } from '@/lib/verb-bank';
 import { revalidateTag } from 'next/cache';
 
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/verb-banks — รายการคลังกริยา 3 ช่อง (ค้นหาได้ทั้ง 3 ช่อง) */
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:verb-banks', maxRequests: 60 });
   if (error) return error;
 
   try {
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
 /** POST /api/admin/verb-banks — เพิ่มกริยา 1 รายการ */
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:verb-banks', maxRequests: 60 });
   if (error) return error;
 
   try {

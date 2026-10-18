@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { DEFAULT_ADMIN_EMAIL } from '@/lib/admin-identity';
 
 export const dynamic = 'force-dynamic';
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error, session } = await requireAdmin();
+  const { error, session } = await withAdmin({ keySuffix: 'admin:users:[id]', maxRequests: 60 });
   if (error) return error;
 
   const targetId = params.id;

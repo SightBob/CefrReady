@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testSets, testTypes, testSetQuestions } from '@/db/schema';
 import { eq, asc, ne, count as drizzleCount } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/test-sets — list all sets grouped by section */
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets', maxRequests: 60 });
   if (error) return error;
 
   try {
@@ -45,7 +45,7 @@ export async function GET() {
 
 /** POST /api/admin/test-sets — create a new test set */
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets', maxRequests: 60 });
   if (error) return error;
 
   try {

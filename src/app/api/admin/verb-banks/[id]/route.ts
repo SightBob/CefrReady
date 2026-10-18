@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { verbBanks } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { firstVerbError, validateVerbEntry } from '@/lib/verb-bank';
 import { revalidateTag } from 'next/cache';
 
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 /** PUT /api/admin/verb-banks/[id] — แก้ไขกริยา 1 รายการ (ครบทั้ง 3 ช่อง) */
 export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:verb-banks:[id]', maxRequests: 60 });
   if (error) return error;
 
   try {
@@ -62,7 +62,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
 /** DELETE /api/admin/verb-banks/[id] — ลบกริยา 1 รายการ */
 export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:verb-banks:[id]', maxRequests: 60 });
   if (error) return error;
 
   try {

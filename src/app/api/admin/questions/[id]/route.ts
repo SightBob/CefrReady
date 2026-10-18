@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { eq, sql, asc } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
 import { resolveTapExerciseStatus } from '@/lib/tap-visibility';
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:questions:[id]', maxRequests: 60 });
   if (error) return error;
   try {
     const questionId = parseInt(params.id);
@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     const questionId = parseInt(params.id);
     const body = await request.json();
 
-    const { error: putErr } = await requireAdmin();
+    const { error: putErr } = await withAdmin({ keySuffix: 'admin:questions:[id]', maxRequests: 60 });
     if (putErr) return putErr;
 
     // Explicitly pick only the fields we want to update to avoid timestamp issues
@@ -154,7 +154,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
 
 export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:questions:[id]', maxRequests: 60 });
   if (error) return error;
   try {
     const questionId = parseInt(params.id);

@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { contactMessages, users } from '@/db/schema';
 import { desc, eq, sql } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:contacts', maxRequests: 60 });
   if (error) return error;
 
   try {

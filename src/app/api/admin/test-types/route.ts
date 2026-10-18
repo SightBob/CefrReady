@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testTypes } from '@/db/schema';
 import { desc, ne } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-types', maxRequests: 60 });
   if (error) return error;
   try {
     const allTestTypes = await db.select().from(testTypes).where(ne(testTypes.id, 'tap-select')).orderBy(desc(testTypes.createdAt));
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-types', maxRequests: 60 });
   if (error) return error;
   try {
     const body = await request.json();

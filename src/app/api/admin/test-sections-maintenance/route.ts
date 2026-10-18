@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import {
   getSectionMaintenanceMap,
   setSectionMaintenance,
@@ -20,7 +20,7 @@ const bodySchema = z.object({
 });
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sections-maintenance', maxRequests: 60 });
   if (error) return error;
 
   try {
@@ -32,7 +32,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sections-maintenance', maxRequests: 60 });
   if (error) return error;
 
   try {

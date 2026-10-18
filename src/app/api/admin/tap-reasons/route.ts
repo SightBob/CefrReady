@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { questions, tapReasonSubmissions, testAttempts, testSets, users } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +17,7 @@ const patchSchema = z.object({
 
 // รายการเหตุผลรอให้คะแนน — กรอง "ยังไม่ได้ให้คะแนน" ก่อน แล้วจึงของเก่าล่าสุด
 export async function GET(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:tap-reasons', maxRequests: 60 });
   if (error) return error;  // "รอให้คะแนน" ต้องกรองที่ SQL ไม่ใช่หลัง limit(200) — ไม่งั้นรายการเก่าที่ค้างอยู่จะหายไป
   const showScored = req.nextUrl.searchParams.get('scored') === 'true';
 
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:tap-reasons', maxRequests: 60 });
   if (error) return error;
 
   try {

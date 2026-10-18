@@ -4,7 +4,7 @@ import { and, asc, count, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { revalidateTag } from 'next/cache';
 import { db } from '@/db';
 import { questions, testExplains } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { lessonSectionsHaveContent, normalizeLessonSections } from '@/lib/lesson-sections';
 import { PUBLISHED_STATUS, resolveContentStatus } from '@/lib/explain-visibility';
 
@@ -77,7 +77,7 @@ const parsePayload = (body: unknown) => {
 };
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-explains', maxRequests: 60 });
   if (error) return error;
   try {
     const [rows, topicCounts] = await Promise.all([
@@ -105,7 +105,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-explains', maxRequests: 60 });
   if (error) return error;
   try {
     const payload = parsePayload(await request.json());

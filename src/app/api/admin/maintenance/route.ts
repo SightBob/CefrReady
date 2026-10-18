@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { isMaintenanceMode, setMaintenanceMode } from '@/lib/maintenance';
 
 /**
@@ -15,7 +15,7 @@ import { isMaintenanceMode, setMaintenanceMode } from '@/lib/maintenance';
 const bodySchema = z.object({ enabled: z.boolean() });
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:maintenance', maxRequests: 60 });
   if (error) return error;
 
   try {
@@ -27,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:maintenance', maxRequests: 60 });
   if (error) return error;
 
   try {

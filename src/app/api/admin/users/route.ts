@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users, testAttempts, userProgress } from '@/db/schema';
 import { eq, count, desc, sql } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { DEFAULT_ADMIN_EMAIL } from '@/lib/admin-identity';
 import { z } from 'zod';
 
@@ -11,7 +11,7 @@ const deleteBodySchema = z.object({ userId: z.string().min(1) });
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:users', maxRequests: 60 });
   if (error) return error;
 
   try {
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { error, session } = await requireAdmin();
+  const { error, session } = await withAdmin({ keySuffix: 'admin:users', maxRequests: 60 });
   if (error) return error;
 
   try {

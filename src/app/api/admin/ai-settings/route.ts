@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { tapAiSettingsSchema } from '@/lib/tap-ai';
 import { getTapAiSettings, hasOpenRouterKey, saveTapAiSettings } from '@/lib/tap-ai-settings';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:ai-settings', maxRequests: 60 });
   if (error) return error;
   try {
     return NextResponse.json({ success: true, data: await getTapAiSettings(), keyConfigured: hasOpenRouterKey() });
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:ai-settings', maxRequests: 60 });
   if (error) return error;
   const parsed = tapAiSettingsSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

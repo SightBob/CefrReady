@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testSets, testSetQuestions, questions } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/test-sets/[id] — get set detail with questions */
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets:[id]', maxRequests: 60 });
   if (error) return error;
 
   const setId = parseInt(params.id);
@@ -40,7 +40,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
 /** PATCH /api/admin/test-sets/[id] — update set metadata */
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets:[id]', maxRequests: 60 });
   if (error) return error;
 
   const setId = parseInt(params.id);
@@ -67,7 +67,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
 /** DELETE /api/admin/test-sets/[id] — delete set (cascade removes questions) */
 export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets:[id]', maxRequests: 60 });
   if (error) return error;
 
   const setId = parseInt(params.id);

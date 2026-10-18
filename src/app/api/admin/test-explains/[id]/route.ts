@@ -4,7 +4,7 @@ import { and, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { revalidateTag } from 'next/cache';
 import { db } from '@/db';
 import { testExplains } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import { lessonSectionsHaveContent, normalizeLessonSections } from '@/lib/lesson-sections';
 import { PUBLISHED_STATUS, resolveContentStatus } from '@/lib/explain-visibility';
 
@@ -38,7 +38,7 @@ async function findDuplicateTopic(topics: string[], excludeId: number): Promise<
 export const dynamic = 'force-dynamic';
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-explains:[id]', maxRequests: 60 });
   if (error) return error;
   const { id } = await props.params;
   const explainId = Number(id);
@@ -98,7 +98,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
 }
 
 export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-explains:[id]', maxRequests: 60 });
   if (error) return error;
   const { id } = await props.params;
   const explainId = Number(id);

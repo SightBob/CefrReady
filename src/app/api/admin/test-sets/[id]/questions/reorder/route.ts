@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { testSetQuestions, testSets } from '@/db/schema';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 export const dynamic = 'force-dynamic';
 
 export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:test-sets:[id]:questions:reorder', maxRequests: 60 });
   if (error) return error;
   const { id } = await props.params;
   const setId = Number(id);

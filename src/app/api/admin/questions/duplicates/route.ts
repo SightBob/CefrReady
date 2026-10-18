@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions } from '@/db/schema';
 import { sql } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 
 /**
  * GET /api/admin/questions/duplicates
@@ -10,7 +10,7 @@ import { requireAdmin } from '@/lib/admin-auth';
  * within the same testTypeId.
  */
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await withAdmin({ keySuffix: 'admin:questions:duplicates', maxRequests: 60 });
   if (error) return error;
 
   try {
