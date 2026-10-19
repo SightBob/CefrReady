@@ -2,6 +2,8 @@
 import { StrictMode, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import ListeningAudioPlayer from './ListeningAudioPlayer';
 
 /**
@@ -23,20 +25,29 @@ interface HarnessProps {
   selectedAnswer: string | null;
   explanation: string | null;
   scrollToExplanationOnReveal?: boolean;
+  hideFeedback?: boolean;
+  correctAnswer?: string | null;
 }
 
-function Harness({ selectedAnswer, explanation, scrollToExplanationOnReveal }: HarnessProps) {
+function Harness({
+  selectedAnswer,
+  explanation,
+  scrollToExplanationOnReveal,
+  hideFeedback,
+  correctAnswer = 'A',
+}: HarnessProps) {
   return (
     <ListeningAudioPlayer
-      transcript="M: สวัสดี"
+      transcript="M: สวัสดีครับ"
       questionText="คำถามฟัง"
       options={OPTIONS}
       selectedAnswer={selectedAnswer}
-      correctAnswer="A"
+      correctAnswer={correctAnswer}
       explanation={explanation}
       onAnswerSelect={() => undefined}
       audioUrl={undefined}
       {...(scrollToExplanationOnReveal !== undefined ? { scrollToExplanationOnReveal } : {})}
+      {...(hideFeedback !== undefined ? { hideFeedback } : {})}
     />
   );
 }
@@ -85,6 +96,105 @@ afterEach(() => {
   container.remove();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+});
+
+describe('ListeningAudioPlayer reveal flow', () => {
+  // Flow ที่ผู้ใช้กำหนด (2026-10-19): เลือกคำตอบ = ยังไม่เฉลย · กดตรวจคำตอบ
+  // = เฉลยพร้อม transcript
+  //
+  // การ์ดนี้เปิด transcript ทันทีที่ selectedAnswer ไม่เป็น null เพราะ
+  // transcript คือที่มาของคำตอบ ผู้เรียนจึงต้องคุมมันด้วย hideFeedback จนกว่า
+  // จะกดตรวจคำตอบ — เทสต์ชุดนี้จำลองหน้าสอบส่ง hideFeedback ตามผลตรวจ
+  // (หน้าสอบส่ง correctAnswer={revealedCorrectKey} ซึ่ง null จนกว่าจะตรวจ)
+
+  it('keeps the transcript hidden while the learner has only selected an answer', async () => {
+    // ยังไม่ตรวจ → หน้าส่ง hideFeedback=true
+    await act(async () => {
+      root.render(
+        <Harness selectedAnswer="A" explanation={null} correctAnswer={null} hideFeedback />,
+      );
+    });
+
+    // transcript คือที่มาของคำตอบ ต้องไม่โผล่ก่อนกดตรวจคำตอบ
+    expect(container.textContent).not.toContain('Audio Transcript');
+  });
+
+  it('does not colour the options as wrong before the answer is checked', async () => {
+    await act(async () => {
+      root.render(
+        <Harness selectedAnswer="A" explanation={null} correctAnswer={null} hideFeedback />,
+      );
+    });
+
+    // ก่อนตรวจ = ยังไม่รู้ผล ตัวเลือกต้องเป็นสีเทาปกติ ไม่ใช่แดง "ผิด"
+    expect(container.innerHTML).not.toContain('bg-[#fef2f2]');
+    expect(container.innerHTML).toContain('bg-white ring-[#e2e8f0]');
+  });
+
+  it('still lets the learner change their choice before checking', async () => {
+    const picked: string[] = [];
+    await act(async () => {
+      root.render(
+        <StrictMode>
+          <ListeningAudioPlayer
+            transcript="M: สวัสดีครับ"
+            questionText="คำถามฟัง"
+            options={OPTIONS}
+            selectedAnswer="A"
+            correctAnswer={null}
+            explanation={null}
+            hideFeedback
+            onAnswerSelect={(key) => picked.push(key)}
+          />
+        </StrictMode>,
+      );
+    });
+
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const optionB = buttons.find((b) => b.textContent?.includes('ตัวเลือก ข'));
+
+    await act(async () => {
+      optionB?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    // เลือกแล้วยังต้องกดตัวเลือกอื่นได้ ไม่ถูกล็อกทันที
+    expect(picked).toEqual(['B']);
+  });
+
+  it('reveals the transcript and the verdict only after the check', async () => {
+    // ตรวจแล้ว → หน้าส่ง hideFeedback=false พร้อมผลตรวจจากเซิร์ฟเวอร์
+    await act(async () => {
+      root.render(
+        <Harness
+          selectedAnswer="A"
+          explanation="เฉลยของข้อนี้"
+          correctAnswer="A"
+          hideFeedback={false}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('Audio Transcript');
+    expect(container.textContent).toContain('เฉลยของข้อนี้');
+    expect(container.innerHTML).toContain('bg-[#ecfdf5]');
+  });
+});
+
+describe('exam pages must gate the listening reveal on the check', () => {
+  // เทสต์ด้านบนพิสูจน์ว่า "การ์ดทำงานถูกเมื่อหน้าส่ง hideFeedback"
+  // ชุดนี้พิสูจน์ว่าหน้าจริงส่งจริง ไม่ใช่แค่การ์ดที่ทำได้
+  const PAGES = [
+    'src/app/tests/[sectionId]/[setId]/page.tsx',
+    'src/app/demo/exam/page.tsx',
+  ] as const;
+
+  it.each(PAGES)('%s gates the reveal on the check', (file) => {
+    const source = readFileSync(resolve(file), 'utf8');
+    // ต้องเป็น "ยังไม่ตรวจ → ซ่อน" และหน้าที่มีโหมดพรีวิวต้องยกเว้นไว้
+    expect(source).toMatch(
+      /hideFeedback=\{![\w]+(?:\([^)]*\))?(?:\s*&&\s*!previewMode)?\}/,
+    );
+  });
 });
 
 describe('ListeningAudioPlayer reveal scroll', () => {

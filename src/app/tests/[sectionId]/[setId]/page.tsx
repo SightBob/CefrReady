@@ -1082,6 +1082,12 @@ export default function SetQuizPage() {
           options={questionChoices}
           selectedAnswer={selectedAnswer}
           // เฉลยมาหลังกด "ตรวจคำตอบ" เท่านั้น
+          // การ์ดนี้เปิด transcript ทันทีที่ selectedAnswer ไม่เป็น null (เพราะ
+          // transcript คือที่มาของคำตอบ) จึงต้องกันด้วย hideFeedback จนกว่าจะ
+          // ตรวจ — ไม่งั้นคลิกคำตอบปุ๊บเห็นบทสนทนาและขึ้นสีแดง "ผิด"
+          // ทั้งที่ยังไม่ได้ตรวจ และเลือกคำตอบอื่นไม่ได้อีก
+          // โหมดพรีวิวของแอดมินดูเฉลยทันที ไม่ต้องกัน
+          hideFeedback={!activeChecked && !previewMode}
           correctAnswer={revealedCorrectKey}
           explanation={revealedExplanation ?? (revealedCorrectKey ? 'See transcript above.' : null)}
           onAudioPlayed={() => setAudioPlayedMap(prev => ({ ...prev, [currentQuestion]: true }))}

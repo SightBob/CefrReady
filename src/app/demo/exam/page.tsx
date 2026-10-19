@@ -408,7 +408,11 @@ export default function DemoExamPage() {
           questionText={question.questionText}
           options={choices}
           selectedAnswer={selectedAnswer}
-          // เฉลยมาหลังกด "ตรวจคำตอบ" เท่านั้น
+          // เฉลยมาหลังกด "ตรวจคำตอบ" เท่านั้น — การ์ดนี้เปิด transcript ทันทีที่
+          // selectedAnswer ไม่เป็น null จึงต้องกันด้วย hideFeedback แบบเดียวกับ
+          // หน้าชุดจริง ไม่งั้นคลิกคำตอบปุ๊บเห็นบทสนทนาและขึ้นสีแดง "ผิด"
+          // ทั้งที่ยังไม่ได้ตรวจ และเลือกคำตอบอื่นไม่ได้อีก
+          hideFeedback={!isSlotChecked(currentSlot)}
           correctAnswer={isSlotChecked(currentSlot) ? question.correctAnswer : null}
           explanation={isSlotChecked(currentSlot) ? question.explanation || 'See transcript above.' : null}
           onAudioPlayed={() => {}}
