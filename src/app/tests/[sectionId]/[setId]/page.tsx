@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { BookOpen, Headphones, Layers, PenTool } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
+import FocusFormTutorMock from '@/components/FocusFormTutorMock';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
@@ -149,6 +150,12 @@ export default function SetQuizPage() {
   /** เรื่องที่แอดมินขอเปิดตรง ๆ (?topic=…) — ใช้เฉพาะโหมดพรีวิว */
   const previewTopic = previewMode ? searchParams.get('topic') : null;
 
+  /**
+   * UI mock ของ AI Tutor (Figma 580:27829) — เปิดด้วย ?tutor=1 เท่านั้น
+   * ใช้งานโดยผู้พัฒนาเพื่อดูแบบก่อนต่อ AI จริง ยังไม่เผยแพร่ให้ผู้เรียน
+   */
+  const tutorMock = searchParams.get('tutor') === '1';
+
   const [setData, setSetData] = useState<SetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -156,6 +163,7 @@ export default function SetQuizPage() {
 
   // Gate: พาร์ทนี้ถูก admin ปิดปรับปรุง → หน้าแจ้งเฉพาะพาร์ท (เช่น เข้าทาง URL ตรง)
   useEffect(() => {
+    if (tutorMock) return; // mock ไม่ต้องเช็ค maintenance — ดูอย่างเดียวไม่ทำข้อสอบ
     apiFetch('/api/tests-maintenance')
       .then((res) => res.json())
       .then((data: { sections?: Record<string, boolean> } | null) => {
@@ -165,7 +173,7 @@ export default function SetQuizPage() {
         }
       })
       .catch(() => undefined); // fail-open
-  }, [router, sectionId]);
+  }, [router, sectionId, tutorMock]);
 
   // Standard quiz state (MCQ types)
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -381,6 +389,7 @@ export default function SetQuizPage() {
   useEffect(() => () => setRequestGuard.abort(), [setRequestGuard]);
 
   useEffect(() => {
+    if (tutorMock) return; // mock ไม่ต้องล็อกอิน — และไม่ต้องดึงชุดจริง
     if (status === 'unauthenticated') {
       router.push('/tests');
       return;
@@ -388,7 +397,7 @@ export default function SetQuizPage() {
     if (status === 'authenticated' && !isNaN(setId)) {
       fetchSet();
     }
-  }, [status, setId, sectionId, router, fetchSet]);
+  }, [status, setId, sectionId, router, fetchSet, tutorMock]);
 
   // Track test_started when questions are loaded
   useEffect(() => {
@@ -714,6 +723,8 @@ export default function SetQuizPage() {
 
   // ─── Render guards ────────────────────────────────────────────────
 
+  // UI mock AI Tutor (Figma 580:27829) — เฉพาะผู้พัฒนา ?tutor=1 ยังไม่ deploy
+  if (tutorMock) return <FocusFormTutorMock />;
   if (maintenanceBlocked) return <Spinner />; // กำลัง redirect ไปหน้า maintenance
   if (loading || status === 'loading' || !explainsLoaded) return <Spinner />;
 
