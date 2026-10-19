@@ -16,6 +16,9 @@ export const users = pgTable('users', {
   // Taster role: can browse the site even while maintenance mode is ON
   // (beta tester). Does NOT grant admin access.
   isTaster: boolean('is_taster').default(false).notNull(),
+  // AI Tutor (Figma 580:27829) — สิทธิ์เห็นฟีเจอร์ AI Tutor เฉพาะบัญชี
+  // (master switch + rollout ที่ src/lib/ai-tutor.ts)
+  aiTutorAccess: boolean('ai_tutor_access').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({

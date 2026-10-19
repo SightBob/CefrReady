@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { BookOpen, Headphones, Layers, PenTool } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import FocusFormTutorMock from '@/components/FocusFormTutorMock';
+import AiTutorPanel from '@/components/AiTutorPanel';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
@@ -151,10 +151,12 @@ export default function SetQuizPage() {
   const previewTopic = previewMode ? searchParams.get('topic') : null;
 
   /**
-   * UI mock ของ AI Tutor (Figma 580:27829) — เปิดด้วย ?tutor=1 เท่านั้น
-   * ใช้งานโดยผู้พัฒนาเพื่อดูแบบก่อนต่อ AI จริง ยังไม่เผยแพร่ให้ผู้เรียน
+   * AI Tutor (Figma 580:27829) — ธงฝั่งเซิร์ฟเวอร์: เซิร์ฟเวอร์เช็ค master switch
+   * + สิทธิ์ users.ai_tutor_access + rollout แล้วส่ง boolean มาให้ทางช่องทางเดียว
+   * /api/tests/ai-tutor-access ไปเอาจาก query string ไม่ได้ และตัดสินใจที่เซิร์ฟเวอร์
+   * (ไม่ใช่ธง env แบบ client โดยเดียว)
    */
-  const tutorMock = searchParams.get('tutor') === '1';
+  const [aiTutorEnabled, setAiTutorEnabled] = useState(false);
 
   const [setData, setSetData] = useState<SetData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,7 +165,6 @@ export default function SetQuizPage() {
 
   // Gate: พาร์ทนี้ถูก admin ปิดปรับปรุง → หน้าแจ้งเฉพาะพาร์ท (เช่น เข้าทาง URL ตรง)
   useEffect(() => {
-    if (tutorMock) return; // mock ไม่ต้องเช็ค maintenance — ดูอย่างเดียวไม่ทำข้อสอบ
     apiFetch('/api/tests-maintenance')
       .then((res) => res.json())
       .then((data: { sections?: Record<string, boolean> } | null) => {
@@ -173,7 +174,7 @@ export default function SetQuizPage() {
         }
       })
       .catch(() => undefined); // fail-open
-  }, [router, sectionId, tutorMock]);
+  }, [router, sectionId]);
 
   // Standard quiz state (MCQ types)
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -389,7 +390,6 @@ export default function SetQuizPage() {
   useEffect(() => () => setRequestGuard.abort(), [setRequestGuard]);
 
   useEffect(() => {
-    if (tutorMock) return; // mock ไม่ต้องล็อกอิน — และไม่ต้องดึงชุดจริง
     if (status === 'unauthenticated') {
       router.push('/tests');
       return;
@@ -397,7 +397,16 @@ export default function SetQuizPage() {
     if (status === 'authenticated' && !isNaN(setId)) {
       fetchSet();
     }
-  }, [status, setId, sectionId, router, fetchSet, tutorMock]);
+  }, [status, setId, sectionId, router, fetchSet]);
+
+  // AI Tutor flag — ถามเซิร์ฟเวอร์หลังล็อกอิน (fail-closed: ผิดพลาด = ไม่เห็น panel)
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    apiFetch('/api/tests/ai-tutor-access')
+      .then((res) => (res.ok ? res.json() : { enabled: false }))
+      .then((data: { enabled?: boolean } | null) => setAiTutorEnabled(Boolean(data?.enabled)))
+      .catch(() => undefined);
+  }, [status]);
 
   // Track test_started when questions are loaded
   useEffect(() => {
@@ -723,8 +732,6 @@ export default function SetQuizPage() {
 
   // ─── Render guards ────────────────────────────────────────────────
 
-  // UI mock AI Tutor (Figma 580:27829) — เฉพาะผู้พัฒนา ?tutor=1 ยังไม่ deploy
-  if (tutorMock) return <FocusFormTutorMock />;
   if (maintenanceBlocked) return <Spinner />; // กำลัง redirect ไปหน้า maintenance
   if (loading || status === 'loading' || !explainsLoaded) return <Spinner />;
 
@@ -1202,6 +1209,8 @@ export default function SetQuizPage() {
         onAnswerSelect={handleAnswer}
         disabled={submitting}
       />
+      {/* AI Tutor (Figma 580:27960) — สำหรับผู้เรียนที่เซิร์ฟเวอร์ยืนยันสิทธิ์แล้วเท่านั้น */}
+      {aiTutorEnabled && <AiTutorPanel />}
       {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}
     </TestLayout>

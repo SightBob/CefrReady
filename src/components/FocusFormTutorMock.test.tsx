@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import FocusFormTutorMock from './FocusFormTutorMock';
 
-// UI mock AI Tutor (Figma 580:27829) — เปิดด้วย ?tutor=1 ที่ /tests/focus-form/[setId]
-// เท่านั้น (ผู้พัฒนาเห็นคนเดียว) — เนื้อหาก๊อบตาม Figma, โต้ตอบน้อยที่สุด
+// UI mock AI Tutor (Figma 580:27829) — เสิร์ฟที่ /dev/tutor-mock (production = 404)
+// เนื้อหาก๊อบตาม Figma, โต้ตอบน้อยที่สุด; กรอบ AI Tutor แยกเป็น AiTutorPanel in-use
+// ทั้งหน้าจริง (feature flag) และหน้า mock ตัวนี้
 describe('FocusFormTutorMock — เรนเดอร์โครงหน้า mock ตาม Figma', () => {
   const markup = renderToStaticMarkup(<FocusFormTutorMock />);
 
@@ -59,5 +60,17 @@ describe('FocusFormTutorMock — เรนเดอร์โครงหน้�
   it('มีปุ่มล่าง "ข้อต่อไป" พื้นเหลืองตามแบบ', () => {
     expect(markup).toContain('ข้อต่อไป');
     expect(markup).toContain('bg-[#fff0ae]');
+  });
+
+  it('ข้อสุดท้าย: ปุ่ม "ข้อต่อไป" ปิดใช้งาน (แบบไม่มีสถานะข้อต่อไปให้ — เลือก disabled)', () => {
+    // ค่าเริ่มต้น (ข้อ 7) ปุ่มปกติ — disabled attribute มีแค่ของปุ่มส่งในช่องพิมพ์
+    const defaultMarkup = renderToStaticMarkup(<FocusFormTutorMock />);
+    expect((defaultMarkup.match(/\sdisabled=""/g) ?? []).length).toBe(1);
+
+    // ข้อ 9 (ข้อสุดท้าย) → ปุ่มถูกปิด (สไตล์/ตัวหนังสือคงเดิมตามแบบ — ห้ามเปลี่ยน UI เดิม)
+    const lastQuestionMarkup = renderToStaticMarkup(<FocusFormTutorMock initialQuestion={9} />);
+    expect((lastQuestionMarkup.match(/\sdisabled=""/g) ?? []).length).toBe(2);
+    expect(lastQuestionMarkup).toContain('disabled:cursor-not-allowed');
+    expect(lastQuestionMarkup).toContain('ข้อต่อไป');
   });
 });
