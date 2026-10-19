@@ -24,6 +24,7 @@ export default function TestsPageClient({ sections, user, maintenanceSections = 
   const router = useRouter();
   const isAuthenticated = Boolean(user);
   const [showBanner, setShowBanner] = useState(true);
+  const fullMaintenance = Boolean(maintenanceSections['full']);
 
   const handleOpenSection = (section: SectionData) => {
     // พาร์ทปิดปรับปรุง → หน้าแจ้งเฉพาะพาร์ท (ไม่ต้องล็อกอินก่อน)
@@ -39,11 +40,6 @@ export default function TestsPageClient({ sections, user, maintenanceSections = 
   };
 
   const handleHeroCta = (e: React.MouseEvent) => {
-    if (maintenanceSections['full']) {
-      e.preventDefault();
-      router.push('/tests/full/maintenance');
-      return;
-    }
     if (!isAuthenticated) {
       e.preventDefault();
       void signIn(undefined, { callbackUrl: '/tests' });
@@ -103,73 +99,106 @@ export default function TestsPageClient({ sections, user, maintenanceSections = 
 
       {/* 200:9227 — the 390px frame centres a 339px content column, i.e. ~26px
           side margins on mobile; wider breakpoints keep their own padding. */}
-      <div className="mx-auto w-full max-w-[1040px] px-[26px] sm:px-6 xl:px-0">
-        {/* Hero — desktop 60:846/60:847/60:843, mobile 200:9228 (339×158) */}
-        <section className="relative pt-[14px] lg:pt-[38px]">
-          <h1 className="text-[16px] font-bold leading-[26px] text-[#334155] lg:text-[26px] lg:leading-[43px]">
+      <div className="mx-auto w-full max-w-[1040px] px-[26px] sm:px-6 lg:max-w-[1152px] lg:px-0 xl:px-0">
+        {/* Hero — Figma 580:1655-580:1664 at 1536px: badge top 169 (h 32),
+            title top 222, subtitle top 266, squiggle top 341.
+            Mobile keeps 200:9228 (339×158) untouched. */}
+        <section className="relative px-0 pt-[14px] lg:px-[28px] lg:pt-[30px]">
+          {/* 580:1659 — 394×32 pill replaces the CTA while the full mock is closed */}
+          {fullMaintenance && (
+            <span className="inline-flex items-center whitespace-normal rounded-[18px] bg-[#E7EEF4] px-[27px] py-[9px] text-[13px] font-medium leading-[21px] text-[#334155] lg:h-[32px] lg:whitespace-nowrap lg:py-0">
+              สอบจำลองเต็มรูปแบบ ปิดปรับปรุงชั่วคราว แล้วพบกันใหม่เร็วๆนี้
+            </span>
+          )}
+
+          {/* 580:1657 — 24px bold #334155 / 580:1658 — 17px semibold #56606F */}
+          <h1 className={`text-[16px] font-bold leading-[26px] text-[#334155] lg:text-[24px] lg:leading-[40px] ${fullMaintenance ? 'mt-[18px] lg:mt-[21px]' : ''}`}>
             จำลองการสอบจริง “ ครอบคลุมเนื้อหาทั้งหมด ”
           </h1>
-          <p className="mt-[4px] text-[13px] font-medium leading-[21px] text-[#6f7c8e] lg:text-[16px] lg:leading-[26px] lg:text-[#56606F]">
+          <p className="mt-[4px] text-[13px] font-medium leading-[21px] text-[#6f7c8e] lg:text-[17px] lg:font-semibold lg:leading-[28px] lg:text-[#56606F]">
             ระดับความยากง่ายที่มีตั้งแต่ A1 - B2 กับโจทย์ที่จำลอง
             <br className="lg:hidden" />
             มาให้อย่างครบถ้วน
           </p>
-          <Link
-            href="/tests/full"
-            onClick={handleHeroCta}
-            className="mt-[18px] flex h-[38px] w-[182px] items-center justify-center rounded-[10px] border-b-[3px] border-r-[2px] border-[#FFDB40] bg-[#FFF0AE] text-[14px] font-semibold text-[#574E29] lg:mt-[30px] lg:h-[51px] lg:w-[298px] lg:rounded-[14px] lg:border-b-[5px] lg:border-r-[4px] lg:text-[16px] lg:font-bold"
-          >
-            <span className="lg:hidden">เริ่มสอบเลย</span>
-            <span className="hidden lg:inline">ฝึกทำข้อสอบ</span>
-          </Link>
+
+          {!fullMaintenance && (
+            <Link
+              href="/tests/full"
+              onClick={handleHeroCta}
+              className="mt-[18px] flex h-[38px] w-[182px] items-center justify-center rounded-[10px] border-b-[3px] border-r-[2px] border-[#FFDB40] bg-[#FFF0AE] text-[14px] font-semibold text-[#574E29] lg:mt-[30px] lg:h-[51px] lg:w-[298px] lg:rounded-[14px] lg:border-b-[5px] lg:border-r-[4px] lg:text-[16px] lg:font-bold"
+            >
+              <span className="lg:hidden">เริ่มสอบเลย</span>
+              <span className="hidden lg:inline">ฝึกทำข้อสอบ</span>
+            </Link>
+          )}
 
           {/* Otter with exam sign — mobile 200:9237 (90×93 at the content's
-              right edge, 65px below the hero top) */}
-          <div className="absolute right-0 top-[79px] h-[93px] w-[90px] lg:hidden" aria-hidden="true">
+              right edge, 65px below the h1). The maintenance badge pushes the
+              h1 down by 78px, so the otter follows it or it would land on the
+              title. */}
+          <div className={`absolute right-0 ${fullMaintenance ? 'top-[157px]' : 'top-[79px]'} h-[93px] w-[90px] lg:hidden`} aria-hidden="true">
             <div className="absolute left-[15.12px] top-[66.13px] h-[26.866px] w-[57.348px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
             <div className="absolute left-0 top-0 h-[76.449px] w-[89.985px] overflow-hidden">
               <Image src="/tests/otter-exam-sign.png" alt="" width={90} height={90} unoptimized className="absolute left-0 top-0 max-w-none" />
             </div>
           </div>
 
-          {/* Otter with Exam sign — desktop 60:848 */}
-          <div className="absolute right-0 top-[41px] hidden h-[190px] w-[174px] lg:block" aria-hidden="true">
-            <div className="absolute left-[29px] top-[128px] h-[62px] w-[111px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
-            <div className="absolute left-0 top-0 h-[148px] w-[174px] overflow-hidden">
-              <Image src="/logo-otter/otter-exam.png" alt="" width={174} height={174} className="absolute left-0 top-0 max-w-none" />
+          {/* Otter with Exam sign — 580:1661: group 167.2×192 sits 6px below the
+              banner; image cropped to 167.2×142.05 (top 85% of the square),
+              board 106.56×59.52 at (28.1, 132.45) — 21.5px in from the content edge */}
+          <div className="absolute right-0 top-[41px] hidden h-[190px] w-[174px] lg:top-[6px] lg:right-[calc(28px+21.5px)] lg:block lg:h-[192px] lg:w-[167.2px]" aria-hidden="true">
+            <div className="absolute left-[29px] top-[128px] h-[62px] w-[111px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0] lg:left-[28.1px] lg:top-[132.45px] lg:h-[59.52px] lg:w-[106.56px]" />
+            <div className="absolute left-0 top-0 h-[148px] w-[174px] overflow-hidden lg:h-[142.05px] lg:w-[167.2px]">
+              <Image src="/logo-otter/otter-exam.png" alt="" width={167} height={167} className="absolute left-0 top-0 h-auto w-full max-w-none lg:h-[167.2px] lg:w-[167.2px]" />
             </div>
           </div>
         </section>
 
-        {/* Squiggle divider — desktop 60:845 (985px), mobile 200:9236 (339px) */}
+        {/* Squiggle divider — Figma 580:1664: top 341 (subtitle block ends 294 → 47px),
+              spans the full content column */}
         <div
           aria-hidden="true"
-          className="mt-[26px] h-[9px] bg-[url('/tests/squiggle-line.svg')] bg-no-repeat lg:mt-[34px] max-w-[985px] lg:bg-[url('/bg/squiggle-line.svg')]"
+          className="mt-[26px] h-[9px] max-w-[985px] bg-[url('/tests/squiggle-line.svg')] bg-no-repeat lg:mx-[28px] lg:mt-[47px] lg:max-w-none lg:bg-[url('/bg/squiggle-line.svg')]"
           style={{ backgroundSize: '100% 100%' }}
         />
 
-        {/* 200:9241 — 339×26 at 16px semibold on mobile */}
-        <h2 className="mt-[11px] text-[16px] font-semibold leading-[26px] text-[#334155] lg:ml-[7px] lg:mt-[21px] lg:text-[18px] lg:leading-[30px]">
-          ฝึกทำข้อสอบตามหมวดหมู่
-        </h2>
+        {/* 580:1665 — blue panel 1152×301 (#E6F0F8, radius 29) holds the
+            heading row (top 404) and the card grid (top 455) on desktop only;
+            mobile keeps its own spacing from 200:9241/200:9242. */}
+        <div className="lg:mt-[21px] lg:rounded-[29px] lg:bg-[#E6F0F8] lg:px-[28px] lg:pt-[33px] lg:pb-[40px]">
+          <div className="flex items-center">
+            <h2 className="mt-[11px] text-[16px] font-semibold leading-[26px] text-[#334155] lg:mt-0 lg:text-[20px] lg:leading-[33px] lg:text-[#484534]">
+              ฝึกทำข้อสอบตามหมวดหมู่
+            </h2>
 
-        {sections.length === 0 ? (
-          <div className="text-center py-16 text-slate-500">
-            <p className="text-lg font-medium">No test sections available yet.</p>
-            <p className="text-sm mt-1">Please check back later.</p>
+            {/* 580:1734 — 151×30 pill, 14px left of the heading */}
+            <span className="ml-[14px] hidden h-[30px] w-[151px] items-center justify-center gap-[8px] rounded-[37px] bg-[#FFFAE6] lg:inline-flex">
+              <span className="relative flex h-[14px] w-[14px] items-center justify-center">
+                <span className="absolute h-[14px] w-[14px] rounded-full bg-[#FDF6DA]" />
+                <span className="relative h-[8px] w-[8px] rounded-full bg-[#FFDB40]" />
+              </span>
+              <span className="text-[13px] font-semibold leading-[18px] text-[#6D5B16]">พร้อมใช้งาน</span>
+            </span>
           </div>
-        ) : (
-          /* 200:9242 — first card sits 8px down, cards are 14px apart */
-          <div className="mt-[4px] grid grid-cols-1 gap-[14px] py-2 sm:grid-cols-2 lg:mt-[14px] lg:grid-cols-4 lg:gap-5 lg:py-0">
-            {sections.map((section) => (
-              <SectionCard
-                key={section.id}
-                section={section}
-                onOpen={handleOpenSection}
-              />
-            ))}
-          </div>
-        )}
+
+          {sections.length === 0 ? (
+            <div className="text-center py-16 text-slate-500">
+              <p className="text-lg font-medium">No test sections available yet.</p>
+              <p className="text-sm mt-1">Please check back later.</p>
+            </div>
+          ) : (
+            /* 580:1739 — four 259×177 cards, 20px apart */
+            <div className="mt-[4px] grid grid-cols-1 gap-[14px] py-2 sm:grid-cols-2 lg:mt-[18px] lg:grid-cols-4 lg:gap-[20px] lg:py-0">
+              {sections.map((section) => (
+                <SectionCard
+                  key={section.id}
+                  section={section}
+                  onOpen={handleOpenSection}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
