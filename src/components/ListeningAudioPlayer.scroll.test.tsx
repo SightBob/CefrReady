@@ -161,6 +161,19 @@ describe('ListeningAudioPlayer reveal flow', () => {
     expect(picked).toEqual(['B']);
   });
 
+  it('marks the chosen option as pending, the same as the other skills, before checking', async () => {
+    // สถานะ "เลือกแล้วยังไม่ตรวจ" ต้องเหมือน part อื่น: การ์ดเทา #EEEEEE
+    // + badge เทาเข้ม #848484 (ผู้ใช้กำหนด 2026-10-14 ให้ตรงกับ Tap & Select)
+    await act(async () => {
+      root.render(
+        <Harness selectedAnswer="A" explanation={null} correctAnswer={null} hideFeedback />,
+      );
+    });
+
+    expect(container.innerHTML).toContain('bg-[#EEEEEE]');
+    expect(container.innerHTML).toContain('bg-[#848484]');
+  });
+
   it('reveals the transcript and the verdict only after the check', async () => {
     // ตรวจแล้ว → หน้าส่ง hideFeedback=false พร้อมผลตรวจจากเซิร์ฟเวอร์
     await act(async () => {

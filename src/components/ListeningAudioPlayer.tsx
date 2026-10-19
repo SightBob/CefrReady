@@ -295,6 +295,12 @@ export default function ListeningAudioPlayer({
               } else if (showOptionFeedback) {
                 buttonClass += 'bg-white ring-[#e2e8f0] opacity-60';
                 badgeClass += 'bg-[#f1f5f9] text-[#64748b]';
+              } else if (isSelected) {
+                // เลือกแล้วยังไม่ตรวจคำตอบ — สีเดียวกับ FocusFormQuestionCard /
+                // Tap & Select (ผู้ใช้กำหนด 2026-10-14) เพื่อให้ทุก part สื่อว่า
+                // "เลือกแล้ว ยังไม่รู้ผล" เหมือนกัน ไม่ใช่ตามผลตรวจ
+                buttonClass += 'bg-[#EEEEEE] ring-[#E2E8F0]';
+                badgeClass += 'bg-[#848484] text-white';
               } else {
                 buttonClass += `bg-white ring-[#e2e8f0] ${isSelected ? '' : 'hover:bg-slate-50'}`;
                 badgeClass += 'bg-[#f1f5f9] text-[#64748b]';
