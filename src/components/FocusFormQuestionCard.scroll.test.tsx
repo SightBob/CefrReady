@@ -49,10 +49,23 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-/** ปล่อยให้ requestAnimationFrame ซ้อนสองชั้นทำงานจนครบ */
+/**
+ * ปล่อยให้ requestAnimationFrame ซ้อนสองชั้นทำงานจนครบ
+ *
+ * เดิมใช้ setTimeout(80) ซึ่งเป็นการเดาเวลา — ตอนรันเทสต์ขนานหลายไฟล์เฟรมอาจ
+ * ช้ากว่า 80ms แล้วสถานะยังไม่ถึง เทสต์จึงวูบ (flaky) การรอเฟรมจริงแทน
+ * ผลลัพธ์เดียวกันเสมอไม่ว่าเครื่องจะหนักแค่ไหน — ชั้นที่ 3 กันเผื่อมีงาน
+ * ที่ต่อท้าย (microtask/timeout) ค้างอยู่อีกชั้น
+ */
+const nextFrame = () =>
+  new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+
 async function flushFrames() {
+  await nextFrame();
+  await nextFrame();
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await nextFrame();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 }
 

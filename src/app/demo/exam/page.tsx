@@ -90,8 +90,15 @@ export default function DemoExamPage() {
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
-  /** slot ที่ผู้เรียนกด "ตรวจคำตอบ" แล้ว = อนุญาตให้เห็นเฉลย */
-  const [checkedSlots, setCheckedSlots] = useState<Record<number, boolean>>({});
+  /**
+   * slot ที่ผู้เรียนกด "ตรวจคำตอบ" แล้ว = อนุญาตให้เห็นเฉลย
+   *
+   * ค่าคือ `true` เท่านั้นโดยตั้งใจ — state นี้ตอบคำถามว่า "ตรวจแล้วหรือยัง"
+   * ไม่ใช่ "ตอบถูกไหม" เดิมเก็บผลถูก/ผิดลงไปด้วย ทำให้เลือกผิดแล้วถูกนับเป็น
+   * "ยังไม่ตรวจ" และติดค้างกดข้อต่อไปไม่ได้ ถูก/ผิดจึงคำนวณตอน render
+   * จากคำตอบจริงด้วย slotIsCorrect() (คำตอบถูกล็อกหลังตรวจแล้ว ผลจึงไม่พลิก)
+   */
+  const [checkedSlots, setCheckedSlots] = useState<Record<number, true>>({});
 
   const fetchQuestions = async () => {
     setLoading(true);
@@ -133,7 +140,7 @@ export default function DemoExamPage() {
   const handleAnswer = (answer: string) => {
     if (!activeSlot) return;
     // เปลี่ยนคำตอบได้ตราบใดที่ยังไม่ได้กดตรวจ (การ์ดจะ disable หลังเฉลยแล้ว)
-    if (checkedSlots[currentSlot]) return;
+    if (checkedSlots[currentSlot] === true) return;
     if (answers[currentSlot] === answer) return;
     setAnswers((prev) => prev.map((value, index) => (index === currentSlot ? answer : value)));
     // ตอบใหม่ = ยังไม่ตรวจ ต้องกด "ตรวจคำตอบ" อีกครั้งจึงจะเห็นเฉลย
@@ -162,9 +169,8 @@ export default function DemoExamPage() {
   const handleCheckAnswer = () => {
     const slot = slots[currentSlot];
     if (!slot || !answers[currentSlot] || isSlotChecked(currentSlot)) return;
-    const question = questions[slot.questionIndex];
-    if (!question) return;
-    setCheckedSlots((prev) => ({ ...prev, [currentSlot]: slotIsCorrect(question, slot, answers[currentSlot] ?? '') }));
+    // เก็บแค่ "ตรวจแล้ว" — ถูก/ผิดคำนวณตอน render จากคำตอบ ไม่เก็บใน state
+    setCheckedSlots((prev) => ({ ...prev, [currentSlot]: true }));
   };
 
   const handleSubmit = () => {
@@ -382,10 +388,14 @@ export default function DemoExamPage() {
               placeholder={blank?.hint || 'พิมพ์คำตอบ'}
             />
           </label>
-          {/* ช่องกรอกคำไม่มีการ์ดสีถูก/ผิด จึงต้องบอกผลตรวจเอง */}
+          {/* ช่องกรอกคำไม่มีการ์ดสีถูก/ผิด จึงต้องบอกผลตรวจเอง
+              คำนวณจากคำตอบจริงตอน render — ช่องกรอกถูก disable ทันทีที่ตรวจ
+              (บรรทัด disabled ข้างบน) ผลจึงไม่พลิกหลังตรวจ */}
           {isSlotChecked(currentSlot) && (
             <p role="status" className="text-sm font-medium text-emerald-700">
-              {checkedSlots[currentSlot] ? 'ถูกต้อง' : `ยังไม่ถูก — คำตอบคือ “${blank?.correctAnswer ?? ''}”`}
+              {slotIsCorrect(question, activeSlot, selectedAnswer ?? '')
+                ? 'ถูกต้อง'
+                : `ยังไม่ถูก — คำตอบคือ “${blank?.correctAnswer ?? ''}”`}
             </p>
           )}
         </div>
