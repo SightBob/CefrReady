@@ -5,7 +5,7 @@
  * (เช่น prod ที่ยังไม่ได้รัน migration) — และลบแถวที่ทดสอบทิ้งเสมอ
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
@@ -50,7 +50,8 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     pool = new pg.Pool({ connectionString });
     db = drizzle(pool) as unknown as NodePgDatabase<Record<string, never>>;
     const [user] = await db.select({ id: users.id }).from(users).limit(1);
-    const [question] = await db.select({ id: questions.id }).from(questions).limit(1);
+    // ใช้ข้อที่ id ต่ำสุด (ไฟล์เทสอื่นที่ต่อ DB จริงจะใช้ข้อ id สูงสุด → ไม่ชนกัน)
+    const [question] = await db.select({ id: questions.id }).from(questions).orderBy(asc(questions.id)).limit(1);
     userId = user?.id ?? '';
     questionId = question?.id ?? 0;
     process.env.AI_TUTOR_QUESTION_QUOTA = '2';

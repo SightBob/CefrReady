@@ -5,7 +5,7 @@
  * (เช่น prod ที่ยังไม่ได้รัน migration) — และลบแถวที่ทดสอบทิ้งเสมอ
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import pg from 'pg';
 
 try {
@@ -73,7 +73,8 @@ describeLive('retention ↔ DB จริง', () => {
 
   beforeAll(async () => {
     const [user] = await db.select({ id: users.id }).from(users).limit(1);
-    const [question] = await db.select({ id: questions.id }).from(questions).limit(1);
+    // ใช้ข้อที่ id สูงสุด (quota.db.test.ts ใช้ข้อ id ต่ำสุด → สองไฟล์ไม่ชนกัน)
+    const [question] = await db.select({ id: questions.id }).from(questions).orderBy(desc(questions.id)).limit(1);
     userId = user?.id ?? '';
     questionId = question?.id ?? 0;
 
