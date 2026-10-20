@@ -66,32 +66,51 @@ export default function ConfigTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const [configRes, modelsRes, auditRes] = await Promise.all([
-        fetch('/api/admin/ai-tutor/config'),
-        fetch('/api/admin/ai-tutor/models'),
-        fetch('/api/admin/ai-tutor/audit?limit=20'),
-      ]);
-      const configBody = await configRes.json();
-      if (!configRes.ok || !configBody.success) throw new Error(configBody.error || 'โหลดค่าตั้งไม่สำเร็จ');
-      setData(configBody.data);
-      setForm(toFormState(configBody.data.config));
-      setResetKeys([]);
+    // แยกแต่ละส่วนด้วย allSettled: ประวัติ (audit) ล้มได้โดยไม่ทำให้ทั้งหน้าล้ม
+    const [configResult, modelsResult, auditResult] = await Promise.allSettled([
+      fetch('/api/admin/ai-tutor/config'),
+      fetch('/api/admin/ai-tutor/models'),
+      fetch('/api/admin/ai-tutor/audit?limit=20'),
+    ]);
 
-      if (modelsRes.ok) {
-        const modelsBody = await modelsRes.json();
-        if (modelsBody.success) setModels(modelsBody.data ?? []);
+    const problems: string[] = [];
+
+    // ─── ค่าตั้ง (สำคัญ: ถ้าล้ม = หน้านี้ใช้ไม่ได้จริง) ───
+    if (configResult.status === 'rejected') {
+      problems.push('โหลดค่าตั้งไม่สำเร็จ');
+    } else {
+      const configRes = configResult.value;
+      const configBody = await configRes.json().catch(() => null);
+      if (!configRes.ok || !configBody?.success) {
+        problems.push(configBody?.error || 'โหลดค่าตั้งไม่สำเร็จ');
+      } else {
+        setData(configBody.data);
+        setForm(toFormState(configBody.data.config));
+        setResetKeys([]);
       }
-      if (auditRes.ok) {
-        const auditBody = await auditRes.json();
-        if (auditBody.success) setAudit(auditBody.data ?? []);
-      }
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'โหลดข้อมูลไม่สำเร็จ');
-      setNoticeKind('error');
-    } finally {
-      setLoading(false);
     }
+
+    // ─── รายการโมเดล (เสริม) ───
+    if (modelsResult.status === 'fulfilled' && modelsResult.value.ok) {
+      const modelsBody = await modelsResult.value.json().catch(() => null);
+      if (modelsBody?.success) setModels(modelsBody.data ?? []);
+    }
+
+    // ─── ประวัติการเปลี่ยนค่า (เสริม: ล้มได้ ไม่ทำให้ทั้งหน้าล้ม) ───
+    if (auditResult.status === 'rejected' || !auditResult.value.ok) {
+      problems.push('โหลดประวัติการเปลี่ยนค่าไม่สำเร็จ (ส่วนอื่นยังใช้ได้)');
+      setAudit([]);
+    } else {
+      const auditBody = await auditResult.value.json().catch(() => null);
+      if (auditBody?.success) setAudit(auditBody.data ?? []);
+      else problems.push('โหลดประวัติการเปลี่ยนค่าไม่สำเร็จ (ส่วนอื่นยังใช้ได้)');
+    }
+
+    if (problems.length > 0) {
+      setNotice(problems.join(' · '));
+      setNoticeKind('error');
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);

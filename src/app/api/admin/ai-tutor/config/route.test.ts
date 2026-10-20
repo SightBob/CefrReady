@@ -230,6 +230,32 @@ describe('PUT /api/admin/ai-tutor/config', () => {
   });
 });
 
+describe('migration ยังไม่รัน → 503 พร้อมข้อความชัดเจน (ไม่ใช่ 500)', () => {
+  it('PUT /config: ตาราง ai_tutor_settings ยังไม่มี → 503', async () => {
+    mocks.insert.mockImplementation(() => {
+      throw new Error('relation "ai_tutor_settings" does not exist');
+    });
+    const res = await PUT_CONFIG(new NextRequest('http://localhost/api/admin/ai-tutor/config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questionQuota: 3 }),
+    }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toContain('migration');
+  });
+
+  it('GET /audit: ตาราง ai_tutor_admin_audit ยังไม่มี → 503', async () => {
+    mocks.select.mockImplementation(() => {
+      throw new Error('relation "ai_tutor_admin_audit" does not exist');
+    });
+    const res = await GET_AUDIT(new NextRequest('http://localhost/api/admin/ai-tutor/audit'));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toContain('migration');
+  });
+});
+
 describe('GET /api/admin/ai-tutor/models', () => {
   it('คืนรายชื่อโมเดลพร้อมราคาและข้อมูล reasoning', async () => {
     mocks.fetchModels.mockResolvedValue([{

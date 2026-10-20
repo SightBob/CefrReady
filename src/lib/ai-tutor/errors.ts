@@ -14,6 +14,13 @@ export const AI_TUTOR_UNAVAILABLE_MESSAGE =
 /** ข้อความสำหรับผู้เรียนที่ไม่มีสิทธิ์ใช้งาน */
 export const AI_TUTOR_NO_ACCESS_MESSAGE = 'คุณยังไม่มีสิทธิ์ใช้งาน AI Tutor';
 
+/**
+ * ข้อความสำหรับผู้ดูแลระบบ — ตารางของ AI Tutor ยังไม่มี (migration 0045–0048 ยังไม่รัน)
+ * ใช้แทน HTTP 500 เพื่อให้รู้ว่าต้องรัน migration (ไม่ใช่บั๊กของโค้ด)
+ */
+export const AI_TUTOR_MIGRATION_MISSING_MESSAGE =
+  'ยังไม่ได้รัน migration ของ AI Tutor (0045–0048) — กรุณาให้ผู้ดูแลระบบรัน migration บนฐานข้อมูลนี้ก่อน';
+
 export type ErrorSummary = {
   message: string;
   code: string | null;

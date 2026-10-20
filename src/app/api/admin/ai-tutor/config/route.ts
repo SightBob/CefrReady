@@ -18,6 +18,7 @@ import {
   maxModelPriceInPerMtok,
   maxModelPriceOutPerMtok,
 } from '@/lib/ai-tutor/limits';
+import { AI_TUTOR_MIGRATION_MISSING_MESSAGE, warnWithSummary } from '@/lib/ai-tutor/errors';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -59,7 +60,18 @@ export async function PUT(request: NextRequest) {
   if (error) return error;
 
   const body = await request.json().catch(() => null);
-  const result = await saveAiTutorSettings(body, session?.user?.id ?? 'unknown');
+  let result;
+  try {
+    result = await saveAiTutorSettings(body, session?.user?.id ?? 'unknown');
+  } catch (error) {
+    // ตาราง ai_tutor_settings ยังไม่มี (migration 0048 ยังไม่รัน) หรือ DB ล่ม
+    // → 503 พร้อมข้อความชัดเจน (ไม่ใช่ 500 ที่ผู้ใช้ไม่รู้จะแก้ยังไง)
+    warnWithSummary('ai-tutor] บันทึกค่าตั้งไม่สำเร็จ', error);
+    return NextResponse.json(
+      { success: false, error: AI_TUTOR_MIGRATION_MISSING_MESSAGE },
+      { status: 503 },
+    );
+  }
   if (!result.ok) {
     return NextResponse.json({ success: false, error: result.error }, { status: 400 });
   }

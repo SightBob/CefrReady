@@ -193,4 +193,46 @@ describe('หน้า /admin/ai-tutor — แท็บตั้งค่า', (
     const toggle = container.querySelector<HTMLInputElement>('input[aria-label="สวิตช์เปิดใช้งาน AI Tutor"]');
     expect(toggle?.disabled).toBe(true);
   });
+
+  it('ประวัติ (audit) ล้ม → ยังใช้ส่วนตั้งค่าได้ และเตือนว่าประวัติโหลดไม่ได้', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const href = String(url);
+      if (href.includes('/api/admin/ai-tutor/config')) return jsonResponse({ success: true, data: CONFIG });
+      if (href.includes('/api/admin/ai-tutor/models')) return jsonResponse(MODELS);
+      if (href.includes('/api/admin/ai-tutor/audit')) {
+        return new Response(JSON.stringify({ success: false, error: 'ยังไม่ได้รัน migration' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return jsonResponse({ success: true });
+    }));
+
+    await renderTab();
+
+    // ส่วนตั้งค่ายังทำงาน
+    expect(container.textContent).toContain('โควตาต่อข้อ');
+    expect(button('บันทึกการตั้งค่า').disabled).toBe(false);
+    // แต่มีข้อความเตือนว่าประวัติโหลดไม่ได้
+    expect(container.textContent).toContain('โหลดประวัติการเปลี่ยนค่าไม่สำเร็จ');
+  });
+
+  it('ค่าตั้งโหลดไม่ได้ → บอกเหตุผลจาก server (เช่น ยังไม่ได้รัน migration)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const href = String(url);
+      if (href.includes('/api/admin/ai-tutor/config')) {
+        return new Response(JSON.stringify({ success: false, error: 'ยังไม่ได้รัน migration ของ AI Tutor' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (href.includes('/api/admin/ai-tutor/models')) return jsonResponse(MODELS);
+      if (href.includes('/api/admin/ai-tutor/audit')) return jsonResponse({ success: true, data: [] });
+      return jsonResponse({ success: true });
+    }));
+
+    await renderTab();
+
+    expect(container.textContent).toContain('ยังไม่ได้รัน migration ของ AI Tutor');
+  });
 });
