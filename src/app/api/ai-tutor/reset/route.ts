@@ -9,6 +9,9 @@ import { validateOrigin } from '@/lib/api-security';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+/** เก็บถังข้อความ + นับโควตา = คิวรี DB ไม่กี่ตัว ไม่ต้องรอโมเดล */
+export const maxDuration = 15;
+
 const bodySchema = z.object({
   questionId: z.number().int().positive(),
 }).strict();

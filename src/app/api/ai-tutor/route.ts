@@ -22,11 +22,20 @@ import {
   systemDailyLimit,
   userDailyLimit,
 } from '@/lib/ai-tutor/quota';
-import { AiTutorProviderError, streamAiTutorReply } from '@/lib/ai-tutor/provider';
+import { AiTutorProviderError, aiTutorTimeoutMs, streamAiTutorReply } from '@/lib/ai-tutor/provider';
+import { trimToLastCompleteSentence } from '@/lib/ai-tutor/trim';
 import { buildQuestionContext, type AiTutorQuestionContext } from '@/lib/ai-tutor/prompt';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+/**
+ * เวลาสูงสุดของฟังก์ชัน: โมเดลหลัก (AI_TUTOR_TIMEOUT_MS) + โมเดลสำรอง (เท่ากัน) + เผื่อ 15 วิ
+ * ค่าอ่านจาก env ตอน build (Vercel อ่าน maxDuration จาก build output) จึงต้องตั้ง
+ * AI_TUTOR_TIMEOUT_MS ให้ตรงกับตอนรันจริง
+ */
+const timeoutSeconds = Math.ceil(aiTutorTimeoutMs() / 1000);
+export const maxDuration = Math.min(300, timeoutSeconds * 2 + 15);
 
 const bodySchema = z.object({
   questionId: z.number().int().positive(),
@@ -202,6 +211,23 @@ export async function POST(request: Request) {
           },
         });
 
+        // โมเดลตอบจบแต่ถูกตัด (finish_reason = length) → ตัดที่ประโยคสมบูรณ์สุดท้าย
+        // แล้วใช้ฉบับที่ตัดแล้วทั้งใน DB และส่งกลับให้ client (ต้องเป็นฉบับเดียวกัน)
+        let finalText = result.text;
+        if (result.finishReason === 'length') {
+          const trimmed = trimToLastCompleteSentence(result.text);
+          finalText = trimmed.text;
+          console.warn('[ai-tutor] คำตอบถูกตัด (finish_reason = length)', JSON.stringify({
+            questionId,
+            model: result.usage.model,
+            outputTokens: result.usage.outputTokens,
+            reasoningTokens: result.usage.reasoningTokens,
+            trimmed: trimmed.trimmed,
+            cutReason: trimmed.cutReason,
+            removedChars: trimmed.removed.length,
+          }));
+        }
+
         await markUserMessageOk({
           messageId: reservation.messageId,
           latencyMs: result.usage.latencyMs,
@@ -212,30 +238,20 @@ export async function POST(request: Request) {
         const assistantId = await insertAssistantMessage({
           userId,
           questionId,
-          content: result.text,
+          content: finalText,
           latencyMs: result.usage.latencyMs,
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           model: result.usage.model,
         });
 
-        // โมเดลตอบจบแต่ถูกตัด (finish_reason = length) หลังมีเนื้อหาแล้ว → เก็บข้อความที่ได้
-        // ไว้ก่อน และบันทึกไว้ให้ผู้ดูแลตัดสินใจ (ยังไม่ตัดที่ประโยคอัตโนมัติ)
-        if (result.finishReason === 'length') {
-          console.warn('[ai-tutor] คำตอบถูกตัด (finish_reason = length) แต่มีเนื้อหาแล้ว', JSON.stringify({
-            questionId,
-            model: result.usage.model,
-            outputTokens: result.usage.outputTokens,
-            reasoningTokens: result.usage.reasoningTokens,
-            length: result.text.length,
-          }));
-        }
-
         const quota = await getQuotaSnapshot({ userId, questionId });
         send({
           type: 'done',
           messageId: assistantId,
           quota,
+          /** ข้อความฉบับสุดท้าย (อาจถูกตัด) — client ต้องแสดงฉบับนี้ให้ตรงกับ DB */
+          text: finalText,
           usage: {
             inputTokens: result.usage.inputTokens,
             outputTokens: result.usage.outputTokens,

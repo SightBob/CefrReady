@@ -29,7 +29,7 @@ vi.mock('@/lib/ai-tutor/quota', () => ({
   getQuotaSnapshot: mocks.getQuotaSnapshot,
   questionQuotaLimit: () => 5,
   userDailyLimit: () => 50,
-  systemDailyLimit: () => 0,
+  systemDailyLimit: () => 10_000,
 }));
 vi.mock('@/lib/ai-tutor/messages', () => ({
   getThreadMessages: mocks.getThreadMessages,
@@ -40,6 +40,7 @@ vi.mock('@/lib/ai-tutor/messages', () => ({
 }));
 vi.mock('@/lib/ai-tutor/provider', () => ({
   streamAiTutorReply: mocks.stream,
+  aiTutorTimeoutMs: () => 30_000,
   AiTutorProviderError: class AiTutorProviderError extends Error {
     constructor(public status: number, message: string) { super(message); }
   },
@@ -228,8 +229,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     expect(mocks.insertAssistantMessage).not.toHaveBeenCalled();
   });
 
-  it('บันทึกโมเดลที่ตอบจริง + เหตุการณ์ fallback ลง usage ที่ส่งให้ client', async () => {
-    mocks.stream.mockResolvedValue({
+  it('บันทึกโมเดลที่ตอบจริง + เหตุการณ์ fallback ลง usage ที่ส่งให้ client', async () => {    mocks.stream.mockResolvedValue({
       text: 'คำตอบจากสำรอง',
       finishReason: 'stop',
       ttftMs: 120,
@@ -251,5 +251,35 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     expect(mocks.insertAssistantMessage).toHaveBeenCalledWith(expect.objectContaining({ model: 'fallback-model' }));
     // การสลับไม่เพิ่มโควตา — จองแค่ครั้งเดียว
     expect(mocks.reserveQuestion).toHaveBeenCalledTimes(1);
+  });
+
+  it('คำตอบถูกตัด (finish_reason = length) → ตัดที่ประโยคสมบูรณ์สุดท้ายก่อนบันทึกลง DB และส่งฉบับเดียวกันให้ client', async () => {
+    mocks.stream.mockResolvedValue({
+      text: 'ประโยคแรกที่จบแล้ว ประโยคที่สองก็จบนะ ประโยคที่ถูกตัดค้าง',
+      finishReason: 'length',
+      ttftMs: 100,
+      fallbackUsed: false,
+      fallbackReason: null,
+      usage: { inputTokens: 10, outputTokens: 20, reasoningTokens: 5, model: 'test-model', latencyMs: 100 },
+    });
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const events = await readEvents(res);
+    const done = events.find((event) => event.type === 'done');
+
+    // ข้อความที่บันทึกลง DB ต้องเป็นฉบับที่ตัดแล้วเหมือนกัน
+    const saved = mocks.insertAssistantMessage.mock.calls[0][0] as { content: string };
+    expect(saved.content).toBe('ประโยคแรกที่จบแล้ว ประโยคที่สองก็จบนะ');
+    // client ได้ฉบับเดียวกัน
+    expect((done as { text?: string }).text).toBe(saved.content);
+  });
+
+  it('เพดานรวมทั้งระบบเต็ม (kill switch) → 429', async () => {
+    mocks.rateLimit.mockImplementation(async (key: string) => (
+      key.startsWith('system:') ? { limited: true, retryAfterMs: 1000 } : { limited: false, retryAfterMs: 0 }
+    ));
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    expect(res.status).toBe(429);
+    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
   });
 });

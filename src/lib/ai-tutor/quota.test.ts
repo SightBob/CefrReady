@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // ฟังก์ชันบริสุทธิ์ จึง mock db ทิ้ง (ไม่ต้องต่อ DB จริง)
 vi.mock('@/db', () => ({ db: { select: vi.fn(), transaction: vi.fn() } }));
 
-import { bangkokDayStartUtc, questionQuotaLimit, systemDailyLimit, userDailyLimit } from './quota';
+import { bangkokDayStartUtc, questionQuotaLimit, systemDailyLimit, userDailyLimit, DEFAULT_SYSTEM_DAILY_LIMIT } from './quota';
 
 describe('bangkokDayStartUtc — วันตามเวลาไทย (UTC+7)', () => {
   it('เวลาไทย 21 ต.ค. 03:00 → เริ่มวันที่ 21 ต.ค. 00:00 เวลาไทย (= 20 ต.ค. 17:00 UTC)', () => {
@@ -34,13 +34,24 @@ describe('โควตาจาก env', () => {
   const original = { ...process.env };
   afterEach(() => { process.env = { ...original }; });
 
-  it('ไม่ตั้ง = ค่าเริ่มต้น (ข้อ 5, ผู้เรียน 50, ระบบไม่จำกัด)', () => {
+  it('ไม่ตั้ง = ค่าเริ่มต้น (ข้อ 5, ผู้เรียน 50, ระบบมีเพดานจริง 10,000)', () => {
     delete process.env.AI_TUTOR_QUESTION_QUOTA;
     delete process.env.AI_TUTOR_USER_DAILY_LIMIT;
     delete process.env.AI_TUTOR_SYSTEM_DAILY_LIMIT;
     expect(questionQuotaLimit()).toBe(5);
     expect(userDailyLimit()).toBe(50);
-    expect(systemDailyLimit()).toBe(0);
+    // เพดานรวมระบบต้องมีค่าจริงเสมอ (kill switch) ไม่ใช่ปิดทิ้ง
+    expect(systemDailyLimit()).toBe(DEFAULT_SYSTEM_DAILY_LIMIT);
+    expect(systemDailyLimit()).toBe(10_000);
+  });
+
+  it('เพดานรวมระบบ: ตั้ง env ได้ และค่า 0/ผิดพลาดกลับไปใช้ค่าเริ่มต้น', () => {
+    process.env.AI_TUTOR_SYSTEM_DAILY_LIMIT = '500';
+    expect(systemDailyLimit()).toBe(500);
+    process.env.AI_TUTOR_SYSTEM_DAILY_LIMIT = '0';
+    expect(systemDailyLimit()).toBe(DEFAULT_SYSTEM_DAILY_LIMIT);
+    process.env.AI_TUTOR_SYSTEM_DAILY_LIMIT = 'abc';
+    expect(systemDailyLimit()).toBe(DEFAULT_SYSTEM_DAILY_LIMIT);
   });
 
   it('อ่านค่าจาก env ได้', () => {

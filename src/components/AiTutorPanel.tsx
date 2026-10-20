@@ -306,8 +306,10 @@ export default function AiTutorPanel({
             setStreamingText(answer);
           } else if (event.type === 'done') {
             if (event.quota) setQuota(event.quota);
-            if (answer) {
-              setEntries((current) => [...current, { key: `ai-${Date.now()}`, role: 'ai', content: answer }]);
+            // ใช้ฉบับสุดท้ายจาก server (อาจถูกตัดที่ประโยคสมบูรณ์) ให้ตรงกับที่บันทึกลง DB
+            const finalText = typeof event.text === 'string' ? event.text : answer;
+            if (finalText) {
+              setEntries((current) => [...current, { key: `ai-${Date.now()}`, role: 'ai', content: finalText }]);
             }
             setStreamingText('');
           } else if (event.type === 'error') {

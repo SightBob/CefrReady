@@ -39,10 +39,22 @@ export function userDailyLimit(): number {
   return raw;
 }
 
-/** เพดานรวมทั้งระบบต่อวัน (kill switch) — ไม่ตั้ง = ไม่จำกัด */
+/**
+ * เพดานรวมทั้งระบบต่อวัน (kill switch) — ค่าเริ่มต้นมีจริง ไม่ปิดทิ้งไว้เฉย ๆ
+ *
+ * เหตุผลที่เลือก 10,000 ครั้ง/วัน:
+ * - ผู้เรียนปัจจุบัน ~1,237 บัญชี × โควตา 5 คำถาม/ข้อ/วัน ≈ 6,185 ครั้ง/วัน
+ *   → 10,000 ครอบการใช้งานเต็มพอดีของฐานผู้ใช้ปัจจุบัน และยังเหลือ headroom
+ * - เป็น kill switch: ถ้า rollout เปิด 100% หรือมีลูปยิงซ้ำ จะตัดได้ก่อนเสียเงินมาก
+ * - ค่าใช้จ่ายสูงสุดถ้าทุกครั้งตกไปใช้โมเดลเสียเงินจริง (deepseek ~2.5k input + 600 output
+ *   ≈ 31M token/วัน ≈ $1.1/วัน) — เพดานที่ยังคุมได้
+ * ปรับด้วย env AI_TUTOR_SYSTEM_DAILY_LIMIT (ค่า 0 หรือผิดพลาด = ใช้ค่าเริ่มต้นนี้)
+ */
+export const DEFAULT_SYSTEM_DAILY_LIMIT = 10_000;
+
 export function systemDailyLimit(): number {
   const raw = Number.parseInt(process.env.AI_TUTOR_SYSTEM_DAILY_LIMIT ?? '', 10);
-  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_SYSTEM_DAILY_LIMIT;
   return raw;
 }
 

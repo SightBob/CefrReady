@@ -227,6 +227,8 @@ async function loadQuestions(count: number): Promise<EvalQuestion[]> {
 function parseArgs(argv: string[]) {
   const models: string[] = [];
   let out: string | null = null;
+  let effort: string | null = null;
+  let fallback: string | null = null;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--model' && argv[index + 1]) {
@@ -239,6 +241,16 @@ function parseArgs(argv: string[]) {
       index += 1;
     } else if (arg.startsWith('--out=')) {
       out = arg.slice('--out='.length);
+    } else if (arg === '--effort' && argv[index + 1]) {
+      effort = argv[index + 1];
+      index += 1;
+    } else if (arg.startsWith('--effort=')) {
+      effort = arg.slice('--effort='.length);
+    } else if (arg === '--fallback' && argv[index + 1]) {
+      fallback = argv[index + 1];
+      index += 1;
+    } else if (arg.startsWith('--fallback=')) {
+      fallback = arg.slice('--fallback='.length);
     }
   }
   if (models.length === 0 && process.env.AI_TUTOR_EVAL_MODELS) {
@@ -247,7 +259,7 @@ function parseArgs(argv: string[]) {
   if (models.length === 0 && process.env.AI_TUTOR_MODEL) {
     models.push(process.env.AI_TUTOR_MODEL);
   }
-  return { models, out };
+  return { models, out, effort, fallback };
 }
 
 function estimateCost(model: string, inputTokens: number, outputTokens: number, pricing: EvalConfig['pricing']) {
@@ -266,7 +278,7 @@ function fillPrompt(prompt: string, question: EvalQuestion): string {
 }
 
 async function main() {
-  const { models, out } = parseArgs(process.argv.slice(2));
+  const { models, out, effort, fallback } = parseArgs(process.argv.slice(2));
   if (models.length === 0) {
     console.error('ต้องระบุโมเดล: --model <model-id> (หรือ AI_TUTOR_EVAL_MODELS="a,b")');
     process.exit(1);
@@ -275,6 +287,23 @@ async function main() {
     console.error('ยังไม่ได้ตั้งค่า OPENROUTER_API_KEY');
     process.exit(1);
   }
+
+  // ระดับ reasoning: ใช้ค่าเดียวกันทุกโมเดลในรอบนี้ (ค่าเริ่มต้น = ค่าที่ตั้งใน env ของ dev)
+  if (effort) {
+    process.env.AI_TUTOR_REASONING_EFFORT = effort;
+    process.env.AI_TUTOR_FALLBACK_REASONING_EFFORT = effort;
+  }
+  // โมเดลสำรอง: โดยค่าเริ่มต้น "ไม่มี" → ทุกโมเดลทดสอบเดี่ยวๆ (ใช้ --fallback เพื่อทดสอบการสลับ)
+  if (fallback) {
+    process.env.AI_TUTOR_FALLBACK_MODEL = fallback;
+  } else {
+    delete process.env.AI_TUTOR_FALLBACK_MODEL;
+  }
+  console.log(
+    `โมเดลที่จะทดสอบ: ${models.join(', ')}` +
+    ` · reasoning effort: ${process.env.AI_TUTOR_REASONING_EFFORT ?? '(ค่าเริ่มต้น low)'}` +
+    ` · โมเดลสำรอง: ${process.env.AI_TUTOR_FALLBACK_MODEL ?? '(ไม่มี)'}`,
+  );
 
   const config = loadConfig();
   const maxCalls = Number.parseInt(process.env.AI_TUTOR_EVAL_MAX_CALLS ?? '', 10);

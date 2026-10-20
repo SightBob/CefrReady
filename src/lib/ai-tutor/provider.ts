@@ -90,13 +90,19 @@ export function aiTutorFirstTokenTimeoutMs(): number {
   return Math.min(raw, 120_000);
 }
 
-/** ระดับ reasoning ของแต่ละบทบาท (primary / fallback) */
+/**
+ * ระดับ reasoning ของแต่ละบทบาท (primary / fallback)
+ * - primary: 'low' (โมเดลหลักของเรา reasoning บังคับ ปิดไม่ได้ → จำกัด effort แทน)
+ * - fallback: 'none' (ปิด reasoning ให้เร็ว + ประหยัด token; ถ้าโมเดลสำรองบังคับ reasoning
+ *   ให้ตั้ง env เป็น 'low' แทน ไม่งั้นจะได้ 400)
+ */
 export function aiTutorReasoningEffort(role: 'primary' | 'fallback'): string {
   const env = role === 'fallback'
     ? process.env.AI_TUTOR_FALLBACK_REASONING_EFFORT
     : process.env.AI_TUTOR_REASONING_EFFORT;
   const value = env?.trim();
-  return value || 'low';
+  if (value) return value;
+  return role === 'fallback' ? 'none' : 'low';
 }
 
 /** ข้อความ error ของ OpenRouter → ภาษาไทยสั้น ๆ */
