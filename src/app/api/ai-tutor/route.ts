@@ -23,7 +23,7 @@ import {
   userDailyLimit,
 } from '@/lib/ai-tutor/quota';
 import { AiTutorProviderError, streamAiTutorReply } from '@/lib/ai-tutor/provider';
-import type { AiTutorQuestionContext } from '@/lib/ai-tutor/prompt';
+import { buildQuestionContext, type AiTutorQuestionContext } from '@/lib/ai-tutor/prompt';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -169,25 +169,7 @@ export async function POST(request: Request) {
     return jsonError(404, 'ไม่พบข้อคำถาม');
   }
 
-  // คงป้าย A–D ไว้ตอนจับคู่เฉลย (ถ้าตัวเลือกกลางว่าง ลำดับจะเลื่อน จึงต้องแมปจากป้ายจริง)
-  const optionEntries = [
-    { key: 'A', text: row.optionA },
-    { key: 'B', text: row.optionB },
-    { key: 'C', text: row.optionC },
-    { key: 'D', text: row.optionD },
-  ].filter((entry): entry is { key: string; text: string } => Boolean(entry.text && entry.text.trim().length > 0));
-  const options = optionEntries.map((entry) => entry.text);
-  const correctKey = (row.correctAnswer ?? '').trim();
-  const correctAnswerText = optionEntries.find((entry) => entry.key === correctKey)?.text ?? correctKey;
-
-  const context: AiTutorQuestionContext = {
-    questionText: row.questionText,
-    options,
-    correctAnswerText,
-    explanation: row.explanation ?? null,
-    grammarTopic: row.grammarTopic ?? null,
-    cefrLevel: row.cefrLevel ?? null,
-  };
+  const context = buildQuestionContext(row);
 
   // ─── จองโควตา (กัน race) ───
   const reservation = await reserveQuestion({ userId, questionId, message });
