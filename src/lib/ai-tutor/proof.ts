@@ -22,15 +22,42 @@ import { aiTutorMasterSwitchEnabled } from './flags';
 
 export const AI_TUTOR_PROOF_TTL_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * สาเหตุที่ proof ใช้ไม่ได้ — แยกให้ชัดเจนเพื่อให้แต่ละกรณีได้ข้อความที่ตรงกับสาเหตุ
+ * (ไม่โทษผู้เรียนผิดว่า "ไม่ได้กดตรวจคำตอบ" ทั้งที่ระบบตั้งค่าไม่ครบ)
+ */
+export type AiTutorProofErrorCode =
+  /** ระบบยังไม่ได้ตั้งค่าให้สมบูรณ์ (ไม่มี AI_TUTOR_PROOF_SECRET) → ต้องแจ้งผู้ดูแลระบบ */
+  | 'not_configured'
+  /** proof ไม่ถูกต้อง (ปลอม/ผูกกับผู้ใช้หรือข้ออื่น) → ให้ผู้เรียนกดตรวจคำตอบใหม่ */
+  | 'invalid'
+  /** proof หมดอายุ (24 ชม.) → ให้ผู้เรียนกดตรวจคำตอบใหม่ */
+  | 'expired';
+
+const PROOF_ERROR_MESSAGES: Record<AiTutorProofErrorCode, string> = {
+  not_configured: 'ระบบ AI Tutor ยังไม่ได้ตั้งค่าให้สมบูรณ์ (ต้องตั้ง AI_TUTOR_PROOF_SECRET)',
+  invalid: 'หลักฐานการตอบคำถามไม่ถูกต้อง กรุณากด "ตรวจคำตอบ" ใหม่แล้วถามอีกครั้ง',
+  expired: 'หลักฐานการตอบคำถามหมดอายุ กรุณากด "ตรวจคำตอบ" ใหม่แล้วถามอีกครั้ง',
+};
+
 export class AiTutorProofError extends Error {
-  constructor(message = 'หลักฐานการตอบคำถามไม่ถูกต้องหรือหมดอายุ') {
-    super(message);
+  readonly code: AiTutorProofErrorCode;
+
+  constructor(code: AiTutorProofErrorCode = 'invalid', message?: string) {
+    super(message ?? PROOF_ERROR_MESSAGES[code]);
+    this.name = 'AiTutorProofError';
+    this.code = code;
   }
 }
 
 function proofSecret(): string | null {
   const secret = process.env.AI_TUTOR_PROOF_SECRET?.trim();
   return secret ? secret : null;
+}
+
+/** มี secret สำหรับลงชื่อ proof หรือไม่ (ไม่พิมพ์ค่าจริงออกไป) */
+export function isProofSecretConfigured(): boolean {
+  return proofSecret() !== null;
 }
 
 /**
@@ -45,7 +72,7 @@ function proofSecret(): string | null {
  * → เส้นทางตรวจคำตอบไม่ผูกกับตารางของ migration 0045 เลย
  */
 export function canIssueAnswerProof(): boolean {
-  return aiTutorMasterSwitchEnabled() && proofSecret() !== null;
+  return aiTutorMasterSwitchEnabled() && isProofSecretConfigured();
 }
 
 /** payload เข้ารหัส base64url (ไม่มี padding) */
@@ -110,37 +137,37 @@ export function verifyAnswerProof(params: {
 }): { selectedAnswer: string } {
   const secret = proofSecret();
   if (!secret) {
-    throw new AiTutorProofError('ยังไม่ได้ตั้งค่า AI_TUTOR_PROOF_SECRET');
+    throw new AiTutorProofError('not_configured');
   }
 
   const [encodedPayload, signature] = params.proof.split('.');
   if (!encodedPayload || !signature) {
-    throw new AiTutorProofError();
+    throw new AiTutorProofError('invalid');
   }
 
   const payload = decodePayload(encodedPayload);
   if (!payload) {
-    throw new AiTutorProofError();
+    throw new AiTutorProofError('invalid');
   }
 
   if (!safeEqual(signature, sign(payload, secret))) {
-    throw new AiTutorProofError();
+    throw new AiTutorProofError('invalid');
   }
 
   const parts = payload.split('|');
   if (parts.length !== 4) {
-    throw new AiTutorProofError();
+    throw new AiTutorProofError('invalid');
   }
   const [userId, questionId, selectedAnswer, expiresAt] = parts;
   if (userId !== params.userId) {
-    throw new AiTutorProofError();
+    throw new AiTutorProofError('invalid');
   }
   if (Number(questionId) !== params.questionId) {
-    throw new AiTutorProofError();
+    throw new AiTutorProofError('invalid');
   }
   const now = params.now ?? Date.now();
   if (!Number.isFinite(Number(expiresAt)) || Number(expiresAt) <= now) {
-    throw new AiTutorProofError('หลักฐานการตอบคำถามหมดอายุ กรุณากด "ตรวจคำตอบ" ใหม่');
+    throw new AiTutorProofError('expired');
   }
   return { selectedAnswer };
 }

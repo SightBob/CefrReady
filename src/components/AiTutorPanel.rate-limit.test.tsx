@@ -110,3 +110,44 @@ describe('AiTutorPanel — 429 โควตาหมด (มี payload quota)',
     expect(textarea().disabled).toBe(true);
   });
 });
+
+describe('AiTutorPanel — ระบบยังตั้งค่าไม่ครบ (aiTutorReady = false)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: true, messages: [], quota: null })));
+  });
+
+  it('บอกว่าเป็นปัญหาระบบ ไม่ใช่โทษผู้เรียนว่าไม่ได้กดตรวจคำตอบ', async () => {
+    await act(async () => {
+      root.render(
+        <AiTutorPanel
+          questionId={7}
+          answerProof={null}
+          aiTutorReady={false}
+          introMessage="หลัง do ต้องตามด้วยกริยาช่อง 1"
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('ระบบ AI Tutor ยังไม่ได้ตั้งค่าให้พร้อมใช้งาน');
+    expect(container.textContent).not.toContain('ยังไม่ได้กด "ตรวจคำตอบ"');
+    // ปิดช่องพิมพ์ไว้ (ใช้ไม่ได้อยู่แล้ว)
+    expect(textarea().disabled).toBe(true);
+  });
+
+  it('ถ้ายังไม่ทราบสถานะ (aiTutorReady = null) → ยังพิมพ์ได้ และถ้ากดถามจะบอกให้กดตรวจคำตอบ', async () => {
+    await act(async () => {
+      root.render(
+        <AiTutorPanel
+          questionId={7}
+          answerProof={null}
+          aiTutorReady={null}
+          introMessage="หลัง do ต้องตามด้วยกริยาช่อง 1"
+        />,
+      );
+    });
+    expect(textarea().disabled).toBe(false);
+
+    await sendMessage('ทำไม');
+    expect(container.textContent).toContain('ยังไม่ได้กด "ตรวจคำตอบ"');
+  });
+});

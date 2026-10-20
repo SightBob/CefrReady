@@ -235,4 +235,30 @@ describe('หน้า /admin/ai-tutor — แท็บตั้งค่า', (
 
     expect(container.textContent).toContain('ยังไม่ได้รัน migration ของ AI Tutor');
   });
+
+  it('ไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET → มีคำเตือนเด่นว่า AI Tutor ใช้ไม่ได้', async () => {
+    const noSecret = {
+      ...CONFIG,
+      envStatus: { ...CONFIG.envStatus, proofSecret: false },
+    };
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const href = String(url);
+      if (href.includes('/api/admin/ai-tutor/config')) return jsonResponse({ success: true, data: noSecret });
+      if (href.includes('/api/admin/ai-tutor/models')) return jsonResponse(MODELS);
+      if (href.includes('/api/admin/ai-tutor/audit')) return jsonResponse({ success: true, data: [] });
+      return jsonResponse({ success: true });
+    }));
+
+    await renderTab();
+
+    expect(container.textContent).toContain('AI Tutor ใช้งานไม่ได้ในตอนนี้');
+    expect(container.textContent).toContain('AI_TUTOR_PROOF_SECRET');
+    // ต้องเตือนด้วยว่าอย่าใช้ NEXT_PUBLIC_*
+    expect(container.textContent).toContain('NEXT_PUBLIC_');
+  });
+
+  it('ตั้งครบทุกค่า → ไม่มีคำเตือนว่าใช้งานไม่ได้', async () => {
+    await renderTab();
+    expect(container.textContent).not.toContain('AI Tutor ใช้งานไม่ได้ในตอนนี้');
+  });
 });

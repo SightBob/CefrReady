@@ -62,3 +62,50 @@ describe('proof — ออก/ตรวจ', () => {
     expect(() => verifyAnswerProof({ proof: 'x.y', userId: 'u1', questionId: 12 })).toThrow(AiTutorProofError);
   });
 });
+
+describe('proof — แยกสาเหตุ (ไม่โทษผู้เรียนผิด)', () => {
+  it('ไม่ได้ตั้ง secret → code = not_configured', () => {
+    delete process.env.AI_TUTOR_PROOF_SECRET;
+    try {
+      verifyAnswerProof({ proof: 'x.y', userId: 'u1', questionId: 12 });
+      throw new Error('ควร throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AiTutorProofError);
+      expect((error as AiTutorProofError).code).toBe('not_configured');
+    }
+  });
+
+  it('proof ปลอม → code = invalid + บอกให้กดตรวจคำตอบใหม่', () => {
+    const proof = issueAnswerProof({ userId: 'u1', questionId: 12, selectedAnswer: 'goes' })!;
+    const [payload, signature] = proof.split('.');
+    const tampered = `${payload}.${signature.slice(0, -1)}${signature.endsWith('a') ? 'b' : 'a'}`;
+    try {
+      verifyAnswerProof({ proof: tampered, userId: 'u1', questionId: 12 });
+      throw new Error('ควร throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AiTutorProofError);
+      expect((error as AiTutorProofError).code).toBe('invalid');
+      expect((error as AiTutorProofError).message).toContain('ตรวจคำตอบ');
+    }
+  });
+
+  it('proof หมดอายุ → code = expired + บอกให้กดตรวจคำตอบใหม่', () => {
+    const now = Date.now();
+    const proof = issueAnswerProof({ userId: 'u1', questionId: 12, selectedAnswer: 'goes', now })!;
+    try {
+      verifyAnswerProof({ proof, userId: 'u1', questionId: 12, now: now + AI_TUTOR_PROOF_TTL_MS + 1 });
+      throw new Error('ควร throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AiTutorProofError);
+      expect((error as AiTutorProofError).code).toBe('expired');
+      expect((error as AiTutorProofError).message).toContain('หมดอายุ');
+    }
+  });
+
+  it('ข้อความของแต่ละสาเหตุไม่ซ้ำกัน', () => {
+    const messages = (['not_configured', 'invalid', 'expired'] as const).map(
+      (code) => new AiTutorProofError(code).message,
+    );
+    expect(new Set(messages).size).toBe(3);
+  });
+});

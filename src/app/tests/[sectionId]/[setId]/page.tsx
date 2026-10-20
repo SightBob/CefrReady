@@ -104,6 +104,13 @@ type AnswerCheck = {
    * AI Tutor) — ส่งตามไปกับ POST /api/ai-tutor เพื่อยืนยันว่าถามเกี่ยวกับข้อที่ตอบแล้ว
    */
   answerProof?: string | null;
+  /**
+   * ระบบ AI Tutor พร้อมให้ถามหรือไม่
+   * - ไม่มีฟิลด์นี้ = ฟีเจอร์ปิดทั้งระบบ
+   * - false = ระบบยังตั้งค่าไม่ครบ (เช่น ไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET) → ต้องบอกผู้เรียนว่าเป็นปัญหาระบบ
+   *   ไม่ใช่โทษว่า "ยังไม่ได้กดตรวจคำตอบ"
+   */
+  aiTutorReady?: boolean | null;
 };
 
 /** คืนคีย์คำตอบถูกจากเฉลยที่ติดมากับ payload (ไม่มีในข้อมูลชนิด Public ที่ถูกถอดเฉลย) */
@@ -513,6 +520,7 @@ export default function SetQuizPage() {
         correctText: typeof body.data.correctText === 'string' ? body.data.correctText : null,
         explanation: typeof body.data.explanation === 'string' ? body.data.explanation : null,
         answerProof: typeof body.data.answerProof === 'string' ? body.data.answerProof : null,
+        aiTutorReady: typeof body.data.aiTutorReady === 'boolean' ? body.data.aiTutorReady : null,
       };
       setCheckedSlots(current => ({ ...current, [slotIndex]: result }));
     } catch (error) {
@@ -1216,6 +1224,7 @@ export default function SetQuizPage() {
         aiTutor={aiTutorEnabled}
         questionId={question.id}
         answerProof={activeCheck?.answerProof ?? null}
+        aiTutorReady={activeCheck?.aiTutorReady ?? null}
       />
       {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}

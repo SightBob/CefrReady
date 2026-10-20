@@ -5,8 +5,9 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
-import { canIssueAnswerProof, issueAnswerProof } from '@/lib/ai-tutor/proof';
-import { localizedRateLimitError } from '@/lib/ai-tutor/errors';
+import { aiTutorMasterSwitchEnabled } from '@/lib/ai-tutor/flags';
+import { isProofSecretConfigured, issueAnswerProof } from '@/lib/ai-tutor/proof';
+import { localizedRateLimitError, warnWithSummary } from '@/lib/ai-tutor/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,15 +43,32 @@ const normalize = (value: string) => value.trim().toLocaleLowerCase();
  *
  * ผู้เรียนทั่วไปได้ response เหมือนเดิมทุกประการ (ไม่มีฟิลด์ answerProof)
  * และไม่มีการเขียนลง DB ในเส้นทางนี้
+ *
+ * ฟิลด์ aiTutorReady: บอกฝั่ง client ว่าระบบพร้อมให้ถาม AI หรือไม่
+ *   - ไม่มีฟิลด์นี้เลย = ฟีเจอร์ปิดทั้งระบบ (response เดิมทุก field)
+ *   - true  = ออก proof ให้แล้ว ถาม AI ได้
+ *   - false = ระบบยังตั้งค่าไม่ครบ (ไม่มี secret) → ฝั่ง client ต้องบอกว่าเป็นปัญหาระบบ
+ *     ไม่ใช่โทษผู้เรียนว่า "ยังไม่ได้กดตรวจคำตอบ"
  */
 async function answerProofFields(
   userId: string,
   questionId: number,
   selectedAnswer: string,
-): Promise<{ answerProof?: string }> {
-  if (!canIssueAnswerProof()) return {};
+): Promise<{ answerProof?: string; aiTutorReady?: boolean }> {
+  // ฟีเจอร์ปิดทั้งระบบ → ไม่แตะฟิลด์ไหนเลย (response เดิมทุก field)
+  if (!aiTutorMasterSwitchEnabled()) return {};
+
+  if (!isProofSecretConfigured()) {
+    // log ฝั่ง server ให้ชัดว่าขาดอะไร (ไม่พิมพ์ค่า secret)
+    warnWithSummary(
+      'ai-tutor] ยังไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET — ผู้เรียนจะถาม AI ไม่ได้',
+      new Error('AI_TUTOR_PROOF_SECRET is not set'),
+    );
+    return { aiTutorReady: false };
+  }
+
   const proof = issueAnswerProof({ userId, questionId, selectedAnswer });
-  return proof ? { answerProof: proof } : {};
+  return proof ? { answerProof: proof, aiTutorReady: true } : { aiTutorReady: false };
 }
 
 /** 20/นาที กันยิงรัวในหนึ่งชุด + 600/วัน กันไล่เดาทีละข้อทั้งคลัง */

@@ -52,6 +52,11 @@ interface FocusFormQuestionCardProps {
   questionId?: string | number;
   /** หลักฐานว่าผู้เรียนกด "ตรวจคำตอบ" ข้อนี้แล้ว — ใช้ยืนยันกับ /api/ai-tutor */
   answerProof?: string | null;
+  /**
+   * ระบบ AI Tutor พร้อมให้ถามหรือไม่ — false = ตั้งค่าไม่ครบ (ไม่ใช่ความผิดของผู้เรียน)
+   * null/undefined = ไม่ทราบ / ฟีเจอร์ปิด
+   */
+  aiTutorReady?: boolean | null;
 }
 
 /**
@@ -100,6 +105,7 @@ export default function FocusFormQuestionCard({
   aiTutor = false,
   questionId,
   answerProof,
+  aiTutorReady = null,
 }: FocusFormQuestionCardProps) {
   const theme = ACCENT[accent] ?? ACCENT.primary;
   const isCorrect = selectedAnswer === correctAnswer;
@@ -282,6 +288,7 @@ export default function FocusFormQuestionCard({
         showBetaLabels
         questionId={typeof questionId === 'number' ? questionId : null}
         answerProof={answerProof}
+        aiTutorReady={aiTutorReady}
       />
     ) : (
     <>

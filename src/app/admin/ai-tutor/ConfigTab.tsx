@@ -257,6 +257,9 @@ export default function ConfigTab() {
   }
 
   const masterOff = !data.envStatus.masterEnabled;
+  // ระบบจะใช้งานไม่ได้เลยถ้าไม่มี secret (ผู้เรียนกดถาม AI แล้วขึ้นว่าระบบยังไม่พร้อม)
+  const proofSecretMissing = !data.envStatus.proofSecret;
+  const openRouterKeyMissing = !data.envStatus.openrouterKey;
 
   return (
     <div className="space-y-6">
@@ -273,6 +276,35 @@ export default function ConfigTab() {
           <AlertTriangle className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
           {data.warnings.join(' · ')}
         </p>
+      )}
+      {(proofSecretMissing || openRouterKeyMissing) && (
+        <div role="alert" className="rounded-2xl border-2 border-rose-300 bg-rose-50 p-4 text-sm text-rose-800 sm:p-5">
+          <p className="flex items-start gap-2 text-base font-bold">
+            <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+            AI Tutor ใช้งานไม่ได้ในตอนนี้
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-6">
+            {proofSecretMissing && (
+              <li>
+                ยังไม่ได้ตั้ง <code className="font-mono">AI_TUTOR_PROOF_SECRET</code> — ผู้เรียนจะกด
+                &quot;ตรวจคำตอบ&quot; แล้วถาม AI ไม่ได้ (ข้อความจะบอกว่าระบบยังไม่พร้อมใช้งาน)
+                <br />
+                วิธีตั้ง: สร้างค่าสุ่มอย่างน้อย 32 ตัวอักษร เช่น{' '}
+                <code className="font-mono">openssl rand -base64 32</code> แล้วใส่ใน env ของ
+                Vercel (ต้อง restart/deploy ใหม่)
+              </li>
+            )}
+            {openRouterKeyMissing && (
+              <li>
+                ยังไม่ได้ตั้ง <code className="font-mono">OPENROUTER_API_KEY</code> — โมเดลจะเรียกไม่ได้
+              </li>
+            )}
+          </ul>
+          <p className="mt-2 text-rose-700">
+            ค่าพวกนี้ต้องตั้งใน env เท่านั้น (แก้ในหน้านี้ไม่ได้) และต้องไม่ใช่ระบบตั้งค่าแบบ
+            NEXT_PUBLIC_* เพราะจะถูกฝังใน bundle ฝั่งผู้ใช้
+          </p>
+        </div>
       )}
 
       {/* ─── สถานะ ─── */}

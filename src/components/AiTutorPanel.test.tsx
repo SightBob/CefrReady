@@ -70,7 +70,9 @@ describe('AiTutorPanel — responsive (ผู้ใช้กำหนด 2026-10
 
   it('ก้อนข้อความย่อได้ (min-w-0/flex-1) ไม่ล้นจอแคบ', () => {
     expect(markup).toContain('min-w-0 flex-1');
-    expect(markup).toContain('max-w-[578px]');
+    // ผู้ใช้เปลี่ยนให้ก้อนข้อความกว้างเต็มกรอบ (เอา max-w-[578px] ออกแล้ว)
+    // → ย่อได้ด้วย min-w-0/flex-1 อย่างเดียว ไม่ต้องกำหนดความกว้างคงที่
+    expect(markup).not.toContain('max-w-[578px]');
   });
 
   it('ช่องพิมพ์ไม่ถูกแถบล่างของหน้าสอบบัง และกัน iOS zoom', () => {

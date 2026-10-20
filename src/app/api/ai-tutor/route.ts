@@ -151,7 +151,7 @@ export async function POST(request: Request) {
     const error = path.includes('message')
       ? 'คำถามยาวเกิน 500 ตัวอักษร'
       : path.includes('proof')
-        ? 'ยังไม่ได้กด "ตรวจคำตอบ" ของข้อนี้ — กรุณากดตรวจคำตอบก่อนถาม AI'
+        ? 'ยังไม่ได้ส่งหลักฐานการตอบคำถาม — กรุณากด "ตรวจคำตอบ" ของข้อนี้ก่อนถาม AI'
         : 'คำขอไม่ถูกต้อง';
     return jsonError(400, error);
   }
@@ -163,9 +163,18 @@ export async function POST(request: Request) {
     selectedAnswer = verifyAnswerProof({ proof, userId, questionId }).selectedAnswer;
   } catch (error) {
     if (error instanceof AiTutorProofError) {
+      // ระบบยังตั้งค่าไม่ครบ → 503 + ข้อความกลางๆ (ไม่ใช่ 403 ที่ดูเหมือนผู้เรียนผิด)
+      if (error.code === 'not_configured') {
+        warnWithSummary(
+          'ai-tutor] ยังไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET — ใช้ AI Tutor ไม่ได้',
+          new Error('AI_TUTOR_PROOF_SECRET is not set'),
+        );
+        return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
+      }
+      // proof ไม่ถูกต้อง / หมดอายุ → 403 + บอกให้กดตรวจคำตอบใหม่
       return jsonError(403, error.message);
     }
-    return jsonError(403, 'ยังไม่ได้ตั้งค่า AI Tutor (AI_TUTOR_PROOF_SECRET)');
+    return jsonError(403, 'ไม่สามารถตรวจสอบหลักฐานการตอบคำถามได้ กรุณากด "ตรวจคำตอบ" ใหม่');
   }
 
   // ─── โจทย์/เฉลย/คำอธิบาย + จองโควตา + ประวัติ: คิวรี DB ───

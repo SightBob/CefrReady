@@ -92,6 +92,7 @@ beforeEach(() => {
   // reset (ไม่ใช่ clear) เพื่อล้าง implementation ที่ค้างจากเคสก่อนหน้า
   // เช่น rateLimit ที่เคย mock เป็น "limited" — ถ้าไม่ reset เคสถัดไปจะได้ 429 ทั้งที่ตั้งใจไม่ให้
   vi.resetAllMocks();
+  process.env.AI_TUTOR_PROOF_SECRET = 'route-test-secret';
   mocks.auth.mockResolvedValue({ user: { id: 'u1' } });
   mocks.enabled.mockResolvedValue(true);
   mocks.rateLimit.mockResolvedValue({ limited: false, retryAfterMs: 0 });
@@ -141,6 +142,45 @@ describe('POST /api/ai-tutor — 401/403', () => {
     const proof = issueAnswerProof({ userId: 'u1', questionId: 99, selectedAnswer: 'do' })!;
     const res = await post({ questionId: 7, message: 'ทำไม', proof });
     expect(res.status).toBe(403);
+  });
+
+  it('ไม่ได้ส่ง proof → 400 พร้อมข้อความว่ายังไม่ได้ส่งหลักฐาน (ไม่ใช่ "ไม่ถูกต้อง")', async () => {
+    const res = await post({ questionId: 7, message: 'ทำไม' });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('ยังไม่ได้ส่งหลักฐานการตอบคำถาม');
+  });
+
+  it('ระบบยังไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET → 503 พร้อมข้อความกลางๆ (ไม่โทษผู้เรียน)', async () => {
+    // จำลอง: ออก proof ตอนที่ secret ยังอยู่ แล้ว secret หายไป (restart ไม่ได้ตั้ง/โหลดไม่ครบ)
+    const proof = validProof();
+    delete process.env.AI_TUTOR_PROOF_SECRET;
+    const res = await post({ questionId: 7, message: 'ทำไม', proof });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
+
+  it('proof ไม่ถูกต้อง → 403 พร้อมข้อความให้กดตรวจคำตอบใหม่', async () => {
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: 'not-a-proof' });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toContain('ตรวจคำตอบ');
+  });
+
+  it('proof หมดอายุ → 403 พร้อมข้อความหมดอายุ', async () => {
+    const expired = issueAnswerProof({
+      userId: 'u1',
+      questionId: 7,
+      selectedAnswer: 'do',
+      now: Date.now() - 25 * 60 * 60 * 1000,
+    })!;
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: expired });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toContain('หมดอายุ');
   });
 
   it('ข้อความยาวเกิน 500 ตัวอักษร → 400', async () => {

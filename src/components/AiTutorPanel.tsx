@@ -48,7 +48,7 @@ function AiSummaryBubble() {
       <div className="flex min-w-0 flex-1 flex-col items-start gap-[10px]">
         <div className="flex w-full rounded-[15px] bg-[#fafafa] px-[12px] py-[10px] text-[14px] font-medium leading-[25px] text-[#334155]">
           {/* กว้างเนื้อความ 578 ตามแบบ — ย่ออัตโนมัติเมื่อจอแคบ */}
-          <div className="w-full max-w-[578px] whitespace-pre-wrap">
+          <div className="w-full whitespace-pre-wrap">
             <p>
               จากโจทย์: What{' '}
               <span className="font-bold text-[18px] underline [text-underline-position:from-font]">do</span>
@@ -109,7 +109,7 @@ function AiIntroTurn({ message }: { message: string }) {
       {/* ก้อนข้อความ (580:27981-27982) — กันล้นด้วย min-w-0 แทนกว้าง 709 คงที่ */}
       <div className="flex min-w-0 flex-1 flex-col items-start gap-[10px]">
         <div className="flex w-full rounded-[15px] bg-[#fafafa] px-[12px] py-[10px] text-[14px] font-medium leading-[25px] text-[#334155]">
-          <div className="w-full max-w-[578px] whitespace-pre-wrap">
+          <div className="w-full whitespace-pre-wrap">
             <ExplanationText text={message} className="w-full" />
           </div>
         </div>
@@ -131,7 +131,7 @@ function AiLiveBubble({ text }: { text: string }) {
       <div className="flex min-w-0 flex-1 flex-col items-start gap-[10px]">
         <div className="flex w-full rounded-[15px] bg-[#fafafa] px-[12px] py-[10px] text-[14px] font-medium leading-[25px] text-[#334155]">
           {/* โมเดลตอบ markdown (**ตัวหนา**) — เรนเดอร์ผ่าน RichText เหมือนคำอธิบาย */}
-          <div className="w-full max-w-[578px] whitespace-pre-wrap">
+          <div className="w-full whitespace-pre-wrap">
             <RichText text={text} className="w-full" />
           </div>
         </div>
@@ -183,7 +183,18 @@ interface AiTutorPanelProps {
   questionId?: number | null;
   /** หลักฐานจาก check-answer — ใช้ยืนยันว่าผู้เรียนตอบข้อนี้แล้ว */
   answerProof?: string | null;
+  /**
+   * ระบบ AI Tutor พร้อมให้ถามหรือไม่ (มาจาก check-answer)
+   * - false = ระบบยังตั้งค่าไม่ครบ (เช่น ไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET)
+   *   → ต้องบอกว่าเป็นปัญหาระบบ ไม่ใช่โทษผู้เรียนว่าไม่ได้กดตรวจคำตอบ
+   * - null/undefined = ไม่ทราบ (ยังไม่ได้ตรวจคำตอบ หรือฟีเจอร์ปิด)
+   */
+  aiTutorReady?: boolean | null;
 }
+
+/** ข้อความตอนระบบยังตั้งค่าไม่ครบ (กลางๆ ไม่โทษผู้เรียน + บอกให้แจ้งผู้ดูแล) */
+const AI_TUTOR_NOT_CONFIGURED_MESSAGE =
+  'ระบบ AI Tutor ยังไม่ได้ตั้งค่าให้พร้อมใช้งาน จึงยังถาม AI ไม่ได้ (แจ้งผู้ดูแลระบบได้)';
 
 export default function AiTutorPanel({
   introMessage,
@@ -191,6 +202,7 @@ export default function AiTutorPanel({
   showBetaLabels = false,
   questionId = null,
   answerProof = null,
+  aiTutorReady = null,
 }: AiTutorPanelProps = {}) {
   const isLive = questionId !== null;
   const [chatInput, setChatInput] = useState('');
@@ -215,6 +227,14 @@ export default function AiTutorPanel({
     setRetryMessage(null);
     setQuotaExhausted(false);
   }, [threadKey]);
+
+  // ระบบยังตั้งค่าไม่ครบ (เช่น ไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET) → บอกทันทีว่าเป็นปัญหาระบบ
+  // ไม่ใช่โทษผู้เรียนว่า "ยังไม่ได้กดตรวจคำตอบ" (ต้องมาหลัง effect ข้างบน เพื่อไม่ให้ถูกล้างทับ)
+  useEffect(() => {
+    if (aiTutorReady === false) {
+      setError(AI_TUTOR_NOT_CONFIGURED_MESSAGE);
+    }
+  }, [aiTutorReady, threadKey]);
 
   // ดึงเธรดเดิม + โควตาจาก server (ไม่ต้องใช้ proof — เป็นข้อมูลของผู้เรียนเอง)
   useEffect(() => {
@@ -258,7 +278,12 @@ export default function AiTutorPanel({
     const message = rawMessage.trim();
     if (!message || !isLive || sending) return;
     if (!answerProof) {
-      setError('ยังไม่ได้กด "ตรวจคำตอบ" ของข้อนี้ — กรุณากดตรวจคำตอบก่อนถาม AI');
+      // แยกสาเหตุ: ระบบยังตั้งค่าไม่ครบ ≠ ผู้เรียนยังไม่ได้กดตรวจคำตอบ
+      setError(
+        aiTutorReady === false
+          ? AI_TUTOR_NOT_CONFIGURED_MESSAGE
+          : 'ยังไม่ได้กด "ตรวจคำตอบ" ของข้อนี้ — กรุณากดตรวจคำตอบก่อนถาม AI',
+      );
       return;
     }
     if (quotaExhausted) return;
@@ -560,7 +585,7 @@ export default function AiTutorPanel({
                   }
                 }}
                 placeholder="พิมพ์คำถามต่อในเธรดนี้ (เช่น ขอตัวอย่างโจทย์คล้ายกัน)..."
-                disabled={quotaExhausted}
+                disabled={quotaExhausted || aiTutorReady === false}
                 aria-label="พิมพ์คำถามถึง AI"
                 /* scroll-mb เผื่อแถบล่างแบบ fixed ของหน้าสอบไม่ทับช่องพิมพ์ตอนคีย์บอร์ดเปิด */
                 className="max-h-[45px] min-w-px flex-1 scroll-mb-[96px] resize-none overflow-y-auto bg-transparent text-[16px] leading-[22px] font-medium text-[#334155] outline-none placeholder:text-[#868686] disabled:cursor-not-allowed min-[890px]:text-[14px]"
@@ -568,7 +593,7 @@ export default function AiTutorPanel({
               {/* ปุ่มส่ง — AI จริงยังไม่ต่อ จึงปิดไว้ (580:28019) */}
               <button
                 type="button"
-                disabled={!isLive || sending || quotaExhausted || chatInput.trim().length === 0}
+                disabled={!isLive || sending || quotaExhausted || aiTutorReady === false || chatInput.trim().length === 0}
                 onClick={sendFromInput}
                 aria-label="ส่งคำถาม"
                 className="flex size-[34px] shrink-0 cursor-default items-center justify-center rounded-[10px] bg-[#6f9cc1] enabled:cursor-pointer disabled:opacity-50"

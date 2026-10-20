@@ -167,6 +167,30 @@ describe('check-answer — proof สำหรับ AI Tutor', () => {
     expect(body.data.correctKey).toBe('B');
   });
 
+  it('ไม่ได้ตั้ง secret → บอกฝั่ง client ว่าระบบยังไม่พร้อม (aiTutorReady=false) ไม่ใช่โทษผู้เรียน', async () => {
+    process.env.AI_TUTOR_ENABLED = 'true';
+    delete process.env.AI_TUTOR_PROOF_SECRET;
+    const body = await (await POST(request({ selectedAnswer: 'b' }))).json();
+    expect(body.data.aiTutorReady).toBe(false);
+    expect(body.data.answerProof).toBeUndefined();
+    // เฉลยยังถูกต้องตามปกติ (ตรวจคำตอบยังทำงาน)
+    expect(body.data.correctKey).toBe('B');
+  });
+
+  it('ตั้ง secret แล้ว → aiTutorReady=true พร้อม proof', async () => {
+    process.env.AI_TUTOR_ENABLED = 'true';
+    const body = await (await POST(request({ selectedAnswer: 'b' }))).json();
+    expect(body.data.aiTutorReady).toBe(true);
+    expect(typeof body.data.answerProof).toBe('string');
+  });
+
+  it('ฟีเจอร์ปิดทั้งระบบ → ไม่มีฟิลด์ aiTutorReady เพิ่ม (response เดิมทุก field)', async () => {
+    delete process.env.AI_TUTOR_ENABLED;
+    const body = await (await POST(request({ selectedAnswer: 'b' }))).json();
+    expect(body.data).toEqual({ isCorrect: true, correctKey: 'B', correctText: null, explanation: 'Third-person singular' });
+    expect('aiTutorReady' in body.data).toBe(false);
+  });
+
   it('เส้นทางนี้ไม่อ่านสิทธิ์ผู้ใช้จาก DB เลย (ไม่มี query ที่ดึง ai_tutor_access)', async () => {
     process.env.AI_TUTOR_ENABLED = 'true';
     await POST(request({ selectedAnswer: 'b' }));
