@@ -219,6 +219,18 @@ export async function POST(request: Request) {
           model: result.usage.model,
         });
 
+        // โมเดลตอบจบแต่ถูกตัด (finish_reason = length) หลังมีเนื้อหาแล้ว → เก็บข้อความที่ได้
+        // ไว้ก่อน และบันทึกไว้ให้ผู้ดูแลตัดสินใจ (ยังไม่ตัดที่ประโยคอัตโนมัติ)
+        if (result.finishReason === 'length') {
+          console.warn('[ai-tutor] คำตอบถูกตัด (finish_reason = length) แต่มีเนื้อหาแล้ว', JSON.stringify({
+            questionId,
+            model: result.usage.model,
+            outputTokens: result.usage.outputTokens,
+            reasoningTokens: result.usage.reasoningTokens,
+            length: result.text.length,
+          }));
+        }
+
         const quota = await getQuotaSnapshot({ userId, questionId });
         send({
           type: 'done',
@@ -227,8 +239,12 @@ export async function POST(request: Request) {
           usage: {
             inputTokens: result.usage.inputTokens,
             outputTokens: result.usage.outputTokens,
+            reasoningTokens: result.usage.reasoningTokens,
             model: result.usage.model,
             latencyMs: result.usage.latencyMs,
+            ttftMs: result.ttftMs,
+            finishReason: result.finishReason,
+            fallbackUsed: result.fallbackUsed,
           },
         });
       } catch (error) {

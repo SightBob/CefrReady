@@ -9,7 +9,7 @@
  *   แล้ว insert แถว status='pending' ที่นับเข้าโควตาทันที ก่อนเรียกโมเดล
  *   สำเร็จ → mark 'ok' · ล้มเหลวก่อนมีเนื้อหา → mark 'failed' (ไม่นับ = คืนโควตา)
  */
-import { and, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, eq, gte, or, sql } from 'drizzle-orm';
 
 import { db } from '@/db';
 import { aiTutorMessages } from '@/db/schema';
@@ -46,6 +46,12 @@ export function systemDailyLimit(): number {
   return raw;
 }
 
+/**
+ * แถวสถานะ pending ที่ค้างเกิน 2 นาที (เช่น เซิร์ฟเวอร์ตายกลาง stream) ไม่นับเข้าโควตา
+ * — นับเฉพาะที่ยัง "มีชีวิต" อยู่จริง
+ */
+export const STALE_PENDING_MS = 2 * 60 * 1000;
+
 /** จำนวนครั้งที่เรียกโมเดลจริงของ (ผู้เรียน, ข้อ) ตั้งแต่เริ่มวันไทย — แถว failed ไม่นับ (คืนโควตา) */
 export async function countUsedQuestions(params: {
   userId: string;
@@ -54,6 +60,7 @@ export async function countUsedQuestions(params: {
   executor?: Pick<typeof db, 'select'>;
 }): Promise<number> {
   const executor = params.executor ?? db;
+  const now = params.now ?? new Date();
   const rows = await executor
     .select({ count: sql<number>`count(*)::int` })
     .from(aiTutorMessages)
@@ -61,8 +68,15 @@ export async function countUsedQuestions(params: {
       eq(aiTutorMessages.userId, params.userId),
       eq(aiTutorMessages.questionId, params.questionId),
       eq(aiTutorMessages.role, 'user'),
-      inArray(aiTutorMessages.status, ['ok', 'pending']),
-      gte(aiTutorMessages.createdAt, bangkokDayStartUtc(params.now)),
+      // นับแถวที่สำเร็จ หรือที่ยังรอคำตอบอยู่และไม่ค้างเกิน 2 นาที
+      or(
+        eq(aiTutorMessages.status, 'ok'),
+        and(
+          eq(aiTutorMessages.status, 'pending'),
+          gte(aiTutorMessages.createdAt, new Date(now.getTime() - STALE_PENDING_MS)),
+        ),
+      ),
+      gte(aiTutorMessages.createdAt, bangkokDayStartUtc(now)),
     ));
   return rows[0]?.count ?? 0;
 }
@@ -116,7 +130,14 @@ export async function reserveQuestion(params: {
         eq(aiTutorMessages.userId, params.userId),
         eq(aiTutorMessages.questionId, params.questionId),
         eq(aiTutorMessages.role, 'user'),
-        inArray(aiTutorMessages.status, ['ok', 'pending']),
+        // แถว pending ที่ค้างเกิน 2 นาที (เซิร์ฟเวอร์ตายกลาง stream) ไม่นับ
+        or(
+          eq(aiTutorMessages.status, 'ok'),
+          and(
+            eq(aiTutorMessages.status, 'pending'),
+            gte(aiTutorMessages.createdAt, new Date(now.getTime() - STALE_PENDING_MS)),
+          ),
+        ),
         gte(aiTutorMessages.createdAt, bangkokDayStartUtc(now)),
       ));
     const used = usedRows[0]?.count ?? 0;

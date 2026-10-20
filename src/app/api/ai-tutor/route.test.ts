@@ -105,7 +105,11 @@ beforeEach(() => {
   mocks.insertAssistantMessage.mockResolvedValue(100);
   mocks.stream.mockResolvedValue({
     text: 'คำตอบ',
-    usage: { inputTokens: 10, outputTokens: 20, model: 'test-model', latencyMs: 100 },
+    finishReason: 'stop',
+    ttftMs: 42,
+    fallbackUsed: false,
+    fallbackReason: null,
+    usage: { inputTokens: 10, outputTokens: 20, reasoningTokens: 5, model: 'test-model', latencyMs: 100 },
   });
   stubQuestionRow();
 });
@@ -222,5 +226,30 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     expect(events.some((event) => event.type === 'error')).toBe(true);
     expect(mocks.markUserMessageFailed).toHaveBeenCalledWith({ messageId: 99 });
     expect(mocks.insertAssistantMessage).not.toHaveBeenCalled();
+  });
+
+  it('บันทึกโมเดลที่ตอบจริง + เหตุการณ์ fallback ลง usage ที่ส่งให้ client', async () => {
+    mocks.stream.mockResolvedValue({
+      text: 'คำตอบจากสำรอง',
+      finishReason: 'stop',
+      ttftMs: 120,
+      fallbackUsed: true,
+      fallbackReason: 'rate-limit',
+      usage: { inputTokens: 11, outputTokens: 22, reasoningTokens: 7, model: 'fallback-model', latencyMs: 300 },
+    });
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const events = await readEvents(res);
+    const done = events.find((event) => event.type === 'done');
+    expect(done?.usage).toMatchObject({
+      model: 'fallback-model',
+      fallbackUsed: true,
+      finishReason: 'stop',
+      ttftMs: 120,
+    });
+    // โมเดลที่ตอบจริงถูกบันทึกลงคอลัมน์ model
+    expect(mocks.insertAssistantMessage).toHaveBeenCalledWith(expect.objectContaining({ model: 'fallback-model' }));
+    // การสลับไม่เพิ่มโควตา — จองแค่ครั้งเดียว
+    expect(mocks.reserveQuestion).toHaveBeenCalledTimes(1);
   });
 });

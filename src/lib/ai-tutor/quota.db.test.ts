@@ -110,6 +110,23 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     expect(used).toBe(before); // แถวเมื่อวานถูกตัดออก (นับเฉพาะของวันไทยวันนี้)
   });
 
+  it('แถว pending ที่ค้างเกิน 2 นาที (เซิร์ฟเวอร์ตายกลาง stream) ไม่นับเข้าโควตา', async () => {
+    process.env.AI_TUTOR_QUESTION_QUOTA = '10';
+    const before = await countUsedQuestions({ userId, questionId });
+    const stale = new Date(Date.now() - 5 * 60 * 1000); // 5 นาทีก่อน
+    await db.insert(aiTutorMessages).values({
+      userId,
+      questionId,
+      role: 'user',
+      content: 'stale-pending',
+      status: 'pending',
+      createdAt: stale,
+    });
+
+    const used = await countUsedQuestions({ userId, questionId });
+    expect(used).toBe(before); // แถวค้างไม่ถูกนับ (โควตาถูกคืนโดยอัตโนมัติ)
+  });
+
   it('ปุ่ม "ลองใหม่" ใช้แถว failed เดิม → ไม่เสียโควตา (ไม่มีแถวใหม่)', async () => {
     // เคสนี้ต้องมีโควตาว่าง (เคสก่อนหน้าใช้โควตาเต็มไปแล้ว)
     process.env.AI_TUTOR_QUESTION_QUOTA = '10';
