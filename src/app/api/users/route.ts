@@ -13,6 +13,26 @@ const createUserSchema = z.object({
   image: z.string().url().optional(),
 });
 
+/**
+ * คอลัมน์ของผู้ใช้ที่ endpoint นี้คืน — ระบุชัดเจนทุกตัว
+ *
+ * เหตุผลเดียวกับ src/lib/auth-utils.ts: `select()` ไม่ระบุคอลัมน์ = SELECT *
+ * ซึ่งพังเมื่อตาราง users ยังไม่มีคอลัมน์ใหม่ (ai_tutor_access) ตอน deploy
+ * ที่ migration ยังไม่ได้รัน — รูปร่างข้อมูลที่คืนจึงเหมือนเดิมทุกประการ
+ * (ไม่รวมคอลัมน์ใหม่ เพื่อไม่ให้ prod ที่ยังไม่มีคอลัมน์พัง)
+ */
+const USER_COLUMNS = {
+  id: schema.users.id,
+  name: schema.users.name,
+  email: schema.users.email,
+  emailVerified: schema.users.emailVerified,
+  image: schema.users.image,
+  isAdmin: schema.users.isAdmin,
+  isTaster: schema.users.isTaster,
+  createdAt: schema.users.createdAt,
+  updatedAt: schema.users.updatedAt,
+};
+
 export async function GET(request: Request) {
   const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'users-get' });
   if (ipThrottleError) return ipThrottleError;
@@ -27,7 +47,7 @@ export async function GET(request: Request) {
 
   try {
     const [user] = await db
-      .select()
+      .select(USER_COLUMNS)
       .from(schema.users)
       .where(eq(schema.users.email, session.user.email))
       .limit(1);
@@ -73,13 +93,13 @@ export async function POST(request: NextRequest) {
       .insert(schema.users)
       .values({ id, email: session.user.email, name, image })
       .onConflictDoNothing({ target: schema.users.email })
-      .returning();
+      .returning(USER_COLUMNS);
 
     // If the row already existed (race or duplicate call), return the existing
     // record so the client behaves idempotently instead of getting a 201.
     if (!user) {
       const [existing] = await db
-        .select()
+        .select(USER_COLUMNS)
         .from(schema.users)
         .where(eq(schema.users.email, session.user.email))
         .limit(1);
