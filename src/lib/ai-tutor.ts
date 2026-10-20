@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '@/db';
 import { users } from '@/db/schema';
-
 /**
  * Feature flag AI Tutor — ฝั่งเซิร์ฟเวอร์เท่านั้น สุดท้ายผู้เรียนได้รับแค่ boolean
  * (ส่งผ่าน /api/tests/ai-tutor-access) — ห้ามคำนวณใน client และห้ามพึ่งพา
@@ -30,16 +29,29 @@ export function aiTutorRolloutBucket(userId: string): number {
   return parseInt(hex.slice(0, 12), 16) % 100;
 }
 
-function rolloutPercent(): number {
+/** เปอร์เซ็นต์ rollout (0..100) — 0 = ปิด */
+export function aiTutorRolloutPercent(): number {
   const raw = Number.parseFloat(process.env.AI_TUTOR_ROLLOUT_PERCENT ?? '');
   if (!Number.isFinite(raw) || raw <= 0) return 0;
   return Math.min(100, raw);
 }
 
-function rolloutEnabled(userId: string): boolean {
-  const percent = rolloutPercent();
+/** ผู้ใช้อยู่ในกลุ่ม rollout หรือไม่ (ใช้ฟังก์ชัน bucket เดียวกับ isAiTutorEnabled) */
+export function aiTutorInRollout(userId: string): boolean {
+  const percent = aiTutorRolloutPercent();
   if (percent >= 100) return true;
   return aiTutorRolloutBucket(userId) < percent;
+}
+
+/**
+ * ตรรกะ "คนนี้เปิดฟีเจอร์ไหม" จากธงทั้งสองชั้น (ไม่แตะ DB)
+ * ใช้ร่วมกันระหว่าง API (isAiTutorEnabled) กับสคริปต์รายงาน เพื่อให้ตัวเลข
+ * "ผู้ใช้ที่มีสิทธิ์" ตรงกับเงื่อนไขจริงเสมอ
+ */
+export function isAiTutorEnabledByFlags(userId: string, hasAccountAccess: boolean): boolean {
+  if (!userId || !aiTutorMasterSwitchEnabled()) return false;
+  if (hasAccountAccess) return true;
+  return aiTutorInRollout(userId);
 }
 
 export async function isAiTutorEnabled(user: { id: string } | null | undefined): Promise<boolean> {
@@ -51,8 +63,5 @@ export async function isAiTutorEnabled(user: { id: string } | null | undefined):
     .from(users)
     .where(eq(users.id, user.id));
 
-  if (rows[0]?.aiTutorAccess) return true;
-
-  // ไม่มีธงเฉพาะบัญชี → ยอมให้เข้าผ่าน rollout ได้ถ้า env ตั้งไว้ (> 0)
-  return rolloutEnabled(user.id);
+  return isAiTutorEnabledByFlags(user.id, rows[0]?.aiTutorAccess === true);
 }

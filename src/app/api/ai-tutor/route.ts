@@ -31,15 +31,13 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * เวลาสูงสุดของฟังก์ชัน (วินาที)
- *
- * Next.js อ่านค่านี้จาก **build output** ด้วยการ static analysis ของ route module
- * (ดูเอกสาร nextjs.org/docs/app/api-reference/file-conventions/route-segment-config)
+ * เวลาสูงสุดของฟังก์ชัน (วินาที) — ค่าคงที่เพราะ Next.js อ่านจาก **build output**
+ * ด้วย static analysis ของ route module (ดูเอกสาร nextjs.org route-segment-config)
  * → ค่าที่คำนวณจาก env จะถูกตรึงตอน build และอาจไม่ตรงกับตอนรันจริง
- * จึงใช้ค่าคงที่ที่คำนวณจากค่าเริ่มต้นของ AI_TUTOR_TIMEOUT_MS (30 วิ) แทน
  *
- * ต้องสัมพันธ์กับ AI_TUTOR_TIMEOUT_MS: ถ้าเพิ่มเป็น 120 วิ (เพดานสูงสุดในโค้ด)
- * ให้แก้ค่านี้เป็น 255 (หลัก 120 + สำรอง 120 + เผื่อ 15)
+ * ค่านี้ต้องตรงกับ AI_TUTOR_ROUTE_MAX_DURATION_S ใน src/lib/ai-tutor/limits.ts
+ * (มีเทสยืนยัน — แก้ค่าหนึ่งแล้วลืมอีกค่า = เทสต้องล้ม)
+ * และเพดาน timeout ที่ตั้งได้คำนวณจากค่านี้ (หลัก + สำรอง + เผื่อ 15 วิ)
  */
 export const maxDuration = 75;
 

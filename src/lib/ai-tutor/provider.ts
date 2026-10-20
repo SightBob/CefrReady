@@ -7,11 +7,13 @@
  *   AI_TUTOR_FALLBACK_MODEL        โมเดลสำรอง (ว่าง = ไม่มี fallback)
  *   OPENROUTER_API_KEY             key ของ OpenRouter
  *   AI_TUTOR_MAX_TOKENS            เพดาน token รวม (ค่าเริ่มต้น 1200 = เผื่อ reasoning + คำตอบ ~120 คำ)
- *   AI_TUTOR_TIMEOUT_MS            เวลารอสูงสุดต่อ 1 ครั้ง (ค่าเริ่มต้น 30 วิ)
- *   AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS เวลาที่ยอมรอ "เนื้อหาชิ้นแรก" (ค่าเริ่มต้น 12 วิ)
+ *   AI_TUTOR_TIMEOUT_MS            เวลารอสูงสุดต่อ 1 ครั้ง (บีบไม่เกินเพดานของ maxDuration)
+ *   AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS เวลาที่ยอมรอ "เนื้อหาชิ้นแรก" (ต้อง ≤ timeout)
  *   AI_TUTOR_REASONING_EFFORT      ระดับ reasoning ของโมเดลหลัก (ค่าเริ่มต้น low)
- *   AI_TUTOR_FALLBACK_REASONING_EFFORT ระดับ reasoning ของโมเดลสำรอง (ค่าเริ่มต้น low)
+ *   AI_TUTOR_FALLBACK_REASONING_EFFORT ระดับ reasoning ของโมเดลสำรอง (ค่าเริ่มต้น none)
  *   AI_TUTOR_PROMPT_CACHE          '1' = ส่ง cache_control ให้ provider ที่รองรับ
+ *
+ * เพดาน timeout ทั้งหมดคำนวณจาก src/lib/ai-tutor/limits.ts (ผูกกับ maxDuration ของ route)
  *
  * Reasoning (ตามเอกสาร OpenRouter: reasoning tokens นับรวมใน max_tokens):
  *   - reasoning.effort  = 'low' | 'minimal' | 'medium' | 'high' | 'xhigh' | 'max' | 'none'
@@ -25,9 +27,12 @@
  * แต่ "ห้ามสลับกลาง stream หลังส่งเนื้อหาให้ผู้เรียนแล้ว" และ "ห้ามสลับเมื่อเจอ 4xx อื่น (400/401/402/404)"
  */
 
+import {
+  resolveAiTutorFirstTokenTimeoutMs,
+  resolveAiTutorTimeoutMs,
+} from './limits';
+
 export const DEFAULT_AI_TUTOR_MAX_TOKENS = 1200;
-const DEFAULT_TIMEOUT_MS = 30_000;
-const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 12_000;
 
 export class AiTutorProviderError extends Error {
   constructor(public status: number, message: string) {
@@ -78,16 +83,17 @@ export function aiTutorMaxTokens(): number {
   return Math.min(raw, 8000);
 }
 
+/**
+ * เวลารอสูงสุดต่อ 1 ครั้งเรียกโมเดล — บีบด้วยเพดานของ maxDuration
+ * (ดู src/lib/ai-tutor/limits.ts) เพื่อไม่ให้ฟังก์ชันถูกตัดกลางคัน
+ */
 export function aiTutorTimeoutMs(): number {
-  const raw = Number.parseInt(process.env.AI_TUTOR_TIMEOUT_MS ?? '', 10);
-  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_TIMEOUT_MS;
-  return Math.min(raw, 120_000);
+  return resolveAiTutorTimeoutMs();
 }
 
+/** เวลาที่ยอมรอ "เนื้อหาชิ้นแรก" — ต้องไม่เกิน timeout ของครั้งเรียก */
 export function aiTutorFirstTokenTimeoutMs(): number {
-  const raw = Number.parseInt(process.env.AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS ?? '', 10);
-  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_FIRST_TOKEN_TIMEOUT_MS;
-  return Math.min(raw, 120_000);
+  return resolveAiTutorFirstTokenTimeoutMs();
 }
 
 /**

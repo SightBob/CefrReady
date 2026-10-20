@@ -4,6 +4,11 @@ import { and, eq, gte, sql } from 'drizzle-orm';
 
 import { db } from '../src/db';
 import { aiTutorFeedback, aiTutorMessages, questions, users } from '../src/db/schema';
+import {
+  aiTutorMasterSwitchEnabled,
+  aiTutorRolloutPercent,
+  isAiTutorEnabledByFlags,
+} from '../src/lib/ai-tutor';
 
 /**
  * AI Tutor report — อ่านอย่างเดียว ไม่เขียนอะไรลง DB
@@ -36,9 +41,17 @@ async function main() {
 
   console.log(`\n=== รายงาน AI Tutor (${days} วันที่ผ่านมา) ===\n`);
 
-  // ─── ผู้ใช้ที่มีสิทธิ์ ───
-  const [granted] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
-  const grantedCount = granted?.count ?? 0;
+  // ─── ผู้ใช้ที่ "เปิดฟีเจอร์จริง" (ไม่ใช่ผู้มีสิทธิ์ทั้งหมด) ───
+  // ใช้ฟังก์ชันเดียวกับ isAiTutorEnabled (src/lib/ai-tutor.ts) → ตัวเลขตรงกับ
+  // เงื่อนไขจริงเสมอ: master switch + สิทธิ์เฉพาะบัญชี + กลุ่ม rollout
+  const masterOn = aiTutorMasterSwitchEnabled();
+  const allUsers = await db
+    .select({ id: users.id, access: users.aiTutorAccess })
+    .from(users);
+  const enabledUsers = masterOn
+    ? allUsers.filter((row) => isAiTutorEnabledByFlags(row.id, row.access))
+    : [];
+  const grantedCount = enabledUsers.length;
 
   const askers = await db
     .select({ userId: aiTutorMessages.userId, asks: sql<number>`count(*)::int` })
@@ -49,8 +62,12 @@ async function main() {
   const totalAsks = askers.reduce((sum, row) => sum + row.asks, 0);
 
   console.log('## ผู้เรียน');
-  console.log(`- มีสิทธิ์ใช้ AI Tutor ทั้งหมด: ${grantedCount} คน`);
-  console.log(`- ผู้ที่ถามอย่างน้อย 1 ครั้งใน ${days} วัน: ${askerCount} คน (${pct(askerCount, grantedCount)} ของผู้มีสิทธิ์)`);
+  console.log(`- master switch (AI_TUTOR_ENABLED): ${masterOn ? 'เปิด' : 'ปิด'}` +
+    `${masterOn ? '' : ' → ยังไม่มีใครได้ใช้ฟีเจอร์'}`);
+  console.log(`- rollout: ${aiTutorRolloutPercent()}%`);
+  console.log(`- ผู้ที่เปิดฟีเจอร์ AI Tutor ได้จริง: ${grantedCount} คน` +
+    ` (จากผู้ใช้ทั้งหมด ${allUsers.length} คน)`);
+  console.log(`- ผู้ที่ถามอย่างน้อย 1 ครั้งใน ${days} วัน: ${askerCount} คน (${pct(askerCount, grantedCount)} ของผู้ที่เปิดฟีเจอร์ได้)`);
   console.log(`- คำถามเฉลี่ยต่อคนที่ถาม: ${askerCount ? (totalAsks / askerCount).toFixed(2) : '0'} คำถาม`);
   console.log(`- คำถามรวม: ${totalAsks}`);
 
