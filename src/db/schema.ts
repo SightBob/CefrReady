@@ -588,10 +588,14 @@ export const aiTutorMessages = pgTable('ai_tutor_messages', {
   fallbackUsed: boolean('fallback_used'),
   // finish_reason ของโมเดล (stop / length …) ใช้แยกคำตอบที่ถูกตัด
   finishReason: text('finish_reason'),
+  // รหัสรอบการทำข้อสอบ — แยกบทสนทนาต่อรอบ (migration 0049)
+  // null = แถวเก่าที่ยังไม่ได้ผูกกับรอบ (ไม่แสดงในเธรด)
+  attemptKey: text('attempt_key'),
 }, (table) => ({
   threadIdx: index('ai_tutor_messages_thread_idx').on(table.userId, table.questionId, table.createdAt),
   quotaIdx: index('ai_tutor_messages_quota_idx').on(table.userId, table.questionId, table.status),
   questionIdx: index('ai_tutor_messages_question_idx').on(table.questionId),
+  attemptIdx: index('ai_tutor_messages_attempt_idx').on(table.userId, table.questionId, table.attemptKey, table.createdAt),
 }));
 
 export type DbAiTutorMessage = typeof aiTutorMessages.$inferSelect;

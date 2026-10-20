@@ -26,6 +26,7 @@ import {
 import { AiTutorProviderError, streamAiTutorReply } from '@/lib/ai-tutor/provider';
 import { trimToLastCompleteSentence } from '@/lib/ai-tutor/trim';
 import { buildQuestionContext, type AiTutorQuestionContext } from '@/lib/ai-tutor/prompt';
+import { ATTEMPT_KEY_PATTERN, isValidAttemptKey } from '@/lib/ai-tutor/attempt-key';
 import {
   AI_TUTOR_CHAT_RATE_LIMIT_MESSAGE,
   AI_TUTOR_NO_ACCESS_MESSAGE,
@@ -53,7 +54,15 @@ const bodySchema = z.object({
   message: z.string().trim().min(1).max(500),
   /** proof จาก /api/tests/check-answer — ยืนยันว่าผู้เรียนตอบข้อนี้แล้ว */
   proof: z.string().trim().min(1).max(2000),
+  /** รหัสรอบการทำข้อสอบ — แยกบทสนทนาต่อรอบ (ดู src/lib/ai-tutor/attempt-key.ts) */
+  attemptKey: z.string().trim().min(8).max(64).regex(ATTEMPT_KEY_PATTERN),
 }).strict();
+
+/** รหัสรอบจาก query string — ต้องผ่านรูปแบบเสมอ (ผิด = 400) */
+function readAttemptKey(value: string | null): string | null {
+  if (!value) return null;
+  return isValidAttemptKey(value) ? value : null;
+}
 
 /**
  * จำกัดจำนวนคำถามต่อนาที (10/นาที/คน) — กันยิงรวดจนเผาโควตารายวันและเผาเงินค่าโมเดล
@@ -88,9 +97,14 @@ export async function GET(request: Request) {
     return jsonError(400, 'ไม่พบข้อคำถาม');
   }
 
+  const attemptKey = readAttemptKey(new URL(request.url).searchParams.get('attemptKey'));
+  if (!attemptKey) {
+    return jsonError(400, 'ไม่พบรหัสรอบการทำข้อสอบ (attemptKey) — กรุณารีเฟรชหน้าแล้วลองใหม่');
+  }
+
   try {
     const [thread, quota, feedback] = await Promise.all([
-      getThreadMessages({ userId: session.user.id, questionId }),
+      getThreadMessages({ userId: session.user.id, questionId, attemptKey }),
       getQuotaSnapshot({ userId: session.user.id, questionId }),
       getThreadFeedback({ userId: session.user.id, questionId }),
     ]);
@@ -152,10 +166,12 @@ export async function POST(request: Request) {
       ? 'คำถามยาวเกิน 500 ตัวอักษร'
       : path.includes('proof')
         ? 'ยังไม่ได้ส่งหลักฐานการตอบคำถาม — กรุณากด "ตรวจคำตอบ" ของข้อนี้ก่อนถาม AI'
-        : 'คำขอไม่ถูกต้อง';
+        : path.includes('attemptKey')
+          ? 'ไม่พบรหัสรอบการทำข้อสอบ (attemptKey) — กรุณารีเฟรชหน้าแล้วลองใหม่'
+          : 'คำขอไม่ถูกต้อง';
     return jsonError(400, error);
   }
-  const { questionId, message, proof } = parsed.data;
+  const { questionId, message, proof, attemptKey } = parsed.data;
 
   let selectedAnswer = '';
   try {
@@ -214,7 +230,8 @@ export async function POST(request: Request) {
       : null;
 
     // ─── จองโควตา (กัน race) ───
-    reservation = await reserveQuestion({ userId, questionId, message });
+    // โควตานับต่อ (user, question) ต่อวัน — ไม่ผูกกับรอบ (attemptKey)
+    reservation = await reserveQuestion({ userId, questionId, message, attemptKey });
     if (!reservation.ok) {
       // โควตาของข้อนี้เต็ม → ไม่แตะตัวนับรายวันด้วย (ไม่งั้นผู้เรียนจะเสียโควตาวันนี้เปล่า ๆ)
       return jsonError(429, `โควตาคำถามของข้อนี้หมดแล้ว (${reservation.quota.used}/${reservation.quota.limit} ครั้งต่อวัน)`, {
@@ -252,10 +269,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // ─── ประวัติจาก DB เอง (ห้ามเชื่อ client) ───
+  // ─── ประวัติจาก DB เอง (ห้ามเชื่อ client) — เฉพาะรอบนี้ ───
   let providerMessages: ReturnType<typeof buildProviderMessages>;
   try {
-    const thread = await getThreadMessages({ userId, questionId });
+    const thread = await getThreadMessages({ userId, questionId, attemptKey });
     providerMessages = buildProviderMessages({ context, thread, learnerMessage: message });
   } catch (error) {
     await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
@@ -318,6 +335,7 @@ export async function POST(request: Request) {
           model: result.usage.model,
           fallbackUsed: result.fallbackUsed,
           finishReason: result.finishReason,
+          attemptKey,
         });
 
         const quota = await getQuotaSnapshot({ userId, questionId });

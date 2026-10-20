@@ -190,6 +190,11 @@ interface AiTutorPanelProps {
    * - null/undefined = ไม่ทราบ (ยังไม่ได้ตรวจคำตอบ หรือฟีเจอร์ปิด)
    */
   aiTutorReady?: boolean | null;
+  /**
+   * รหัสรอบการทำข้อสอบ — แยกบทสนทนาต่อรอบ (ทำซ้ำ/เริ่มรอบใหม่จะได้เธรดใหม่
+   * แต่รีเฟรชในรอบเดิมยังเห็นบทสนทนาเดิม)
+   */
+  attemptKey?: string | null;
 }
 
 /** ข้อความตอนระบบยังตั้งค่าไม่ครบ (กลางๆ ไม่โทษผู้เรียน + บอกให้แจ้งผู้ดูแล) */
@@ -203,6 +208,7 @@ export default function AiTutorPanel({
   questionId = null,
   answerProof = null,
   aiTutorReady = null,
+  attemptKey = null,
 }: AiTutorPanelProps = {}) {
   const isLive = questionId !== null;
   const [chatInput, setChatInput] = useState('');
@@ -237,10 +243,12 @@ export default function AiTutorPanel({
   }, [aiTutorReady, threadKey]);
 
   // ดึงเธรดเดิม + โควตาจาก server (ไม่ต้องใช้ proof — เป็นข้อมูลของผู้เรียนเอง)
+  // เฉพาะรอบการทำข้อสอบนี้ (attemptKey) — รอบก่อนหน้าไม่โผล่
   useEffect(() => {
     if (!isLive) return;
     let cancelled = false;
-    fetch(`/api/ai-tutor?questionId=${questionId}`)
+    const query = attemptKey ? `&attemptKey=${encodeURIComponent(attemptKey)}` : '';
+    fetch(`/api/ai-tutor?questionId=${questionId}${query}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((body: { messages?: Array<{ id: number; role: 'user' | 'assistant'; content: string; status?: string }>; quota?: Quota } | null) => {
         if (cancelled || !body) return;
@@ -266,7 +274,7 @@ export default function AiTutorPanel({
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [isLive, questionId, threadKey]);
+  }, [attemptKey, isLive, questionId, threadKey]);
 
   // เธรดเลื่อนไปข้อความล่าสุดอัตโนมัติทุกครั้งที่มีข้อความใหม่
   useEffect(() => {
@@ -303,7 +311,7 @@ export default function AiTutorPanel({
       const response = await fetch('/api/ai-tutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId, message, proof: answerProof }),
+        body: JSON.stringify({ questionId, message, proof: answerProof, attemptKey }),
       });
 
       if (!response.ok || !response.body) {
@@ -386,7 +394,7 @@ export default function AiTutorPanel({
     } finally {
       setSending(false);
     }
-  }, [answerProof, isLive, questionId, quotaExhausted, sending]);
+  }, [answerProof, attemptKey, aiTutorReady, isLive, questionId, quotaExhausted, sending]);
 
   /**
    * ส่งจากช่องพิมพ์ — อ่านค่าจาก DOM (ช่องพิมพ์เป็น uncontrolled) แล้วล้างช่องทันที
@@ -434,7 +442,7 @@ export default function AiTutorPanel({
       const response = await fetch('/api/ai-tutor/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId }),
+        body: JSON.stringify({ questionId, attemptKey }),
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
@@ -447,7 +455,7 @@ export default function AiTutorPanel({
     } catch {
       setError('เริ่มคำถามใหม่ไม่สำเร็จ กรุณาลองใหม่');
     }
-  }, [isLive, questionId]);
+  }, [attemptKey, isLive, questionId]);
 
   const quotaText = quota
     ? `ถามแล้ว ${quota.used} คำถาม`

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   reserveQuestion: vi.fn(),
   getQuotaSnapshot: vi.fn(),
   getThreadMessages: vi.fn(),
+  getThreadFeedback: vi.fn(),
   buildProviderMessages: vi.fn(),
   markUserMessageOk: vi.fn(),
   markUserMessageFailed: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock('@/lib/ai-tutor/quota', () => ({
 }));
 vi.mock('@/lib/ai-tutor/messages', () => ({
   getThreadMessages: mocks.getThreadMessages,
+  getThreadFeedback: mocks.getThreadFeedback,
   buildProviderMessages: mocks.buildProviderMessages,
   markUserMessageOk: mocks.markUserMessageOk,
   markUserMessageFailed: mocks.markUserMessageFailed,
@@ -80,6 +82,10 @@ function post(body: unknown) {
 
 const validProof = () => issueAnswerProof({ userId: 'u1', questionId: 7, selectedAnswer: 'do' })!;
 
+/** รหัสรอบการทำข้อสอบ (UUID-like) — ใช้แยกบทสนทนาต่อรอบ */
+const ATTEMPT_KEY = 'attempt-key-0001';
+const OTHER_ATTEMPT_KEY = 'attempt-key-0002';
+
 async function readEvents(response: Response) {
   const text = await response.text();
   return text
@@ -98,6 +104,7 @@ beforeEach(() => {
   mocks.rateLimit.mockResolvedValue({ limited: false, retryAfterMs: 0 });
   mocks.minuteLimit.mockResolvedValue(null);
   mocks.getThreadMessages.mockResolvedValue([]);
+  mocks.getThreadFeedback.mockResolvedValue({});
   mocks.buildProviderMessages.mockReturnValue([{ role: 'system', content: 'x' }]);
   mocks.getQuotaSnapshot.mockResolvedValue({ used: 1, limit: 5, remaining: 4 });
   mocks.reserveQuestion.mockResolvedValue({
@@ -123,29 +130,29 @@ beforeEach(() => {
 describe('POST /api/ai-tutor — 401/403', () => {
   it('ไม่ล็อกอิน → 401', async () => {
     mocks.auth.mockResolvedValue(null);
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(401);
   });
 
   it('ไม่ผ่าน feature flag → 403', async () => {
     mocks.enabled.mockResolvedValue(false);
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(403);
   });
 
   it('ไม่มี proof → 403 (ยังไม่ได้ตอบข้อนี้)', async () => {
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: 'ไม่มี' });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: 'ไม่มี', attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(403);
   });
 
   it('proof ของข้ออื่น → 403', async () => {
     const proof = issueAnswerProof({ userId: 'u1', questionId: 99, selectedAnswer: 'do' })!;
-    const res = await post({ questionId: 7, message: 'ทำไม', proof });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof, attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(403);
   });
 
   it('ไม่ได้ส่ง proof → 400 พร้อมข้อความว่ายังไม่ได้ส่งหลักฐาน (ไม่ใช่ "ไม่ถูกต้อง")', async () => {
-    const res = await post({ questionId: 7, message: 'ทำไม' });
+    const res = await post({ questionId: 7, message: 'ทำไม', attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain('ยังไม่ได้ส่งหลักฐานการตอบคำถาม');
@@ -155,7 +162,7 @@ describe('POST /api/ai-tutor — 401/403', () => {
     // จำลอง: ออก proof ตอนที่ secret ยังอยู่ แล้ว secret หายไป (restart ไม่ได้ตั้ง/โหลดไม่ครบ)
     const proof = validProof();
     delete process.env.AI_TUTOR_PROOF_SECRET;
-    const res = await post({ questionId: 7, message: 'ทำไม', proof });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof, attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.success).toBe(false);
@@ -164,7 +171,7 @@ describe('POST /api/ai-tutor — 401/403', () => {
   });
 
   it('proof ไม่ถูกต้อง → 403 พร้อมข้อความให้กดตรวจคำตอบใหม่', async () => {
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: 'not-a-proof' });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: 'not-a-proof', attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toContain('ตรวจคำตอบ');
@@ -177,14 +184,14 @@ describe('POST /api/ai-tutor — 401/403', () => {
       selectedAnswer: 'do',
       now: Date.now() - 25 * 60 * 60 * 1000,
     })!;
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: expired });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: expired, attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toContain('หมดอายุ');
   });
 
   it('ข้อความยาวเกิน 500 ตัวอักษร → 400', async () => {
-    const res = await post({ questionId: 7, message: 'x'.repeat(501), proof: validProof() });
+    const res = await post({ questionId: 7, message: 'x'.repeat(501), proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(400);
   });
 });
@@ -196,7 +203,7 @@ describe('POST /api/ai-tutor — โควตา', () => {
       reason: 'quota',
       quota: { used: 5, limit: 5, remaining: 0 },
     });
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.quota).toEqual({ used: 5, limit: 5, remaining: 0 });
@@ -209,13 +216,13 @@ describe('POST /api/ai-tutor — โควตา', () => {
       reason: 'quota',
       quota: { used: 5, limit: 5, remaining: 0 },
     });
-    await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(mocks.rateLimit).not.toHaveBeenCalled();
   });
 
   it('เพดานซ่อนรายวันของผู้เรียนเต็ม → 429', async () => {
     mocks.rateLimit.mockResolvedValue({ limited: true, retryAfterMs: 1000 });
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(429);
     // นับหลังจองโควตาแล้ว → ต้องคืนโควตาข้อนี้ (mark failed) และไม่เรียกโมเดล
     expect(mocks.markUserMessageFailed).toHaveBeenCalledWith(expect.objectContaining({ messageId: 99 }));
@@ -231,13 +238,13 @@ describe('POST /api/ai-tutor — จำกัดต่อนาที (10/นา
     });
 
   it('เรียก checkUserRateLimit ด้วยเพดาน 10 ครั้ง/นาที', async () => {
-    await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(mocks.minuteLimit).toHaveBeenCalledWith('u1', { keySuffix: 'ai-tutor:chat', maxRequests: 10 });
   });
 
   it('ถี่เกินไป → 429 พร้อม Retry-After และข้อความไทย (ไม่เรียกโมเดล)', async () => {
     mocks.minuteLimit.mockResolvedValue(limited('42'));
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('42');
     const body = await res.json();
@@ -255,10 +262,10 @@ describe('POST /api/ai-tutor — history มาจาก DB เท่านั�
       { id: 2, role: 'assistant', content: 'คำตอบก่อนหน้า', status: 'ok', createdAt: new Date() },
     ]);
 
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     await readEvents(res);
 
-    expect(mocks.getThreadMessages).toHaveBeenCalledWith({ userId: 'u1', questionId: 7 });
+    expect(mocks.getThreadMessages).toHaveBeenCalledWith({ userId: 'u1', questionId: 7, attemptKey: ATTEMPT_KEY });
     const built = mocks.buildProviderMessages.mock.calls[0][0] as {
       thread: unknown[];
       context: { correctAnswerText: string; explanation: string | null };
@@ -278,8 +285,65 @@ describe('POST /api/ai-tutor — history มาจาก DB เท่านั�
 
   it('ไม่พบข้อใน DB → 404', async () => {
     stubQuestionRow(null);
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/ai-tutor — รหัสรอบการทำข้อสอบ (attemptKey)', () => {
+  it('ส่ง attemptKey ไปกับการจองโควตาและการโหลดประวัติ', async () => {
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+    await readEvents(await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY }));
+
+    expect(mocks.reserveQuestion).toHaveBeenCalledWith(expect.objectContaining({ attemptKey: ATTEMPT_KEY }));
+    expect(mocks.getThreadMessages).toHaveBeenCalledWith(expect.objectContaining({ attemptKey: ATTEMPT_KEY }));
+  });
+
+  it('แต่ละรอบแยกเธรดกัน (คนละ attemptKey ไม่เห็นเธรดของกัน)', async () => {
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: OTHER_ATTEMPT_KEY });
+
+    const keys = mocks.getThreadMessages.mock.calls.map((call) => (call[0] as { attemptKey?: string }).attemptKey);
+    expect(keys).toContain(ATTEMPT_KEY);
+    expect(keys).toContain(OTHER_ATTEMPT_KEY);
+    expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  it('ไม่ส่ง attemptKey → 400 (บอกให้รีเฟรชหน้า)', async () => {
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('attemptKey');
+    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+  });
+
+  it('attemptKey รูปแบบผิด → 400', async () => {
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: 'สั้น' });
+    expect(res.status).toBe(400);
+    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+  });
+
+  it('attemptKey ยาวเกิน 64 ตัว → 400', async () => {
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: 'a'.repeat(65) });
+    expect(res.status).toBe(400);
+  });
+
+  it('GET: ไม่ส่ง attemptKey → 400', async () => {
+    const res = await GET(new Request('http://localhost:3000/api/ai-tutor?questionId=7'));
+    expect(res.status).toBe(400);
+    expect(mocks.getThreadMessages).not.toHaveBeenCalled();
+  });
+
+  it('GET: attemptKey รูปแบบผิด → 400', async () => {
+    const res = await GET(new Request('http://localhost:3000/api/ai-tutor?questionId=7&attemptKey=bad%20key!'));
+    expect(res.status).toBe(400);
+    expect(mocks.getThreadMessages).not.toHaveBeenCalled();
+  });
+
+  it('GET: ส่ง attemptKey ที่ถูกต้อง → โหลดเธรดของรอบนั้น', async () => {
+    const res = await GET(new Request(`http://localhost:3000/api/ai-tutor?questionId=7&attemptKey=${ATTEMPT_KEY}`));
+    expect(res.status).toBe(200);
+    expect(mocks.getThreadMessages).toHaveBeenCalledWith({ userId: 'u1', questionId: 7, attemptKey: ATTEMPT_KEY });
   });
 });
 
@@ -287,7 +351,7 @@ describe('POST/GET /api/ai-tutor — ฐานข้อมูลใช้ไม�
   it('POST: คิวรี DB พัง → 503 พร้อมข้อความที่ผู้เรียนอ่านรู้เรื่อง', async () => {
     mocks.select.mockImplementation(() => { throw new Error('relation "ai_tutor_messages" does not exist'); });
 
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.success).toBe(false);
@@ -298,7 +362,7 @@ describe('POST/GET /api/ai-tutor — ฐานข้อมูลใช้ไม�
   it('GET: อ่านเธรดไม่สำเร็จ → 503 (หน้าเว็บไม่ค้าง)', async () => {
     mocks.getThreadMessages.mockRejectedValue(new Error('relation "ai_tutor_messages" does not exist'));
 
-    const res = await GET(new Request('http://localhost:3000/api/ai-tutor?questionId=7'));
+    const res = await GET(new Request('http://localhost:3000/api/ai-tutor?questionId=7&attemptKey=attempt-key-0001'));
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
@@ -313,7 +377,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
       return { text: 'คำตอบ', usage: { inputTokens: 1, outputTokens: 2, model: 'm', latencyMs: 5 } };
     });
 
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     const events = await readEvents(res);
     expect(events[0]).toEqual({ type: 'delta', text: 'คำ' });
     expect(events.some((event) => event.type === 'done')).toBe(true);
@@ -325,7 +389,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
   it('โมเดลล้มเหลวก่อนมีเนื้อหา → คืนโควตา (mark failed) + ส่ง error', async () => {
     mocks.stream.mockRejectedValue(new Error('provider down'));
 
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     const events = await readEvents(res);
     expect(events.some((event) => event.type === 'error')).toBe(true);
     expect(mocks.markUserMessageFailed).toHaveBeenCalledWith(expect.objectContaining({ messageId: 99 }));
@@ -341,7 +405,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
       usage: { inputTokens: 11, outputTokens: 22, reasoningTokens: 7, model: 'fallback-model', latencyMs: 300 },
     });
 
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     const events = await readEvents(res);
     const done = events.find((event) => event.type === 'done');
     expect(done?.usage).toMatchObject({
@@ -366,7 +430,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
       usage: { inputTokens: 10, outputTokens: 20, reasoningTokens: 5, model: 'test-model', latencyMs: 100 },
     });
 
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     const events = await readEvents(res);
     const done = events.find((event) => event.type === 'done');
 
@@ -381,7 +445,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     mocks.rateLimit.mockImplementation(async (key: string) => (
       key.startsWith('system:') ? { limited: true, retryAfterMs: 1000 } : { limited: false, retryAfterMs: 0 }
     ));
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(429);
     // คืนโควตาข้อนี้ด้วย (ไม่ให้ผู้เรียนเสียสิทธิ์เพราะระบบเต็ม) + ไม่เรียกโมเดล
     expect(mocks.markUserMessageFailed).toHaveBeenCalledWith(expect.objectContaining({ messageId: 99 }));
@@ -399,7 +463,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
       usage: { inputTokens: 1, outputTokens: 2, reasoningTokens: 0, model: 'm', latencyMs: 10 },
     });
 
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     await res.text(); // รอให้ stream ของ route ทำงานจนจบ
     const saved = mocks.markUserMessageOk.mock.calls[0][0] as { selectedAnswer: string; isCorrect: boolean };
     expect(saved.selectedAnswer).toBe('do');
@@ -416,7 +480,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
       usage: { inputTokens: 1, outputTokens: 2, reasoningTokens: 3, model: 'fallback-model', latencyMs: 20 },
     });
 
-    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     // อ่าน body ให้ stream ของ route ทำงานจนจบก่อน (route ตอบเป็น ReadableStream)
     await res.text();
     const saved = mocks.insertAssistantMessage.mock.calls[0][0] as {

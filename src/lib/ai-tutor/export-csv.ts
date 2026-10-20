@@ -27,6 +27,8 @@ export type AiTutorExportRow = {
   cefrLevel: string | null;
   questionText: string;
   feedback?: string | null;
+  /** รหัสรอบการทำข้อสอบ (แยกบทสนทนาต่อรอบ — migration 0049) */
+  attemptKey?: string | null;
 };
 
 /** hash user_id ด้วย salt (คนละคนได้ค่าเดิมทุกครั้ง คนละคนไม่ซ้ำ) */
@@ -41,7 +43,7 @@ function csvCell(value: unknown): string {
 }
 
 export const AI_TUTOR_EXPORT_HEADER = [
-  'message_id', 'user_hash', 'question_id', 'grammar_topic', 'cefr_level', 'role', 'status',
+  'message_id', 'user_hash', 'question_id', 'attempt_key', 'grammar_topic', 'cefr_level', 'role', 'status',
   'selected_answer', 'is_correct', 'category', 'fallback_used', 'finish_reason',
   'latency_ms', 'input_tokens', 'output_tokens', 'model', 'feedback', 'created_at', 'content',
 ] as const;
@@ -53,6 +55,7 @@ export function buildAiTutorCsv(rows: AiTutorExportRow[], salt: string): string 
       row.id,
       hashUserId(row.userId, salt),
       row.questionId,
+      row.attemptKey ?? '',
       row.grammarTopic,
       row.cefrLevel,
       row.role,

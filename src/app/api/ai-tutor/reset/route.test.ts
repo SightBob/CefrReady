@@ -40,37 +40,37 @@ beforeEach(() => {
 describe('POST /api/ai-tutor/reset', () => {
   it('ไม่ล็อกอิน → 401', async () => {
     mocks.auth.mockResolvedValue(null);
-    expect((await post({ questionId: 7 })).status).toBe(401);
+    expect((await post({ questionId: 7, attemptKey: 'attempt-key-0001' })).status).toBe(401);
     expect(mocks.archiveThread).not.toHaveBeenCalled();
   });
 
   it('ไม่ผ่าน feature flag → 403', async () => {
     mocks.enabled.mockResolvedValue(false);
-    expect((await post({ questionId: 7 })).status).toBe(403);
+    expect((await post({ questionId: 7, attemptKey: 'attempt-key-0001' })).status).toBe(403);
     expect(mocks.archiveThread).not.toHaveBeenCalled();
   });
 
   it('body ผิด → 400', async () => {
-    expect((await post({ questionId: 0 })).status).toBe(400);
+    expect((await post({ questionId: 0, attemptKey: 'attempt-key-0001' })).status).toBe(400);
   });
 
   it('เก็บถังข้อความของผู้เรียนคนนั้นเท่านั้น', async () => {
-    const res = await post({ questionId: 7 });
+    const res = await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(mocks.archiveThread).toHaveBeenCalledWith({ userId: 'u1', questionId: 7 });
+    expect(mocks.archiveThread).toHaveBeenCalledWith({ userId: 'u1', questionId: 7, attemptKey: 'attempt-key-0001' });
     expect(body.archived).toBe(4);
   });
 
   it('ไม่คืนโควตา — ตัวเลขโควตาหลัง reset เท่าเดิม', async () => {
-    const body = await (await post({ questionId: 7 })).json();
+    const body = await (await post({ questionId: 7, attemptKey: 'attempt-key-0001' })).json();
     expect(body.quota).toEqual({ used: 3, limit: 5, remaining: 2 });
   });
 
   it('ฐานข้อมูลใช้ไม่ได้ → 503 พร้อมข้อความที่ผู้เรียนอ่านรู้เรื่อง (ไม่ใช่ 500)', async () => {
     mocks.archiveThread.mockRejectedValue(new Error('relation "ai_tutor_messages" does not exist'));
 
-    const res = await post({ questionId: 7 });
+    const res = await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.success).toBe(false);
@@ -78,7 +78,7 @@ describe('POST /api/ai-tutor/reset', () => {
   });
 
   it('จำกัด 10 ครั้ง/นาที → 429 พร้อม Retry-After และข้อความไทย', async () => {
-    await post({ questionId: 7 });
+    await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
     expect(mocks.minuteLimit).toHaveBeenCalledWith('u1', { keySuffix: 'ai-tutor:reset', maxRequests: 10 });
 
     mocks.minuteLimit.mockResolvedValue(new Response(JSON.stringify({ success: false, error: 'Too many requests' }), {
@@ -86,7 +86,7 @@ describe('POST /api/ai-tutor/reset', () => {
       headers: { 'Retry-After': '60' },
     }));
     mocks.archiveThread.mockClear();
-    const res = await post({ questionId: 7 });
+    const res = await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('60');
     const body = await res.json();

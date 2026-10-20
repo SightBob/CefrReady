@@ -36,6 +36,11 @@ import dynamic from 'next/dynamic';
 import TestExplainOverlay, { type TestExplainContent } from '@/components/TestExplainOverlay';
 import { buildTopicRuns, firstSlotIndexForTopic, topicRunForSlot } from '@/lib/test-set-topics';
 import { wasSetExplainRead, clearSetExplainRead } from '@/lib/test-explain-read';
+import {
+  attemptKeyStorageKey,
+  getOrCreateAttemptKey,
+  rotateAttemptKey,
+} from '@/lib/ai-tutor/attempt-key';
 import { groupTapReasonsByQuestion } from '@/lib/tap-reason-rewards';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
@@ -168,6 +173,11 @@ export default function SetQuizPage() {
    * (ไม่ใช่ธง env แบบ client โดยเดียว)
    */
   const [aiTutorEnabled, setAiTutorEnabled] = useState(false);
+  /**
+   * รหัสรอบการทำข้อสอบของ AI Tutor — สร้างใหม่เมื่อเริ่มรอบใหม่ (ทำซ้ำ/ส่งแล้ว)
+   * เก็บใน sessionStorage ผูกกับชุดข้อสอบ → รีเฟรชในรอบเดิมยังเห็นบทสนทนาเดิม
+   */
+  const [attemptKey, setAttemptKey] = useState<string | null>(null);
 
   const [setData, setSetData] = useState<SetData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -418,6 +428,11 @@ export default function SetQuizPage() {
       .then((data: { enabled?: boolean } | null) => setAiTutorEnabled(Boolean(data?.enabled)))
       .catch(() => undefined);
   }, [status]);
+
+  // รหัสรอบการทำข้อสอบ (AI Tutor) — อ่านจาก sessionStorage ของชุดนี้
+  useEffect(() => {
+    setAttemptKey(getOrCreateAttemptKey(attemptKeyStorageKey(sectionId, setId)));
+  }, [sectionId, setId]);
 
   // Track test_started when questions are loaded
   useEffect(() => {
@@ -681,6 +696,9 @@ export default function SetQuizPage() {
         setResults(data.data.results ?? []);
         setAttemptId(data.data.attemptId ?? null);
         setIsFinished(true);
+        // ส่งข้อสอบแล้ว = รอบการทำข้อสอบจบแล้ว → รอบถัดไปของชุดนี้ต้องเป็นรอบใหม่
+        // (บทสนทนา AI ของรอบนี้ยังอยู่ใน DB เพื่อวิเคราะห์ แต่ไม่โผล่ในรอบถัดไป)
+        setAttemptKey(rotateAttemptKey(attemptKeyStorageKey(sectionId, setId)));
         // Track test_submitted
         if (posthog && testStartedAtRef.current > 0) {
           const totalQuestions = data.data.totalQuestions ?? mainSlots.length;
@@ -795,6 +813,8 @@ export default function SetQuizPage() {
     setSelectedAnswer(null);
     setCurrentQuestion(0);
     setAttemptId(null);
+    // ทำชุดใหม่ = รอบใหม่ของ AI Tutor (บทสนทนาเก่าไม่โผล่ในรอบนี้)
+    setAttemptKey(rotateAttemptKey(attemptKeyStorageKey(sectionId, setId)));
     setFormMeaningTotalBlanks(0);
     setAudioPlayedMap({});
     setIsFinished(false);
@@ -1225,6 +1245,7 @@ export default function SetQuizPage() {
         questionId={question.id}
         answerProof={activeCheck?.answerProof ?? null}
         aiTutorReady={activeCheck?.aiTutorReady ?? null}
+        attemptKey={attemptKey}
       />
       {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}

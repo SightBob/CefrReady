@@ -12,7 +12,7 @@
  * ค่าโควตาที่ใช้งานจริงมาจาก getAiTutorConfig() (DB ทับ env) — ฟังก์ชันด้านล่าง
  * เป็น "ค่าตั้งต้นจาก env" ที่ใช้เป็น fallback และโดยสคริปต์ที่อ่าน env โดยตรง
  */
-import { and, eq, gte, or, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, or, sql } from 'drizzle-orm';
 
 import { db } from '@/db';
 import { aiTutorMessages } from '@/db/schema';
@@ -130,6 +130,11 @@ export async function reserveQuestion(params: {
   now?: Date;
   /** เพดานโควตาต่อข้อ — ค่าจาก config (DB ทับ env); ไม่ส่ง = ใช้ค่าตั้งต้นจาก env */
   limit?: number;
+  /**
+   * รหัสรอบการทำข้อสอบ — ผูกแถวกับรอบ (แต่ **โควตาไม่ผูกกับรอบ**
+   * นับต่อ (user, question) ต่อวันเหมือนเดิม ไม่งั้นผู้เรียนจะเปลี่ยนรอบเพื่อเลี่ยงโควตาได้)
+   */
+  attemptKey?: string | null;
 }): Promise<ReserveResult> {
   const now = params.now ?? new Date();
   const limit = params.limit ?? questionQuotaLimit();
@@ -168,6 +173,7 @@ export async function reserveQuestion(params: {
     }
 
     // ปุ่ม "ลองใหม่" — ใช้แถว failed เดิมของข้อความเดียวกัน (ภายใน 10 นาที) เพื่อไม่เสียโควตา
+    // ต้องเป็นแถวของรอบเดียวกันด้วย (ไม่งั้นรอบใหม่จะไปใช้แถวของรอบเก่า)
     const recentFailed = await tx
       .select({ id: aiTutorMessages.id })
       .from(aiTutorMessages)
@@ -177,6 +183,9 @@ export async function reserveQuestion(params: {
         eq(aiTutorMessages.role, 'user'),
         eq(aiTutorMessages.status, 'failed'),
         eq(aiTutorMessages.content, params.message),
+        params.attemptKey
+          ? eq(aiTutorMessages.attemptKey, params.attemptKey)
+          : isNull(aiTutorMessages.attemptKey),
         gte(aiTutorMessages.createdAt, new Date(now.getTime() - 10 * 60 * 1000)),
       ))
       .limit(1);
@@ -204,6 +213,7 @@ export async function reserveQuestion(params: {
         content: params.message,
         status: 'pending',
         createdAt: now,
+        attemptKey: params.attemptKey ?? null,
       })
       .returning({ id: aiTutorMessages.id });
 

@@ -57,6 +57,8 @@ interface FocusFormQuestionCardProps {
    * null/undefined = ไม่ทราบ / ฟีเจอร์ปิด
    */
   aiTutorReady?: boolean | null;
+  /** รหัสรอบการทำข้อสอบ — แยกบทสนทนา AI ต่อรอบ */
+  attemptKey?: string | null;
 }
 
 /**
@@ -106,6 +108,7 @@ export default function FocusFormQuestionCard({
   questionId,
   answerProof,
   aiTutorReady = null,
+  attemptKey = null,
 }: FocusFormQuestionCardProps) {
   const theme = ACCENT[accent] ?? ACCENT.primary;
   const isCorrect = selectedAnswer === correctAnswer;
@@ -289,6 +292,7 @@ export default function FocusFormQuestionCard({
         questionId={typeof questionId === 'number' ? questionId : null}
         answerProof={answerProof}
         aiTutorReady={aiTutorReady}
+        attemptKey={attemptKey}
       />
     ) : (
     <>

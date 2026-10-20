@@ -12,6 +12,7 @@ import {
   localizedRateLimitError,
   warnWithSummary,
 } from '@/lib/ai-tutor/errors';
+import { ATTEMPT_KEY_PATTERN } from '@/lib/ai-tutor/attempt-key';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -21,6 +22,8 @@ export const maxDuration = 15;
 
 const bodySchema = z.object({
   questionId: z.number().int().positive(),
+  /** รหัสรอบการทำข้อสอบ — เก็บถังเฉพาะรอบนี้ */
+  attemptKey: z.string().trim().min(8).max(64).regex(ATTEMPT_KEY_PATTERN),
 }).strict();
 
 /** จำกัดการเริ่มคำถามใหม่ต่อนาที (10/นาที/คน) — กันยิง archive ซ้ำ */
@@ -56,7 +59,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const archived = await archiveThread({ userId, questionId: parsed.data.questionId });
+    const archived = await archiveThread({
+      userId,
+      questionId: parsed.data.questionId,
+      attemptKey: parsed.data.attemptKey,
+    });
     const quota = await getQuotaSnapshot({ userId, questionId: parsed.data.questionId });
     return Response.json({ success: true, archived, quota });
   } catch (error) {

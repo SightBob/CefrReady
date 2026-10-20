@@ -59,6 +59,7 @@ async function main() {
       inputTokens: aiTutorMessages.inputTokens,
       outputTokens: aiTutorMessages.outputTokens,
       model: aiTutorMessages.model,
+      attemptKey: aiTutorMessages.attemptKey,
       createdAt: aiTutorMessages.createdAt,
       grammarTopic: questions.grammarTopic,
       cefrLevel: questions.cefrLevel,

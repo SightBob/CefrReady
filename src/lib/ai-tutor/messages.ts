@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 
 import { db } from '@/db';
 import { aiTutorFeedback, aiTutorMessages } from '@/db/schema';
@@ -21,10 +21,16 @@ export type ThreadMessage = {
 /** จำนวนข้อความสูงสุดที่คืนให้ client (เอาของใหม่สุด 100 ข้อความ) */
 export const THREAD_MESSAGE_LIMIT = 100;
 
-/** เธรดของข้อนั้น (ไม่รวมที่ถูกเก็บถัง) — จำกัดจำนวนข้อความไว้ ไม่ให้โตไม่จำกัด */
+/**
+ * เธรดของข้อนั้นในรอบการทำข้อสอบนี้ (ไม่รวมที่ถูกเก็บถัง)
+ *
+ * ผูกกับ attemptKey: รอบใหม่ (ทำซ้ำ/ส่งแล้วเริ่มใหม่) จะไม่เห็นบทสนทนาของรอบก่อน
+ * แถวที่ attempt_key เป็น null (ข้อมูลเก่าก่อนมีรอบ) จะไม่แสดงในเธรด
+ */
 export async function getThreadMessages(params: {
   userId: string;
   questionId: number;
+  attemptKey?: string | null;
 }): Promise<ThreadMessage[]> {
   const rows = await db
     .select({
@@ -43,6 +49,10 @@ export async function getThreadMessages(params: {
       eq(aiTutorMessages.userId, params.userId),
       eq(aiTutorMessages.questionId, params.questionId),
       eq(aiTutorMessages.archived, false),
+      // รอบของผู้เรียนเท่านั้น — ไม่มี attemptKey = ไม่มีรอบ = ไม่มีเธรด
+      params.attemptKey
+        ? eq(aiTutorMessages.attemptKey, params.attemptKey)
+        : isNull(aiTutorMessages.attemptKey),
     ))
     // เอาของใหม่สุด N ข้อความ (แล้วกลับลำดับให้เป็นเก่า→ใหม่อีกครั้งด้านล่าง)
     .orderBy(desc(aiTutorMessages.createdAt), desc(aiTutorMessages.id))
@@ -141,6 +151,8 @@ export async function insertAssistantMessage(params: {
   fallbackUsed?: boolean | null;
   /** finish_reason ของโมเดล (stop / length …) */
   finishReason?: string | null;
+  /** รหัสรอบการทำข้อสอบ (แยกบทสนทนาต่อรอบ) */
+  attemptKey?: string | null;
 }): Promise<number> {
   const [row] = await db
     .insert(aiTutorMessages)
@@ -156,6 +168,7 @@ export async function insertAssistantMessage(params: {
       model: params.model,
       fallbackUsed: params.fallbackUsed ?? null,
       finishReason: params.finishReason ?? null,
+      attemptKey: params.attemptKey ?? null,
     })
     .returning({ id: aiTutorMessages.id });
   return row?.id ?? 0;
@@ -185,10 +198,12 @@ export async function getThreadFeedback(params: {
   return result;
 }
 
-/** ปุ่ม reset — เก็บถังข้อความเดิมของข้อนั้น (ไม่ลบ และไม่คืนโควตา) */
+/** ปุ่ม reset — เก็บถังข้อความของรอบนี้เท่านั้น (ไม่ลบ และไม่คืนโควตา) */
 export async function archiveThread(params: {
   userId: string;
   questionId: number;
+  /** รหัสรอบ — เก็บถังเฉพาะรอบนี้ (ข้อความรอบเก่ายังอยู่ใน DB เพื่อวิเคราะห์) */
+  attemptKey?: string | null;
 }): Promise<number> {
   const archived = await db
     .update(aiTutorMessages)
@@ -197,6 +212,9 @@ export async function archiveThread(params: {
       eq(aiTutorMessages.userId, params.userId),
       eq(aiTutorMessages.questionId, params.questionId),
       eq(aiTutorMessages.archived, false),
+      params.attemptKey
+        ? eq(aiTutorMessages.attemptKey, params.attemptKey)
+        : isNull(aiTutorMessages.attemptKey),
     ))
     .returning({ id: aiTutorMessages.id });
   return archived.length;
