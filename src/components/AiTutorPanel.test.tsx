@@ -46,8 +46,52 @@ describe('AiTutorPanel — หน้าจริง: คำอธิบายเ
   });
 
   it('โครงกรอบคงเดิมทุกพิกเซล (ขนาด/สีขอบ)', () => {
-    expect(real).toContain('h-[573px] w-[788px]');
+    expect(real).toContain('max-w-[788px]');
+    expect(real).toContain('min-[890px]:h-[573px]');
     expect(real).toContain('border-[#e9cd62]');
-    expect(real).toContain('h-[379px]');
+    expect(real).toContain('min-[890px]:h-[379px]');
+  });
+});
+
+describe('AiTutorPanel — responsive (ผู้ใช้กำหนด 2026-10-20)', () => {
+  const markup = renderToStaticMarkup(<AiTutorPanel />);
+
+  it('ไม่พึ่งความกว้างคงที่ 788px แล้ว — เต็มความกว้างแต่ไม่เกินแบบ', () => {
+    expect(markup).toContain('w-full max-w-[788px]');
+    // ไม่มีการ fix ความกว้าง 788 (max-w คือเพดาน ไม่ใช่ความกว้างตายตัว)
+    expect(markup).not.toMatch(/(?<!max-)w-\[788px\]/);
+  });
+
+  it('ความสูงแชทเป็น clamp บนมือถือ และ 379px ตามแบบเมื่อจอกว้าง', () => {
+    expect(markup).toContain('h-[clamp(220px,38vh,379px)]');
+    expect(markup).toContain('min-[890px]:h-[379px]');
+  });
+
+  it('ก้อนข้อความย่อได้ (min-w-0/flex-1) ไม่ล้นจอแคบ', () => {
+    expect(markup).toContain('min-w-0 flex-1');
+    expect(markup).toContain('max-w-[578px]');
+  });
+
+  it('ช่องพิมพ์ไม่ถูกแถบล่างของหน้าสอบบัง และกัน iOS zoom', () => {
+    expect(markup).toContain('scroll-mb-[96px]');
+    expect(markup).toContain('text-[16px]');
+    expect(markup).toContain('min-[890px]:text-[14px]');
+  });
+});
+
+describe('AiTutorPanel — ป้าย Beta + ข้อความกันเหตุ (เฉพาะโหมดหน้าจริง)', () => {
+  it('ไม่แสดงในโหมด mock (คงความตรง Figma)', () => {
+    const mock = renderToStaticMarkup(<AiTutorPanel />);
+    expect(mock).not.toContain('ทดลองใช้ (Beta)');
+    expect(mock).not.toContain('AI อาจตอบผิดได้');
+  });
+
+  it('แสดงเมื่อเปิด showBetaLabels โดยไม่ดันหัวข้อความเดิม', () => {
+    const live = renderToStaticMarkup(<AiTutorPanel showBetaLabels />);
+    expect(live).toContain('ทดลองใช้ (Beta)');
+    expect(live).toContain('AI อาจตอบผิดได้');
+    // หัวข้อ/โควตาเดิมยังอยู่และไม่ถูกแทนที่
+    expect(live).toContain('โหมด AI');
+    expect(live).toContain('(เหลือโควตา 5 ครั้ง)');
   });
 });

@@ -1208,6 +1208,7 @@ export default function SetQuizPage() {
         onAnswerSelect={handleAnswer}
         disabled={submitting}
         aiTutor={aiTutorEnabled}
+        questionId={question.id}
       />
       {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}
