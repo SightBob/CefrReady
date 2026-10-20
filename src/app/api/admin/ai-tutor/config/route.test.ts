@@ -230,8 +230,80 @@ describe('PUT /api/admin/ai-tutor/config', () => {
   });
 });
 
-describe('migration ยังไม่รัน → 503 พร้อมข้อความชัดเจน (ไม่ใช่ 500)', () => {
-  it('PUT /config: ตาราง ai_tutor_settings ยังไม่มี → 503', async () => {
+describe('ขอบเขตค่าตัวเลข (ช่วงเดียวกับ UI)', () => {
+  const put = (body: Record<string, unknown>) =>
+    PUT_CONFIG(new NextRequest('http://localhost/api/admin/ai-tutor/config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }));
+
+  it('ค่าต่ำสุด/สูงสุดของแต่ละค่า → บันทึกได้', async () => {
+    for (const body of [
+      { questionQuota: 1 }, { questionQuota: 10 },
+      { userDailyLimit: 1 }, { userDailyLimit: 100 },
+      { systemDailyLimit: 1 }, { systemDailyLimit: 20_000 },
+      { rolloutPercent: 0 }, { rolloutPercent: 100 },
+      { maxTokens: 200 }, { maxTokens: 2000 },
+      { timeoutMs: 5000 }, { timeoutMs: 30_000 },
+      { firstTokenTimeoutMs: 2000 },
+    ]) {
+      const res = await put(body);
+      expect(res.status, JSON.stringify(body)).toBe(200);
+    }
+  });
+
+  it('ค่าเกินช่วง (ต่ำ/สูง) → 400 พร้อมข้อความที่ระบุช่วงที่อนุญาต', async () => {
+    for (const body of [
+      { questionQuota: 0 }, { questionQuota: 11 },
+      { userDailyLimit: 0 }, { userDailyLimit: 101 },
+      { systemDailyLimit: 0 }, { systemDailyLimit: 20_001 },
+      { rolloutPercent: 101 }, { rolloutPercent: -1 },
+      { maxTokens: 199 }, { maxTokens: 2001 },
+      { timeoutMs: 4999 }, { timeoutMs: 30_001 },
+      { firstTokenTimeoutMs: 1999 },
+    ]) {
+      const res = await put(body);
+      expect(res.status, JSON.stringify(body)).toBe(400);
+      const payload = await res.json();
+      expect(payload.success).toBe(false);
+      expect(payload.error).toMatch(/\d+–\d+/); // ข้อความมีช่วงที่อนุญาต
+    }
+  });
+
+  it('ทศนิยม/ค่าว่าง/ค่าที่ไม่ใช่ตัวเลข → 400', async () => {
+    for (const body of [
+      { questionQuota: 2.5 },
+      { questionQuota: '' },
+      { userDailyLimit: 'abc' },
+      { maxTokens: null },
+    ]) {
+      const res = await put(body);
+      expect(res.status, JSON.stringify(body)).toBe(400);
+    }
+  });
+
+  it('เพดานรายวันน้อยกว่าโควตาต่อข้อ → 400', async () => {
+    const res = await put({ questionQuota: 10, userDailyLimit: 5 });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('โควตาต่อข้อ');
+  });
+
+  it('เวลารอชิ้นแรกเกินเวลารอสูงสุด → 400', async () => {
+    const res = await put({ timeoutMs: 5000, firstTokenTimeoutMs: 20_000 });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('เวลารอสูงสุด');
+  });
+
+  it('systemDailyLimit = 0 ไม่ใช่ค่าที่ถูกต้อง (0 = ค่าเริ่มต้น ไม่ใช่ "ปิดทุกคน")', async () => {
+    const res = await put({ systemDailyLimit: 0 });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('1–20000');
+  });
+});
+
+describe('migration ยังไม่รัน → 503 พร้อมข้อความชัดเจน (ไม่ใช่ 500)', () => {  it('PUT /config: ตาราง ai_tutor_settings ยังไม่มี → 503', async () => {
     mocks.insert.mockImplementation(() => {
       throw new Error('relation "ai_tutor_settings" does not exist');
     });

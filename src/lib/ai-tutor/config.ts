@@ -10,6 +10,15 @@ import {
 import { aiTutorMasterSwitchEnabled } from './flags';
 import { describeError, warnWithSummary } from './errors';
 import {
+  AI_TUTOR_RANGES,
+  AI_TUTOR_RANGE_KEYS,
+  checkCrossFieldRules,
+  checkRange,
+  clampToRange,
+  isAiTutorRangeKey,
+  type AiTutorRangeKey,
+} from './ranges';
+import {
   AI_TUTOR_EFFORTS,
   AI_TUTOR_FORBIDDEN_KEYS,
   aiTutorSaveRequestSchema,
@@ -104,11 +113,10 @@ function envEffort(name: string, fallback: AiTutorEffort): AiTutorEffort {
 
 export function getAiTutorEnvDefaults(): AiTutorConfig {
   const envMasterEnabled = aiTutorMasterSwitchEnabled();
-  const timeoutMs = Math.min(envInt('AI_TUTOR_TIMEOUT_MS', AI_TUTOR_MAX_TIMEOUT_MS), AI_TUTOR_MAX_TIMEOUT_MS);
+  const timeoutMs = clampToRange('timeoutMs', envInt('AI_TUTOR_TIMEOUT_MS', AI_TUTOR_MAX_TIMEOUT_MS));
   const firstTokenTimeoutMs = Math.min(
-    envInt('AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS', Math.floor(timeoutMs / 2)),
+    clampToRange('firstTokenTimeoutMs', envInt('AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS', Math.floor(timeoutMs / 2))),
     timeoutMs,
-    AI_TUTOR_MAX_FIRST_TOKEN_TIMEOUT_MS,
   );
   return {
     envMasterEnabled,
@@ -117,13 +125,14 @@ export function getAiTutorEnvDefaults(): AiTutorConfig {
     fallbackModel: process.env.AI_TUTOR_FALLBACK_MODEL?.trim() || null,
     primaryEffort: envEffort('AI_TUTOR_REASONING_EFFORT', 'low'),
     fallbackEffort: envEffort('AI_TUTOR_FALLBACK_REASONING_EFFORT', 'none'),
-    maxTokens: Math.min(envInt('AI_TUTOR_MAX_TOKENS', 1200), 4000),
+    // ทุกค่าตัวเลขถูกบีบให้อยู่ในช่วงที่กำหนด (แหล่งเดียว: src/lib/ai-tutor/ranges.ts)
+    maxTokens: clampToRange('maxTokens', envInt('AI_TUTOR_MAX_TOKENS', 1200)),
     timeoutMs,
     firstTokenTimeoutMs,
-    questionQuota: Math.min(envInt('AI_TUTOR_QUESTION_QUOTA', 5), 20),
-    userDailyLimit: Math.min(envInt('AI_TUTOR_USER_DAILY_LIMIT', 50), 1000),
-    systemDailyLimit: Math.min(envInt('AI_TUTOR_SYSTEM_DAILY_LIMIT', 10_000), 100_000),
-    rolloutPercent: Math.min(envInt('AI_TUTOR_ROLLOUT_PERCENT', 0), 100),
+    questionQuota: clampToRange('questionQuota', envInt('AI_TUTOR_QUESTION_QUOTA', 5)),
+    userDailyLimit: clampToRange('userDailyLimit', envInt('AI_TUTOR_USER_DAILY_LIMIT', 50)),
+    systemDailyLimit: clampToRange('systemDailyLimit', envInt('AI_TUTOR_SYSTEM_DAILY_LIMIT', 10_000)),
+    rolloutPercent: clampToRange('rolloutPercent', envInt('AI_TUTOR_ROLLOUT_PERCENT', 0)),
     promptCache: process.env.AI_TUTOR_PROMPT_CACHE?.trim() === '1',
   };
 }
@@ -222,11 +231,12 @@ export async function getAiTutorConfig(options: { ignoreDb?: boolean } = {}): Pr
  * - runtimeEnabled เปิดทับ env ที่ปิดอยู่ไม่ได้
  */
 export function normalizeConfig(raw: AiTutorConfig, envDefaults: AiTutorConfig): AiTutorConfig {
-  const timeoutMs = Math.min(Math.max(raw.timeoutMs ?? AI_TUTOR_MAX_TIMEOUT_MS, 1000), AI_TUTOR_MAX_TIMEOUT_MS);
+  // บีบค่าตัวเลขให้อยู่ในช่วงที่กำหนด (แหล่งเดียว: src/lib/ai-tutor/ranges.ts)
+  // → ค่าที่เพี้ยน/เก่าใน DB หรือ env ที่ผิดช่วง จะไม่ทำให้ระบบพัง
+  const timeoutMs = clampToRange('timeoutMs', raw.timeoutMs ?? AI_TUTOR_MAX_TIMEOUT_MS);
   const firstTokenTimeoutMs = Math.min(
-    Math.max(raw.firstTokenTimeoutMs ?? Math.floor(timeoutMs / 2), 1000),
+    clampToRange('firstTokenTimeoutMs', raw.firstTokenTimeoutMs ?? Math.floor(timeoutMs / 2)),
     timeoutMs,
-    AI_TUTOR_MAX_FIRST_TOKEN_TIMEOUT_MS,
   );
   return {
     ...raw,
@@ -235,11 +245,11 @@ export function normalizeConfig(raw: AiTutorConfig, envDefaults: AiTutorConfig):
     runtimeEnabled: envDefaults.envMasterEnabled && raw.runtimeEnabled !== false,
     timeoutMs,
     firstTokenTimeoutMs,
-    maxTokens: Math.min(Math.max(raw.maxTokens ?? 1200, 100), 4000),
-    questionQuota: Math.min(Math.max(raw.questionQuota ?? 5, 1), 20),
-    userDailyLimit: Math.min(Math.max(raw.userDailyLimit ?? 50, 1), 1000),
-    systemDailyLimit: Math.min(Math.max(raw.systemDailyLimit ?? 10_000, 1), 100_000),
-    rolloutPercent: Math.min(Math.max(raw.rolloutPercent ?? 0, 0), 100),
+    maxTokens: clampToRange('maxTokens', raw.maxTokens ?? 1200),
+    questionQuota: clampToRange('questionQuota', raw.questionQuota ?? 5),
+    userDailyLimit: clampToRange('userDailyLimit', raw.userDailyLimit ?? 50),
+    systemDailyLimit: clampToRange('systemDailyLimit', raw.systemDailyLimit ?? 10_000),
+    rolloutPercent: clampToRange('rolloutPercent', raw.rolloutPercent ?? 0),
   };
 }
 
@@ -278,6 +288,14 @@ export async function saveAiTutorSettings(
     const issue = parsed.error.issues[0];
     const key = issue?.path?.join('.') ?? '';
     const field = key ? ` (${key})` : '';
+    // ค่าตัวเลขที่อยู่นอกช่วง → บอกช่วงที่อนุญาต (แหล่งเดียว: src/lib/ai-tutor/ranges.ts)
+    if (isAiTutorRangeKey(key)) {
+      const range = AI_TUTOR_RANGES[key];
+      return {
+        ok: false,
+        error: `${key}: ${range.hint} · ช่วงที่อนุญาต ${range.min}–${range.max}`,
+      };
+    }
     if (key === 'timeoutMs' || key === 'firstTokenTimeoutMs') {
       return {
         ok: false,
@@ -287,6 +305,22 @@ export async function saveAiTutorSettings(
     return { ok: false, error: `ค่าไม่ถูกต้อง${field}: ${issue?.message ?? 'ไม่ผ่านการตรวจสอบ'}` };
   }
   const { reset = [], ...settings } = parsed.data;
+
+  // 2.1) ตรวจช่วงค่าตัวเลขจากแหล่งเดียว (src/lib/ai-tutor/ranges.ts) — พร้อมข้อความบอกช่วงที่อนุญาต
+  for (const key of AI_TUTOR_RANGE_KEYS) {
+    const value = (settings as Record<string, unknown>)[key];
+    if (value === undefined) continue;
+    const error = checkRange(key, value);
+    if (error) {
+      return { ok: false, error: `${key}: ${error}` };
+    }
+  }
+
+  // 2.2) ตรวจความสัมพันธ์ระหว่างค่า (เพดานรายวัน >= โควตาต่อข้อ, เวลารอชิ้นแรก <= เวลารอสูงสุด)
+  const crossFieldError = checkCrossFieldRules(settings as Partial<Record<AiTutorRangeKey, number>>);
+  if (crossFieldError) {
+    return { ok: false, error: crossFieldError };
+  }
 
   // 3) firstTokenTimeoutMs ต้องไม่เกิน timeoutMs
   if (

@@ -261,4 +261,56 @@ describe('หน้า /admin/ai-tutor — แท็บตั้งค่า', (
     await renderTab();
     expect(container.textContent).not.toContain('AI Tutor ใช้งานไม่ได้ในตอนนี้');
   });
+
+  it('ช่องตัวเลขมี type=number + min/max/step ตามช่วงที่กำหนด และแสดงช่วงข้างช่อง', async () => {
+    await renderTab();
+
+    const quota = container.querySelector<HTMLInputElement>('input[aria-label="โควตาต่อข้อ (ครั้ง/วัน)"]');
+    expect(quota?.type).toBe('number');
+    expect(quota?.min).toBe('1');
+    expect(quota?.max).toBe('10');
+    expect(quota?.step).toBe('1');
+    expect(container.textContent).toContain('ช่วงที่อนุญาต 1–10');
+
+    const system = container.querySelector<HTMLInputElement>('input[aria-label="เพดานรวมทั้งระบบ (ครั้ง/วัน)"]');
+    expect(system?.min).toBe('1');
+    expect(system?.max).toBe('20000');
+    // ค่า 0 ไม่ใช่ทางปิดระบบ → ต้องเตือน
+    expect(container.textContent).toContain('ค่า 0 ไม่ได้หมายถึงปิดทุกคน');
+  });
+
+  it('ใส่ค่าเกินช่วง → ปุ่มบันทึกถูกปิด + มีข้อความบอกช่วง', async () => {
+    await renderTab();
+
+    const quota = container.querySelector<HTMLInputElement>('input[aria-label="โควตาต่อข้อ (ครั้ง/วัน)"]');
+    expect(button('บันทึกการตั้งค่า').disabled).toBe(false);
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(quota, '999');
+      quota!.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(button('บันทึกการตั้งค่า').disabled).toBe(true);
+    expect(container.textContent).toContain('อยู่นอกช่วงที่อนุญาต');
+    expect(container.textContent).toContain('1–10');
+  });
+
+  it('เพดานรายวันน้อยกว่าโควตาต่อข้อ → ปุ่มบันทึกถูกปิด', async () => {
+    await renderTab();
+
+    const quota = container.querySelector<HTMLInputElement>('input[aria-label="โควตาต่อข้อ (ครั้ง/วัน)"]');
+    const userLimit = container.querySelector<HTMLInputElement>('input[aria-label="เพดานต่อผู้เรียน (ครั้ง/วัน)"]');
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(quota, '10');
+      quota!.dispatchEvent(new Event('input', { bubbles: true }));
+      setter?.call(userLimit, '2');
+      userLimit!.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(button('บันทึกการตั้งค่า').disabled).toBe(true);
+    expect(container.textContent).toContain('โควตาต่อข้อ');
+  });
 });

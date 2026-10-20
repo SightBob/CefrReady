@@ -4,27 +4,42 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, RotateCcw, Search } from 'lucide-react';
 
 import { aiTutorSaveRequestSchema, type AiTutorSettingsKey } from '@/lib/ai-tutor/settings-schema';
+import {
+  AI_TUTOR_RANGES,
+  checkCrossFieldRules,
+  type AiTutorRangeKey,
+} from '@/lib/ai-tutor/ranges';
 
 import ConfirmModal from './ConfirmModal';
 import type { AdminAuditRow, AdminConfigResponse, AdminModel, ModelTestResult } from './types';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-primary-500';
 
-/** คีย์ที่ตั้งค่าได้ + คำอธิบายสั้น + ช่วงที่อนุญาต */
+/** ดึงเฉพาะขอบเขตจากแหล่งเดียว (ไม่เอา hint มาด้วย — หน้านี้ใช้คำอธิบายของตัวเอง) */
+const rangeOf = (key: AiTutorRangeKey) => {
+  const range = AI_TUTOR_RANGES[key];
+  return { min: range.min, max: range.max, step: range.step };
+};
+
+/**
+ * คีย์ที่ตั้งค่าได้ + คำอธิบายสั้น
+ * ขอบเขต (min/max/step) ดึงจาก src/lib/ai-tutor/ranges.ts — แหล่งเดียวกับที่ server ตรวจตอนบันทึก
+ */
 const NUMERIC_FIELDS: Array<{
-  key: AiTutorSettingsKey;
+  key: AiTutorRangeKey;
   label: string;
   hint: string;
   min: number;
   max: number;
+  step: number;
 }> = [
-  { key: 'questionQuota', label: 'โควตาต่อข้อ (ครั้ง/วัน)', hint: 'จำนวนคำถามที่ถาม AI ได้ต่อข้อหนึ่งในหนึ่งวัน (ตามเวลาไทย) · 1–20', min: 1, max: 20 },
-  { key: 'userDailyLimit', label: 'เพดานต่อผู้เรียน (ครั้ง/วัน)', hint: 'จำนวนคำถามรวมของผู้เรียนหนึ่งคนต่อวัน (ซ่อนจากผู้เรียน) · 1–1000', min: 1, max: 1000 },
-  { key: 'systemDailyLimit', label: 'เพดานรวมทั้งระบบ (ครั้ง/วัน)', hint: 'จำนวนคำถามรวมทั้งระบบต่อวัน — ใช้เป็น kill switch · 1–100000', min: 1, max: 100000 },
-  { key: 'rolloutPercent', label: 'Rollout (%)', hint: 'เปอร์เซ็นต์ของผู้เรียนที่จะได้ใช้ฟีเจอร์แบบสุ่มแบบคงที่ (คนเดิมได้กลุ่มเดิม) · 0–100', min: 0, max: 100 },
-  { key: 'maxTokens', label: 'เพดาน token คำตอบ', hint: 'รวม reasoning + คำตอบ · 100–4000', min: 100, max: 4000 },
-  { key: 'timeoutMs', label: 'เวลารอสูงสุด (มิลลิวินาที)', hint: 'เวลารอโมเดลต่อครั้ง (หลัก/สำรอง) — ต้องไม่เกินเพดานของ maxDuration', min: 1000, max: 30000 },
-  { key: 'firstTokenTimeoutMs', label: 'เวลารอเนื้อหาชิ้นแรก (มิลลิวินาที)', hint: 'ถ้าโมเดลยังไม่ตอบภายในเวลานี้ ระบบจะสลับไปใช้โมเดลสำรอง · ต้องไม่เกิน timeout', min: 1000, max: 30000 },
+  { key: 'questionQuota', label: 'โควตาต่อข้อ (ครั้ง/วัน)', hint: 'จำนวนคำถามที่ถาม AI ได้ต่อข้อหนึ่งในหนึ่งวัน (ตามเวลาไทย)', ...rangeOf('questionQuota') },
+  { key: 'userDailyLimit', label: 'เพดานต่อผู้เรียน (ครั้ง/วัน)', hint: 'จำนวนคำถามรวมของผู้เรียนหนึ่งคนต่อวัน (ซ่อนจากผู้เรียน) · ต้องไม่น้อยกว่าโควตาต่อข้อ', ...rangeOf('userDailyLimit') },
+  { key: 'systemDailyLimit', label: 'เพดานรวมทั้งระบบ (ครั้ง/วัน)', hint: 'จำนวนคำถามรวมทั้งระบบต่อวัน (เพดานต้นทุน) · ค่า 0 ไม่ได้หมายถึงปิดทุกคน — ให้ใช้สวิตช์ชั่วคราวแทน', ...rangeOf('systemDailyLimit') },
+  { key: 'rolloutPercent', label: 'Rollout (%)', hint: 'เปอร์เซ็นต์ของผู้เรียนที่จะได้ใช้ฟีเจอร์แบบสุ่มแบบคงที่ (คนเดิมได้กลุ่มเดิม)', ...rangeOf('rolloutPercent') },
+  { key: 'maxTokens', label: 'เพดาน token คำตอบ', hint: 'รวม reasoning + คำตอบ', ...rangeOf('maxTokens') },
+  { key: 'timeoutMs', label: 'เวลารอสูงสุด (มิลลิวินาที)', hint: 'เวลารอโมเดลต่อครั้ง (หลัก/สำรอง) — ต้องไม่เกินเพดานของ maxDuration', ...rangeOf('timeoutMs') },
+  { key: 'firstTokenTimeoutMs', label: 'เวลารอเนื้อหาชิ้นแรก (มิลลิวินาที)', hint: 'ถ้าโมเดลยังไม่ตอบภายในเวลานี้ ระบบจะสลับไปใช้โมเดลสำรอง · ต้องไม่เกินเวลารอสูงสุด', ...rangeOf('firstTokenTimeoutMs') },
 ];
 
 type FormState = Record<string, string | boolean | null>;
@@ -131,7 +146,35 @@ export default function ConfigTab() {
   const modelChanged = Boolean(data && primaryModel !== data.config.primaryModel);
   const needsModelTest = modelChanged && testedModel !== primaryModel;
   const busy = saving || testBusy;
-  const canSave = Boolean(data) && !busy && !needsModelTest;
+
+  /** ค่าที่อยู่นอกช่วง (หรือผิดความสัมพันธ์) → ปิดปุ่มบันทึก + บอกเหตุผล */
+  const rangeProblems = useMemo(() => {
+    const problems: string[] = [];
+    const numeric: Partial<Record<AiTutorRangeKey, number>> = {};
+
+    for (const field of NUMERIC_FIELDS) {
+      const raw = form[field.key];
+      if (raw === undefined || raw === null || raw === '') continue;
+      const value = Number(raw);
+      if (!Number.isFinite(value)) {
+        problems.push(`${field.label} ต้องเป็นตัวเลข (ช่วง ${field.min}–${field.max})`);
+        continue;
+      }
+      numeric[field.key] = value;
+      if (!Number.isInteger(value)) {
+        problems.push(`${field.label} ต้องเป็นจำนวนเต็ม (ช่วง ${field.min}–${field.max})`);
+      } else if (value < field.min || value > field.max) {
+        problems.push(`${field.label} ต้องอยู่ในช่วง ${field.min}–${field.max} (ตอนนี้คือ ${value})`);
+      }
+    }
+
+    const crossField = checkCrossFieldRules(numeric);
+    if (crossField) problems.push(crossField);
+
+    return problems;
+  }, [form]);
+
+  const canSave = Boolean(data) && !busy && !needsModelTest && rangeProblems.length === 0;
 
   const primaryModelInfo = models.find((model) => model.id === primaryModel);
   const fallbackModelInfo = models.find((model) => model.id === fallbackModel);
@@ -275,6 +318,17 @@ export default function ConfigTab() {
         <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <AlertTriangle className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
           {data.warnings.join(' · ')}
+        </p>
+      )}
+      {rangeProblems.length > 0 && (
+        <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <AlertTriangle className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
+          <span className="font-bold">ค่าบางตัวอยู่นอกช่วงที่อนุญาต — ปุ่มบันทึกถูกปิดไว้</span>
+          <ul className="mt-1 list-disc space-y-0.5 pl-6">
+            {rangeProblems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
         </p>
       )}
       {(proofSecretMissing || openRouterKeyMissing) && (
@@ -533,6 +587,7 @@ export default function ConfigTab() {
                 aria-label={field.label}
                 min={field.min}
                 max={field.max}
+                step={field.step}
                 value={String(form[field.key] ?? '')}
                 disabled={busy}
                 onChange={(event) => setField(field.key, event.target.value)}
