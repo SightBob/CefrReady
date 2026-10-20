@@ -13,6 +13,7 @@ import {
   isAiTutorEnabled,
   isAiTutorEnabledByFlags,
 } from './ai-tutor';
+import { clearAiTutorConfigCache } from './ai-tutor/config';
 
 function accessRows(value: boolean): { aiTutorAccess?: boolean }[] {
   return [{ aiTutorAccess: value }];
@@ -29,6 +30,8 @@ beforeEach(() => {
   delete process.env.AI_TUTOR_ENABLED;
   delete process.env.AI_TUTOR_ROLLOUT_PERCENT;
   vi.clearAllMocks();
+  // config มีแคช 30 วินาที — ล้างให้แต่ละเคสอ่าน env ตามที่ตั้งไว้
+  clearAiTutorConfigCache();
 });
 
 afterEach(() => {
@@ -189,6 +192,7 @@ describe('isAiTutorEnabledByFlags — ตรรกะเดียวกับท
       for (const percent of ['0', '50', '100']) {
         process.env.AI_TUTOR_ENABLED = 'true';
         process.env.AI_TUTOR_ROLLOUT_PERCENT = percent;
+        clearAiTutorConfigCache(); // config มีแคช 30 วิ — ต้องล้างให้อ่าน env ของแต่ละรอบ
         stubAccess(access);
         const fromDb = await isAiTutorEnabled({ id: 'user-7f3c' });
         const fromFlags = isAiTutorEnabledByFlags('user-7f3c', access);

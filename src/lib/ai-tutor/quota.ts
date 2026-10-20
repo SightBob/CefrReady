@@ -8,6 +8,9 @@
  *   pg_advisory_xact_lock(hashtextextended(key)) ในทรานแซกชันเดียวกับการนับ+จอง
  *   แล้ว insert แถว status='pending' ที่นับเข้าโควตาทันที ก่อนเรียกโมเดล
  *   สำเร็จ → mark 'ok' · ล้มเหลวก่อนมีเนื้อหา → mark 'failed' (ไม่นับ = คืนโควตา)
+ *
+ * ค่าโควตาที่ใช้งานจริงมาจาก getAiTutorConfig() (DB ทับ env) — ฟังก์ชันด้านล่าง
+ * เป็น "ค่าตั้งต้นจาก env" ที่ใช้เป็น fallback และโดยสคริปต์ที่อ่าน env โดยตรง
  */
 import { and, eq, gte, or, sql } from 'drizzle-orm';
 
@@ -125,9 +128,11 @@ export async function reserveQuestion(params: {
   questionId: number;
   message: string;
   now?: Date;
+  /** เพดานโควตาต่อข้อ — ค่าจาก config (DB ทับ env); ไม่ส่ง = ใช้ค่าตั้งต้นจาก env */
+  limit?: number;
 }): Promise<ReserveResult> {
   const now = params.now ?? new Date();
-  const limit = questionQuotaLimit();
+  const limit = params.limit ?? questionQuotaLimit();
   const lockKey = `ai-tutor:${params.userId}:${params.questionId}`;
 
   return db.transaction(async (tx) => {

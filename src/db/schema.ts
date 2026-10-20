@@ -614,3 +614,29 @@ export const aiTutorFeedback = pgTable('ai_tutor_feedback', {
 export type DbAiTutorFeedback = typeof aiTutorFeedback.$inferSelect;
 export type NewAiTutorFeedback = typeof aiTutorFeedback.$inferInsert;
 
+// ─── ค่าตั้ง AI Tutor ที่ผู้ดูแลแก้ได้จากหน้า admin ─────────────────────
+// key/value (value เป็น jsonb) — ค่าในตารางนี้ทับค่า env (env = ค่าตั้งต้น)
+export const aiTutorSettings = pgTable('ai_tutor_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// บันทึกการเปลี่ยนค่าโดยผู้ดูแล (ก่อน/หลัง) เพื่อตรวจย้อนหลังได้
+export const aiTutorAdminAudit = pgTable('ai_tutor_admin_audit', {
+  id: serial('id').primaryKey(),
+  actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+  action: varchar('action', { length: 50 }).notNull(),
+  target: varchar('target', { length: 200 }),
+  before: jsonb('before'),
+  after: jsonb('after'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  createdIdx: index('ai_tutor_admin_audit_created_idx').on(table.createdAt),
+  actorIdx: index('ai_tutor_admin_audit_actor_idx').on(table.actorUserId),
+}));
+
+export type DbAiTutorSetting = typeof aiTutorSettings.$inferSelect;
+export type DbAiTutorAdminAudit = typeof aiTutorAdminAudit.$inferSelect;
+

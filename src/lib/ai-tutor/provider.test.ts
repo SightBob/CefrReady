@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AiTutorProviderError, streamAiTutorReply } from './provider';
+import { clearAiTutorConfigCache } from './config';
 
 const PRIMARY = 'minimax/minimax-m3.1-flash:free';
 const FALLBACK = 'deepseek/deepseek-v4.1-flash';
@@ -62,6 +63,8 @@ beforeEach(() => {
   process.env.AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS = '80';
   process.env.AI_TUTOR_TIMEOUT_MS = '5000';
   delete process.env.AI_TUTOR_PROMPT_CACHE;
+  // config มีแคช 30 วินาที — ล้างให้แต่ละเคสอ่าน env ตามที่ตั้งไว้
+  clearAiTutorConfigCache();
 
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
     const body = JSON.parse(String(init.body)) as Record<string, unknown>;

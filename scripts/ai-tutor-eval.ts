@@ -10,6 +10,7 @@ import { questions } from '../src/db/schema';
 import { buildProviderMessages, type ThreadMessage } from '../src/lib/ai-tutor/messages';
 import { buildQuestionContext } from '../src/lib/ai-tutor/prompt';
 import { streamAiTutorReply } from '../src/lib/ai-tutor/provider';
+import { getAiTutorConfig } from '../src/lib/ai-tutor/config';
 
 /**
  * AI Tutor eval — รันสถานการณ์ถามต่อหลายโมเดลเทียบกัน แล้วเขียนไฟล์ markdown ให้อ่านเอง
@@ -325,6 +326,8 @@ async function main() {
     console.log(`\n=== โมเดล: ${model} ===`);
     // provider อ่านโมเดลจาก env → ตั้งให้ใช้ตัวเดียวกับ API
     process.env.AI_TUTOR_MODEL = model;
+    // eval เทียบ "ค่าจาก env" เท่านั้น (ไม่เอาค่าใน DB มาทับ ไม่งั้นเทียบผิดตัว)
+    const evalConfig = await getAiTutorConfig({ ignoreDb: true });
 
     const modelResults: CaseResult[] = [];
     const summary: ModelSummary = {
@@ -380,7 +383,7 @@ async function main() {
       let answeredBy: string | null = null;
 
       try {
-        const result = await streamAiTutorReply({ messages, onDelta: () => undefined });
+        const result = await streamAiTutorReply({ messages, onDelta: () => undefined, config: evalConfig });
         answer = result.text;
         inputTokens = result.usage.inputTokens;
         outputTokens = result.usage.outputTokens;

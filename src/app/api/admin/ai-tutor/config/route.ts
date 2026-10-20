@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-import { isAdminRequest } from '@/lib/admin-auth';
+import { withAdmin } from '@/lib/admin-route';
 import {
   AI_TUTOR_MAX_FIRST_TOKEN_TIMEOUT_MS,
   AI_TUTOR_MAX_TIMEOUT_MS,
@@ -9,46 +9,57 @@ import {
   AI_TUTOR_ROUTE_SLACK_S,
   AI_TUTOR_TIMEOUT_LIMIT_NOTE,
 } from '@/lib/ai-tutor/limits';
-import { aiTutorMaxTokens, aiTutorModel, aiTutorReasoningEffort } from '@/lib/ai-tutor/provider';
-import { aiTutorFallbackModel } from '@/lib/ai-tutor/provider';
-import { questionQuotaLimit, systemDailyLimit, userDailyLimit } from '@/lib/ai-tutor/quota';
+import {
+  getAiTutorConfigWithSources,
+  saveAiTutorSettings,
+} from '@/lib/ai-tutor/config';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * GET /api/admin/ai-tutor/config — ค่าตั้งของ AI Tutor ที่ใช้อยู่จริง
- * (ผู้ดูแลเท่านั้น) พร้อมเพดานเวลาและคำอธิบายว่าจะเพิ่มเพดานได้อย่างไร
+ * GET /api/admin/ai-tutor/config — ค่าที่ใช้งานจริง + ที่มาของแต่ละค่า (db/env)
+ * PUT /api/admin/ai-tutor/config — บันทึกค่า (validate + เขียน audit + ล้างแคช)
  */
 export async function GET() {
-  if (!(await isAdminRequest())) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const { error } = await withAdmin({ keySuffix: 'admin:ai-tutor', maxRequests: 60 });
+  if (error) return error;
 
+  const { config, sources, envDefaults, warnings } = await getAiTutorConfigWithSources();
   return NextResponse.json({
     success: true,
-    model: {
-      primary: aiTutorModel(),
-      fallback: aiTutorFallbackModel(),
-      reasoningEffortPrimary: aiTutorReasoningEffort('primary'),
-      reasoningEffortFallback: aiTutorReasoningEffort('fallback'),
-      maxTokens: aiTutorMaxTokens(),
+    data: {
+      config,
+      sources,
+      envDefaults,
+      warnings,
+      limits: {
+        routeMaxDurationSeconds: AI_TUTOR_ROUTE_MAX_DURATION_S,
+        slackSeconds: AI_TUTOR_ROUTE_SLACK_S,
+        maxTimeoutSeconds: AI_TUTOR_MAX_TIMEOUT_S,
+        maxTimeoutMs: AI_TUTOR_MAX_TIMEOUT_MS,
+        maxFirstTokenTimeoutMs: AI_TUTOR_MAX_FIRST_TOKEN_TIMEOUT_MS,
+        note: AI_TUTOR_TIMEOUT_LIMIT_NOTE,
+      },
     },
-    quota: {
-      perQuestionPerDay: questionQuotaLimit(),
-      perUserPerDay: userDailyLimit(),
-      systemPerDay: systemDailyLimit(),
-    },
-    timeouts: {
-      /** เพดานจริงของ route (อ่านตอน build) */
-      routeMaxDurationSeconds: AI_TUTOR_ROUTE_MAX_DURATION_S,
-      /** เวลาเผื่อสำหรับงานหลังโมเดล */
-      slackSeconds: AI_TUTOR_ROUTE_SLACK_S,
-      /** เพดาน timeout ต่อ 1 ครั้งเรียก (หลักหรือสำรอง) = floor((maxDuration - slack) / 2) */
-      maxTimeoutSeconds: AI_TUTOR_MAX_TIMEOUT_S,
-      maxTimeoutMs: AI_TUTOR_MAX_TIMEOUT_MS,
-      maxFirstTokenTimeoutMs: AI_TUTOR_MAX_FIRST_TOKEN_TIMEOUT_MS,
-      note: AI_TUTOR_TIMEOUT_LIMIT_NOTE,
-    },
+  });
+}
+
+export async function PUT(request: NextRequest) {
+  const { error, session } = await withAdmin({ keySuffix: 'admin:ai-tutor', maxRequests: 30 });
+  if (error) return error;
+
+  const body = await request.json().catch(() => null);
+  const result = await saveAiTutorSettings(body, session?.user?.id ?? 'unknown');
+  if (!result.ok) {
+    return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+  }
+
+  const { config, sources, warnings } = await getAiTutorConfigWithSources();
+  return NextResponse.json({
+    success: true,
+    saved: result.saved,
+    warnings: [...warnings, ...result.warnings],
+    data: { config, sources },
   });
 }

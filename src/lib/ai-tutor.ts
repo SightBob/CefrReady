@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '@/db';
 import { users } from '@/db/schema';
+import { getAiTutorConfig } from './ai-tutor/config';
 /**
  * Feature flag AI Tutor — ฝั่งเซิร์ฟเวอร์เท่านั้น สุดท้ายผู้เรียนได้รับแค่ boolean
  * (ส่งผ่าน /api/tests/ai-tutor-access) — ห้ามคำนวณใน client และห้ามพึ่งพา
@@ -47,15 +48,31 @@ export function aiTutorInRollout(userId: string): boolean {
  * ตรรกะ "คนนี้เปิดฟีเจอร์ไหม" จากธงทั้งสองชั้น (ไม่แตะ DB)
  * ใช้ร่วมกันระหว่าง API (isAiTutorEnabled) กับสคริปต์รายงาน เพื่อให้ตัวเลข
  * "ผู้ใช้ที่มีสิทธิ์" ตรงกับเงื่อนไขจริงเสมอ
+ *
+ * @param options.runtimeEnabled ผลรวมของ master switch (env) กับสวิตช์ปิดชั่วคราวใน DB
+ *   — ถ้าไม่ส่ง = ใช้ค่าจาก env (ผู้เรียกเดิมที่อ่าน env โดยตรง)
+ * @param options.rolloutPercent เปอร์เซ็นต์ rollout (ถ้าไม่ส่ง = ค่าจาก env)
  */
-export function isAiTutorEnabledByFlags(userId: string, hasAccountAccess: boolean): boolean {
-  if (!userId || !aiTutorMasterSwitchEnabled()) return false;
+export function isAiTutorEnabledByFlags(
+  userId: string,
+  hasAccountAccess: boolean,
+  options: { runtimeEnabled?: boolean; rolloutPercent?: number } = {},
+): boolean {
+  const runtimeEnabled = options.runtimeEnabled ?? aiTutorMasterSwitchEnabled();
+  const rolloutPercent = options.rolloutPercent ?? aiTutorRolloutPercent();
+  if (!userId || !runtimeEnabled) return false;
   if (hasAccountAccess) return true;
-  return aiTutorInRollout(userId);
+  if (rolloutPercent >= 100) return true;
+  return aiTutorRolloutBucket(userId) < rolloutPercent;
 }
 
 export async function isAiTutorEnabled(user: { id: string } | null | undefined): Promise<boolean> {
+  // master switch (env) ปิด → จบทันที ไม่แตะ DB เลย (เหมือนเดิม)
   if (!user?.id || !aiTutorMasterSwitchEnabled()) return false;
+
+  // ค่าจาก config = DB ทับ env (สวิตช์ปิดชั่วคราวอยู่ใน DB ได้ แต่เปิดทับ env ที่ปิดไม่ได้)
+  const config = await getAiTutorConfig();
+  if (!config.runtimeEnabled) return false;
 
   // ถ้า master ไม่เปิดก็จบก่อนแล้ว — จะถึงคิวรี DB ได้ต่อเมื่อ master เปิดเท่านั้น
   const rows: { aiTutorAccess?: boolean }[] = await db
@@ -63,5 +80,8 @@ export async function isAiTutorEnabled(user: { id: string } | null | undefined):
     .from(users)
     .where(eq(users.id, user.id));
 
-  return isAiTutorEnabledByFlags(user.id, rows[0]?.aiTutorAccess === true);
+  return isAiTutorEnabledByFlags(user.id, rows[0]?.aiTutorAccess === true, {
+    runtimeEnabled: config.runtimeEnabled,
+    rolloutPercent: config.rolloutPercent,
+  });
 }

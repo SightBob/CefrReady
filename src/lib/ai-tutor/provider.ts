@@ -2,18 +2,19 @@
  * เรียกโมเดลผ่าน OpenRouter (แบบ stream) — ใช้แนวทางเดียวกับ src/lib/openrouter.ts
  * (โปรเจกต์นี้เรียก OpenRouter ด้วย fetch ตรง ไม่มีแพ็กเกจ openai)
  *
- * ตั้งค่าผ่าน env เท่านั้น (ห้ามฮาร์ดโค้ด):
+ * ค่าทั้งหมดมาจาก getAiTutorConfig() (DB ทับ env) — ผู้ดูแลแก้ได้จากหน้า admin
+ * ไม่ต้องแก้ env / redeploy (ดู src/lib/ai-tutor/config.ts)
+ *
+ * ตั้งค่าผ่าน env เท่านั้น (ห้ามฮาร์ดโค้ด) — เป็นค่าตั้งต้นก่อนที่ DB จะทับ:
  *   AI_TUTOR_MODEL                 โมเดลหลัก เช่น minimax/minimax-m3.1-flash:free
  *   AI_TUTOR_FALLBACK_MODEL        โมเดลสำรอง (ว่าง = ไม่มี fallback)
- *   OPENROUTER_API_KEY             key ของ OpenRouter
+ *   OPENROUTER_API_KEY             key ของ OpenRouter (ห้ามตั้งผ่านหน้า admin)
  *   AI_TUTOR_MAX_TOKENS            เพดาน token รวม (ค่าเริ่มต้น 1200 = เผื่อ reasoning + คำตอบ ~120 คำ)
  *   AI_TUTOR_TIMEOUT_MS            เวลารอสูงสุดต่อ 1 ครั้ง (บีบไม่เกินเพดานของ maxDuration)
  *   AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS เวลาที่ยอมรอ "เนื้อหาชิ้นแรก" (ต้อง ≤ timeout)
  *   AI_TUTOR_REASONING_EFFORT      ระดับ reasoning ของโมเดลหลัก (ค่าเริ่มต้น low)
  *   AI_TUTOR_FALLBACK_REASONING_EFFORT ระดับ reasoning ของโมเดลสำรอง (ค่าเริ่มต้น none)
  *   AI_TUTOR_PROMPT_CACHE          '1' = ส่ง cache_control ให้ provider ที่รองรับ
- *
- * เพดาน timeout ทั้งหมดคำนวณจาก src/lib/ai-tutor/limits.ts (ผูกกับ maxDuration ของ route)
  *
  * Reasoning (ตามเอกสาร OpenRouter: reasoning tokens นับรวมใน max_tokens):
  *   - reasoning.effort  = 'low' | 'minimal' | 'medium' | 'high' | 'xhigh' | 'max' | 'none'
@@ -27,6 +28,7 @@
  * แต่ "ห้ามสลับกลาง stream หลังส่งเนื้อหาให้ผู้เรียนแล้ว" และ "ห้ามสลับเมื่อเจอ 4xx อื่น (400/401/402/404)"
  */
 
+import { getAiTutorConfig, type AiTutorConfig } from './config';
 import {
   resolveAiTutorFirstTokenTimeoutMs,
   resolveAiTutorTimeoutMs,
@@ -63,6 +65,10 @@ export type StreamResult = {
   fallbackReason: string | null;
 };
 
+/**
+ * ค่าตั้งต้นจาก env (ใช้เป็น fallback เมื่ออ่าน DB ไม่ได้ / ในสคริปต์ที่ตั้ง env เอง)
+ * — ค่าที่ใช้งานจริงตอนรันมาจาก getAiTutorConfig() (DB ทับ env)
+ */
 export function aiTutorModel(): string {
   const model = process.env.AI_TUTOR_MODEL?.trim();
   if (!model) {
@@ -160,6 +166,7 @@ async function attemptModel(params: {
   firstTokenTimeoutMs: number;
   timeoutMs: number;
   useCache: boolean;
+  maxTokens: number;
 }): Promise<AttemptResult> {
   const startedAt = Date.now();
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
@@ -171,7 +178,7 @@ async function attemptModel(params: {
     model: params.model,
     stream: true,
     temperature: 0.3,
-    max_tokens: aiTutorMaxTokens(),
+    max_tokens: params.maxTokens,
     messages: params.messages,
     // reasoning: exclude = true → ไม่ส่งเนื้อหา reasoning กลับมาให้ผู้เรียน (ยังนับ token)
     reasoning: { effort: params.effort, exclude: true },
@@ -401,21 +408,28 @@ export async function streamAiTutorReply(params: {
   onDelta: (text: string) => void;
   signal?: AbortSignal;
   now?: number;
+  /**
+   * ค่าตั้งที่จะใช้ (ถ้าไม่ส่ง = อ่านจาก getAiTutorConfig() = DB ทับ env)
+   * สคริปต์ eval ส่งค่าจาก env เอง (ignoreDb) เพื่อเทียบโมเดลหลายตัว
+   */
+  config?: AiTutorConfig;
 }): Promise<StreamResult> {
-  const primaryModel = aiTutorModel();
-  const fallbackModel = aiTutorFallbackModel();
-  const useCache = process.env.AI_TUTOR_PROMPT_CACHE?.trim() === '1';
+  const config = params.config ?? await getAiTutorConfig();
+  const primaryModel = config.primaryModel;
+  const fallbackModel = config.fallbackModel;
+  const useCache = config.promptCache;
   const shared = {
     messages: params.messages,
     cacheBoundaryIndex: params.cacheBoundaryIndex,
     onDelta: params.onDelta,
     signal: params.signal,
-    firstTokenTimeoutMs: aiTutorFirstTokenTimeoutMs(),
-    timeoutMs: aiTutorTimeoutMs(),
+    firstTokenTimeoutMs: config.firstTokenTimeoutMs,
+    timeoutMs: config.timeoutMs,
     useCache,
+    maxTokens: config.maxTokens,
   };
 
-  const primary = await attemptModel({ ...shared, model: primaryModel, effort: aiTutorReasoningEffort('primary') });
+  const primary = await attemptModel({ ...shared, model: primaryModel, effort: config.primaryEffort });
 
   if (primary.ok) {
     return {
@@ -440,7 +454,7 @@ export async function streamAiTutorReply(params: {
   }
 
   // สลับไปโมเดลสำรอง (ยังไม่เคยส่งเนื้อหาให้ผู้เรียน)
-  const fallback = await attemptModel({ ...shared, model: fallbackModel, effort: aiTutorReasoningEffort('fallback') });
+  const fallback = await attemptModel({ ...shared, model: fallbackModel, effort: config.fallbackEffort });
 
   if (fallback.ok) {
     console.warn('[ai-tutor] ใช้โมเดลสำรองแทนโมเดลหลัก', JSON.stringify({
