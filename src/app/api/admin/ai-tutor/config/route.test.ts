@@ -10,13 +10,17 @@ const mocks = vi.hoisted(() => ({
   rateLimit: vi.fn(),
   select: vi.fn(),
   insert: vi.fn(),
+  delete: vi.fn(),
+  update: vi.fn(),
   findModel: vi.fn(),
   fetchModels: vi.fn(),
 }));
 
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: mocks.rateLimit }));
-vi.mock('@/db', () => ({ db: { select: mocks.select, insert: mocks.insert } }));
+vi.mock('@/db', () => ({
+  db: { select: mocks.select, insert: mocks.insert, delete: mocks.delete, update: mocks.update },
+}));
 vi.mock('@/lib/ai-tutor/models', () => ({
   findModel: mocks.findModel,
   fetchOpenRouterModels: mocks.fetchModels,
@@ -42,7 +46,12 @@ function forbidden() {
   });
 }
 
+/** ค่าที่ถูก insert (เก็บจาก .values() เพราะ db.insert() รับ table เป็น argument แรก) */
+let inserted: Array<Record<string, unknown>> = [];
+const insertedValues = () => inserted;
+
 function stubDb() {
+  inserted = [];
   mocks.select.mockImplementation(() => {
     const chain: Record<string, unknown> = {};
     chain.from = vi.fn(() => chain);
@@ -53,10 +62,21 @@ function stubDb() {
     return chain;
   });
   const insertChain: Record<string, unknown> = {};
-  insertChain.values = vi.fn(() => insertChain);
+  insertChain.values = vi.fn((values: unknown) => {
+    inserted.push(values as Record<string, unknown>);
+    return insertChain;
+  });
   insertChain.onConflictDoUpdate = vi.fn(() => insertChain);
   insertChain.returning = vi.fn(() => insertChain);
   mocks.insert.mockReturnValue(insertChain);
+
+  const deleteChain: Record<string, unknown> = {};
+  deleteChain.where = vi.fn(() => deleteChain);
+  mocks.delete.mockReturnValue(deleteChain);
+  const updateChain: Record<string, unknown> = {};
+  updateChain.set = vi.fn(() => updateChain);
+  updateChain.where = vi.fn(() => updateChain);
+  mocks.update.mockReturnValue(updateChain);
 }
 
 beforeEach(() => {
@@ -145,6 +165,69 @@ describe('PUT /api/admin/ai-tutor/config', () => {
     // ล้างแคชหลังบันทึก → ต้องอ่าน DB ใหม่ (นับ call เพิ่มขึ้น)
     expect(mocks.select.mock.calls.length).toBeGreaterThan(beforePut);
   });
+
+  it('audit เก็บค่าที่ใช้งานจริง (effective รวมค่าจาก env) ก่อนเปลี่ยน', async () => {
+    await PUT_CONFIG(new NextRequest('http://localhost/api/admin/ai-tutor/config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questionQuota: 3 }),
+    }));
+    const auditCall = insertedValues().find((values) => values.action === 'update_settings');
+    expect(auditCall).toBeTruthy();
+    const values = auditCall as unknown as { before: { effective: Record<string, unknown>; db: Record<string, unknown> } };
+    // effective = ค่าที่ระบบใช้งานจริง (รวมค่าที่มาจาก env) ก่อนเปลี่ยน
+    expect(values.before.effective).toHaveProperty('primaryModel');
+    expect(values.before.effective).toHaveProperty('questionQuota');
+    // db = ค่าที่ตั้งไว้ใน DB เดิม (ยังไม่มี = null)
+    expect(values.before.db).toHaveProperty('questionQuota');
+  });
+
+  it('reset ลบค่าที่ตั้งใน DB → กลับไปใช้ค่าจาก env (ต่างจาก fallbackModel = null ที่แปลว่าปิด fallback)', async () => {
+    const res = await PUT_CONFIG(new NextRequest('http://localhost/api/admin/ai-tutor/config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: ['questionQuota'] }),
+    }));
+    expect(res.status).toBe(200);
+    // ต้องลบแถวใน DB ของคีย์นั้น
+    expect(mocks.delete).toHaveBeenCalled();
+  });
+
+  it('fallbackModel = null หมายถึง "ปิดโมเดลสำรอง" (ไม่ใช่คืนค่า env)', async () => {
+    const res = await PUT_CONFIG(new NextRequest('http://localhost/api/admin/ai-tutor/config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fallbackModel: null }),
+    }));
+    expect(res.status).toBe(200);
+    const auditCall = insertedValues().find((values) => values.action === 'update_settings');
+    const values = auditCall as unknown as { after: { effective: Record<string, unknown>; db: Record<string, unknown> } };
+    expect(values.after.db.fallbackModel).toBeNull();
+    expect(values.after.effective.fallbackModel).toBeNull();
+  });
+
+  it('ปฏิเสธโมเดลที่ราคาเกินเพดาน', async () => {
+    mocks.findModel.mockResolvedValue({
+      id: 'expensive/model', name: 'Expensive', pricing: { prompt: 99, completion: 99 },
+      reasoningMandatory: false, supportedEfforts: ['low'], contextLength: 1000,
+      overPriceLimit: true,
+      supportsEffort: () => true,
+    });
+    const res = await PUT_CONFIG(new NextRequest('http://localhost/api/admin/ai-tutor/config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ primaryModel: 'expensive/model' }),
+    }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('ราคาเกินเพดาน');
+  });
+
+  it('envStatus มีแต่บูลีน (ไม่มีค่าลับของ secret)', async () => {
+    const res = await GET_CONFIG();
+    const body = await res.json();
+    expect(body.data.envStatus).toEqual({
+      openrouterKey: expect.any(Boolean),
+      proofSecret: expect.any(Boolean),
+      exportSalt: expect.any(Boolean),
+      masterEnabled: expect.any(Boolean),
+    });
+    const serialized = JSON.stringify(body.data.envStatus);
+    expect(serialized).not.toContain('sk-or-v1');
+    expect(Object.values(body.data.envStatus).every((value) => typeof value === 'boolean')).toBe(true);
+  });
 });
 
 describe('GET /api/admin/ai-tutor/models', () => {
@@ -196,5 +279,8 @@ describe('GET /api/admin/ai-tutor/audit', () => {
     expect(Array.isArray(body.data)).toBe(true);
   });
 });
+
+
+
 
 

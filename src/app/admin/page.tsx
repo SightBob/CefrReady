@@ -8,6 +8,7 @@ import {
   Users,
   BarChart3,
   Settings,
+  Bot,
   AlertTriangle,
   Mail,
   Star,
@@ -54,6 +55,15 @@ export default function AdminDashboard() {
   };
 
   const menuItems = [
+    {
+      title: 'AI Tutor',
+      description: 'ตั้งค่าโมเดล โควตา และผู้ทดสอบของโหมด AI ในหน้าทำข้อสอบ',
+      icon: Bot,
+      href: '/admin/ai-tutor',
+      color: 'from-violet-500 to-fuchsia-500',
+      bgColor: 'bg-violet-50',
+      count: 0,
+    },
     {
       title: 'จัดการ AI',
       description: 'ตั้งค่า OpenRouter สำหรับตรวจเหตุผล Tap & Select',

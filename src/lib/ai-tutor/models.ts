@@ -5,6 +5,8 @@
  * แคชในหน่วยความจำ ~15 นาที (รายชื่อโมเดลเปลี่ยนไม่บ่อย)
  */
 
+import { isModelPriceOverLimit, maxModelPriceInPerMtok, maxModelPriceOutPerMtok } from './limits';
+
 export type OpenRouterModel = {
   id: string;
   name: string;
@@ -15,6 +17,8 @@ export type OpenRouterModel = {
   /** ระดับ effort ที่โมเดลรองรับ (ว่าง = ไม่ระบุ/ไม่มีระบบ reasoning) */
   supportedEfforts: string[];
   contextLength: number | null;
+  /** ราคาเกินเพดานที่ตั้งไว้ไหม */
+  overPriceLimit: boolean;
   /** รองรับ effort นี้ไหม */
   supportsEffort(effort: string): boolean;
 };
@@ -43,17 +47,19 @@ function toNumber(value: string | number | undefined): number {
 function normalizeModel(raw: RawModel): OpenRouterModel | null {
   if (!raw?.id) return null;
   const efforts = Array.isArray(raw.reasoning?.supported_efforts) ? raw.reasoning.supported_efforts : [];
+  const pricing = {
+    // ราคาใน API เป็นต่อ token → แปลงเป็นต่อ 1M token
+    prompt: toNumber(raw.pricing?.prompt) * 1_000_000,
+    completion: toNumber(raw.pricing?.completion) * 1_000_000,
+  };
   return {
     id: raw.id,
     name: raw.name ?? raw.id,
-    // ราคาใน API เป็นต่อ token → แปลงเป็นต่อ 1M token
-    pricing: {
-      prompt: toNumber(raw.pricing?.prompt) * 1_000_000,
-      completion: toNumber(raw.pricing?.completion) * 1_000_000,
-    },
+    pricing,
     reasoningMandatory: raw.reasoning?.mandatory === true,
     supportedEfforts: efforts,
     contextLength: raw.context_length ?? null,
+    overPriceLimit: isModelPriceOverLimit(pricing),
     supportsEffort(effort: string): boolean {
       if (effort === 'none') {
         // reasoning บังคับ (mandatory) = ปิดไม่ได้

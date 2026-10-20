@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 
 import { withAdmin } from '@/lib/admin-route';
 import { fetchOpenRouterModels, sortModelsForAdmin } from '@/lib/ai-tutor/models';
+import { maxModelPriceInPerMtok, maxModelPriceOutPerMtok } from '@/lib/ai-tutor/limits';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
  * GET /api/admin/ai-tutor/models — รายชื่อโมเดลจาก OpenRouter (แคช 15 นาที)
- * พร้อมราคาและข้อมูล reasoning (บังคับไหม / effort ที่รองรับ)
+ * พร้อมราคาและข้อมูล reasoning (บังคับไหม / effort ที่รองรับ) + ป้ายโมเดลที่เกินเพดานราคา
  */
 export async function GET() {
   const { error } = await withAdmin({ keySuffix: 'admin:ai-tutor-models', maxRequests: 30 });
@@ -24,6 +25,10 @@ export async function GET() {
 
   return NextResponse.json({
     success: true,
+    limits: {
+      maxModelPriceInPerMtok: maxModelPriceInPerMtok(),
+      maxModelPriceOutPerMtok: maxModelPriceOutPerMtok(),
+    },
     data: sortModelsForAdmin(models).map((model) => ({
       id: model.id,
       name: model.name,
@@ -31,6 +36,7 @@ export async function GET() {
       reasoningMandatory: model.reasoningMandatory,
       supportedEfforts: model.supportedEfforts,
       contextLength: model.contextLength,
+      overPriceLimit: model.overPriceLimit,
     })),
   });
 }

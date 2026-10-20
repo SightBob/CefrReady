@@ -4,7 +4,28 @@ import {
   AI_TUTOR_MAX_FIRST_TOKEN_TIMEOUT_MS,
   AI_TUTOR_MAX_TIMEOUT_MS,
   AI_TUTOR_ROUTE_MAX_DURATION_S,
+  maxModelPriceInPerMtok,
+  maxModelPriceOutPerMtok,
 } from './limits';
+import { aiTutorMasterSwitchEnabled } from './flags';
+import {
+  AI_TUTOR_EFFORTS,
+  AI_TUTOR_FORBIDDEN_KEYS,
+  aiTutorSaveRequestSchema,
+  aiTutorSettingsSchema,
+  type AiTutorEffort,
+  type AiTutorSettings,
+  type AiTutorSettingsKey,
+} from './settings-schema';
+
+// schema อยู่ใน settings-schema.ts (ไม่มี dependency ฝั่ง server) → ใช้ฝั่ง client ได้
+export {
+  AI_TUTOR_EFFORTS,
+  AI_TUTOR_FORBIDDEN_KEYS,
+  aiTutorSaveRequestSchema,
+  aiTutorSettingsSchema,
+} from './settings-schema';
+export type { AiTutorEffort, AiTutorSettings, AiTutorSettingsKey } from './settings-schema';
 
 /**
  * ค่าตั้ง AI Tutor — ผู้ดูแลปรับได้จากหน้า admin โดยไม่ต้องแก้ env / redeploy
@@ -17,36 +38,7 @@ import {
  */
 
 /** ระดับ reasoning ที่ OpenRouter รองรับ (ตามเอกสาร reasoning tokens) */
-export const AI_TUTOR_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
-export type AiTutorEffort = (typeof AI_TUTOR_EFFORTS)[number];
-
-/** ค่าที่เก็บใน DB ได้ (ทับค่า env) */
-export const aiTutorSettingsSchema = z.object({
-  /** สวิตช์ปิดชั่วคราว — มีผลเมื่อ env AI_TUTOR_ENABLED เปิดอยู่เท่านั้น */
-  runtimeEnabled: z.boolean().optional(),
-  primaryModel: z.string().trim().min(3).max(200).optional(),
-  fallbackModel: z.string().trim().min(3).max(200).nullable().optional(),
-  primaryEffort: z.enum(AI_TUTOR_EFFORTS).optional(),
-  fallbackEffort: z.enum(AI_TUTOR_EFFORTS).optional(),
-  maxTokens: z.number().int().min(100).max(4000).optional(),
-  timeoutMs: z.number().int().min(1000).max(AI_TUTOR_MAX_TIMEOUT_MS).optional(),
-  firstTokenTimeoutMs: z.number().int().min(1000).max(AI_TUTOR_MAX_FIRST_TOKEN_TIMEOUT_MS).optional(),
-  questionQuota: z.number().int().min(1).max(20).optional(),
-  userDailyLimit: z.number().int().min(1).max(1000).optional(),
-  systemDailyLimit: z.number().int().min(1).max(100000).optional(),
-  rolloutPercent: z.number().int().min(0).max(100).optional(),
-  promptCache: z.boolean().optional(),
-}).strict();
-
-export type AiTutorSettings = z.infer<typeof aiTutorSettingsSchema>;
-export type AiTutorSettingsKey = keyof AiTutorSettings;
-
-/** ค่าที่ห้ามตั้งผ่านระบบนี้ (secret อยู่ที่ env เท่านั้น) */
-export const AI_TUTOR_FORBIDDEN_KEYS = [
-  'OPENROUTER_API_KEY',
-  'AI_TUTOR_PROOF_SECRET',
-  'AI_TUTOR_EXPORT_SALT',
-] as const;
+// (นิยามอยู่ใน settings-schema.ts — ดูการ export ด้านบน)
 
 /** ค่าที่ merge แล้ว (ใช้งานจริง) */
 export type AiTutorConfig = {
@@ -78,6 +70,23 @@ export type AiTutorConfigWithSources = {
   warnings: string[];
 };
 
+/**
+ * สถานะ secret ที่มีใน env — บูลีนเท่านั้น ห้ามส่งค่าจริงออกไปที่ไหน
+ */
+export function getAiTutorEnvStatus(): {
+  openrouterKey: boolean;
+  proofSecret: boolean;
+  exportSalt: boolean;
+  masterEnabled: boolean;
+} {
+  return {
+    openrouterKey: Boolean(process.env.OPENROUTER_API_KEY?.trim()),
+    proofSecret: Boolean(process.env.AI_TUTOR_PROOF_SECRET?.trim()),
+    exportSalt: Boolean(process.env.AI_TUTOR_EXPORT_SALT?.trim()),
+    masterEnabled: aiTutorMasterSwitchEnabled(),
+  };
+}
+
 // ─── ค่าตั้งต้นจาก env ───────────────────────────────────────────────────────
 
 function envInt(name: string, fallback: number): number {
@@ -93,8 +102,7 @@ function envEffort(name: string, fallback: AiTutorEffort): AiTutorEffort {
 }
 
 export function getAiTutorEnvDefaults(): AiTutorConfig {
-  const envMasterEnabled = process.env.AI_TUTOR_ENABLED?.trim().toLowerCase() === 'true'
-    || process.env.AI_TUTOR_ENABLED?.trim() === '1';
+  const envMasterEnabled = aiTutorMasterSwitchEnabled();
   const timeoutMs = Math.min(envInt('AI_TUTOR_TIMEOUT_MS', AI_TUTOR_MAX_TIMEOUT_MS), AI_TUTOR_MAX_TIMEOUT_MS);
   const firstTokenTimeoutMs = Math.min(
     envInt('AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS', Math.floor(timeoutMs / 2)),
@@ -235,12 +243,18 @@ export function normalizeConfig(raw: AiTutorConfig, envDefaults: AiTutorConfig):
 // ─── บันทึกค่า (ฝั่งแอดมิน) ───────────────────────────────────────────────────
 
 export type SaveResult =
-  | { ok: true; saved: AiTutorSettings; warnings: string[] }
+  | { ok: true; saved: AiTutorSettings; reset: string[]; warnings: string[] }
   | { ok: false; error: string };
+
+/** รูปแบบคำขอของ PUT — ค่าที่ตั้ง + คีย์ที่ต้อง "คืนค่า env" (ลบแถวใน DB) */
+const saveRequestSchema = aiTutorSaveRequestSchema;
 
 /**
  * บันทึกค่าที่แอดมินแก้ — ตรวจสอบก่อนเขียนทุกครั้ง และ **ปฏิเสธพร้อมข้อความชัดเจน**
  * (ไม่บีบเงียบ ๆ เหมือนเส้นทางอ่านตอนรัน) + เขียน audit ค่าก่อน/หลัง + ล้างแคช
+ *
+ * reset: ลบค่าที่ตั้งไว้ใน DB ของคีย์นั้น ๆ → กลับไปใช้ค่าจาก env
+ * (สังเกต: fallbackModel = null แปลว่า "ปิดโมเดลสำรอง" ไม่ใช่ "คืนค่า env")
  */
 export async function saveAiTutorSettings(
   input: unknown,
@@ -256,7 +270,7 @@ export async function saveAiTutorSettings(
   }
 
   // 2) ตรวจ schema (strict → key ที่ไม่รู้จักถูกปฏิเสธ)
-  const parsed = aiTutorSettingsSchema.safeParse(input);
+  const parsed = saveRequestSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const key = issue?.path?.join('.') ?? '';
@@ -269,7 +283,7 @@ export async function saveAiTutorSettings(
     }
     return { ok: false, error: `ค่าไม่ถูกต้อง${field}: ${issue?.message ?? 'ไม่ผ่านการตรวจสอบ'}` };
   }
-  const settings = parsed.data;
+  const { reset = [], ...settings } = parsed.data;
 
   // 3) firstTokenTimeoutMs ต้องไม่เกิน timeoutMs
   if (
@@ -280,7 +294,7 @@ export async function saveAiTutorSettings(
     return { ok: false, error: 'firstTokenTimeoutMs ต้องไม่เกิน timeoutMs' };
   }
 
-  // 4) ตรวจว่าโมเดลมีอยู่จริง + effort ที่เลือกรองรับกับโมเดลนั้น
+  // 4) ตรวจว่าโมเดลมีอยู่จริง + effort ที่เลือกรองรับ + ราคาไม่เกินเพดาน
   const warnings: string[] = [];
   const modelChecks = [
     { model: settings.primaryModel, effort: settings.primaryEffort, label: 'primary' },
@@ -296,6 +310,12 @@ export async function saveAiTutorSettings(
     if (known === undefined) {
       return { ok: false, error: `ไม่พบโมเดล "${check.model}" ใน OpenRouter (${check.label})` };
     }
+    if (known.overPriceLimit) {
+      return {
+        ok: false,
+        error: `โมเดล "${check.model}" ราคาเกินเพดาน (input $${known.pricing.prompt}/1M, output $${known.pricing.completion}/1M · เพดาน input $${maxModelPriceInPerMtok()}, output $${maxModelPriceOutPerMtok()})`,
+      };
+    }
     if (check.effort && !known.supportsEffort(check.effort)) {
       return {
         ok: false,
@@ -309,8 +329,12 @@ export async function saveAiTutorSettings(
   const { aiTutorSettings, aiTutorAdminAudit } = await import('@/db/schema');
   const { eq } = await import('drizzle-orm');
 
-  const before: Record<string, unknown> = {};
-  const after: Record<string, unknown> = {};
+  // ค่าที่ "ใช้งานจริง" ก่อนเปลี่ยน (รวมค่าจาก env) + ค่าเดิมใน DB
+  const beforeConfig = await getAiTutorConfigWithSources();
+  const beforeEffective: Record<string, unknown> = { ...beforeConfig.config };
+  const beforeDb: Record<string, unknown> = { ...beforeConfig.sources };
+
+  const afterDb: Record<string, unknown> = {};
   const keys = Object.keys(settings) as AiTutorSettingsKey[];
 
   for (const key of keys) {
@@ -321,8 +345,8 @@ export async function saveAiTutorSettings(
       .from(aiTutorSettings)
       .where(eq(aiTutorSettings.key, key))
       .limit(1);
-    before[key] = existing[0]?.value ?? null;
-    after[key] = value;
+    beforeDb[key] = existing[0]?.value ?? null;
+    afterDb[key] = value;
 
     await db
       .insert(aiTutorSettings)
@@ -338,16 +362,29 @@ export async function saveAiTutorSettings(
       });
   }
 
-  await db.insert(aiTutorAdminAudit).values({
-    actorUserId,
-    action: 'update_settings',
-    target: keys.join(','),
-    before: before as never,
-    after: after as never,
-  });
+  // reset: ลบแถวใน DB ของคีย์ที่ระบุ → กลับไปใช้ค่าจาก env
+  const resetKeys: string[] = [];
+  for (const key of reset) {
+    if (!(key in aiTutorSettingsSchema.shape)) {
+      return { ok: false, error: `ไม่รู้จักคีย์ "${key}" ที่ต้องการคืนค่า env` };
+    }
+    await db.delete(aiTutorSettings).where(eq(aiTutorSettings.key, key));
+    resetKeys.push(key);
+  }
 
   clearAiTutorConfigCache();
-  return { ok: true, saved: settings, warnings };
+  const afterConfig = await getAiTutorConfigWithSources();
+  const afterEffective: Record<string, unknown> = { ...afterConfig.config };
+
+  await db.insert(aiTutorAdminAudit).values({
+    actorUserId,
+    action: resetKeys.length ? 'update_settings' : 'update_settings',
+    target: [...keys, ...resetKeys].join(','),
+    before: { effective: beforeEffective, db: beforeDb } as never,
+    after: { effective: afterEffective, db: afterDb } as never,
+  });
+
+  return { ok: true, saved: settings, reset: resetKeys, warnings };
 }
 
 /** รายการ audit ล่าสุด (สำหรับหน้า admin) */

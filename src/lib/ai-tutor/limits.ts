@@ -53,3 +53,28 @@ export const AI_TUTOR_TIMEOUT_LIMIT_NOTE =
   `เพดานเวลารอของ route /api/ai-tutor ถูกกำหนดจาก maxDuration (${AI_TUTOR_ROUTE_MAX_DURATION_S} วินาที) `
   + `ซึ่ง Next.js อ่านจาก build output — การตั้ง timeout สูงกว่านี้ต้องแก้ค่าคงที่ในโค้ด (src/lib/ai-tutor/limits.ts)`
   + ' และ export const maxDuration ในไฟล์ route แล้ว deploy ใหม่';
+
+// ─── เพดานราคาโมเดล (ฝั่ง server บังคับจริง ไม่ใช่แค่ตรวจใน UI) ─────────────
+// ค่าเริ่มต้น: input $1 / output $3 ต่อ 1M token
+//   · ผ่าน: โมเดลฟรี (0), deepseek-v4.1-flash ($0.035/$0.011), gpt-4o-mini ($0.15/$0.6)
+//   · ตัด: โมเดลแพง (gpt-4o, o1 …) เพราะโควตา 50 คำถาม/ผู้เรียน/วัน
+//   ตั้งเป็น 0 = อนุญาตเฉพาะโมเดลฟรี (ราคา 0) · ไม่ตั้ง = ค่าเริ่มต้นข้างบน
+export const DEFAULT_MAX_MODEL_PRICE_IN_PER_MTOK = 1;
+export const DEFAULT_MAX_MODEL_PRICE_OUT_PER_MTOK = 3;
+
+export function maxModelPriceInPerMtok(): number {
+  const raw = Number.parseFloat(process.env.AI_TUTOR_MAX_MODEL_PRICE_IN_PER_MTOK ?? '');
+  if (!Number.isFinite(raw) || raw < 0) return DEFAULT_MAX_MODEL_PRICE_IN_PER_MTOK;
+  return raw;
+}
+
+export function maxModelPriceOutPerMtok(): number {
+  const raw = Number.parseFloat(process.env.AI_TUTOR_MAX_MODEL_PRICE_OUT_PER_MTOK ?? '');
+  if (!Number.isFinite(raw) || raw < 0) return DEFAULT_MAX_MODEL_PRICE_OUT_PER_MTOK;
+  return raw;
+}
+
+/** โมเดลราคาเกินเพดานไหม (ราคาเป็น USD ต่อ 1M token) */
+export function isModelPriceOverLimit(pricing: { prompt: number; completion: number }): boolean {
+  return pricing.prompt > maxModelPriceInPerMtok() || pricing.completion > maxModelPriceOutPerMtok();
+}

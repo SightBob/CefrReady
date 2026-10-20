@@ -11,8 +11,13 @@ import {
 } from '@/lib/ai-tutor/limits';
 import {
   getAiTutorConfigWithSources,
+  getAiTutorEnvStatus,
   saveAiTutorSettings,
 } from '@/lib/ai-tutor/config';
+import {
+  maxModelPriceInPerMtok,
+  maxModelPriceOutPerMtok,
+} from '@/lib/ai-tutor/limits';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -33,6 +38,8 @@ export async function GET() {
       sources,
       envDefaults,
       warnings,
+      /** สถานะ secret ใน env — บูลีนเท่านั้น ไม่มีค่าจริงหลุดออกไป */
+      envStatus: getAiTutorEnvStatus(),
       limits: {
         routeMaxDurationSeconds: AI_TUTOR_ROUTE_MAX_DURATION_S,
         slackSeconds: AI_TUTOR_ROUTE_SLACK_S,
@@ -40,6 +47,8 @@ export async function GET() {
         maxTimeoutMs: AI_TUTOR_MAX_TIMEOUT_MS,
         maxFirstTokenTimeoutMs: AI_TUTOR_MAX_FIRST_TOKEN_TIMEOUT_MS,
         note: AI_TUTOR_TIMEOUT_LIMIT_NOTE,
+        maxModelPriceInPerMtok: maxModelPriceInPerMtok(),
+        maxModelPriceOutPerMtok: maxModelPriceOutPerMtok(),
       },
     },
   });
