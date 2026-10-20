@@ -39,6 +39,7 @@
     "node_modules",
     "unlighthouse.config.ts",
     "scripts/tmp-*.ts",
+    "tmp",
     ".next/dev/**"
   ]
 }
