@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Sparkle } from '@phosphor-icons/react';
+import AiTutorPanel from './AiTutorPanel';
 import SelectableText from './SelectableText';
 import ExplanationText from './ExplanationText';
 import { useScrollIntoViewOnReveal } from '@/lib/use-scroll-on-reveal';
@@ -40,6 +41,13 @@ interface FocusFormQuestionCardProps {
    * (ผู้ใช้กำหนด 2026-10-18: เลื่อนเฉพาะหน้าทำข้อสอบ)
    */
   scrollToExplanationOnReveal?: boolean;
+  /**
+   * ผู้ใช้กำหนด 2026-10-19 — เปิดโหมด AI Tutor: บล็อกเฉลย "แวะอ่านสักนิด
+   * ครั้งหน้าทำได้แน่ 💛" ถูกแทนด้วยกรอบ AI Tutor และคำอธิบายของข้อกลายเป็น
+   * บทสนทนาแรกในแชท (หน้าสอบจริงเท่านั้น — ธงจาก /api/tests/ai-tutor-access)
+   * สถานะถูก/ผิดยังแสดงผ่านสีตัวเลือก (เขียว/ชมพู) เหมือนเดิม
+   */
+  aiTutor?: boolean;
 }
 
 /**
@@ -85,6 +93,7 @@ export default function FocusFormQuestionCard({
   headerIcon: HeaderIcon,
   headerLabel,
   scrollToExplanationOnReveal = false,
+  aiTutor = false,
 }: FocusFormQuestionCardProps) {
   const theme = ACCENT[accent] ?? ACCENT.primary;
   const isCorrect = selectedAnswer === correctAnswer;
@@ -258,6 +267,12 @@ export default function FocusFormQuestionCard({
 
       {showExplanation && (
   <div ref={explanationRef} className="mt-6">
+    {aiTutor ? (
+      /* AI Tutor แทนบล็อก "แวะอ่านสักนิด…" — คำอธิบายข้อนี้เป็นบทสนทนาแรกในแชท
+         (ผู้ใช้กำหนด 2026-10-19 เพื่อลด token: ไม่ต้องส่งคำอธิบายซ้ำอีกชั้น) */
+      <AiTutorPanel introMessage={explanation} />
+    ) : (
+    <>
     {/* Header — Otter + caption */}
     <div className="relative z-20 inline-flex items-end gap-2 pl-[2.6rem]">
       <Image
@@ -326,6 +341,8 @@ export default function FocusFormQuestionCard({
         </div>
       </div>
     </div>
+    </>
+    )}
   </div>
 )}
     </div>

@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { BookOpen, Headphones, Layers, PenTool } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
-import AiTutorPanel from '@/components/AiTutorPanel';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
@@ -1208,9 +1207,8 @@ export default function SetQuizPage() {
         conversation={question.conversation ?? null}
         onAnswerSelect={handleAnswer}
         disabled={submitting}
+        aiTutor={aiTutorEnabled}
       />
-      {/* AI Tutor (Figma 580:27960) — สำหรับผู้เรียนที่เซิร์ฟเวอร์ยืนยันสิทธิ์แล้วเท่านั้น */}
-      {aiTutorEnabled && <AiTutorPanel />}
       {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}
     </TestLayout>

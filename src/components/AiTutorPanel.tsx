@@ -10,6 +10,8 @@
 // ไอคอนเป็น asset ดาวน์โหลดจาก Figma MCP ใน public/tests/tutor-mock/
 import { useState } from 'react';
 
+import ExplanationText from './ExplanationText';
+
 const ASSET = '/tests/tutor-mock';
 
 // ข้อความ AI แรก เป๊ะตาม Figma 580:27983 — คำกริยาระบุตัวหนา + ขีดเส้นใต้ 18px
@@ -69,7 +71,38 @@ function AiTurn() {
   return <AiSummaryBubble />;
 }
 
-export default function AiTutorPanel() {
+/**
+ * บทสนทนาแรกโหมดหน้าจริง — คำอธิบายของข้อ (ผู้ใช้กำหนด 2026-10-19: ย้ายคำอธิบาย
+ * จากบล็อก "แวะอ่านสักนิด" มาเป็นข้อความ AI แรก) รูปแบบก้อน/อวตาร/ป้ายคงสไตล์
+ * ตามแบบ Figma 580:27978-27990 เป๊ะ ต่างแค่เนื้อความเป็นของจริงจากฐานข้อมูล
+ */
+function AiIntroTurn({ message }: { message: string }) {
+  return (
+    <div className="flex w-full items-start gap-[10px]">
+      {/* avatar (580:27978) ชิดซ้าย */}
+      <div className="flex size-[23px] shrink-0 items-center justify-center rounded-[6px] bg-[#c8e6ff]">
+        <img src={`${ASSET}/sparkle.svg`} alt="" className="size-[15.8px]" />
+      </div>
+      {/* ก้อนข้อความ (580:27981-27982) — กันล้นด้วย min-w-0 แทนกว้าง 578 คงที่ */}
+      <div className="flex min-w-0 w-[709px] shrink-0 flex-col items-start gap-[10px]">
+        <div className="flex w-full rounded-[15px] bg-[#fafafa] px-[12px] py-[10px] text-[14px] font-medium leading-[25px] text-[#334155]">
+          <div className="w-full whitespace-pre-wrap">
+            <ExplanationText text={message} className="w-full" />
+          </div>
+        </div>
+        <div className="flex items-center justify-center px-[10px]">
+          <p className="text-[12px] leading-[19px] text-[#536176]">AI Mentor • คำอธิบาย</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * @param introMessage คำอธิบายของข้อนี้ — ให้แทนเนื้อหาแชท demo ตามแบบ Figma
+ *   (ใช้ในหน้าสอบจริงเป็นบทสนทนาแรก) ไม่ส่ง = โหมด mock คงเนื้อหาตามแบบ Figma
+ */
+export default function AiTutorPanel({ introMessage }: { introMessage?: string | null } = {}) {
   const [chatInput, setChatInput] = useState('');
 
   return (
@@ -96,12 +129,16 @@ export default function AiTutorPanel() {
         <img src={`${ASSET}/line.svg`} alt="" className="w-[742px] shrink-0" />
         {/* Frame 915 (580:27974) 462.5px: แชท 379 + footer 83.5 ติดกัน (ไม่มี gap) */}
         <div className="w-[742px] shrink-0">
-          {/* แชทเลื่อนได้ (580:27975) h-379 — เนื้อหา 446 ล้น คลิปเหลือก้อนบนก้อนล่าง 12px ตามแบบ */}
+          {/* แชทเลื่อนได้ (580:27975) h-379 — โหมดหน้าจริง: คำอธิบายเป็นเทิร์นแรก / โหมด mock: เนื้อหา demo ตามแบบ */}
           <div className="flex h-[379px] w-full shrink-0 flex-col items-end gap-[12px] overflow-x-clip overflow-y-auto [scrollbar-width:none]">
-            <AiTurn />
-            <UserAnswerBubble />
-            <AiTurn />
-            <UserAnswerBubble />
+            {introMessage ? <AiIntroTurn message={introMessage} /> : (
+              <>
+                <AiTurn />
+                <UserAnswerBubble />
+                <AiTurn />
+                <UserAnswerBubble />
+              </>
+            )}
           </div>
           {/* ช่องพิมพ์ (580:28021) — line + ช่อง 65px ห่างกัน 18 */}
           <div className="flex w-full flex-col gap-[18px] pt-[1px]">
