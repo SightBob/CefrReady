@@ -99,6 +99,11 @@ type AnswerCheck = {
   /** ข้อความเฉลยสำหรับช่องกรอกคำ */
   correctText: string | null;
   explanation: string | null;
+  /**
+   * หลักฐานว่าผู้เรียนกด "ตรวจคำตอบ" ของข้อนี้แล้ว (มีเฉพาะผู้ที่ผ่าน feature flag
+   * AI Tutor) — ส่งตามไปกับ POST /api/ai-tutor เพื่อยืนยันว่าถามเกี่ยวกับข้อที่ตอบแล้ว
+   */
+  answerProof?: string | null;
 };
 
 /** คืนคีย์คำตอบถูกจากเฉลยที่ติดมากับ payload (ไม่มีในข้อมูลชนิด Public ที่ถูกถอดเฉลย) */
@@ -507,6 +512,7 @@ export default function SetQuizPage() {
         correctKey: typeof body.data.correctKey === 'string' ? body.data.correctKey : null,
         correctText: typeof body.data.correctText === 'string' ? body.data.correctText : null,
         explanation: typeof body.data.explanation === 'string' ? body.data.explanation : null,
+        answerProof: typeof body.data.answerProof === 'string' ? body.data.answerProof : null,
       };
       setCheckedSlots(current => ({ ...current, [slotIndex]: result }));
     } catch (error) {
@@ -1209,6 +1215,7 @@ export default function SetQuizPage() {
         disabled={submitting}
         aiTutor={aiTutorEnabled}
         questionId={question.id}
+        answerProof={activeCheck?.answerProof ?? null}
       />
       {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}

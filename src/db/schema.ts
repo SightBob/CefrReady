@@ -559,3 +559,30 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
 export type DbAiUsageLog = typeof aiUsageLogs.$inferSelect;
 export type NewAiUsageLog = typeof aiUsageLogs.$inferInsert;
 
+// ─── AI Tutor (Figma 580:27829) ─────────────────────────────────────────────
+// บทสนทนากับโมเดลของผู้เรียน (โหมด AI ในหน้าทำข้อสอบ)
+// เก็บเฉพาะข้อความที่ "เรียกโมเดลจริง" — เทิร์นแรกที่เป็นคำอธิบายเดิมจาก
+// questions.explanation ไม่ได้เก็บ (ดึงสดจาก DB ทุกครั้ง ลด token และไม่หลอกตัวเอง)
+export const aiTutorMessages = pgTable('ai_tutor_messages', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  // 'user' = คำถามของผู้เรียน (1 แถว = 1 การเรียกโมเดล) · 'assistant' = คำตอบของโมเดล
+  role: varchar('role', { length: 20 }).notNull(),
+  content: text('content').default('').notNull(),
+  // 'pending' = จองโควตาแล้วกำลังเรียกโมเดล · 'ok' = สำเร็จ · 'failed' = ล้มเหลว (คืนโควตา)
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  archived: boolean('archived').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  latencyMs: integer('latency_ms'),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  model: varchar('model', { length: 200 }),
+}, (table) => ({
+  threadIdx: index('ai_tutor_messages_thread_idx').on(table.userId, table.questionId, table.createdAt),
+  quotaIdx: index('ai_tutor_messages_quota_idx').on(table.userId, table.questionId, table.status),
+}));
+
+export type DbAiTutorMessage = typeof aiTutorMessages.$inferSelect;
+export type NewAiTutorMessage = typeof aiTutorMessages.$inferInsert;
+

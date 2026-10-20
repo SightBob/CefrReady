@@ -50,6 +50,8 @@ interface FocusFormQuestionCardProps {
   aiTutor?: boolean;
   /** รหัสข้อ — ใช้เป็นคีย์เธรดของ AI Tutor ให้สถานะแยกต่อข้อ (เปลี่ยนข้อ = เธรดใหม่) */
   questionId?: string | number;
+  /** หลักฐานว่าผู้เรียนกด "ตรวจคำตอบ" ข้อนี้แล้ว — ใช้ยืนยันกับ /api/ai-tutor */
+  answerProof?: string | null;
 }
 
 /**
@@ -97,6 +99,7 @@ export default function FocusFormQuestionCard({
   scrollToExplanationOnReveal = false,
   aiTutor = false,
   questionId,
+  answerProof,
 }: FocusFormQuestionCardProps) {
   const theme = ACCENT[accent] ?? ACCENT.primary;
   const isCorrect = selectedAnswer === correctAnswer;
@@ -273,7 +276,13 @@ export default function FocusFormQuestionCard({
     {aiTutor ? (
       /* AI Tutor แทนบล็อก "แวะอ่านสักนิด…" — คำอธิบายข้อนี้เป็นบทสนทนาแรกในแชท
          (ผู้ใช้กำหนด 2026-10-19 เพื่อลด token: ไม่ต้องส่งคำอธิบายซ้ำอีกชั้น) */
-      <AiTutorPanel introMessage={explanation} threadKey={questionId} showBetaLabels />
+      <AiTutorPanel
+        introMessage={explanation}
+        threadKey={questionId}
+        showBetaLabels
+        questionId={typeof questionId === 'number' ? questionId : null}
+        answerProof={answerProof}
+      />
     ) : (
     <>
     {/* Header — Otter + caption */}

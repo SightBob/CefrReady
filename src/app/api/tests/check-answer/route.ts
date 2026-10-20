@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
+import { isAiTutorEnabled } from '@/lib/ai-tutor';
+import { issueAnswerProof } from '@/lib/ai-tutor/proof';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +29,22 @@ const bodySchema = z.object({
 }).strict();
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
+
+/**
+ * ออก proof ให้ผู้เรียนที่มีสิทธิ์ AI Tutor เท่านั้น (ยืนยันว่า "กดตรวจคำตอบแล้ว")
+ *
+ * ผู้เรียนทั่วไปได้ response เหมือนเดิมทุกประการ (ไม่มีฟิลด์ answerProof)
+ * และไม่มีการเขียนลง DB ในเส้นทางนี้
+ */
+async function answerProofFields(
+  userId: string,
+  questionId: number,
+  selectedAnswer: string,
+): Promise<{ answerProof?: string }> {
+  if (!(await isAiTutorEnabled({ id: userId }))) return {};
+  const proof = issueAnswerProof({ userId, questionId, selectedAnswer });
+  return proof ? { answerProof: proof } : {};
+}
 
 /** 20/นาที กันยิงรัวในหนึ่งชุด + 600/วัน กันไล่เดาทีละข้อทั้งคลัง */
 const MINUTE_LIMIT = { keySuffix: 'check-answer', maxRequests: 20 } as const;
@@ -102,6 +120,7 @@ export async function POST(request: NextRequest) {
         correctKey: null,
         correctText: blank.correctAnswer,
         explanation: row.explanation ?? null,
+        ...(await answerProofFields(session.user.id, questionId, selectedAnswer)),
       } });
     }
 
@@ -115,6 +134,7 @@ export async function POST(request: NextRequest) {
       correctKey: correctAnswer,
       correctText: null,
       explanation: row.explanation ?? null,
+      ...(await answerProofFields(session.user.id, questionId, selectedAnswer)),
     } });
   } catch {
     return NextResponse.json({ success: false, error: 'ตรวจคำตอบไม่สำเร็จ กรุณาลองอีกครั้ง' }, { status: 503 });

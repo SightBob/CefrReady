@@ -25,7 +25,8 @@ describe('AiTutorPanel — โครงคงแบบ Figma 580:27960', () => {
 
 describe('AiTutorPanel — หน้าจริง: คำอธิบายเป็นบทสนทนาแรก', () => {
   const explanation = 'หลัง [do/does/did] ต้องตามด้วยกริยาช่อง 1 **เสมอ**';
-  const real = renderToStaticMarkup(<AiTutorPanel introMessage={explanation} />);
+  // โหมดสด = มี questionId (หน้าสอบจริงส่งมาเสมอ)
+  const real = renderToStaticMarkup(<AiTutorPanel introMessage={explanation} questionId={7} answerProof="proof" />);
 
   it('คำอธิบายจากฐานข้อมูลถูกเรนเดอร์ในเธรดแชท', () => {
     expect(real).toContain('กริยาช่อง 1');
@@ -87,11 +88,31 @@ describe('AiTutorPanel — ป้าย Beta + ข้อความกันเ
   });
 
   it('แสดงเมื่อเปิด showBetaLabels โดยไม่ดันหัวข้อความเดิม', () => {
-    const live = renderToStaticMarkup(<AiTutorPanel showBetaLabels />);
+    const live = renderToStaticMarkup(<AiTutorPanel showBetaLabels questionId={7} answerProof="proof" />);
     expect(live).toContain('ทดลองใช้ (Beta)');
     expect(live).toContain('AI อาจตอบผิดได้');
     // หัวข้อ/โควตาเดิมยังอยู่และไม่ถูกแทนที่
     expect(live).toContain('โหมด AI');
     expect(live).toContain('(เหลือโควตา 5 ครั้ง)');
+  });
+});
+
+describe('AiTutorPanel — โหมดสด (ต่อ API จริง)', () => {
+  const live = renderToStaticMarkup(<AiTutorPanel questionId={7} answerProof="proof" showBetaLabels />);
+
+  it('ช่องพิมพ์เป็น textarea (Enter ส่ง / Shift+Enter ขึ้นบรรทัดใหม่)', () => {
+    expect(live).toContain('<textarea');
+    expect(live).toContain('aria-label="พิมพ์คำถามถึง AI"');
+  });
+
+  it('ปุ่มส่งปิดไว้จนกว่าจะพิมพ์ (mock) และมีปุ่มเริ่มคำถามใหม่', () => {
+    expect(live).toContain('aria-label="เริ่มคำถามใหม่"');
+    expect(live).toContain('aria-label="ส่งคำถาม"');
+  });
+
+  it('โหมด mock ยังเป็นเนื้อหา demo ตามแบบ (ไม่มีปุ่ม reset)', () => {
+    const mock = renderToStaticMarkup(<AiTutorPanel />);
+    expect(mock).not.toContain('เริ่มคำถามใหม่');
+    expect(mock).toContain('AI Mentor • สรุปสูตร');
   });
 });

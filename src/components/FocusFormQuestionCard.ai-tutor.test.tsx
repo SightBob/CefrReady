@@ -30,13 +30,13 @@ describe('FocusFormQuestionCard — โหมดเฉลยปกติ (ไม
 
 describe('FocusFormQuestionCard — โหมด aiTutor', () => {
   it('ไม่มีบล็อก "แวะอ่านสักนิด…" อีกต่อไป', () => {
-    const html = renderToStaticMarkup(<FocusFormQuestionCard {...props} aiTutor />);
+    const html = renderToStaticMarkup(<FocusFormQuestionCard {...props} aiTutor questionId={7} />);
     expect(html).not.toContain('แวะอ่านสักนิด');
     expect(html).not.toContain('otter-flag1.png');
   });
 
   it('คำอธิบายเป็นบทสนทนาแรกในกรอบ AI Tutor', () => {
-    const html = renderToStaticMarkup(<FocusFormQuestionCard {...props} aiTutor />);
+    const html = renderToStaticMarkup(<FocusFormQuestionCard {...props} aiTutor questionId={7} />);
     expect(html).toContain('โหมด AI');
     expect(html).toContain('AI Mentor • คำอธิบาย');
     expect(html).toContain('กริยาช่อง 1');

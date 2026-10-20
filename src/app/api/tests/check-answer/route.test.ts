@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), rate: vi.fn(), select: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), rate: vi.fn(), select: vi.fn(), enabled: vi.fn() }));
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/api-security', () => ({ validateOrigin: mocks.origin, checkUserRateLimit: mocks.rate }));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
+vi.mock('@/lib/ai-tutor', () => ({ isAiTutorEnabled: mocks.enabled }));
 import { POST } from './route';
+import { verifyAnswerProof } from '@/lib/ai-tutor/proof';
 
 const row = {
   correctAnswer: 'B',
@@ -32,6 +34,8 @@ beforeEach(() => {
   mocks.origin.mockReturnValue(null);
   mocks.rate.mockResolvedValue(null);
   mocks.select.mockReturnValue(rows([row]));
+  mocks.enabled.mockResolvedValue(false);
+  process.env.AI_TUTOR_PROOF_SECRET = 'check-answer-test-secret';
 });
 
 const limited = (retryAfter = '60') =>
@@ -132,5 +136,32 @@ describe('POST check-answer', () => {
     const response = await POST(request());
     expect(response.status).toBe(503);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
+  });
+});
+
+describe('check-answer — proof สำหรับ AI Tutor', () => {
+  it('ผู้เรียนทั่วไปได้ response เดิมทุกประการ (ไม่มี answerProof)', async () => {
+    const body = await (await POST(request({ selectedAnswer: 'b' }))).json();
+    expect(body).toEqual({ success: true, data: { isCorrect: true, correctKey: 'B', correctText: null, explanation: 'Third-person singular' } });
+    expect(body.data.answerProof).toBeUndefined();
+  });
+
+  it('ผู้ที่ผ่าน feature flag ได้ answerProof ที่ตรวจผ่าน (ผูก user+ข้อ+คำตอบ)', async () => {
+    mocks.enabled.mockResolvedValue(true);
+    const body = await (await POST(request({ selectedAnswer: 'b' }))).json();
+    expect(typeof body.data.answerProof).toBe('string');
+    expect(() => verifyAnswerProof({ proof: body.data.answerProof, userId: 'learner', questionId: 2 })).not.toThrow();
+    // proof ของข้ออื่นใช้ไม่ได้
+    expect(() => verifyAnswerProof({ proof: body.data.answerProof, userId: 'learner', questionId: 3 })).toThrow();
+    // proof ของผู้เรียนอื่นใช้ไม่ได้
+    expect(() => verifyAnswerProof({ proof: body.data.answerProof, userId: 'other', questionId: 2 })).toThrow();
+  });
+
+  it('ไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET → ไม่ออก proof (fail-closed) แต่ response ยังเหมือนเดิม', async () => {
+    mocks.enabled.mockResolvedValue(true);
+    delete process.env.AI_TUTOR_PROOF_SECRET;
+    const body = await (await POST(request({ selectedAnswer: 'b' }))).json();
+    expect(body.data.answerProof).toBeUndefined();
+    expect(body.data.correctKey).toBe('B');
   });
 });
