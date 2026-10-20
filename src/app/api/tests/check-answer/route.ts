@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import { canIssueAnswerProof, issueAnswerProof } from '@/lib/ai-tutor/proof';
+import { localizedRateLimitError } from '@/lib/ai-tutor/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,13 +63,7 @@ const DAILY_LIMIT = {
 
 /** คงสถานะและ Retry-After จากระบบ rate limit เดิม แต่เปลี่ยนข้อความเป็นภาษาไทย */
 function localizedLimitError(res: Response): Response {
-  return NextResponse.json(
-    { success: false, error: 'ตรวจคำตอบถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง' },
-    {
-      status: res.status,
-      headers: { 'Retry-After': res.headers.get('Retry-After') ?? '60' },
-    },
-  );
+  return localizedRateLimitError(res, 'ตรวจคำตอบถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง');
 }
 
 export async function POST(request: NextRequest) {

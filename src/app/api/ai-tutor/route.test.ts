@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   enabled: vi.fn(),
   select: vi.fn(),
   rateLimit: vi.fn(),
+  minuteLimit: vi.fn(),
   reserveQuestion: vi.fn(),
   getQuotaSnapshot: vi.fn(),
   getThreadMessages: vi.fn(),
@@ -23,7 +24,7 @@ vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/ai-tutor', () => ({ isAiTutorEnabled: mocks.enabled }));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: mocks.rateLimit }));
-vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null }));
+vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRateLimit: mocks.minuteLimit }));
 vi.mock('@/lib/ai-tutor/quota', () => ({
   reserveQuestion: mocks.reserveQuestion,
   getQuotaSnapshot: mocks.getQuotaSnapshot,
@@ -94,6 +95,7 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ user: { id: 'u1' } });
   mocks.enabled.mockResolvedValue(true);
   mocks.rateLimit.mockResolvedValue({ limited: false, retryAfterMs: 0 });
+  mocks.minuteLimit.mockResolvedValue(null);
   mocks.getThreadMessages.mockResolvedValue([]);
   mocks.buildProviderMessages.mockReturnValue([{ role: 'system', content: 'x' }]);
   mocks.getQuotaSnapshot.mockResolvedValue({ used: 1, limit: 5, remaining: 4 });
@@ -165,6 +167,31 @@ describe('POST /api/ai-tutor — โควตา', () => {
     mocks.rateLimit.mockResolvedValue({ limited: true, retryAfterMs: 1000 });
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
     expect(res.status).toBe(429);
+    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/ai-tutor — จำกัดต่อนาที (10/นาที/คน)', () => {
+  const limited = (retryAfter = '42') =>
+    new Response(JSON.stringify({ success: false, error: 'Too many requests' }), {
+      status: 429,
+      headers: { 'Retry-After': retryAfter },
+    });
+
+  it('เรียก checkUserRateLimit ด้วยเพดาน 10 ครั้ง/นาที', async () => {
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    expect(mocks.minuteLimit).toHaveBeenCalledWith('u1', { keySuffix: 'ai-tutor:chat', maxRequests: 10 });
+  });
+
+  it('ถี่เกินไป → 429 พร้อม Retry-After และข้อความไทย (ไม่เรียกโมเดล)', async () => {
+    mocks.minuteLimit.mockResolvedValue(limited('42'));
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('42');
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('ถาม AI ถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง');
+    expect(mocks.stream).not.toHaveBeenCalled();
     expect(mocks.reserveQuestion).not.toHaveBeenCalled();
   });
 });

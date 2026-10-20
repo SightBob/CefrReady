@@ -5,10 +5,12 @@ import { db } from '@/db';
 import { aiTutorFeedback, aiTutorMessages } from '@/db/schema';
 import { auth } from '@/lib/auth';
 import { isAiTutorEnabled } from '@/lib/ai-tutor';
-import { validateOrigin } from '@/lib/api-security';
+import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import {
+  AI_TUTOR_FEEDBACK_RATE_LIMIT_MESSAGE,
   AI_TUTOR_NO_ACCESS_MESSAGE,
   AI_TUTOR_UNAVAILABLE_MESSAGE,
+  localizedRateLimitError,
   warnWithSummary,
 } from '@/lib/ai-tutor/errors';
 
@@ -22,6 +24,9 @@ const bodySchema = z.object({
   messageId: z.number().int().positive(),
   value: z.enum(['up', 'down']),
 }).strict();
+
+/** จำกัดการกด 👍/👎 ต่อนาที (30/นาที/คน) — กันยิง feedback ซ้ำ (ข้อมูลเสียหายน้อย แต่กินคิวรี) */
+const FEEDBACK_MINUTE_LIMIT = { keySuffix: 'ai-tutor:feedback', maxRequests: 30 } as const;
 
 /**
  * POST /api/ai-tutor/feedback — ผู้เรียนกด 👍/👎 ต่อคำตอบของโมเดล
@@ -43,6 +48,11 @@ export async function POST(request: Request) {
   const userId = session.user.id;
   if (!(await isAiTutorEnabled({ id: userId }))) {
     return Response.json({ success: false, error: AI_TUTOR_NO_ACCESS_MESSAGE }, { status: 403 });
+  }
+
+  const minuteLimited = await checkUserRateLimit(userId, FEEDBACK_MINUTE_LIMIT);
+  if (minuteLimited) {
+    return localizedRateLimitError(minuteLimited, AI_TUTOR_FEEDBACK_RATE_LIMIT_MESSAGE);
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

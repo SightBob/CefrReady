@@ -4,10 +4,12 @@ import { auth } from '@/lib/auth';
 import { isAiTutorEnabled } from '@/lib/ai-tutor';
 import { archiveThread } from '@/lib/ai-tutor/messages';
 import { getQuotaSnapshot } from '@/lib/ai-tutor/quota';
-import { validateOrigin } from '@/lib/api-security';
+import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import {
   AI_TUTOR_NO_ACCESS_MESSAGE,
+  AI_TUTOR_RESET_RATE_LIMIT_MESSAGE,
   AI_TUTOR_UNAVAILABLE_MESSAGE,
+  localizedRateLimitError,
   warnWithSummary,
 } from '@/lib/ai-tutor/errors';
 
@@ -20,6 +22,9 @@ export const maxDuration = 15;
 const bodySchema = z.object({
   questionId: z.number().int().positive(),
 }).strict();
+
+/** จำกัดการเริ่มคำถามใหม่ต่อนาที (10/นาที/คน) — กันยิง archive ซ้ำ */
+const RESET_MINUTE_LIMIT = { keySuffix: 'ai-tutor:reset', maxRequests: 10 } as const;
 
 /**
  * POST /api/ai-tutor/reset — เริ่มบริบทใหม่ของข้อนั้น
@@ -38,6 +43,11 @@ export async function POST(request: Request) {
   const userId = session.user.id;
   if (!(await isAiTutorEnabled({ id: userId }))) {
     return Response.json({ success: false, error: AI_TUTOR_NO_ACCESS_MESSAGE }, { status: 403 });
+  }
+
+  const minuteLimited = await checkUserRateLimit(userId, RESET_MINUTE_LIMIT);
+  if (minuteLimited) {
+    return localizedRateLimitError(minuteLimited, AI_TUTOR_RESET_RATE_LIMIT_MESSAGE);
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

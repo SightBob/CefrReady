@@ -26,6 +26,27 @@ export type ErrorSummary = {
   code: string | null;
 };
 
+/** ข้อความ 429 ฝั่งผู้เรียน (ภาษาไทย) — แยกตามเส้นทางที่ถูกจำกัด */
+export const AI_TUTOR_CHAT_RATE_LIMIT_MESSAGE =
+  'ถาม AI ถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง';
+export const AI_TUTOR_FEEDBACK_RATE_LIMIT_MESSAGE =
+  'กดความเห็นถี่เกินไป กรุณารอสักครู่แล้วลองใหม่';
+export const AI_TUTOR_RESET_RATE_LIMIT_MESSAGE =
+  'เริ่มคำถามใหม่ถี่เกินไป กรุณารอสักครู่แล้วลองใหม่';
+
+/**
+ * คงสถานะ 429 + Retry-After จากระบบ rate limit เดิม แต่เปลี่ยนข้อความเป็นภาษาไทย
+ */
+export function localizedRateLimitError(res: Response, message: string): Response {
+  return Response.json(
+    { success: false, error: message },
+    {
+      status: 429,
+      headers: { 'Retry-After': res.headers.get('Retry-After') ?? '60' },
+    },
+  );
+}
+
 /** ตัดรูปแบบที่ดูเหมือน connection string (มี user:pass@host) ออกจากข้อความ */
 function redactConnectionString(message: string): string {
   return message.replace(/[a-z0-9+.-]*:\/\/[^\s/@]+@/gi, (match) => {

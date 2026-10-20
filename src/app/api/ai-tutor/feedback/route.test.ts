@@ -7,13 +7,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   enabled: vi.fn(),
+  minuteLimit: vi.fn(),
   select: vi.fn(),
   insert: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/ai-tutor', () => ({ isAiTutorEnabled: mocks.enabled }));
-vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null }));
+vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRateLimit: mocks.minuteLimit }));
 vi.mock('@/db', () => ({
   db: {
     select: mocks.select,
@@ -41,6 +42,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.auth.mockResolvedValue({ user: { id: 'u1' } });
   mocks.enabled.mockResolvedValue(true);
+  mocks.minuteLimit.mockResolvedValue(null);
   stubMessage({ id: 55, role: 'assistant', userId: 'u1' });
   const chain: Record<string, unknown> = {};
   chain.values = vi.fn(() => chain);
@@ -106,6 +108,23 @@ describe('POST /api/ai-tutor/feedback', () => {
     const body = await res.json();
     expect(body.success).toBe(false);
     expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('จำกัด 30 ครั้ง/นาที → 429 พร้อม Retry-After และข้อความไทย', async () => {
+    await post({ messageId: 55, value: 'up' });
+    expect(mocks.minuteLimit).toHaveBeenCalledWith('u1', { keySuffix: 'ai-tutor:feedback', maxRequests: 30 });
+
+    mocks.minuteLimit.mockResolvedValue(new Response(JSON.stringify({ success: false, error: 'Too many requests' }), {
+      status: 429,
+      headers: { 'Retry-After': '30' },
+    }));
+    mocks.insert.mockClear();
+    const res = await post({ messageId: 55, value: 'up' });
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('30');
+    const body = await res.json();
+    expect(body.error).toBe('กดความเห็นถี่เกินไป กรุณารอสักครู่แล้วลองใหม่');
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 });

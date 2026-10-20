@@ -285,8 +285,12 @@ export default function AiTutorPanel({
         const body = await response.json().catch(() => null);
         const text = typeof body?.error === 'string' ? body.error : 'ถาม AI ไม่สำเร็จ กรุณาลองใหม่';
         if (response.status === 429) {
-          setQuotaExhausted(true);
-          if (body?.quota) setQuota(body.quota);
+          // 429 ที่มีข้อมูลโควตา = โควตาหมด (ปิดช่องไว้)
+          // 429 ที่ไม่มี = ถี่เกินไป (rate limit) → แสดงข้อความแต่ยังให้ลองใหม่ได้
+          if (body?.quota) {
+            setQuotaExhausted(true);
+            setQuota(body.quota);
+          }
         }
         setError(text);
         setRetryMessage(message);
@@ -379,7 +383,13 @@ export default function AiTutorPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messageId, value }),
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        if (response.status === 429 || response.status === 503) {
+          setError(typeof body?.error === 'string' ? body.error : 'บันทึกความเห็นไม่สำเร็จ กรุณาลองใหม่');
+        }
+        return;
+      }
       setEntries((current) => current.map((entry) => (
         entry.id === messageId
           ? { ...entry, feedback: entry.feedback === value ? null : value }
@@ -402,6 +412,11 @@ export default function AiTutorPanel({
         body: JSON.stringify({ questionId }),
       });
       const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        // เช่นถี่เกินไป (429) หรือระบบใช้ไม่ได้ (503) → บอกผู้เรียน ไม่ล้างบทสนทนา
+        setError(typeof body?.error === 'string' ? body.error : 'เริ่มคำถามใหม่ไม่สำเร็จ กรุณาลองใหม่');
+        return;
+      }
       if (body?.quota) setQuota(body.quota);
       setEntries([]);
     } catch {

@@ -7,7 +7,7 @@ import { auth } from '@/lib/auth';
 import { isAiTutorEnabled } from '@/lib/ai-tutor';
 import { verifyAnswerProof, AiTutorProofError } from '@/lib/ai-tutor/proof';
 import { rateLimit } from '@/lib/rate-limit';
-import { validateOrigin } from '@/lib/api-security';
+import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import {
   buildProviderMessages,
   getThreadFeedback,
@@ -27,8 +27,10 @@ import { AiTutorProviderError, streamAiTutorReply } from '@/lib/ai-tutor/provide
 import { trimToLastCompleteSentence } from '@/lib/ai-tutor/trim';
 import { buildQuestionContext, type AiTutorQuestionContext } from '@/lib/ai-tutor/prompt';
 import {
+  AI_TUTOR_CHAT_RATE_LIMIT_MESSAGE,
   AI_TUTOR_NO_ACCESS_MESSAGE,
   AI_TUTOR_UNAVAILABLE_MESSAGE,
+  localizedRateLimitError,
   warnWithSummary,
 } from '@/lib/ai-tutor/errors';
 
@@ -52,6 +54,12 @@ const bodySchema = z.object({
   /** proof จาก /api/tests/check-answer — ยืนยันว่าผู้เรียนตอบข้อนี้แล้ว */
   proof: z.string().trim().min(1).max(2000),
 }).strict();
+
+/**
+ * จำกัดจำนวนคำถามต่อนาที (10/นาที/คน) — กันยิงรวดจนเผาโควตารายวันและเผาเงินค่าโมเดล
+ * (เพดานรายวันอยู่ที่ reserveQuestion + Redis ต่อวัน)
+ */
+const CHAT_MINUTE_LIMIT = { keySuffix: 'ai-tutor:chat', maxRequests: 10 } as const;
 
 function jsonError(status: number, error: string, extra: Record<string, unknown> = {}) {
   return Response.json({ success: false, error, ...extra }, { status });
@@ -127,7 +135,13 @@ export async function POST(request: Request) {
   }
   const userId = session.user.id;
   if (!(await isAiTutorEnabled({ id: userId }))) {
-    return jsonError(403, 'คุณยังไม่มีสิทธิ์ใช้งาน AI Tutor');
+    return jsonError(403, AI_TUTOR_NO_ACCESS_MESSAGE);
+  }
+
+  // จำกัดต่อนาที (กันยิงรวดจนเผาโควตารายวัน/เงินค่าโมเดล) — ตัดก่อนแตะ DB
+  const minuteLimited = await checkUserRateLimit(userId, CHAT_MINUTE_LIMIT);
+  if (minuteLimited) {
+    return localizedRateLimitError(minuteLimited, AI_TUTOR_CHAT_RATE_LIMIT_MESSAGE);
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

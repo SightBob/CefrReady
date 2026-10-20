@@ -6,13 +6,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   enabled: vi.fn(),
+  minuteLimit: vi.fn(),
   archiveThread: vi.fn(),
   getQuotaSnapshot: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/ai-tutor', () => ({ isAiTutorEnabled: mocks.enabled }));
-vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null }));
+vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRateLimit: mocks.minuteLimit }));
 vi.mock('@/lib/ai-tutor/messages', () => ({ archiveThread: mocks.archiveThread }));
 vi.mock('@/lib/ai-tutor/quota', () => ({ getQuotaSnapshot: mocks.getQuotaSnapshot }));
 
@@ -30,6 +31,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.auth.mockResolvedValue({ user: { id: 'u1' } });
   mocks.enabled.mockResolvedValue(true);
+  mocks.minuteLimit.mockResolvedValue(null);
   mocks.archiveThread.mockResolvedValue(4);
   // โควตาไม่เปลี่ยนหลัง reset (ยังนับแถวที่ถูกเก็บถัง)
   mocks.getQuotaSnapshot.mockResolvedValue({ used: 3, limit: 5, remaining: 2 });
@@ -73,5 +75,22 @@ describe('POST /api/ai-tutor/reset', () => {
     const body = await res.json();
     expect(body.success).toBe(false);
     expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
+  });
+
+  it('จำกัด 10 ครั้ง/นาที → 429 พร้อม Retry-After และข้อความไทย', async () => {
+    await post({ questionId: 7 });
+    expect(mocks.minuteLimit).toHaveBeenCalledWith('u1', { keySuffix: 'ai-tutor:reset', maxRequests: 10 });
+
+    mocks.minuteLimit.mockResolvedValue(new Response(JSON.stringify({ success: false, error: 'Too many requests' }), {
+      status: 429,
+      headers: { 'Retry-After': '60' },
+    }));
+    mocks.archiveThread.mockClear();
+    const res = await post({ questionId: 7 });
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+    const body = await res.json();
+    expect(body.error).toBe('เริ่มคำถามใหม่ถี่เกินไป กรุณารอสักครู่แล้วลองใหม่');
+    expect(mocks.archiveThread).not.toHaveBeenCalled();
   });
 });
