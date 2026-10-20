@@ -578,11 +578,39 @@ export const aiTutorMessages = pgTable('ai_tutor_messages', {
   inputTokens: integer('input_tokens'),
   outputTokens: integer('output_tokens'),
   model: varchar('model', { length: 200 }),
+  // คำตอบที่ผู้เรียนเลือกในข้อนี้ (คำนวณจาก proof ที่ลงชื่อไว้ฝั่ง server — ไม่รับจาก client)
+  selectedAnswer: text('selected_answer'),
+  // ผู้เรียนตอบถูกไหม (เทียบกับเฉลยใน DB)
+  isCorrect: boolean('is_correct'),
+  // หมวดคำถาม — เตรียมคอลัมน์ไว้ ยังไม่จัดอัตโนมัติ
+  category: text('category'),
+  // ครั้งนี้สลับไปใช้โมเดลสำรองไหม
+  fallbackUsed: boolean('fallback_used'),
+  // finish_reason ของโมเดล (stop / length …) ใช้แยกคำตอบที่ถูกตัด
+  finishReason: text('finish_reason'),
 }, (table) => ({
   threadIdx: index('ai_tutor_messages_thread_idx').on(table.userId, table.questionId, table.createdAt),
   quotaIdx: index('ai_tutor_messages_quota_idx').on(table.userId, table.questionId, table.status),
+  questionIdx: index('ai_tutor_messages_question_idx').on(table.questionId),
 }));
 
 export type DbAiTutorMessage = typeof aiTutorMessages.$inferSelect;
 export type NewAiTutorMessage = typeof aiTutorMessages.$inferInsert;
+
+// ─── AI Tutor feedback (👍/👎 ของผู้เรียน) ─────────────────────────────────
+export const aiTutorFeedback = pgTable('ai_tutor_feedback', {
+  id: serial('id').primaryKey(),
+  messageId: integer('message_id').notNull().references(() => aiTutorMessages.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // 'up' = 👍 · 'down' = 👎
+  value: varchar('value', { length: 10 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  // หนึ่งคนกดได้หนึ่งครั้งต่อข้อความ
+  uniqueFeedback: unique('ai_tutor_feedback_unique').on(table.messageId, table.userId),
+  userIdx: index('ai_tutor_feedback_user_idx').on(table.userId),
+}));
+
+export type DbAiTutorFeedback = typeof aiTutorFeedback.$inferSelect;
+export type NewAiTutorFeedback = typeof aiTutorFeedback.$inferInsert;
 

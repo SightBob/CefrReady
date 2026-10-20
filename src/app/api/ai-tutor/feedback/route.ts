@@ -1,0 +1,78 @@
+import { and, eq } from 'drizzle-orm';
+import { z } from 'zod';
+
+import { db } from '@/db';
+import { aiTutorFeedback, aiTutorMessages } from '@/db/schema';
+import { auth } from '@/lib/auth';
+import { isAiTutorEnabled } from '@/lib/ai-tutor';
+import { validateOrigin } from '@/lib/api-security';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+/** เก็บถัง/นับโควตา = คิวรี DB ไม่กี่ตัว */
+export const maxDuration = 15;
+
+const bodySchema = z.object({
+  messageId: z.number().int().positive(),
+  value: z.enum(['up', 'down']),
+}).strict();
+
+/**
+ * POST /api/ai-tutor/feedback — ผู้เรียนกด 👍/👎 ต่อคำตอบของโมเดล
+ *
+ * กฎ:
+ * - ต้องล็อกอิน + ผ่าน feature flag (isAiTutorEnabled) ไม่ผ่าน = 403
+ * - ข้อความต้องเป็นของผู้ใช้คนนั้นเอง และเป็น "ข้อความจากโมเดล" (role = assistant)
+ *   ของเธรด (user, question) เดียวกัน → กดข้อความของคนอื่นหรือเทิร์นแรก (คำอธิบายเดิม) ไม่ได้
+ * - กดซ้ำครั้งเดียวกัน → อัปเดตค่าเดิม (อยู่ใน unique (message_id, user_id))
+ */
+export async function POST(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json({ success: false, error: 'กรุณาเข้าสู่ระบบก่อนให้ความเห็น' }, { status: 401 });
+  }
+  const userId = session.user.id;
+  if (!(await isAiTutorEnabled({ id: userId }))) {
+    return Response.json({ success: false, error: 'คุณยังไม่มีสิทธิ์ใช้งาน AI Tutor' }, { status: 403 });
+  }
+
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return Response.json({ success: false, error: 'คำขอไม่ถูกต้อง' }, { status: 400 });
+  }
+  const { messageId, value } = parsed.data;
+
+  // ข้อความต้องเป็นของผู้ใช้คนนี้เอง + เป็นข้อความจากโมเดล
+  const [message] = await db
+    .select({
+      id: aiTutorMessages.id,
+      role: aiTutorMessages.role,
+      userId: aiTutorMessages.userId,
+    })
+    .from(aiTutorMessages)
+    .where(and(
+      eq(aiTutorMessages.id, messageId),
+      eq(aiTutorMessages.userId, userId),
+      eq(aiTutorMessages.role, 'assistant'),
+    ))
+    .limit(1);
+
+  if (!message) {
+    return Response.json({ success: false, error: 'ไม่พบข้อความนี้ในเธรดของคุณ' }, { status: 404 });
+  }
+
+  // กดซ้ำ → อัปเดตค่าเดิม (upsert)
+  await db
+    .insert(aiTutorFeedback)
+    .values({ messageId, userId, value })
+    .onConflictDoUpdate({
+      target: [aiTutorFeedback.messageId, aiTutorFeedback.userId],
+      set: { value, createdAt: new Date() },
+    });
+
+  return Response.json({ success: true, messageId, value });
+}

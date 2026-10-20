@@ -82,6 +82,7 @@ export function issueAnswerProof(params: {
 
 /**
  * ตรวจ proof — ผูกกับ userId + questionId ที่ขอมา ปฏิเสธถ้าหมดอายุ/ไม่ตรง/ปลอม
+ * @returns คำตอบที่ผู้เรียนเลือก (มาจาก payload ที่ลงชื่อไว้ — ไม่รับจาก client โดยตรง)
  * @throws AiTutorProofError
  */
 export function verifyAnswerProof(params: {
@@ -89,7 +90,7 @@ export function verifyAnswerProof(params: {
   userId: string;
   questionId: number;
   now?: number;
-}): void {
+}): { selectedAnswer: string } {
   const secret = proofSecret();
   if (!secret) {
     throw new AiTutorProofError('ยังไม่ได้ตั้งค่า AI_TUTOR_PROOF_SECRET');
@@ -113,7 +114,7 @@ export function verifyAnswerProof(params: {
   if (parts.length !== 4) {
     throw new AiTutorProofError();
   }
-  const [userId, questionId, , expiresAt] = parts;
+  const [userId, questionId, selectedAnswer, expiresAt] = parts;
   if (userId !== params.userId) {
     throw new AiTutorProofError();
   }
@@ -124,4 +125,5 @@ export function verifyAnswerProof(params: {
   if (!Number.isFinite(Number(expiresAt)) || Number(expiresAt) <= now) {
     throw new AiTutorProofError('หลักฐานการตอบคำถามหมดอายุ กรุณากด "ตรวจคำตอบ" ใหม่');
   }
+  return { selectedAnswer };
 }

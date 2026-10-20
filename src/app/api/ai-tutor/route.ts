@@ -10,6 +10,7 @@ import { rateLimit } from '@/lib/rate-limit';
 import { validateOrigin } from '@/lib/api-security';
 import {
   buildProviderMessages,
+  getThreadFeedback,
   getThreadMessages,
   insertAssistantMessage,
   markUserMessageFailed,
@@ -76,9 +77,10 @@ export async function GET(request: Request) {
     return jsonError(400, 'ไม่พบข้อคำถาม');
   }
 
-  const [thread, quota] = await Promise.all([
+  const [thread, quota, feedback] = await Promise.all([
     getThreadMessages({ userId: session.user.id, questionId }),
     getQuotaSnapshot({ userId: session.user.id, questionId }),
+    getThreadFeedback({ userId: session.user.id, questionId }),
   ]);
 
   return Response.json({
@@ -89,6 +91,7 @@ export async function GET(request: Request) {
       content: message.content,
       status: message.status,
       createdAt: message.createdAt.toISOString(),
+      feedback: feedback[message.id] ?? null,
     })),
     quota,
   });
@@ -131,8 +134,10 @@ export async function POST(request: Request) {
   }
   const { questionId, message, proof } = parsed.data;
 
+  let selectedAnswer = '';
   try {
-    verifyAnswerProof({ proof, userId, questionId });
+    // คำตอบที่ผู้เรียนเลือกมาจาก proof ที่ลงชื่อไว้ฝั่ง server (ไม่รับจาก client โดยตรง)
+    selectedAnswer = verifyAnswerProof({ proof, userId, questionId }).selectedAnswer;
   } catch (error) {
     if (error instanceof AiTutorProofError) {
       return jsonError(403, error.message);
@@ -184,6 +189,11 @@ export async function POST(request: Request) {
   }
 
   const context = buildQuestionContext(row);
+
+  // ผู้เรียนตอบถูกไหม — เทียบคำตอบใน proof กับเฉลยที่ดึงจาก DB (ฝั่ง server ทั้งหมด)
+  const isCorrect = context.correctAnswerText
+    ? selectedAnswer.trim().toLocaleLowerCase() === context.correctAnswerText.trim().toLocaleLowerCase()
+    : null;
 
   // ─── จองโควตา (กัน race) ───
   const reservation = await reserveQuestion({ userId, questionId, message });
@@ -239,6 +249,8 @@ export async function POST(request: Request) {
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           model: result.usage.model,
+          selectedAnswer,
+          isCorrect,
         });
         const assistantId = await insertAssistantMessage({
           userId,
@@ -248,6 +260,8 @@ export async function POST(request: Request) {
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           model: result.usage.model,
+          fallbackUsed: result.fallbackUsed,
+          finishReason: result.finishReason,
         });
 
         const quota = await getQuotaSnapshot({ userId, questionId });
@@ -274,7 +288,7 @@ export async function POST(request: Request) {
           : 'AI ตอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
         // ล้มเหลวก่อนมีเนื้อหา → คืนโควตา (failed ไม่ถูกนับ)
         if (!answer) {
-          await markUserMessageFailed({ messageId: reservation.messageId });
+          await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
         } else {
           await markUserMessageOk({
             messageId: reservation.messageId,
@@ -282,6 +296,8 @@ export async function POST(request: Request) {
             inputTokens: null,
             outputTokens: null,
             model: 'unknown',
+            selectedAnswer,
+            isCorrect,
           });
         }
         send({ type: 'error', error: errorMessage, canRetry: true });

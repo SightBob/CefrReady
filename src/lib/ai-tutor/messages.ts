@@ -1,7 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 
 import { db } from '@/db';
-import { aiTutorMessages } from '@/db/schema';
+import { aiTutorFeedback, aiTutorMessages } from '@/db/schema';
 
 import type { ChatMessage } from './provider';
 import { AI_TUTOR_SYSTEM_PROMPT, buildQuestionContextBlock, wrapLearnerMessage, type AiTutorQuestionContext } from './prompt';
@@ -89,6 +89,9 @@ export async function markUserMessageOk(params: {
   inputTokens: number | null;
   outputTokens: number | null;
   model: string;
+  /** คำตอบที่ผู้เรียนเลือก (จาก proof) + ผลถูก/ผิด (เทียบกับเฉลยใน DB) */
+  selectedAnswer?: string | null;
+  isCorrect?: boolean | null;
 }): Promise<void> {
   await db
     .update(aiTutorMessages)
@@ -98,15 +101,25 @@ export async function markUserMessageOk(params: {
       inputTokens: params.inputTokens,
       outputTokens: params.outputTokens,
       model: params.model,
+      ...(params.selectedAnswer !== undefined ? { selectedAnswer: params.selectedAnswer } : {}),
+      ...(params.isCorrect !== undefined ? { isCorrect: params.isCorrect } : {}),
     })
     .where(eq(aiTutorMessages.id, params.messageId));
 }
 
 /** ล้มเหลวก่อนมีเนื้อหา → คืนโควตา (failed ไม่ถูกนับ) */
-export async function markUserMessageFailed(params: { messageId: number }): Promise<void> {
+export async function markUserMessageFailed(params: {
+  messageId: number;
+  selectedAnswer?: string | null;
+  isCorrect?: boolean | null;
+}): Promise<void> {
   await db
     .update(aiTutorMessages)
-    .set({ status: 'failed' })
+    .set({
+      status: 'failed',
+      ...(params.selectedAnswer !== undefined ? { selectedAnswer: params.selectedAnswer } : {}),
+      ...(params.isCorrect !== undefined ? { isCorrect: params.isCorrect } : {}),
+    })
     .where(eq(aiTutorMessages.id, params.messageId));
 }
 
@@ -119,6 +132,10 @@ export async function insertAssistantMessage(params: {
   inputTokens: number | null;
   outputTokens: number | null;
   model: string;
+  /** สลับไปใช้โมเดลสำรองหรือไม่ (วัดอัตราสลับ) */
+  fallbackUsed?: boolean | null;
+  /** finish_reason ของโมเดล (stop / length …) */
+  finishReason?: string | null;
 }): Promise<number> {
   const [row] = await db
     .insert(aiTutorMessages)
@@ -132,9 +149,35 @@ export async function insertAssistantMessage(params: {
       inputTokens: params.inputTokens,
       outputTokens: params.outputTokens,
       model: params.model,
+      fallbackUsed: params.fallbackUsed ?? null,
+      finishReason: params.finishReason ?? null,
     })
     .returning({ id: aiTutorMessages.id });
   return row?.id ?? 0;
+}
+
+/** feedback ของผู้เรียนต่อข้อความในเธรด (ไว้แสดงสถานะปุ่ม 👍/👎) */
+export async function getThreadFeedback(params: {
+  userId: string;
+  questionId: number;
+}): Promise<Record<number, 'up' | 'down'>> {
+  const rows = await db
+    .select({ messageId: aiTutorFeedback.messageId, value: aiTutorFeedback.value })
+    .from(aiTutorFeedback)
+    .innerJoin(
+      aiTutorMessages,
+      and(
+        eq(aiTutorMessages.id, aiTutorFeedback.messageId),
+        eq(aiTutorMessages.userId, params.userId),
+        eq(aiTutorMessages.questionId, params.questionId),
+      ),
+    );
+
+  const result: Record<number, 'up' | 'down'> = {};
+  for (const row of rows) {
+    if (row.value === 'up' || row.value === 'down') result[row.messageId] = row.value;
+  }
+  return result;
 }
 
 /** ปุ่ม reset — เก็บถังข้อความเดิมของข้อนั้น (ไม่ลบ และไม่คืนโควตา) */

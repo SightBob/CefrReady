@@ -88,7 +88,9 @@ async function readEvents(response: Response) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // reset (ไม่ใช่ clear) เพื่อล้าง implementation ที่ค้างจากเคสก่อนหน้า
+  // เช่น rateLimit ที่เคย mock เป็น "limited" — ถ้าไม่ reset เคสถัดไปจะได้ 429 ทั้งที่ตั้งใจไม่ให้
+  vi.resetAllMocks();
   mocks.auth.mockResolvedValue({ user: { id: 'u1' } });
   mocks.enabled.mockResolvedValue(true);
   mocks.rateLimit.mockResolvedValue({ limited: false, retryAfterMs: 0 });
@@ -225,7 +227,7 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
     const events = await readEvents(res);
     expect(events.some((event) => event.type === 'error')).toBe(true);
-    expect(mocks.markUserMessageFailed).toHaveBeenCalledWith({ messageId: 99 });
+    expect(mocks.markUserMessageFailed).toHaveBeenCalledWith(expect.objectContaining({ messageId: 99 }));
     expect(mocks.insertAssistantMessage).not.toHaveBeenCalled();
   });
 
@@ -281,5 +283,44 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
     expect(res.status).toBe(429);
     expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+  });
+
+  it('บันทึก selected_answer + is_correct ที่แถวผู้เรียน (คำนวณจากเฉลยใน DB และคำตอบใน proof)', async () => {
+    // คำตอบใน proof = 'do' และเฉลยใน DB (option B) = 'do' → ถูก
+    mocks.stream.mockResolvedValue({
+      text: 'คำตอบ',
+      finishReason: 'stop',
+      ttftMs: 50,
+      fallbackUsed: false,
+      fallbackReason: null,
+      usage: { inputTokens: 1, outputTokens: 2, reasoningTokens: 0, model: 'm', latencyMs: 10 },
+    });
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    await res.text(); // รอให้ stream ของ route ทำงานจนจบ
+    const saved = mocks.markUserMessageOk.mock.calls[0][0] as { selectedAnswer: string; isCorrect: boolean };
+    expect(saved.selectedAnswer).toBe('do');
+    expect(saved.isCorrect).toBe(true);
+  });
+
+  it('บันทึก fallback_used + finish_reason ที่แถว assistant', async () => {
+    mocks.stream.mockResolvedValue({
+      text: 'คำตอบจากสำรอง',
+      finishReason: 'length',
+      ttftMs: 80,
+      fallbackUsed: true,
+      fallbackReason: 'rate-limit',
+      usage: { inputTokens: 1, outputTokens: 2, reasoningTokens: 3, model: 'fallback-model', latencyMs: 20 },
+    });
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    // อ่าน body ให้ stream ของ route ทำงานจนจบก่อน (route ตอบเป็น ReadableStream)
+    await res.text();
+    const saved = mocks.insertAssistantMessage.mock.calls[0][0] as {
+      fallbackUsed: boolean; finishReason: string; model: string;
+    };
+    expect(saved.fallbackUsed).toBe(true);
+    expect(saved.finishReason).toBe('length');
+    expect(saved.model).toBe('fallback-model');
   });
 });

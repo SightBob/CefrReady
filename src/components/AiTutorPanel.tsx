@@ -28,8 +28,12 @@ type ChatEntry = {
   key: string;
   role: 'ai' | 'user';
   content: string;
-  /** เลขข้อถามของผู้เรียน (1, 2, 3 …) ใช้แสดงป้าย "คำถาม N" */
+  /** เลขข้อความใน DB (ข้อความจากโมเดล) — ใช้กด 👍/👎 */
+  id?: number;
+  /** เลขข้อถามของผู้เรียน (1, 2, 3 …) */
   index?: number;
+  /** ความเห็นที่ผู้เรียนกดไว้แล้ว */
+  feedback?: 'up' | 'down' | null;
 };
 
 // ข้อความ AI แรก เป๊ะตาม Figma 580:27983 — คำกริยาระบุตัวหนา + ขีดเส้นใต้ 18px
@@ -229,7 +233,13 @@ export default function AiTutorPanel({
             userIndex += 1;
             return { key: `db-${message.id}`, role: 'user' as const, content: message.content, index: userIndex };
           }
-          return { key: `db-${message.id}`, role: 'ai' as const, content: message.content };
+          return {
+            key: `db-${message.id}`,
+            role: 'ai' as const,
+            content: message.content,
+            id: message.id,
+            feedback: (message as { feedback?: 'up' | 'down' | null }).feedback ?? null,
+          };
         });
         setEntries(restored);
         if (body.quota) setQuota(body.quota);
@@ -300,6 +310,7 @@ export default function AiTutorPanel({
             text?: string;
             error?: string;
             quota?: Quota;
+            messageId?: number;
           };
           if (event.type === 'delta' && typeof event.text === 'string') {
             answer += event.text;
@@ -309,7 +320,13 @@ export default function AiTutorPanel({
             // ใช้ฉบับสุดท้ายจาก server (อาจถูกตัดที่ประโยคสมบูรณ์) ให้ตรงกับที่บันทึกลง DB
             const finalText = typeof event.text === 'string' ? event.text : answer;
             if (finalText) {
-              setEntries((current) => [...current, { key: `ai-${Date.now()}`, role: 'ai', content: finalText }]);
+              setEntries((current) => [...current, {
+                key: `ai-${event.messageId ?? Date.now()}`,
+                role: 'ai',
+                content: finalText,
+                id: event.messageId,
+                feedback: null,
+              }]);
             }
             setStreamingText('');
           } else if (event.type === 'error') {
@@ -353,6 +370,25 @@ export default function AiTutorPanel({
     setChatInput('');
     void send(value);
   }, [chatInput, send]);
+
+  /** กด 👍/👎 ต่อคำตอบของโมเดล (เก็บไว้ให้วิเคราะห์) */
+  const sendFeedback = useCallback(async (messageId: number, value: 'up' | 'down') => {
+    try {
+      const response = await fetch('/api/ai-tutor/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, value }),
+      });
+      if (!response.ok) return;
+      setEntries((current) => current.map((entry) => (
+        entry.id === messageId
+          ? { ...entry, feedback: entry.feedback === value ? null : value }
+          : entry
+      )));
+    } catch {
+      // กดไม่สำเร็จ — ไม่ต้องรบกวนผู้เรียน
+    }
+  }, []);
 
   const handleReset = useCallback(async () => {
     if (!isLive) return;
@@ -439,7 +475,34 @@ export default function AiTutorPanel({
                 {entries.map((entry) => (
                   entry.role === 'user'
                     ? <UserLiveBubble key={entry.key} text={entry.content} index={entry.index ?? 0} />
-                    : <AiLiveBubble key={entry.key} text={entry.content} />
+                    : (
+                      <div key={entry.key} className="flex w-full flex-col items-start gap-[4px]">
+                        <AiLiveBubble text={entry.content} />
+                        {/* ปุ่มความเห็น — เฉพาะข้อความที่มาจากโมเดล (มี id ใน DB) */}
+                        {entry.id ? (
+                          <div className="flex items-center gap-[6px] pl-[33px]">
+                            <button
+                              type="button"
+                              onClick={() => { void sendFeedback(entry.id!, 'up'); }}
+                              aria-label="คำตอบนี้ช่วยได้"
+                              aria-pressed={entry.feedback === 'up'}
+                              className={`rounded-[8px] px-[6px] py-[1px] text-[12px] leading-[18px] transition-colors ${entry.feedback === 'up' ? 'bg-[#e8f4ff] text-[#0d6d97]' : 'text-[#94a3b8] hover:bg-[#f1f5f9]'}`}
+                            >
+                              👍
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { void sendFeedback(entry.id!, 'down'); }}
+                              aria-label="คำตอบนี้ไม่ช่วย"
+                              aria-pressed={entry.feedback === 'down'}
+                              className={`rounded-[8px] px-[6px] py-[1px] text-[12px] leading-[18px] transition-colors ${entry.feedback === 'down' ? 'bg-[#fdecec] text-[#b42318]' : 'text-[#94a3b8] hover:bg-[#f1f5f9]'}`}
+                            >
+                              👎
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    )
                 ))}
                 {streamingText && <AiLiveBubble text={streamingText} />}
                 {sending && !streamingText && <TypingIndicator />}
@@ -501,6 +564,15 @@ export default function AiTutorPanel({
           </div>
         </div>
       </div>
+
+      {/* แจ้งเก็บข้อมูล — ซ้อนมุมขวาล่างของพื้นที่แชท (absolute) จึงไม่กระทบ layout ตาม Figma
+          (bottom คือระยะจากขอบล่างกรอบ: ช่องพิมพ์สูง ~65px + padding ล่าง 22px
+           → วางที่ 92px จึงอยู่เหนือช่องพิมพ์ ในพื้นที่ว่างท้ายแชท) */}
+      {showBetaLabels && (
+        <p className="pointer-events-none absolute right-[12px] bottom-[92px] max-w-[calc(100%-24px)] rounded-[6px] bg-[#fffffd]/85 px-[6px] py-[1px] text-right text-[10px] leading-[14px] text-[#a08a4a]">
+          ระบบบันทึกคำถามเพื่อนำไปปรับปรุงการสอน อย่าพิมพ์ข้อมูลส่วนตัว
+        </p>
+      )}
     </div>
   );
 }
