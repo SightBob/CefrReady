@@ -4,31 +4,46 @@
  * ทำไมต้องมี:
  * - `npm run db:migrate` (drizzle-kit migrate) ตายเงียบใน non-TTY ของโปรเจกต์นี้
  * - `drizzle/meta/_journal.json` ถูก gitignore → journal เป็นของเครื่อง (local-only)
- *   → เครื่องอื่นรัน `db:migrate` ก็ไม่รู้จักไฟล์ 0045–0048 อยู่ดี
+ *   → เครื่องอื่นรัน `db:migrate` ก็ไม่รู้จักไฟล์ใหม่อยู่ดี
  * - สคริปต์นี้เขียนแถวลง `drizzle.__drizzle_migrations` ด้วย hash แบบเดียวกับ drizzle-kit
  *   (sha256 ของไฟล์ .sql ดิบ) → ถ้าภายหลังมีคน commit journal แล้วรัน `db:migrate`
  *   drizzle-kit จะข้ามไฟล์ที่ hash ตรงกับที่บันทึกไว้แล้ว (ไม่รันซ้ำ)
  *
- * ⚠️ ห้ามรันกับ production — สคริปต์จะปฏิเสธ host ที่มีคำว่า prod/production
- *    และบังคับให้ยืนยันด้วย --confirm-host <host> ที่ตรงกับ DATABASE_URL เท่านั้น
+ * ─── การป้องกันการรันผิดฐาน ────────────────────────────────────────────────────
+ * 1. ค่าเริ่มต้น = dry-run (ไม่แก้ฐานข้อมูล) ต้องใส่ --apply จึงรันจริง
+ * 2. พิมพ์ host/port/database/user/branch ของ DATABASE_URL ก่อนทุกครั้ง
+ * 3. ต้องใส่ --confirm-host <host> ที่ตรงกับ DATABASE_URL เป๊ะ
+ * 4. host ที่อยู่ในบล็อกลิสต์ (env APPLY_MIGRATION_BLOCKED_HOSTS, คั่นด้วย comma)
+ *    หรือชื่อที่มีคำว่า prod/production → ปฏิเสธเสมอ
+ *    (ทางข้ามอย่างตั้งใจ: --allow-blocked-host + --confirm-host ที่ตรงกัน)
+ *    ⚠️ ในโค้ดนี้ไม่มี host ของ production ฮาร์ดโค้ดไว้ — ให้ตั้งค่า env เองตามสภาพแวดล้อม
  *
- * วิธีใช้:
+ * ─── วิธีใช้ ─────────────────────────────────────────────────────────────────
  *   npx tsx scripts/apply-migration.ts                              # dry-run: ดูว่าจะรันอะไร
- *   npx tsx scripts/apply-migration.ts --apply --confirm-host <host>  # รันจริง (ทุกไฟล์ที่ค้าง)
- *   npx tsx scripts/apply-migration.ts --from 45 --apply --confirm-host <host>  # รันตั้งแต่เลข 45 ขึ้นไป
- *   npx tsx scripts/apply-migration.ts drizzle/0048_ai_tutor_settings.sql --apply --confirm-host <host>
+ *   npx tsx scripts/apply-migration.ts --from 45 --apply --confirm-host <host>   # รันตั้งแต่เลข 45
+ *   npx tsx scripts/apply-migration.ts drizzle/0049_x.sql --apply --confirm-host <host>  # ไฟล์เฉพาะ
  *
  * ตัวเลือก:
- *   --apply              รันจริง (ไม่ใส่ = dry-run อย่างเดียว)
- *   --confirm-host <h>   ต้องตรงกับ host ใน DATABASE_URL เป๊ะ (กันรันผิดฐาน)
- *   --from <n>           เริ่มจาก migration เลข n (ข้ามไฟล์ที่เลขน้อยกว่า)
- *   --force              ข้ามการยืนยันแบบ interactive (ต้องมี --confirm-host อยู่แล้ว)
+ *   --apply                รันจริง (ไม่ใส่ = dry-run)
+ *   --confirm-host <h>     ต้องตรงกับ host ใน DATABASE_URL เป๊ะ (กันรันผิดฐาน)
+ *   --allow-blocked-host   ยอมรัน host ที่อยู่ในบล็อกลิสต์ (ต้องมี --confirm-host ตรงกัน)
+ *   --from <n>             เริ่มจาก migration เลข n (ข้ามไฟล์ที่เลขน้อยกว่า)
+ *   --force                (กำลังไว้สำหรับอนาคต)
  *
- * ตัวอย่าง host ของ Neon branch: ep-abc-def-pooler.ap-southeast-1.aws.neon.tech
- *   → คัดลอกค่าในช่อง "host" ที่สคริปต์พิมพ์ออกมา มาใส่เป็น --confirm-host
- *
- * หมายเหตุเรื่องลำดับ: ไฟล์ .sql ทั้งหมดเป็นแบบ "เพิ่มอย่างเดียว" (CREATE TABLE IF NOT EXISTS /
- * ADD COLUMN) → รันซ้ำได้ แต่สคริปต์นี้ข้ามไฟล์ที่บันทึก hash ไว้แล้วอยู่แล้ว
+ * ─── วิธีรันบน production (กรณีที่จำเป็นจริง ๆ) ───────────────────────────────
+ * 1. ตั้ง DATABASE_URL ให้ชี้ฐาน production (ห้ามสลับไป branch อื่นระหว่างรัน)
+ * 2. ตั้ง APPLY_MIGRATION_BLOCKED_HOSTS ให้มี host ของ production (คั่นด้วย comma)
+ *    เพื่อให้สคริปต์บล็อกไว้แม้ไม่ได้ตั้งใจ
+ * 3. สำรองฐานข้อมูลก่อน (Neon: สร้าง branch สำรองจาก production ไว้ 1 ตัว)
+ * 4. รัน dry-run ก่อนเพื่อดูแผน:
+ *      npx tsx scripts/apply-migration.ts --from <เลขไฟล์แรกที่จะรัน>
+ * 5. ถ้าต้องรันจริงบน production ให้ใส่ทั้งสองธง (ยืนยันชัดเจนว่าตั้งใจ):
+ *      npx tsx scripts/apply-migration.ts --from <เลข> --apply \
+ *        --allow-blocked-host --confirm-host <host ของ production>
+ *    (สคริปต์จะพิมพ์ชื่อ host ที่กำลังจะรันซ้ำอีกครั้งก่อนลงมือ)
+ * 6. ตรวจผลหลังรัน: ดูว่าไฟล์ถูกข้ามเมื่อรันซ้ำ และแถวใน drizzle.__drizzle_migrations ถูกเพิ่ม
+ * 7. ถ้าต้องย้อนกลับ: DROP TABLE/ALTER TABLE ... DROP COLUMN ตามไฟล์ .sql ที่เกี่ยวข้อง
+ *    (ทุกไฟล์ของโปรเจกต์นี้เป็นแบบ "เพิ่มอย่างเดียว" → ย้อนกลับได้ด้วย DROP)
  */
 import 'dotenv/config';
 
@@ -45,18 +60,12 @@ import {
   listMigrationFiles,
   migrationNumber,
   parseArgs,
+  parseBlockedHosts,
   resolveWhen,
   splitStatements,
 } from '../src/lib/migration/apply-core';
 
 const JOURNAL_PATH = join(process.cwd(), 'drizzle/meta/_journal.json');
-
-function blockedHostsFromEnv(): string[] {
-  return (process.env.MIGRATION_BLOCKED_HOSTS ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
 
 async function ensureMigrationsTable() {
   await db.execute(sql`CREATE SCHEMA IF NOT EXISTS drizzle`);
@@ -84,6 +93,7 @@ async function main() {
   }
 
   const target = describeTarget(rawUrl);
+  const blockedList = parseBlockedHosts(process.env.APPLY_MIGRATION_BLOCKED_HOSTS);
 
   // ─── พิมพ์เป้าหมายก่อนเสมอ (ทุกครั้ง ไม่ว่าจะ dry-run หรือรันจริง) ───
   console.log('─── เป้าหมาย ───');
@@ -93,10 +103,12 @@ async function main() {
   console.log(`user      : ${target.user}`);
   console.log(`branch    : ${target.branchHint} (ป้ายกำกับจากชื่อ host)`);
   console.log(`โหมด      : ${args.apply ? 'รันจริง (--apply)' : 'dry-run (ไม่แก้ฐานข้อมูล)'}`);
+  console.log(`บล็อกลิสต์: ${blockedList.length > 0 ? blockedList.join(', ') : '(ไม่ได้ตั้งไว้ใน env)'}`);
 
-  if (isBlockedHost(target.host, blockedHostsFromEnv())) {
-    console.error(`\n🚫 ปฏิเสธ host นี้ (${target.host}) — ห้ามรัน migration กับ production`);
-    console.error('   ถ้าจำเป็นต้องแก้ MIGRATION_BLOCKED_HOSTS ใน environment ของคุณเอง');
+  const blocked = isBlockedHost(target.host, blockedList);
+  if (blocked && !args.allowBlockedHost) {
+    console.error(`\n🚫 host นี้ (${target.host}) อยู่ในบล็อกลิสต์ — โดยค่าเริ่มต้นห้ามรัน`);
+    console.error('   ถ้าตั้งใจรันจริง ให้ใส่ --allow-blocked-host พร้อมกับ --confirm-host ที่ตรงกัน');
     process.exit(1);
   }
 
@@ -111,6 +123,11 @@ async function main() {
       console.error(`   ยืนยัน: ${args.confirmHost}`);
       console.error(`   จริง  : ${target.host}`);
       process.exit(1);
+    }
+    if (blocked) {
+      // ทางข้ามอย่างตั้งใจ — ยืนยันอีกครั้งด้วยชื่อ host
+      console.log(`\n⚠️  คุณสั่ง --allow-blocked-host — จะรันกับ host ที่ถูกบล็อก: ${target.host}`);
+      console.log(`    (ยืนยันด้วย --confirm-host ที่ตรงกันแล้ว)`);
     }
     console.log(`\nยืนยันแล้ว: จะรันกับ ${target.host}`);
   }

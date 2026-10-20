@@ -13,6 +13,7 @@ import {
   listMigrationFiles,
   migrationNumber,
   parseArgs,
+  parseBlockedHosts,
   resolveWhen,
   splitStatements,
 } from './apply-core';
@@ -85,6 +86,26 @@ describe('isBlockedHost — กันรันกับ production', () => {
   it('บล็อกลิสต์จาก env ก็บล็อกด้วย', () => {
     expect(isBlockedHost('ep-abc-def.neon.tech', ['ep-abc-def.neon.tech'])).toBe(true);
     expect(isBlockedHost('ep-abc-def.neon.tech', ['ep-other.neon.tech'])).toBe(false);
+  });
+
+  it('อ่านบล็อกลิสต์จาก env (คั่นด้วย comma) + ตัดช่องว่างทิ้ง', () => {
+    expect(parseBlockedHosts('a.neon.tech, b.neon.tech ,,')).toEqual(['a.neon.tech', 'b.neon.tech']);
+    expect(parseBlockedHosts(undefined)).toEqual([]);
+    expect(parseBlockedHosts('')).toEqual([]);
+  });
+});
+
+describe('ตัวเลือก --allow-blocked-host (ทางข้ามอย่างตั้งใจ)', () => {
+  it('ต้องระบุด้วย --allow-blocked-host ถึงจะข้ามการบล็อกได้', () => {
+    expect(parseArgs([]).allowBlockedHost).toBe(false);
+    expect(parseArgs(['--allow-blocked-host']).allowBlockedHost).toBe(true);
+  });
+
+  it('--allow-blocked-host ยังต้องมี --confirm-host ที่ตรงกัน (ตรวจที่ฝั่งสคริปต์)', () => {
+    const args = parseArgs(['--apply', '--allow-blocked-host', '--confirm-host', 'ep-abc.neon.tech']);
+    expect(args.apply).toBe(true);
+    expect(args.allowBlockedHost).toBe(true);
+    expect(args.confirmHost).toBe('ep-abc.neon.tech');
   });
 });
 

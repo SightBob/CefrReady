@@ -10,16 +10,26 @@ export type ApplyArgs = {
   apply: boolean;
   force: boolean;
   confirmHost: string | null;
+  /** ยอมให้รันกับ host ที่อยู่ในบล็อกลิสต์ (ต้องมี --confirm-host ตรงกันด้วย) */
+  allowBlockedHost: boolean;
   from: number | null;
   files: string[];
 };
 
 export function parseArgs(argv: string[]): ApplyArgs {
-  const args: ApplyArgs = { apply: false, force: false, confirmHost: null, from: null, files: [] };
+  const args: ApplyArgs = {
+    apply: false,
+    force: false,
+    confirmHost: null,
+    allowBlockedHost: false,
+    from: null,
+    files: [],
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const current = argv[index];
     if (current === '--apply') args.apply = true;
     else if (current === '--force') args.force = true;
+    else if (current === '--allow-blocked-host') args.allowBlockedHost = true;
     else if (current === '--from') {
       index += 1;
       const value = Number.parseInt(argv[index] ?? '', 10);
@@ -67,12 +77,26 @@ export function describeTarget(rawUrl: string): Target {
 }
 
 /**
- * host ที่ห้ามรัน: บล็อกลิสต์จาก env (MIGRATION_BLOCKED_HOSTS) + ชื่อที่มีคำว่า prod/production
+ * host ที่ห้ามรัน (ค่าเริ่มต้น = บล็อกเสมอ)
+ *
+ * 1. บล็อกลิสต์ที่อ่านจาก env `APPLY_MIGRATION_BLOCKED_HOSTS` (คั่นด้วย comma)
+ *    → ไม่มี host ของ production ที่ฮาร์ดโค้ดไว้ในโค้ดเลย (เปลี่ยน env ได้ตามสภาพแวดล้อม)
+ * 2. ชื่อ host ที่มีคำว่า prod/production เป็นกับดักเพิ่ม
+ *
+ * ทางข้ามอย่างตั้งใจ: `--allow-blocked-host` ต้องมาคู่กับ `--confirm-host <host>` ที่ตรงกัน
  */
 export function isBlockedHost(host: string, blockedList: string[] = []): boolean {
   const normalized = host.toLowerCase();
   if (blockedList.map((value) => value.trim().toLowerCase()).includes(normalized)) return true;
   return /(^|[^a-z])(prod|production)([^a-z]|$)/.test(normalized);
+}
+
+/** อ่านบล็อกลิสต์จาก env (คั่นด้วย comma) */
+export function parseBlockedHosts(raw: string | undefined): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 /** รายการไฟล์ .sql ใน drizzle/ เรียงตามเลข (ข้ามไฟล์ที่ไม่ได้มีเลขนำหน้า เช่น audit_*.sql) */
