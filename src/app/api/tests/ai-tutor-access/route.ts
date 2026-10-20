@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { auth } from '@/lib/auth';
 import { isAiTutorEnabled } from '@/lib/ai-tutor';
+import { AI_TUTOR_UNAVAILABLE_MESSAGE, warnWithSummary } from '@/lib/ai-tutor/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,12 @@ export async function GET() {
     return NextResponse.json({ success: false, error: 'กรุณาเข้าสู่ระบบก่อนใช้งาน AI Tutor' }, { status: 401 });
   }
 
-  const enabled = await isAiTutorEnabled({ id: session.user.id });
-  return NextResponse.json({ success: true, enabled });
+  try {
+    const enabled = await isAiTutorEnabled({ id: session.user.id });
+    return NextResponse.json({ success: true, enabled });
+  } catch (error) {
+    // ฐานข้อมูลล่ม/ยังไม่ได้รัน migration → 503 (หน้าเว็บถือว่าไม่มีสิทธิ์ → ซ่อนกรอบ AI)
+    warnWithSummary('ai-tutor] ตรวจสิทธิ์ไม่สำเร็จ', error);
+    return NextResponse.json({ success: false, error: AI_TUTOR_UNAVAILABLE_MESSAGE }, { status: 503 });
+  }
 }

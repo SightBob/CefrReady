@@ -5,8 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
-import { isAiTutorEnabled } from '@/lib/ai-tutor';
-import { issueAnswerProof } from '@/lib/ai-tutor/proof';
+import { canIssueAnswerProof, issueAnswerProof } from '@/lib/ai-tutor/proof';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +30,14 @@ const bodySchema = z.object({
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
 
 /**
- * ออก proof ให้ผู้เรียนที่มีสิทธิ์ AI Tutor เท่านั้น (ยืนยันว่า "กดตรวจคำตอบแล้ว")
+ * ออก proof ให้ผู้เรียนที่ล็อกอินแล้ว (ยืนยันว่า "กดตรวจคำตอบแล้ว")
+ *
+ * สำคัญ: เส้นทางนี้ **ไม่อ่านตารางใหม่ของ AI Tutor เลย** (ไม่มี users.ai_tutor_access)
+ * เงื่อนไขออก proof มีแค่ 2 ข้อที่มาจาก env:
+ *   1. master switch เปิด (AI_TUTOR_ENABLED)
+ *   2. มี AI_TUTOR_PROOF_SECRET
+ * สิทธิ์ใช้งาน AI Tutor จริงตรวจซ้ำที่ /api/ai-tutor (และ feedback/reset) อยู่แล้ว
+ * → ถ้า migration 0045 ยังไม่รัน หน้า "ตรวจคำตอบ" ยังทำงานปกติ
  *
  * ผู้เรียนทั่วไปได้ response เหมือนเดิมทุกประการ (ไม่มีฟิลด์ answerProof)
  * และไม่มีการเขียนลง DB ในเส้นทางนี้
@@ -41,7 +47,7 @@ async function answerProofFields(
   questionId: number,
   selectedAnswer: string,
 ): Promise<{ answerProof?: string }> {
-  if (!(await isAiTutorEnabled({ id: userId }))) return {};
+  if (!canIssueAnswerProof()) return {};
   const proof = issueAnswerProof({ userId, questionId, selectedAnswer });
   return proof ? { answerProof: proof } : {};
 }

@@ -38,4 +38,14 @@ describe('GET /api/tests/ai-tutor-access', () => {
     expect(body.enabled).toBe(true);
     expect(mocks.auth).toHaveBeenCalledTimes(1);
   });
+
+  it('ฐานข้อมูลใช้ไม่ได้ → 503 พร้อมข้อความที่อ่านรู้เรื่อง (ไม่ใช่ 500)', async () => {
+    mocks.enabled.mockRejectedValue(new Error('column "ai_tutor_access" does not exist'));
+
+    const res = await GET();
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
+  });
 });

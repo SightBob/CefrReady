@@ -5,6 +5,11 @@ import { isAiTutorEnabled } from '@/lib/ai-tutor';
 import { archiveThread } from '@/lib/ai-tutor/messages';
 import { getQuotaSnapshot } from '@/lib/ai-tutor/quota';
 import { validateOrigin } from '@/lib/api-security';
+import {
+  AI_TUTOR_NO_ACCESS_MESSAGE,
+  AI_TUTOR_UNAVAILABLE_MESSAGE,
+  warnWithSummary,
+} from '@/lib/ai-tutor/errors';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -32,7 +37,7 @@ export async function POST(request: Request) {
   }
   const userId = session.user.id;
   if (!(await isAiTutorEnabled({ id: userId }))) {
-    return Response.json({ success: false, error: 'คุณยังไม่มีสิทธิ์ใช้งาน AI Tutor' }, { status: 403 });
+    return Response.json({ success: false, error: AI_TUTOR_NO_ACCESS_MESSAGE }, { status: 403 });
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -40,8 +45,13 @@ export async function POST(request: Request) {
     return Response.json({ success: false, error: 'คำขอไม่ถูกต้อง' }, { status: 400 });
   }
 
-  const archived = await archiveThread({ userId, questionId: parsed.data.questionId });
-  const quota = await getQuotaSnapshot({ userId, questionId: parsed.data.questionId });
-
-  return Response.json({ success: true, archived, quota });
+  try {
+    const archived = await archiveThread({ userId, questionId: parsed.data.questionId });
+    const quota = await getQuotaSnapshot({ userId, questionId: parsed.data.questionId });
+    return Response.json({ success: true, archived, quota });
+  } catch (error) {
+    // ฐานข้อมูลล่ม/ยังไม่ได้รัน migration → 503 ที่ผู้เรียนอ่านรู้เรื่อง
+    warnWithSummary('ai-tutor] เริ่มคำถามใหม่ไม่สำเร็จ', error);
+    return Response.json({ success: false, error: AI_TUTOR_UNAVAILABLE_MESSAGE }, { status: 503 });
+  }
 }

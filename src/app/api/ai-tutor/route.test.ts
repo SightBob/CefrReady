@@ -46,7 +46,7 @@ vi.mock('@/lib/ai-tutor/provider', () => ({
   },
 }));
 
-import { POST } from './route';
+import { POST, GET } from './route';
 import { issueAnswerProof } from '@/lib/ai-tutor/proof';
 
 process.env.AI_TUTOR_PROOF_SECRET = 'route-test-secret';
@@ -201,6 +201,28 @@ describe('POST /api/ai-tutor — history มาจาก DB เท่านั�
     stubQuestionRow(null);
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
     expect(res.status).toBe(404);
+  });
+});
+
+describe('POST/GET /api/ai-tutor — ฐานข้อมูลใช้ไม่ได้ → 503 (ไม่ใช่ 500)', () => {
+  it('POST: คิวรี DB พัง → 503 พร้อมข้อความที่ผู้เรียนอ่านรู้เรื่อง', async () => {
+    mocks.select.mockImplementation(() => { throw new Error('relation "ai_tutor_messages" does not exist'); });
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
+
+  it('GET: อ่านเธรดไม่สำเร็จ → 503 (หน้าเว็บไม่ค้าง)', async () => {
+    mocks.getThreadMessages.mockRejectedValue(new Error('relation "ai_tutor_messages" does not exist'));
+
+    const res = await GET(new Request('http://localhost:3000/api/ai-tutor?questionId=7'));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
   });
 });
 

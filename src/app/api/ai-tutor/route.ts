@@ -26,6 +26,11 @@ import {
 import { AiTutorProviderError, streamAiTutorReply } from '@/lib/ai-tutor/provider';
 import { trimToLastCompleteSentence } from '@/lib/ai-tutor/trim';
 import { buildQuestionContext, type AiTutorQuestionContext } from '@/lib/ai-tutor/prompt';
+import {
+  AI_TUTOR_NO_ACCESS_MESSAGE,
+  AI_TUTOR_UNAVAILABLE_MESSAGE,
+  warnWithSummary,
+} from '@/lib/ai-tutor/errors';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -67,7 +72,7 @@ export async function GET(request: Request) {
     return jsonError(401, 'กรุณาเข้าสู่ระบบก่อนใช้งาน AI Tutor');
   }
   if (!(await isAiTutorEnabled({ id: session.user.id }))) {
-    return jsonError(403, 'คุณยังไม่มีสิทธิ์ใช้งาน AI Tutor');
+    return jsonError(403, AI_TUTOR_NO_ACCESS_MESSAGE);
   }
 
   const questionId = Number(new URL(request.url).searchParams.get('questionId'));
@@ -75,24 +80,30 @@ export async function GET(request: Request) {
     return jsonError(400, 'ไม่พบข้อคำถาม');
   }
 
-  const [thread, quota, feedback] = await Promise.all([
-    getThreadMessages({ userId: session.user.id, questionId }),
-    getQuotaSnapshot({ userId: session.user.id, questionId }),
-    getThreadFeedback({ userId: session.user.id, questionId }),
-  ]);
+  try {
+    const [thread, quota, feedback] = await Promise.all([
+      getThreadMessages({ userId: session.user.id, questionId }),
+      getQuotaSnapshot({ userId: session.user.id, questionId }),
+      getThreadFeedback({ userId: session.user.id, questionId }),
+    ]);
 
-  return Response.json({
-    success: true,
-    messages: thread.map((message) => ({
-      id: message.id,
-      role: message.role,
-      content: message.content,
-      status: message.status,
-      createdAt: message.createdAt.toISOString(),
-      feedback: feedback[message.id] ?? null,
-    })),
-    quota,
-  });
+    return Response.json({
+      success: true,
+      messages: thread.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        status: message.status,
+        createdAt: message.createdAt.toISOString(),
+        feedback: feedback[message.id] ?? null,
+      })),
+      quota,
+    });
+  } catch (error) {
+    // ฐานข้อมูลล่ม/ยังไม่ได้รัน migration → บอกผู้เรียนว่าชั่วคราวใช้ไม่ได้ (ไม่ใช่ 500)
+    warnWithSummary('ai-tutor] โหลดเธรดไม่สำเร็จ', error);
+    return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
+  }
 }
 
 /**
@@ -165,45 +176,57 @@ export async function POST(request: Request) {
     }
   }
 
-  // ─── โจทย์/เฉลย/คำอธิบาย: ดึงจาก DB เท่านั้น ───
-  const [row] = await db
-    .select({
-      questionText: questions.questionText,
-      optionA: questions.optionA,
-      optionB: questions.optionB,
-      optionC: questions.optionC,
-      optionD: questions.optionD,
-      correctAnswer: questions.correctAnswer,
-      explanation: questions.explanation,
-      grammarTopic: questions.grammarTopic,
-      cefrLevel: questions.cefrLevel,
-    })
-    .from(questions)
-    .where(and(eq(questions.id, questionId), eq(questions.active, 'true')))
-    .limit(1);
+  // ─── โจทย์/เฉลย/คำอธิบาย + จองโควตา + ประวัติ: คิวรี DB ───
+  // ครอบ try/catch: ถ้าฐานข้อมูลล่มหรือยังไม่ได้รัน migration → 503 ที่ผู้เรียนอ่านรู้เรื่อง
+  // (ไม่ใช่ 500 ที่หน้าเว็บไม่รู้จะโชว์อะไร)
+  let isCorrect: boolean | null = null;
+  let reservation: Awaited<ReturnType<typeof reserveQuestion>>;
+  let providerMessages: ReturnType<typeof buildProviderMessages>;
 
-  if (!row) {
-    return jsonError(404, 'ไม่พบข้อคำถาม');
+  try {
+    const rows = await db
+      .select({
+        questionText: questions.questionText,
+        optionA: questions.optionA,
+        optionB: questions.optionB,
+        optionC: questions.optionC,
+        optionD: questions.optionD,
+        correctAnswer: questions.correctAnswer,
+        explanation: questions.explanation,
+        grammarTopic: questions.grammarTopic,
+        cefrLevel: questions.cefrLevel,
+      })
+      .from(questions)
+      .where(and(eq(questions.id, questionId), eq(questions.active, 'true')))
+      .limit(1);
+    const row = rows[0];
+
+    if (!row) {
+      return jsonError(404, 'ไม่พบข้อคำถาม');
+    }
+
+    const context = buildQuestionContext(row);
+
+    // ผู้เรียนตอบถูกไหม — เทียบคำตอบใน proof กับเฉลยที่ดึงจาก DB (ฝั่ง server ทั้งหมด)
+    isCorrect = context.correctAnswerText
+      ? selectedAnswer.trim().toLocaleLowerCase() === context.correctAnswerText.trim().toLocaleLowerCase()
+      : null;
+
+    // ─── จองโควตา (กัน race) ───
+    reservation = await reserveQuestion({ userId, questionId, message });
+    if (!reservation.ok) {
+      return jsonError(429, `โควตาคำถามของข้อนี้หมดแล้ว (${reservation.quota.used}/${reservation.quota.limit} ครั้งต่อวัน)`, {
+        quota: reservation.quota,
+      });
+    }
+
+    // ─── ประวัติจาก DB เอง (ห้ามเชื่อ client) ───
+    const thread = await getThreadMessages({ userId, questionId });
+    providerMessages = buildProviderMessages({ context, thread, learnerMessage: message });
+  } catch (error) {
+    warnWithSummary('ai-tutor] เตรียมคำถามไม่สำเร็จ', error);
+    return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
   }
-
-  const context = buildQuestionContext(row);
-
-  // ผู้เรียนตอบถูกไหม — เทียบคำตอบใน proof กับเฉลยที่ดึงจาก DB (ฝั่ง server ทั้งหมด)
-  const isCorrect = context.correctAnswerText
-    ? selectedAnswer.trim().toLocaleLowerCase() === context.correctAnswerText.trim().toLocaleLowerCase()
-    : null;
-
-  // ─── จองโควตา (กัน race) ───
-  const reservation = await reserveQuestion({ userId, questionId, message });
-  if (!reservation.ok) {
-    return jsonError(429, `โควตาคำถามของข้อนี้หมดแล้ว (${reservation.quota.used}/${reservation.quota.limit} ครั้งต่อวัน)`, {
-      quota: reservation.quota,
-    });
-  }
-
-  // ─── ประวัติจาก DB เอง (ห้ามเชื่อ client) ───
-  const thread = await getThreadMessages({ userId, questionId });
-  const providerMessages = buildProviderMessages({ context, thread, learnerMessage: message });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({

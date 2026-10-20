@@ -64,4 +64,14 @@ describe('POST /api/ai-tutor/reset', () => {
     const body = await (await post({ questionId: 7 })).json();
     expect(body.quota).toEqual({ used: 3, limit: 5, remaining: 2 });
   });
+
+  it('ฐานข้อมูลใช้ไม่ได้ → 503 พร้อมข้อความที่ผู้เรียนอ่านรู้เรื่อง (ไม่ใช่ 500)', async () => {
+    mocks.archiveThread.mockRejectedValue(new Error('relation "ai_tutor_messages" does not exist'));
+
+    const res = await post({ questionId: 7 });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
+  });
 });

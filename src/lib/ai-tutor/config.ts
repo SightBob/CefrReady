@@ -8,6 +8,7 @@ import {
   maxModelPriceOutPerMtok,
 } from './limits';
 import { aiTutorMasterSwitchEnabled } from './flags';
+import { describeError, warnWithSummary } from './errors';
 import {
   AI_TUTOR_EFFORTS,
   AI_TUTOR_FORBIDDEN_KEYS,
@@ -177,8 +178,10 @@ export async function getAiTutorConfigWithSources(
   try {
     dbSettings = await readSettingsFromDb();
   } catch (error) {
-    warnings.push(`อ่านค่าจาก DB ไม่สำเร็จ — ใช้ค่าจาก env แทน (${error instanceof Error ? error.message.slice(0, 120) : 'unknown error'})`);
-    console.warn('[ai-tutor] อ่านค่าจาก DB ไม่สำเร็จ ใช้ค่าจาก env แทน:', error);
+    // log เฉพาะ message/code (ไม่ log error ทั้งก้อน — อาจมี stack/connection string)
+    const summary = describeError(error);
+    warnings.push(`อ่านค่าจาก DB ไม่สำเร็จ — ใช้ค่าจาก env แทน (${summary.message})`);
+    warnWithSummary('ai-tutor] อ่านค่าจาก DB ไม่สำเร็จ ใช้ค่าจาก env แทน', error);
   }
 
   const sources: Record<string, 'db' | 'env'> = {};

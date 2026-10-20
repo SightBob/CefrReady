@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+import { aiTutorMasterSwitchEnabled } from './flags';
+
 /**
  * Proof ว่า "ผู้เรียนคนนี้ตอบข้อนี้แล้ว" — ออกจาก /api/tests/check-answer
  * (ตอนกดปุ่ม "ตรวจคำตอบ") แล้วถูกส่งต่อมากับ POST /api/ai-tutor
@@ -29,6 +31,21 @@ export class AiTutorProofError extends Error {
 function proofSecret(): string | null {
   const secret = process.env.AI_TUTOR_PROOF_SECRET?.trim();
   return secret ? secret : null;
+}
+
+/**
+ * ออก proof ได้หรือไม่ — ดูแค่ env (ไม่แตะ DB เลย)
+ *
+ * เงื่อนไข 2 ข้อ:
+ * 1. master switch ของฟีเจอร์เปิดอยู่ (env AI_TUTOR_ENABLED)
+ * 2. มี AI_TUTOR_PROOF_SECRET ตั้งไว้ (ไม่มี = ออก proof ไม่ได้ = fail-closed)
+ *
+ * ใช้ใน /api/tests/check-answer เพื่อออก proof ให้ผู้เรียนที่ล็อกอินแล้วทุกคน
+ * โดยไม่ต้องอ่าน users.ai_tutor_access (สิทธิ์จริงตรวจซ้ำที่ /api/ai-tutor)
+ * → เส้นทางตรวจคำตอบไม่ผูกกับตารางของ migration 0045 เลย
+ */
+export function canIssueAnswerProof(): boolean {
+  return aiTutorMasterSwitchEnabled() && proofSecret() !== null;
 }
 
 /** payload เข้ารหัส base64url (ไม่มี padding) */

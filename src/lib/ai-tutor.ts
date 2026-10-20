@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { getAiTutorConfig } from './ai-tutor/config';
+import { warnWithSummary } from './ai-tutor/errors';
 import { aiTutorMasterSwitchEnabled, isAiTutorEnabledByFlags } from './ai-tutor/flags';
 
 // re-export เพื่อให้จุดเรียกเดิม (src/lib/ai-tutor.ts) ยังใช้ได้
@@ -40,13 +41,22 @@ export async function isAiTutorEnabled(user: { id: string } | null | undefined):
   if (!config.runtimeEnabled) return false;
 
   // ถ้า master ไม่เปิดก็จบก่อนแล้ว — จะถึงคิวรี DB ได้ต่อเมื่อ master เปิดเท่านั้น
-  const rows: { aiTutorAccess?: boolean }[] = await db
-    .select({ aiTutorAccess: users.aiTutorAccess })
-    .from(users)
-    .where(eq(users.id, user.id));
+  //
+  // ครอบ try/catch แบบ fail-closed: ถ้าอ่าน users.ai_tutor_access ไม่สำเร็จ
+  // (เช่น migration 0045 ยังไม่ได้รัน) → คืน false (ไม่มีใครได้สิทธิ์) และ log เตือน
+  // แทนที่จะ throw ไปทำให้เส้นทางอื่นที่เรียกใช้ (เช่น หน้าตรวจคำตอบ) ล้มด้วย
+  try {
+    const rows: { aiTutorAccess?: boolean }[] = await db
+      .select({ aiTutorAccess: users.aiTutorAccess })
+      .from(users)
+      .where(eq(users.id, user.id));
 
-  return isAiTutorEnabledByFlags(user.id, rows[0]?.aiTutorAccess === true, {
-    runtimeEnabled: config.runtimeEnabled,
-    rolloutPercent: config.rolloutPercent,
-  });
+    return isAiTutorEnabledByFlags(user.id, rows[0]?.aiTutorAccess === true, {
+      runtimeEnabled: config.runtimeEnabled,
+      rolloutPercent: config.rolloutPercent,
+    });
+  } catch (error) {
+    warnWithSummary('ai-tutor] อ่าน users.ai_tutor_access ไม่สำเร็จ — ปิดสิทธิ์ AI Tutor ชั่วคราว', error);
+    return false;
+  }
 }

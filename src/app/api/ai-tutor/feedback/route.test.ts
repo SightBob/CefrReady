@@ -97,4 +97,15 @@ describe('POST /api/ai-tutor/feedback', () => {
     // เงื่อนไขถูกสร้างใน route (eq userId + eq role) — ตรวจว่าเรียก select ด้วย users.messageId
     expect(mocks.select).toHaveBeenCalled();
   });
+
+  it('ฐานข้อมูลใช้ไม่ได้ → 503 พร้อมข้อความที่ผู้เรียนอ่านรู้เรื่อง (ไม่ใช่ 500)', async () => {
+    mocks.select.mockImplementation(() => { throw new Error('relation "ai_tutor_feedback" does not exist'); });
+
+    const res = await post({ messageId: 55, value: 'up' });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
 });

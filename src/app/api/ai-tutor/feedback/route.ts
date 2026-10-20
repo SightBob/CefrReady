@@ -6,6 +6,11 @@ import { aiTutorFeedback, aiTutorMessages } from '@/db/schema';
 import { auth } from '@/lib/auth';
 import { isAiTutorEnabled } from '@/lib/ai-tutor';
 import { validateOrigin } from '@/lib/api-security';
+import {
+  AI_TUTOR_NO_ACCESS_MESSAGE,
+  AI_TUTOR_UNAVAILABLE_MESSAGE,
+  warnWithSummary,
+} from '@/lib/ai-tutor/errors';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -37,7 +42,7 @@ export async function POST(request: Request) {
   }
   const userId = session.user.id;
   if (!(await isAiTutorEnabled({ id: userId }))) {
-    return Response.json({ success: false, error: 'คุณยังไม่มีสิทธิ์ใช้งาน AI Tutor' }, { status: 403 });
+    return Response.json({ success: false, error: AI_TUTOR_NO_ACCESS_MESSAGE }, { status: 403 });
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -46,33 +51,39 @@ export async function POST(request: Request) {
   }
   const { messageId, value } = parsed.data;
 
-  // ข้อความต้องเป็นของผู้ใช้คนนี้เอง + เป็นข้อความจากโมเดล
-  const [message] = await db
-    .select({
-      id: aiTutorMessages.id,
-      role: aiTutorMessages.role,
-      userId: aiTutorMessages.userId,
-    })
-    .from(aiTutorMessages)
-    .where(and(
-      eq(aiTutorMessages.id, messageId),
-      eq(aiTutorMessages.userId, userId),
-      eq(aiTutorMessages.role, 'assistant'),
-    ))
-    .limit(1);
+  try {
+    // ข้อความต้องเป็นของผู้ใช้คนนี้เอง + เป็นข้อความจากโมเดล
+    const [message] = await db
+      .select({
+        id: aiTutorMessages.id,
+        role: aiTutorMessages.role,
+        userId: aiTutorMessages.userId,
+      })
+      .from(aiTutorMessages)
+      .where(and(
+        eq(aiTutorMessages.id, messageId),
+        eq(aiTutorMessages.userId, userId),
+        eq(aiTutorMessages.role, 'assistant'),
+      ))
+      .limit(1);
 
-  if (!message) {
-    return Response.json({ success: false, error: 'ไม่พบข้อความนี้ในเธรดของคุณ' }, { status: 404 });
+    if (!message) {
+      return Response.json({ success: false, error: 'ไม่พบข้อความนี้ในเธรดของคุณ' }, { status: 404 });
+    }
+
+    // กดซ้ำ → อัปเดตค่าเดิม (upsert)
+    await db
+      .insert(aiTutorFeedback)
+      .values({ messageId, userId, value })
+      .onConflictDoUpdate({
+        target: [aiTutorFeedback.messageId, aiTutorFeedback.userId],
+        set: { value, createdAt: new Date() },
+      });
+  } catch (error) {
+    // ฐานข้อมูลล่ม/ยังไม่ได้รัน migration → 503 ที่ผู้เรียนอ่านรู้เรื่อง
+    warnWithSummary('ai-tutor] บันทึก feedback ไม่สำเร็จ', error);
+    return Response.json({ success: false, error: AI_TUTOR_UNAVAILABLE_MESSAGE }, { status: 503 });
   }
-
-  // กดซ้ำ → อัปเดตค่าเดิม (upsert)
-  await db
-    .insert(aiTutorFeedback)
-    .values({ messageId, userId, value })
-    .onConflictDoUpdate({
-      target: [aiTutorFeedback.messageId, aiTutorFeedback.userId],
-      set: { value, createdAt: new Date() },
-    });
 
   return Response.json({ success: true, messageId, value });
 }

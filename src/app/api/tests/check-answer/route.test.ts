@@ -8,6 +8,7 @@ vi.mock('@/db', () => ({ db: { select: mocks.select } }));
 vi.mock('@/lib/ai-tutor', () => ({ isAiTutorEnabled: mocks.enabled }));
 import { POST } from './route';
 import { verifyAnswerProof } from '@/lib/ai-tutor/proof';
+import { users } from '@/db/schema';
 
 const row = {
   correctAnswer: 'B',
@@ -36,6 +37,7 @@ beforeEach(() => {
   mocks.select.mockReturnValue(rows([row]));
   mocks.enabled.mockResolvedValue(false);
   process.env.AI_TUTOR_PROOF_SECRET = 'check-answer-test-secret';
+  delete process.env.AI_TUTOR_ENABLED;
 });
 
 const limited = (retryAfter = '60') =>
@@ -146,8 +148,8 @@ describe('check-answer — proof สำหรับ AI Tutor', () => {
     expect(body.data.answerProof).toBeUndefined();
   });
 
-  it('ผู้ที่ผ่าน feature flag ได้ answerProof ที่ตรวจผ่าน (ผูก user+ข้อ+คำตอบ)', async () => {
-    mocks.enabled.mockResolvedValue(true);
+  it('เปิด master switch (AI_TUTOR_ENABLED) แล้วผู้เรียนที่ล็อกอินได้ answerProof ที่ตรวจผ่าน (ผูก user+ข้อ+คำตอบ)', async () => {
+    process.env.AI_TUTOR_ENABLED = 'true';
     const body = await (await POST(request({ selectedAnswer: 'b' }))).json();
     expect(typeof body.data.answerProof).toBe('string');
     expect(() => verifyAnswerProof({ proof: body.data.answerProof, userId: 'learner', questionId: 2 })).not.toThrow();
@@ -158,10 +160,43 @@ describe('check-answer — proof สำหรับ AI Tutor', () => {
   });
 
   it('ไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET → ไม่ออก proof (fail-closed) แต่ response ยังเหมือนเดิม', async () => {
-    mocks.enabled.mockResolvedValue(true);
+    process.env.AI_TUTOR_ENABLED = 'true';
     delete process.env.AI_TUTOR_PROOF_SECRET;
     const body = await (await POST(request({ selectedAnswer: 'b' }))).json();
     expect(body.data.answerProof).toBeUndefined();
+    expect(body.data.correctKey).toBe('B');
+  });
+
+  it('เส้นทางนี้ไม่อ่านสิทธิ์ผู้ใช้จาก DB เลย (ไม่มี query ที่ดึง ai_tutor_access)', async () => {
+    process.env.AI_TUTOR_ENABLED = 'true';
+    await POST(request({ selectedAnswer: 'b' }));
+    // ไม่มีการเรียก isAiTutorEnabled (ซึ่งไปอ่าน users.ai_tutor_access)
+    expect(mocks.enabled).not.toHaveBeenCalled();
+    // และไม่มี select ไหนดึงคอลัมน์ ai_tutor_access
+    for (const call of mocks.select.mock.calls) {
+      const fields = call[0] as Record<string, unknown> | undefined;
+      expect(Object.keys(fields ?? {})).not.toContain('aiTutorAccess');
+    }
+  });
+
+  it('ฐานข้อมูลยังไม่มีคอลัมน์ ai_tutor_access (0045 ยังไม่รัน) → ยังตอบ 200 ตามปกติ', async () => {
+    process.env.AI_TUTOR_ENABLED = 'true';
+    // จำลองว่าคิวรีที่แตะตาราง users จะพัง (คอลัมน์ยังไม่มี)
+    mocks.select.mockImplementation(() => {
+      const builder: Record<string, unknown> = {};
+      for (const key of ['innerJoin', 'where']) builder[key] = vi.fn(() => builder);
+      builder.from = vi.fn((table: unknown) => {
+        if (table === users) throw new Error('column "ai_tutor_access" does not exist');
+        return builder;
+      });
+      builder.limit = vi.fn().mockResolvedValue([row]);
+      return builder;
+    });
+
+    const response = await POST(request({ selectedAnswer: 'b' }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
     expect(body.data.correctKey).toBe('B');
   });
 });

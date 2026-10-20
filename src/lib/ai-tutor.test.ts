@@ -126,6 +126,56 @@ describe('isAiTutorEnabled — rollout เปอร์เซ็นต์ (ทา
   });
 });
 
+describe('isAiTutorEnabled — ฐานข้อมูลล้ม/ยังไม่รัน migration (fail-closed)', () => {
+  beforeEach(() => {
+    process.env.AI_TUTOR_ENABLED = 'true';
+  });
+
+  it('อ่าน users.ai_tutor_access ไม่สำเร็จ → คืน false ไม่ throw', async () => {
+    mocks.select.mockImplementation(() => {
+      throw new Error('column "ai_tutor_access" does not exist');
+    });
+    expect(await isAiTutorEnabled({ id: 'u1' })).toBe(false);
+  });
+
+  it('โยน error จาก promise ก็ยังคืน false ไม่ throw', async () => {
+    mocks.select.mockReturnValue({
+      from: () => ({ where: () => Promise.reject(new Error('relation "users" does not exist')) }),
+    });
+    expect(await isAiTutorEnabled({ id: 'u1' })).toBe(false);
+  });
+
+  it('log เฉพาะ message/code ไม่ log error ทั้งก้อน (ไม่หลุด connection string)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const error = Object.assign(new Error('connect failed'), { code: '42P01' });
+    mocks.select.mockImplementation(() => { throw error; });
+
+    await isAiTutorEnabled({ id: 'u1' });
+
+    // ทุกบรรทัดที่ log ต้องเป็น string (ไม่ใช่ error object ทั้งก้อน)
+    for (const call of warn.mock.calls) {
+      expect(typeof call[0]).toBe('string');
+    }
+    const logs = warn.mock.calls.map((call) => String(call[0]));
+    expect(logs.some((line) => line.includes('42P01') && line.includes('connect failed'))).toBe(true);
+    warn.mockRestore();
+  });
+
+  it('ตัด connection string ออกจากข้อความที่ log', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mocks.select.mockImplementation(() => {
+      throw new Error('failed to connect to postgres://user:sup3r-secret@db.example.com:5432/app');
+    });
+
+    await isAiTutorEnabled({ id: 'u1' });
+
+    const logs = warn.mock.calls.map((call) => String(call[0]));
+    expect(logs.join('\n')).not.toContain('sup3r-secret');
+    expect(logs.some((line) => line.includes('***@'))).toBe(true);
+    warn.mockRestore();
+  });
+});
+
 describe('master switch / rollout / bucket (ใช้ร่วมกับสคริปต์รายงาน)', () => {
   it('master switch: ไม่ตั้ง = ปิด · "true"/"1" = เปิด · "false" = ปิด', () => {
     delete process.env.AI_TUTOR_ENABLED;
