@@ -54,6 +54,14 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     userId = user?.id ?? '';
     questionId = question?.id ?? 0;
     process.env.AI_TUTOR_QUESTION_QUOTA = '2';
+
+    // ล้างแถวทดสอบที่ค้างจากรอบก่อน (เช่น รันเทสค้าง/ถูกสังฆ์) ก่อนเริ่มใหม่
+    if (userId && questionId) {
+      await db.delete(aiTutorMessages).where(and(
+        eq(aiTutorMessages.userId, userId),
+        eq(aiTutorMessages.questionId, questionId),
+      ));
+    }
   });
 
   afterAll(async () => {

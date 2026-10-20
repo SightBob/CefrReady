@@ -163,11 +163,23 @@ describe('POST /api/ai-tutor — โควตา', () => {
     expect(mocks.stream).not.toHaveBeenCalled();
   });
 
+  it('โควตาข้อนี้หมด → ไม่กินตัวนับรายวันด้วย (ไม่งั้นผู้เรียนเสียโควตาวันนี้เปล่า ๆ)', async () => {
+    mocks.reserveQuestion.mockResolvedValue({
+      ok: false,
+      reason: 'quota',
+      quota: { used: 5, limit: 5, remaining: 0 },
+    });
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
+    expect(mocks.rateLimit).not.toHaveBeenCalled();
+  });
+
   it('เพดานซ่อนรายวันของผู้เรียนเต็ม → 429', async () => {
     mocks.rateLimit.mockResolvedValue({ limited: true, retryAfterMs: 1000 });
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
     expect(res.status).toBe(429);
-    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+    // นับหลังจองโควตาแล้ว → ต้องคืนโควตาข้อนี้ (mark failed) และไม่เรียกโมเดล
+    expect(mocks.markUserMessageFailed).toHaveBeenCalledWith(expect.objectContaining({ messageId: 99 }));
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 });
 
@@ -331,7 +343,9 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     ));
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
     expect(res.status).toBe(429);
-    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+    // คืนโควตาข้อนี้ด้วย (ไม่ให้ผู้เรียนเสียสิทธิ์เพราะระบบเต็ม) + ไม่เรียกโมเดล
+    expect(mocks.markUserMessageFailed).toHaveBeenCalledWith(expect.objectContaining({ messageId: 99 }));
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it('บันทึก selected_answer + is_correct ที่แถวผู้เรียน (คำนวณจากเฉลยใน DB และคำตอบใน proof)', async () => {

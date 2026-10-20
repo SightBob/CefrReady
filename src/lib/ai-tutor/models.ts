@@ -6,6 +6,7 @@
  */
 
 import { isModelPriceOverLimit, maxModelPriceInPerMtok, maxModelPriceOutPerMtok } from './limits';
+import { warnWithSummary } from './errors';
 
 export type OpenRouterModel = {
   id: string;
@@ -100,7 +101,8 @@ export async function fetchOpenRouterModels(): Promise<OpenRouterModel[]> {
     modelsCache = { at: Date.now(), models };
     return models;
   } catch (error) {
-    console.warn('[ai-tutor] ดึงรายชื่อโมเดลไม่สำเร็จ:', error);
+    // log เฉพาะ message/code (ไม่ log error ทั้งก้อน)
+    warnWithSummary('ai-tutor] ดึงรายชื่อโมเดลไม่สำเร็จ', error);
     return [];
   }
 }

@@ -168,34 +168,12 @@ export async function POST(request: Request) {
     return jsonError(403, 'ยังไม่ได้ตั้งค่า AI Tutor (AI_TUTOR_PROOF_SECRET)');
   }
 
-  // ─── เพดานซ่อน: ต่อผู้เรียน/วัน + รวมทั้งระบบ/วัน (kill switch) ───
-  const userCap = userDailyLimit();
-  const userLimit = await rateLimit(`user:${userId}:ai-tutor:day`, {
-    windowMs: 86_400_000,
-    maxRequests: userCap,
-  });
-  if (userLimit.limited) {
-    return jsonError(429, 'คุณถาม AI วันนี้ครบโควตาทั้งหมดแล้ว ลองใช้คำถามพรุ่งนี้', {
-      quota: { used: userCap, limit: userCap, remaining: 0 },
-    });
-  }
-  const systemCap = systemDailyLimit();
-  if (systemCap > 0) {
-    const systemLimit = await rateLimit('system:ai-tutor:day', {
-      windowMs: 86_400_000,
-      maxRequests: systemCap,
-    });
-    if (systemLimit.limited) {
-      return jsonError(429, 'ขณะนี้ระบบถาม AI ได้เต็มโควตาของวันนี้แล้ว กรุณาลองใหม่พรุ่งนี้');
-    }
-  }
-
   // ─── โจทย์/เฉลย/คำอธิบาย + จองโควตา + ประวัติ: คิวรี DB ───
   // ครอบ try/catch: ถ้าฐานข้อมูลล่มหรือยังไม่ได้รัน migration → 503 ที่ผู้เรียนอ่านรู้เรื่อง
   // (ไม่ใช่ 500 ที่หน้าเว็บไม่รู้จะโชว์อะไร)
   let isCorrect: boolean | null = null;
   let reservation: Awaited<ReturnType<typeof reserveQuestion>>;
-  let providerMessages: ReturnType<typeof buildProviderMessages>;
+  let context: AiTutorQuestionContext;
 
   try {
     const rows = await db
@@ -219,7 +197,7 @@ export async function POST(request: Request) {
       return jsonError(404, 'ไม่พบข้อคำถาม');
     }
 
-    const context = buildQuestionContext(row);
+    context = buildQuestionContext(row);
 
     // ผู้เรียนตอบถูกไหม — เทียบคำตอบใน proof กับเฉลยที่ดึงจาก DB (ฝั่ง server ทั้งหมด)
     isCorrect = context.correctAnswerText
@@ -229,16 +207,50 @@ export async function POST(request: Request) {
     // ─── จองโควตา (กัน race) ───
     reservation = await reserveQuestion({ userId, questionId, message });
     if (!reservation.ok) {
+      // โควตาของข้อนี้เต็ม → ไม่แตะตัวนับรายวันด้วย (ไม่งั้นผู้เรียนจะเสียโควตาวันนี้เปล่า ๆ)
       return jsonError(429, `โควตาคำถามของข้อนี้หมดแล้ว (${reservation.quota.used}/${reservation.quota.limit} ครั้งต่อวัน)`, {
         quota: reservation.quota,
       });
     }
+  } catch (error) {
+    warnWithSummary('ai-tutor] เตรียมคำถามไม่สำเร็จ', error);
+    return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
+  }
 
-    // ─── ประวัติจาก DB เอง (ห้ามเชื่อ client) ───
+  // ─── เพดานซ่อน: ต่อผู้เรียน/วัน + รวมทั้งระบบ/วัน (kill switch) ───
+  // นับหลังจองโควตาสำเร็จแล้วเท่านั้น → request ที่ถูกปฏิเสธไม่กินโควตารายวัน
+  // (ถ้าตัวนับเต็ม → คืนโควตาข้อนี้ด้วยการ mark failed เพื่อไม่ให้เสียสิทธิ์)
+  const userCap = userDailyLimit();
+  const userLimit = await rateLimit(`user:${userId}:ai-tutor:day`, {
+    windowMs: 86_400_000,
+    maxRequests: userCap,
+  });
+  if (userLimit.limited) {
+    await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
+    return jsonError(429, 'คุณถาม AI วันนี้ครบโควตาทั้งหมดแล้ว ลองใช้คำถามพรุ่งนี้', {
+      quota: { used: userCap, limit: userCap, remaining: 0 },
+    });
+  }
+  const systemCap = systemDailyLimit();
+  if (systemCap > 0) {
+    const systemLimit = await rateLimit('system:ai-tutor:day', {
+      windowMs: 86_400_000,
+      maxRequests: systemCap,
+    });
+    if (systemLimit.limited) {
+      await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
+      return jsonError(429, 'ขณะนี้ระบบถาม AI ได้เต็มโควตาของวันนี้แล้ว กรุณาลองใหม่พรุ่งนี้');
+    }
+  }
+
+  // ─── ประวัติจาก DB เอง (ห้ามเชื่อ client) ───
+  let providerMessages: ReturnType<typeof buildProviderMessages>;
+  try {
     const thread = await getThreadMessages({ userId, questionId });
     providerMessages = buildProviderMessages({ context, thread, learnerMessage: message });
   } catch (error) {
-    warnWithSummary('ai-tutor] เตรียมคำถามไม่สำเร็จ', error);
+    await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
+    warnWithSummary('ai-tutor] อ่านประวัติไม่สำเร็จ', error);
     return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
   }
 

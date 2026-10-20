@@ -1,8 +1,12 @@
 /**
  * retention — dry-run ต้องไม่ลบอะไร (ทดสอบกับ DB จริง = Neon branch ai-tutor-migration)
+ *
+ * ข้ามอัตโนมัติถ้าไม่มี DATABASE_URL หรือตาราง ai_tutor_messages ยังไม่มี
+ * (เช่น prod ที่ยังไม่ได้รัน migration) — และลบแถวที่ทดสอบทิ้งเสมอ
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
+import pg from 'pg';
 
 try {
   const dotenv = await import('dotenv');
@@ -21,8 +25,25 @@ const {
 } = await import('./retention');
 const { db } = await import('@/db');
 
-const hasDb = Boolean(process.env.DATABASE_URL);
-const describeLive = hasDb ? describe : describe.skip;
+const connectionString = process.env.DATABASE_URL;
+
+/** ตรวจว่าตาราง ai_tutor_messages มีอยู่จริงไหม (ถ้ายังไม่รัน migration → skip) */
+let hasTable = false;
+if (connectionString) {
+  const pool = new pg.Pool({ connectionString });
+  try {
+    const result = await pool.query(
+      `select count(*)::int as n from information_schema.tables where table_name = 'ai_tutor_messages'`,
+    );
+    hasTable = (result.rows[0]?.n ?? 0) > 0;
+  } catch {
+    hasTable = false;
+  } finally {
+    await pool.end();
+  }
+}
+
+const describeLive = connectionString && hasTable ? describe : describe.skip;
 
 describe('parseRetentionArgs', () => {
   const env = (extra: Record<string, string>) => extra as unknown as NodeJS.ProcessEnv;
@@ -55,6 +76,16 @@ describeLive('retention ↔ DB จริง', () => {
     const [question] = await db.select({ id: questions.id }).from(questions).limit(1);
     userId = user?.id ?? '';
     questionId = question?.id ?? 0;
+
+    // ล้างแถวทดสอบที่ค้างจากรอบก่อน (เช่น รันเทสค้าง/ถูกสังฆ์) ก่อน insert ใหม่
+    if (userId && questionId) {
+      await db.delete(aiTutorMessages).where(and(
+        eq(aiTutorMessages.userId, userId),
+        eq(aiTutorMessages.questionId, questionId),
+        eq(aiTutorMessages.content, 'เก่าแก่เก่า'),
+      ));
+    }
+
     const [row] = await db
       .insert(aiTutorMessages)
       .values({

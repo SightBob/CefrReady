@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/db';
 import { aiTutorFeedback, aiTutorMessages } from '@/db/schema';
@@ -18,7 +18,10 @@ export type ThreadMessage = {
   model: string | null;
 };
 
-/** เธรดของข้อนั้น (ไม่รวมที่ถูกเก็บถัง) */
+/** จำนวนข้อความสูงสุดที่คืนให้ client (เอาของใหม่สุด 100 ข้อความ) */
+export const THREAD_MESSAGE_LIMIT = 100;
+
+/** เธรดของข้อนั้น (ไม่รวมที่ถูกเก็บถัง) — จำกัดจำนวนข้อความไว้ ไม่ให้โตไม่จำกัด */
 export async function getThreadMessages(params: {
   userId: string;
   questionId: number;
@@ -41,9 +44,11 @@ export async function getThreadMessages(params: {
       eq(aiTutorMessages.questionId, params.questionId),
       eq(aiTutorMessages.archived, false),
     ))
-    .orderBy(asc(aiTutorMessages.createdAt), asc(aiTutorMessages.id));
+    // เอาของใหม่สุด N ข้อความ (แล้วกลับลำดับให้เป็นเก่า→ใหม่อีกครั้งด้านล่าง)
+    .orderBy(desc(aiTutorMessages.createdAt), desc(aiTutorMessages.id))
+    .limit(THREAD_MESSAGE_LIMIT);
 
-  return rows as ThreadMessage[];
+  return (rows as ThreadMessage[]).slice().reverse();
 }
 
 /**
