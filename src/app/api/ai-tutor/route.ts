@@ -22,7 +22,7 @@ import {
   systemDailyLimit,
   userDailyLimit,
 } from '@/lib/ai-tutor/quota';
-import { AiTutorProviderError, aiTutorTimeoutMs, streamAiTutorReply } from '@/lib/ai-tutor/provider';
+import { AiTutorProviderError, streamAiTutorReply } from '@/lib/ai-tutor/provider';
 import { trimToLastCompleteSentence } from '@/lib/ai-tutor/trim';
 import { buildQuestionContext, type AiTutorQuestionContext } from '@/lib/ai-tutor/prompt';
 
@@ -30,12 +30,17 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * เวลาสูงสุดของฟังก์ชัน: โมเดลหลัก (AI_TUTOR_TIMEOUT_MS) + โมเดลสำรอง (เท่ากัน) + เผื่อ 15 วิ
- * ค่าอ่านจาก env ตอน build (Vercel อ่าน maxDuration จาก build output) จึงต้องตั้ง
- * AI_TUTOR_TIMEOUT_MS ให้ตรงกับตอนรันจริง
+ * เวลาสูงสุดของฟังก์ชัน (วินาที)
+ *
+ * Next.js อ่านค่านี้จาก **build output** ด้วยการ static analysis ของ route module
+ * (ดูเอกสาร nextjs.org/docs/app/api-reference/file-conventions/route-segment-config)
+ * → ค่าที่คำนวณจาก env จะถูกตรึงตอน build และอาจไม่ตรงกับตอนรันจริง
+ * จึงใช้ค่าคงที่ที่คำนวณจากค่าเริ่มต้นของ AI_TUTOR_TIMEOUT_MS (30 วิ) แทน
+ *
+ * ต้องสัมพันธ์กับ AI_TUTOR_TIMEOUT_MS: ถ้าเพิ่มเป็น 120 วิ (เพดานสูงสุดในโค้ด)
+ * ให้แก้ค่านี้เป็น 255 (หลัก 120 + สำรอง 120 + เผื่อ 15)
  */
-const timeoutSeconds = Math.ceil(aiTutorTimeoutMs() / 1000);
-export const maxDuration = Math.min(300, timeoutSeconds * 2 + 15);
+export const maxDuration = 75;
 
 const bodySchema = z.object({
   questionId: z.number().int().positive(),

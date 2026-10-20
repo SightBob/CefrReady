@@ -53,4 +53,35 @@ describe('trimToLastCompleteSentence', () => {
     expect(result.trimmed).toBe(false);
     expect(result.text).toBe('');
   });
+
+  it('ตัวหนาที่ถูกตัดกลางทาง → เอา ** ค้างออก ไม่ทิ้งเครื่องหมายค้าง', () => {
+    const result = trimToLastCompleteSentence('คำตอบ **ข้อความสำคัญที่โมเดลตัดกลาง');
+    expect(result.text).not.toContain('**');
+    expect(result.text).toContain('คำตอบ');
+  });
+
+  it('ตัวหนาที่ปิดครบแล้วไม่ถูกแตะ', () => {
+    const result = trimToLastCompleteSentence('คำตอบ **สำคัญ** จบแล้ว ท้ายที่ถูกตัด');
+    expect(result.text).toContain('**สำคัญ**');
+    expect(result.text.match(/\*\*/g)?.length).toBe(2);
+  });
+
+  it('ข้อความไทยจริงที่ถูกตัด: ตัดที่คำลงท้ายวลี แล้วตัวหนาต้องครบ', () => {
+    const result = trimToLastCompleteSentence(
+      'เพราะ do เป็นกริยาช่อง 1 **เสมอ** ตามหลักการ เธอก็เลยใส่เป็นรูปอดีต',
+    );
+    expect(result.trimmed).toBe(true);
+    expect(result.cutReason).toBe('clause');
+    expect(result.text).toContain('**เสมอ**');
+    expect(result.text.match(/\*\*/g)?.length).toBe(2);
+    expect(result.text).not.toContain('เธอก็เลยใส่');
+  });
+
+  it('ข้อความไทยจริงที่ถูกตัด: "ก็" ไม่ใช่จุดตัด (อยู่กลางประโยค)', () => {
+    const result = trimToLastCompleteSentence('คำตอบที่ยังไม่จบเลย ก็ยังไม่จบ');
+    // จุดตัดคือ "เลย" (ท้ายวลี) ไม่ใช่ "ก็" ที่อยู่กลางประโยค
+    expect(result.cutReason).toBe('clause');
+    expect(result.text).toBe('คำตอบที่ยังไม่จบเลย');
+    expect(result.text).not.toContain('ก็');
+  });
 });
