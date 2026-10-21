@@ -9,12 +9,18 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   update: vi.fn(),
   insert: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: mocks.rateLimit }));
 vi.mock('@/db', () => ({
-  db: { select: mocks.select, update: mocks.update, insert: mocks.insert },
+  db: {
+    select: mocks.select,
+    update: mocks.update,
+    insert: mocks.insert,
+    transaction: mocks.transaction,
+  },
 }));
 
 import { GET, POST } from './route';
@@ -26,6 +32,9 @@ const TESTER_ROWS = [
 
 /** กำหนดผลลัพธ์ของ select (ผู้ใช้ที่ค้นเจอ) */
 let selectedUsers: Array<{ id: string; email: string; name: string | null; access: boolean; updatedAt: Date }> = TESTER_ROWS;
+
+/** จำนวน "การเปลี่ยนแปลง" ที่ commit สำเร็จ (mock transaction: ถ้า callback โยน error → ไม่นับ) */
+let committedUpdates = 0;
 
 function unauthorized() {
   return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { status: 401 });
@@ -47,6 +56,7 @@ function chain(rows: unknown[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   selectedUsers = TESTER_ROWS;
+  committedUpdates = 0;
   mocks.requireAdmin.mockResolvedValue({ error: null, session: { user: { id: 'admin-1' } } });
   mocks.rateLimit.mockResolvedValue(null);
   mocks.select.mockImplementation((selection: Record<string, unknown>) => (
@@ -57,8 +67,30 @@ beforeEach(() => {
   updateChain.where = vi.fn(() => updateChain);
   mocks.update.mockReturnValue(updateChain);
   const insertChain: Record<string, unknown> = {};
-  insertChain.values = vi.fn(() => insertChain);
+  insertChain.values = vi.fn((values: Record<string, unknown>) => {
+    // เก็บค่าที่จะ insert ไว้ให้เทสอ่าน (mock ไม่ต่อ DB)
+    (insertChain as { __values?: Record<string, unknown> }).__values = values;
+    return insertChain;
+  });
   mocks.insert.mockReturnValue(insertChain);
+
+  // transaction จำลองพฤติกรรมของ DB: ถ้า callback โยน error → ไม่มีอะไร commit
+  mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    const stagedUpdates: unknown[] = [];
+    const tx = {
+      update: (...args: unknown[]) => {
+        stagedUpdates.push(args);
+        return mocks.update(...args);
+      },
+      insert: (...args: unknown[]) => {
+        stagedUpdates.push(args);
+        return mocks.insert(...args);
+      },
+    };
+    const result = await fn(tx);
+    committedUpdates += stagedUpdates.length;
+    return result;
+  });
 });
 
 function post(body: unknown) {
@@ -171,5 +203,65 @@ describe('POST /api/admin/ai-tutor/testers — bulk grant/revoke', () => {
     selectedUsers = [{ id: 'u3', email: 'learner@example.com', name: null, access: false, updatedAt: new Date() }];
     await post({ action: 'grant', emails: ['learner@example.com'] });
     expect(mocks.insert).toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/admin/ai-tutor/testers — ความปลอดภัยของ audit + transaction', () => {
+  /** ค่าที่ insert ลง audit (เก็บจาก mock) */
+  function auditValues(): Record<string, unknown> {
+    const chain = mocks.insert.mock.results[0]?.value as { __values?: Record<string, unknown> } | undefined;
+    return chain?.__values ?? {};
+  }
+
+  it('bulk 200 อีเมลยาว → target สั้นและไม่เกิน 200 ตัวอักษร (ไม่ทำให้ insert ล้ม)', async () => {
+    const emails = Array.from({ length: 200 }, (_, i) => `learner-with-a-very-long-name-${i}@subdomain.example.com`);
+    selectedUsers = emails.map((email, i) => ({
+      id: `uid-${i}`, email, name: null, access: false, updatedAt: new Date(),
+    }));
+
+    const res = await post({ action: 'grant', emails });
+    expect(res.status).toBe(200);
+
+    const values = auditValues();
+    expect(String(values.target).length).toBeLessThanOrEqual(200);
+    // สรุปสั้น ๆ แทนรายชื่อ
+    expect(String(values.target)).toMatch(/grant:\s*200\s*users/);
+  });
+
+  it('audit ล้ม → สิทธิ์ไม่เปลี่ยน (ต้อง rollback ทั้งชุด)', async () => {
+    selectedUsers = [
+      { id: 'u3', email: 'a@example.com', name: null, access: false, updatedAt: new Date() },
+      { id: 'u4', email: 'b@example.com', name: null, access: false, updatedAt: new Date() },
+    ];
+    mocks.insert.mockImplementation(() => {
+      const chain: Record<string, unknown> = {};
+      chain.values = vi.fn(() => chain);
+      chain.then = (_resolve: unknown, reject: (reason: unknown) => unknown) => {
+        reject(new Error('22001 value too long for type character varying(200)'));
+      };
+      return chain;
+    });
+
+    const res = await post({ action: 'grant', emails: ['a@example.com', 'b@example.com'] });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    // ไม่เผยรายละเอียดของ error ภายในให้ผู้ใช้
+    expect(JSON.stringify(body)).not.toContain('22001');
+
+    // ต้องไม่มีการอัปเดตสิทธิ์ที่ "คอมมิต" เลย (ถูก rollback ทั้งชุด)
+    expect(committedUpdates, 'สิทธิ์ต้องถูก rollback เมื่อ audit ล้ม').toBe(0);
+  });
+
+  it('audit ไม่มีสตริงอีเมลผู้เรียนเลย (เก็บ user id แทน)', async () => {
+    selectedUsers = [{ id: 'u3', email: 'learner@example.com', name: null, access: false, updatedAt: new Date() }];
+    await post({ action: 'grant', emails: ['learner@example.com'] });
+
+    const values = auditValues();
+    const serialized = JSON.stringify(values);
+    expect(serialized).not.toContain('learner@example.com');
+    expect(serialized).not.toContain('@example.com');
+    // ต้องเก็บ user id ไว้ให้ตามย้อนหลังได้
+    expect(serialized).toContain('u3');
   });
 });

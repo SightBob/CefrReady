@@ -23,6 +23,17 @@ function normalizeEmail(value: string): string {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** ความยาวสูงสุดของคอลัมน์ target ในตาราง ai_tutor_admin_audit (varchar 200) */
+const AUDIT_TARGET_MAX = 200;
+
+/**
+ * สรุปสำหรับ audit — ไม่เก็บอีเมลผู้เรียน (เก็บแค่จำนวน + ประเภท)
+ * และตัดไม่เกินความยาวของคอลัมน์เสมอ (กัน insert ล้ม 22001)
+ */
+function buildAuditTarget(action: 'grant' | 'revoke', count: number): string {
+  return `${action}:${count} users`.slice(0, AUDIT_TARGET_MAX);
+}
+
 /**
  * GET /api/admin/ai-tutor/testers?q=&page=
  * รายชื่อผู้ที่มีสิทธิ์ใช้ AI Tutor (users.ai_tutor_access = true)
@@ -102,34 +113,59 @@ export async function POST(request: Request) {
   const notFound: string[] = [];
   const already: string[] = [];
 
-  for (const email of valid) {
-    const user = byEmail.get(email);
-    if (!user) {
-      notFound.push(email);
-      continue;
-    }
-    const alreadyHas = action === 'grant' ? user.access : !user.access;
-    if (alreadyHas) {
-      already.push(email);
-      continue;
-    }
-    await db
-      .update(users)
-      .set({ aiTutorAccess: action === 'grant', updatedAt: new Date() })
-      .where(eq(users.id, user.id));
-    granted.push(email);
-  }
+  // ─── เปลี่ยนสิทธิ์ + บันทึก audit ในธุรกรรมเดียวกัน ───
+  // ถ้า audit ล้ม (เช่น คอลัมน์สั้นเกิน/DB ล่ม) → สิทธิ์ที่ให้ไปทั้งชุดถูก rollback ด้วย
+  // (เดิม: อัปเดตสิทธิ์ก่อน แล้วค่อย insert audit → ถ้า audit ล้ม สิทธิ์ค้างถูกให้ไปแล้ว)
+  let changedUserIds: string[] = [];
+  try {
+    await db.transaction(async (tx) => {
+      const grantedLocal: string[] = [];
+      const notFoundLocal: string[] = [];
+      const alreadyLocal: string[] = [];
+      const changedLocal: string[] = [];
 
-  // บันทึก audit ทุกการเปลี่ยน
-  if (granted.length > 0) {
-    const { aiTutorAdminAudit } = await import('@/db/schema');
-    await db.insert(aiTutorAdminAudit).values({
-      actorUserId: session?.user?.id ?? null,
-      action: action === 'grant' ? 'grant_testers' : 'revoke_testers',
-      target: granted.join(','),
-      before: { emails: granted },
-      after: { emails: granted, aiTutorAccess: action === 'grant' },
+      for (const email of valid) {
+        const user = byEmail.get(email);
+        if (!user) {
+          notFoundLocal.push(email);
+          continue;
+        }
+        const alreadyHas = action === 'grant' ? user.access : !user.access;
+        if (alreadyHas) {
+          alreadyLocal.push(email);
+          continue;
+        }
+        await tx
+          .update(users)
+          .set({ aiTutorAccess: action === 'grant', updatedAt: new Date() })
+          .where(eq(users.id, user.id));
+        grantedLocal.push(email);
+        changedLocal.push(user.id);
+      }
+
+      // บันทึก audit ทุกการเปลี่ยน (เก็บ user id ไม่เก็บอีเมล → ไม่มี PII ในตาราง audit)
+      if (changedLocal.length > 0) {
+        const { aiTutorAdminAudit } = await import('@/db/schema');
+        await tx.insert(aiTutorAdminAudit).values({
+          actorUserId: session?.user?.id ?? null,
+          action: action === 'grant' ? 'grant_testers' : 'revoke_testers',
+          target: buildAuditTarget(action, changedLocal.length),
+          before: { userIds: changedLocal },
+          after: { userIds: changedLocal, aiTutorAccess: action === 'grant' },
+        });
+      }
+
+      granted.push(...grantedLocal);
+      notFound.push(...notFoundLocal);
+      already.push(...alreadyLocal);
+      changedUserIds = changedLocal;
     });
+  } catch (error) {
+    console.error('[admin/ai-tutor/testers] เปลี่ยนสิทธิ์ไม่สำเร็จ — ยกเลิกทั้งชุด:', error);
+    return Response.json(
+      { success: false, error: 'บันทึกการเปลี่ยนสิทธิ์ไม่สำเร็จ — ไม่มีการเปลี่ยนแปลงใด ๆ (ลองใหม่อีกครั้ง)' },
+      { status: 500 },
+    );
   }
 
   return Response.json({

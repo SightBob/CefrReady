@@ -32,7 +32,8 @@ async function main() {
     .where(sql`lower(${users.email}) = lower(${email})`);
 
   if (matches.length === 0) {
-    console.error(`ไม่พบบัญชีอีเมล: ${email}`);
+    // ไม่พิมพ์อีเมลลง console (log เก็บ PII) — บอกแค่ว่าไม่เจอ
+    console.error('ไม่พบบัญชีที่ระบุ — ตรวจสอบอีเมลอีกครั้ง');
     process.exit(1);
   }
 
@@ -42,10 +43,11 @@ async function main() {
     .set({ aiTutorAccess: action === 'grant' })
     .where(eq(users.id, target.id));
 
+  // log แค่ user id — ไม่พิมพ์อีเมล (PII) ลง console
   console.log(
     action === 'grant'
-      ? `✅ เปิด AI Tutor ให้ ${target.email} (id: ${target.id}) แล้ว`
-      : `🚫 ถอนสิทธิ์ AI Tutor ของ ${target.email} (id: ${target.id}) แล้ว`,
+      ? `✅ เปิด AI Tutor ให้ user id=${target.id} แล้ว`
+      : `🚫 ถอนสิทธิ์ AI Tutor ของ user id=${target.id} แล้ว`,
   );
   process.exit(0);
 }
