@@ -1,8 +1,13 @@
 /**
  * retention — dry-run ต้องไม่ลบอะไร (ทดสอบกับ DB จริง = Neon branch ai-tutor-migration)
  *
- * ข้ามอัตโนมัติถ้าไม่มี DATABASE_URL หรือตาราง ai_tutor_messages ยังไม่มี
- * (เช่น prod ที่ยังไม่ได้รัน migration) — และลบแถวที่ทดสอบทิ้งเสมอ
+ * ข้ามอัตโนมัติเมื่อ:
+ * - ไม่ได้ตั้ง DATABASE_URL
+ * - host ไม่อยู่ใน allowlist (AI_TUTOR_TEST_DB_HOSTS) หรืออยู่ในบล็อกลิสต์ (APPLY_MIGRATION_BLOCKED_HOSTS)
+ * - ยังไม่มีตาราง ai_tutor_messages
+ *
+ * ⚠️ ใช้ "ผู้ใช้ทดสอบ" ที่สร้างขึ้นเอง → cleanup ลบเฉพาะแถวของผู้ใช้นั้น
+ *    (เดิมลบตาม user+question ของผู้ใช้จริงในฐาน → อันตรายกับข้อมูลจริง)
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, asc, eq, sql } from 'drizzle-orm';
@@ -24,12 +29,23 @@ const {
   retentionCutoff,
 } = await import('./retention');
 const { db } = await import('@/db');
+const { createTestDbUserId, evaluateTestDbGuard, testDbUserEmail } = await import('@/lib/test-db-guard');
 
 const connectionString = process.env.DATABASE_URL;
 
+/** guard กลาง (ดู src/lib/test-db-guard.ts) */
+const guard = evaluateTestDbGuard({
+  databaseUrl: connectionString,
+  blockedHosts: process.env.APPLY_MIGRATION_BLOCKED_HOSTS,
+  allowedHosts: process.env.AI_TUTOR_TEST_DB_HOSTS,
+});
+if (!guard.allowed) {
+  console.warn(`[retention.test] ข้ามเทสที่ต่อ DB จริง: ${guard.reason}`);
+}
+
 /** ตรวจว่าตาราง ai_tutor_messages มีอยู่จริงไหม (ถ้ายังไม่รัน migration → skip) */
 let hasTable = false;
-if (connectionString) {
+if (guard.allowed) {
   const pool = new pg.Pool({ connectionString });
   try {
     const result = await pool.query(
@@ -43,7 +59,7 @@ if (connectionString) {
   }
 }
 
-const describeLive = connectionString && hasTable ? describe : describe.skip;
+const describeLive = connectionString && guard.allowed && hasTable ? describe : describe.skip;
 
 describe('parseRetentionArgs', () => {
   const env = (extra: Record<string, string>) => extra as unknown as NodeJS.ProcessEnv;
@@ -72,20 +88,17 @@ describeLive('retention ↔ DB จริง', () => {
   let messageId = 0;
 
   beforeAll(async () => {
-    const [user] = await db.select({ id: users.id }).from(users).limit(1);
+    // ผู้ใช้ทดสอบที่สร้างขึ้นเอง (ไม่ใช้ผู้ใช้จริงในฐานข้อมูล)
+    userId = createTestDbUserId('retention');
+    await db.insert(users).values({
+      id: userId,
+      email: testDbUserEmail(userId),
+      name: 'AI Tutor Test (retention)',
+    });
+
     // ใช้ข้อที่เรียงจาก id ต่ำสุดลำดับที่ 2 (ไฟล์เทส DB จริงแต่ละไฟล์ใช้คนละข้อ → ไม่ชนกันตอนรันขนาน)
     const [question] = await db.select({ id: questions.id }).from(questions).orderBy(asc(questions.id)).offset(1).limit(1);
-    userId = user?.id ?? '';
     questionId = question?.id ?? 0;
-
-    // ล้างแถวทดสอบที่ค้างจากรอบก่อน (เช่น รันเทสค้าง/ถูกสังฆ์) ก่อน insert ใหม่
-    if (userId && questionId) {
-      await db.delete(aiTutorMessages).where(and(
-        eq(aiTutorMessages.userId, userId),
-        eq(aiTutorMessages.questionId, questionId),
-        eq(aiTutorMessages.content, 'เก่าแก่เก่า'),
-      ));
-    }
 
     const [row] = await db
       .insert(aiTutorMessages)
@@ -102,8 +115,10 @@ describeLive('retention ↔ DB จริง', () => {
   });
 
   afterAll(async () => {
-    if (messageId) {
-      await db.delete(aiTutorMessages).where(eq(aiTutorMessages.id, messageId));
+    // ลบเฉพาะแถวของผู้ใช้ทดสอบที่เทสสร้างเอง
+    if (userId) {
+      await db.delete(aiTutorMessages).where(eq(aiTutorMessages.userId, userId));
+      await db.delete(users).where(eq(users.id, userId));
     }
   });
 

@@ -1,7 +1,8 @@
 /**
  * ทดสอบการเชื่อมต่อ DB จริงด้วย drizzle (ใช้ schema จาก src/db/schema.ts ตัวจริง)
  * ทุกกรณีที่เขียนข้อมูลจะอยู่ใน transaction ที่ rollback เสมอ → ไม่ทิ้งข้อมูลค้าง
- * ข้ามอัตโนมัติถ้าไม่มี DATABASE_URL
+ * ข้ามอัตโนมัติถ้าไม่มี DATABASE_URL หรือ host ไม่อยู่ใน allowlist
+ * (AI_TUTOR_TEST_DB_HOSTS) หรืออยู่ในบล็อกลิสต์ (APPLY_MIGRATION_BLOCKED_HOSTS)
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -19,9 +20,18 @@ try {
 
 const { verbBanks } = await import('@/db/schema');
 const { validateVerbEntry } = await import('@/lib/verb-bank');
+const { evaluateTestDbGuard } = await import('@/lib/test-db-guard');
 
 const connectionString = process.env.DATABASE_URL;
-const describeLive = connectionString ? describe : describe.skip;
+const guard = evaluateTestDbGuard({
+  databaseUrl: connectionString,
+  blockedHosts: process.env.APPLY_MIGRATION_BLOCKED_HOSTS,
+  allowedHosts: process.env.AI_TUTOR_TEST_DB_HOSTS,
+});
+if (!guard.allowed) {
+  console.warn(`[schema-live.test] ข้ามเทสที่ต่อ DB จริง: ${guard.reason}`);
+}
+const describeLive = connectionString && guard.allowed ? describe : describe.skip;
 
 describeLive('verb_banks ↔ schema.ts (DB จริง)', () => {
   let pool: pg.Pool;

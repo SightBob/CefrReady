@@ -1,8 +1,16 @@
 /**
  * โควตา AI Tutor กับ DB จริง (Neon branch ai-tutor-migration)
  *
- * ข้ามอัตโนมัติถ้าไม่มี DATABASE_URL หรือตาราง ai_tutor_messages ยังไม่มี
- * (เช่น prod ที่ยังไม่ได้รัน migration) — และลบแถวที่ทดสอบทิ้งเสมอ
+ * ข้ามอัตโนมัติเมื่อ:
+ * - ไม่ได้ตั้ง DATABASE_URL
+ * - host ไม่อยู่ใน allowlist (AI_TUTOR_TEST_DB_HOSTS) หรืออยู่ในบล็อกลิสต์ (APPLY_MIGRATION_BLOCKED_HOSTS)
+ * - ยังไม่มีตาราง ai_tutor_messages
+ *
+ * แต่ถ้าตั้ง DB ไว้แล้ว (ผ่าน guard) แต่คอลัมน์ที่เทสใช้ขาด → เทสตกพร้อมบอกว่าขาดอะไร
+ * (ไม่ skip เงียบ ๆ เพราะจะทำให้ schema พังไปโดยไม่รู้ตัว)
+ *
+ * ⚠️ ใช้ "ผู้ใช้ทดสอบ" ที่สร้างขึ้นเองใน beforeAll → cleanup ลบเฉพาะแถวของผู้ใช้นั้น
+ *    ไม่ไปลบแถวของผู้ใช้จริงที่อาจมีอยู่ในฐาน (สำเนา production)
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, asc, eq, sql } from 'drizzle-orm';
@@ -20,13 +28,24 @@ try {
 const { aiTutorMessages, questions, users } = await import('@/db/schema');
 const { reserveQuestion, countUsedQuestions, bangkokDayStartUtc } = await import('./quota');
 const { markUserMessageFailed } = await import('./messages');
+const { createTestDbUserId, evaluateTestDbGuard, testDbUserEmail } = await import('@/lib/test-db-guard');
 
 const connectionString = process.env.DATABASE_URL;
 
 /**
- * คอลัมน์ที่เทสชุดนี้ต้องใช้ — ถ้าขาด (เช่น รัน migration แค่ 0046 แต่ยังไม่ได้ 0047/0049)
- * ต้อง skip ไม่ใช่ fail
+ * guard กลาง: เทสต่อ DB จริงรันเฉพาะ host ที่อยู่ใน AI_TUTOR_TEST_DB_HOSTS
+ * และไม่อยู่ในบล็อกลิสต์ (APPLY_MIGRATION_BLOCKED_HOSTS) เท่านั้น
  */
+const guard = evaluateTestDbGuard({
+  databaseUrl: connectionString,
+  blockedHosts: process.env.APPLY_MIGRATION_BLOCKED_HOSTS,
+  allowedHosts: process.env.AI_TUTOR_TEST_DB_HOSTS,
+});
+if (!guard.allowed) {
+  console.warn(`[quota.db.test] ข้ามเทสที่ต่อ DB จริง: ${guard.reason}`);
+}
+
+/** คอลัมน์ที่เทสชุดนี้ต้องใช้ (0046/0047/0049) */
 const REQUIRED_COLUMNS = [
   'attempt_key',      // 0049 — ผูกแถวกับรอบการทำข้อสอบ
   'selected_answer',  // 0047 — คำตอบที่ผู้เรียนเลือก
@@ -40,7 +59,9 @@ const REQUIRED_COLUMNS = [
 
 let hasTable = false;
 let hasAllColumns = false;
-if (connectionString) {
+let missingColumns: string[] = [];
+
+if (guard.allowed) {
   const pool = new pg.Pool({ connectionString });
   try {
     const tableResult = await pool.query(
@@ -55,11 +76,8 @@ if (connectionString) {
         [REQUIRED_COLUMNS],
       );
       const found = new Set((columnResult.rows as Array<{ column_name: string }>).map((row) => row.column_name));
-      const missing = REQUIRED_COLUMNS.filter((column) => !found.has(column));
-      hasAllColumns = missing.length === 0;
-      if (missing.length > 0) {
-        console.warn(`[quota.db.test] ข้ามเทส: ตาราง ai_tutor_messages ขาดคอลัมน์ ${missing.join(', ')}`);
-      }
+      missingColumns = REQUIRED_COLUMNS.filter((column) => !found.has(column));
+      hasAllColumns = missingColumns.length === 0;
     }
   } catch {
     hasTable = false;
@@ -69,7 +87,19 @@ if (connectionString) {
   }
 }
 
-const describeLive = connectionString && hasTable && hasAllColumns ? describe : describe.skip;
+// ตั้ง DB ไว้แล้วแต่ schema ไม่ครบ = ปัญหาจริง → ให้เทสตกพร้อมบอกว่าขาดอะไร
+if (guard.allowed && hasTable && !hasAllColumns) {
+  describe(`quota AI Tutor ↔ DB จริง (schema ไม่ครบ: ขาด ${missingColumns.join(', ')})`, () => {
+    it('คอลัมน์ที่เทสใช้ไม่ครบ — ต้องรัน migration 0045-0049 ก่อน', () => {
+      expect(
+        missingColumns,
+        `ตาราง ai_tutor_messages ขาดคอลัมน์: ${missingColumns.join(', ')} — ต้องรัน migration 0045-0049 ก่อน`,
+      ).toEqual([]);
+    });
+  });
+}
+
+const describeLive = connectionString && guard.allowed && hasTable && hasAllColumns ? describe : describe.skip;
 
 describeLive('quota AI Tutor ↔ DB จริง', () => {
   let pool: pg.Pool;
@@ -80,28 +110,26 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
   beforeAll(async () => {
     pool = new pg.Pool({ connectionString });
     db = drizzle(pool) as unknown as NodePgDatabase<Record<string, never>>;
-    const [user] = await db.select({ id: users.id }).from(users).limit(1);
-    // ใช้ข้อที่ id ต่ำสุด (ไฟล์เทสอื่นที่ต่อ DB จริงจะใช้ข้อ id สูงสุด → ไม่ชนกัน)
+
+    // ผู้ใช้ทดสอบที่สร้างขึ้นเอง (ไม่ใช้ผู้ใช้จริงในฐานข้อมูล)
+    userId = createTestDbUserId('quota');
+    await db.insert(users).values({
+      id: userId,
+      email: testDbUserEmail(userId),
+      name: 'AI Tutor Test (quota)',
+    });
+
+    // ใช้ข้อที่ id ต่ำสุด (ไฟล์เทสอื่นที่ต่อ DB จริงจะใช้ข้อคนละลำดับ → ไม่ชนกัน)
     const [question] = await db.select({ id: questions.id }).from(questions).orderBy(asc(questions.id)).limit(1);
-    userId = user?.id ?? '';
     questionId = question?.id ?? 0;
     process.env.AI_TUTOR_QUESTION_QUOTA = '2';
-
-    // ล้างแถวทดสอบที่ค้างจากรอบก่อน (เช่น รันเทสค้าง/ถูกสังฆ์) ก่อนเริ่มใหม่
-    if (userId && questionId) {
-      await db.delete(aiTutorMessages).where(and(
-        eq(aiTutorMessages.userId, userId),
-        eq(aiTutorMessages.questionId, questionId),
-      ));
-    }
   });
 
   afterAll(async () => {
-    if (userId && questionId) {
-      await db.delete(aiTutorMessages).where(and(
-        eq(aiTutorMessages.userId, userId),
-        eq(aiTutorMessages.questionId, questionId),
-      ));
+    // ลบเฉพาะแถวของผู้ใช้ทดสอบที่เทสสร้างเอง
+    if (userId) {
+      await db.delete(aiTutorMessages).where(eq(aiTutorMessages.userId, userId));
+      await db.delete(users).where(eq(users.id, userId));
     }
     delete process.env.AI_TUTOR_QUESTION_QUOTA;
     await pool?.end();
@@ -144,6 +172,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
       content: 'yesterday',
       status: 'ok',
       createdAt: yesterday,
+      attemptKey: 'attempt-key-0001',
     });
 
     const used = await countUsedQuestions({ userId, questionId });
@@ -161,6 +190,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
       content: 'stale-pending',
       status: 'pending',
       createdAt: stale,
+      attemptKey: 'attempt-key-0001',
     });
 
     const used = await countUsedQuestions({ userId, questionId });
@@ -191,5 +221,32 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     }
     const usedAfter = await countUsedQuestions({ userId, questionId });
     expect(usedAfter).toBe(usedBefore + 1); // จองโควตา 1 ครั้ง (ไม่ใช่ 2)
+  });
+
+  it('โควตาไม่รีเซ็ตเมื่อเปลี่ยน attemptKey — นับต่อ (user, ข้อ) ต่อวันเดียวกัน', async () => {
+    process.env.AI_TUTOR_QUESTION_QUOTA = '10';
+    const before = await countUsedQuestions({ userId, questionId });
+
+    // ถามคนละรอบ (attemptKey ต่างกัน) ที่ข้อเดียวกัน → ต้องนับต่อ ไม่รีเซ็ต
+    const first = await reserveQuestion({
+      userId, questionId, message: 'รอบ-A-ครั้งแรก', attemptKey: 'attempt-key-A',
+    });
+    expect(first.ok).toBe(true);
+
+    const second = await reserveQuestion({
+      userId, questionId, message: 'รอบ-B-ครั้งแรก', attemptKey: 'attempt-key-B',
+    });
+    expect(second.ok).toBe(true);
+
+    const after = await countUsedQuestions({ userId, questionId });
+    expect(after).toBe(before + 2); // เพิ่มขึ้น 2 ไม่ใช่รีเซ็ตเป็น 1
+
+    // และถ้าเต็มโควตาแล้ว การเปลี่ยนรอบก็ยังถูกปฏิเสธ (เลี่ยงโควตาไม่ได้)
+    process.env.AI_TUTOR_QUESTION_QUOTA = '2';
+    const rejected = await reserveQuestion({
+      userId, questionId, message: 'รอบ-C-พยายามเลี่ยง', attemptKey: 'attempt-key-C',
+    });
+    expect(rejected.ok).toBe(false);
+    process.env.AI_TUTOR_QUESTION_QUOTA = '10';
   });
 });

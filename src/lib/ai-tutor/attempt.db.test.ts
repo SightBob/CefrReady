@@ -2,8 +2,9 @@
  * attempt_key (migration 0049) — บทสนทนา AI Tutor แยกต่อรอบการทำข้อสอบ
  *
  * ทดสอบกับ DB จริง (Neon branch ai-tutor-migration)
- * - ข้ามอัตโนมัติถ้าไม่มี DATABASE_URL หรือตาราง ai_tutor_messages ยังไม่มี
- *   (เช่น prod ที่ยังไม่ได้รัน migration 0049) — และลบแถวที่ทดสอบทิ้งเสมอ
+ * - ข้ามอัตโนมัติถ้าไม่มี DATABASE_URL / host ไม่อยู่ใน allowlist (AI_TUTOR_TEST_DB_HOSTS)
+ *   หรืออยู่ในบล็อกลิสต์ (APPLY_MIGRATION_BLOCKED_HOSTS) / ยังไม่มีคอลัมน์ attempt_key
+ * - ใช้ "ผู้ใช้ทดสอบ" ที่สร้างขึ้นเอง → cleanup ลบเฉพาะแถวของผู้ใช้นั้น
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, asc, eq } from 'drizzle-orm';
@@ -21,12 +22,23 @@ const { aiTutorMessages, questions, users } = await import('@/db/schema');
 const { getThreadMessages, archiveThread } = await import('./messages');
 const { countUsedQuestions, reserveQuestion } = await import('./quota');
 const { db } = await import('@/db');
+const { createTestDbUserId, evaluateTestDbGuard, testDbUserEmail } = await import('@/lib/test-db-guard');
 
 const connectionString = process.env.DATABASE_URL;
 
+/** guard กลาง (ดู src/lib/test-db-guard.ts) */
+const guard = evaluateTestDbGuard({
+  databaseUrl: connectionString,
+  blockedHosts: process.env.APPLY_MIGRATION_BLOCKED_HOSTS,
+  allowedHosts: process.env.AI_TUTOR_TEST_DB_HOSTS,
+});
+if (!guard.allowed) {
+  console.warn(`[attempt.db.test] ข้ามเทสที่ต่อ DB จริง: ${guard.reason}`);
+}
+
 /** ตรวจว่าตารางมีคอลัมน์ attempt_key แล้วหรือยัง (migration 0049) */
 let hasAttemptKey = false;
-if (connectionString) {
+if (guard.allowed) {
   const pool = new pg.Pool({ connectionString });
   try {
     const result = await pool.query(
@@ -40,7 +52,7 @@ if (connectionString) {
   }
 }
 
-const describeLive = connectionString && hasAttemptKey ? describe : describe.skip;
+const describeLive = connectionString && guard.allowed && hasAttemptKey ? describe : describe.skip;
 
 const ATTEMPT_A = 'attempt-aaaa-0001';
 const ATTEMPT_B = 'attempt-bbbb-0002';
@@ -50,16 +62,17 @@ describeLive('AI Tutor attempt_key ↔ DB จริง', () => {
   let questionId = 0;
 
   beforeAll(async () => {
-    const [user] = await db.select({ id: users.id }).from(users).limit(1);
+    // ผู้ใช้ทดสอบที่สร้างขึ้นเอง (ไม่ใช้ผู้ใช้จริงในฐานข้อมูล)
+    userId = createTestDbUserId('attempt');
+    await db.insert(users).values({
+      id: userId,
+      email: testDbUserEmail(userId),
+      name: 'AI Tutor Test (attempt)',
+    });
+
     // ใช้ข้อที่เรียงจาก id ต่ำสุดลำดับที่ 3 (ไฟล์เทส DB จริงแต่ละไฟล์ใช้คนละข้อ → ไม่ชนกันตอนรันขนาน)
     const [question] = await db.select({ id: questions.id }).from(questions).orderBy(asc(questions.id)).offset(2).limit(1);
-    userId = user?.id ?? '';
     questionId = question?.id ?? 0;
-
-    await db.delete(aiTutorMessages).where(and(
-      eq(aiTutorMessages.userId, userId),
-      eq(aiTutorMessages.questionId, questionId),
-    ));
 
     await db.insert(aiTutorMessages).values([
       { userId, questionId, role: 'user', content: 'คำถามรอบ A', status: 'ok', attemptKey: ATTEMPT_A },
@@ -70,11 +83,10 @@ describeLive('AI Tutor attempt_key ↔ DB จริง', () => {
   });
 
   afterAll(async () => {
-    if (userId && questionId) {
-      await db.delete(aiTutorMessages).where(and(
-        eq(aiTutorMessages.userId, userId),
-        eq(aiTutorMessages.questionId, questionId),
-      ));
+    // ลบเฉพาะแถวของผู้ใช้ทดสอบที่เทสสร้างเอง
+    if (userId) {
+      await db.delete(aiTutorMessages).where(eq(aiTutorMessages.userId, userId));
+      await db.delete(users).where(eq(users.id, userId));
     }
   });
 
