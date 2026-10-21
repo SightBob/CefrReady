@@ -60,6 +60,8 @@ const REQUIRED_COLUMNS = [
 let hasTable = false;
 let hasAllColumns = false;
 let missingColumns: string[] = [];
+let tableMissing = false;
+let connectionFailed = false;
 
 if (guard.allowed) {
   const pool = new pg.Pool({ connectionString });
@@ -68,6 +70,7 @@ if (guard.allowed) {
       `select count(*)::int as n from information_schema.tables where table_name = 'ai_tutor_messages'`,
     );
     hasTable = (tableResult.rows[0]?.n ?? 0) > 0;
+    tableMissing = !hasTable;
 
     if (hasTable) {
       const columnResult = await pool.query(
@@ -82,21 +85,36 @@ if (guard.allowed) {
   } catch {
     hasTable = false;
     hasAllColumns = false;
+    connectionFailed = true;
   } finally {
     await pool.end();
   }
 }
 
-// ตั้ง DB ไว้แล้วแต่ schema ไม่ครบ = ปัญหาจริง → ให้เทสตกพร้อมบอกว่าขาดอะไร
-if (guard.allowed && hasTable && !hasAllColumns) {
-  describe(`quota AI Tutor ↔ DB จริง (schema ไม่ครบ: ขาด ${missingColumns.join(', ')})`, () => {
-    it('คอลัมน์ที่เทสใช้ไม่ครบ — ต้องรัน migration 0045-0049 ก่อน', () => {
-      expect(
-        missingColumns,
-        `ตาราง ai_tutor_messages ขาดคอลัมน์: ${missingColumns.join(', ')} — ต้องรัน migration 0045-0049 ก่อน`,
-      ).toEqual([]);
+/**
+ * ตั้ง DB ไว้แล้ว + ผ่าน guard แต่ schema ไม่ครบ = ปัญหาจริง → ให้เทส "ตก" พร้อมบอกว่าขาดอะไร
+ * (skip ได้เฉพาะตอนที่ไม่ได้ตั้ง DB หรือ host ไม่ผ่าน guard เท่านั้น)
+ */
+if (guard.allowed && !connectionFailed) {
+  if (tableMissing) {
+    describe('quota AI Tutor ↔ DB จริง (ตารางยังไม่มี)', () => {
+      it('ตาราง ai_tutor_messages ไม่มีในฐานข้อมูลนี้ — ต้องรัน migration 0045-0049 ก่อน', () => {
+        expect(
+          ['ai_tutor_messages'],
+          'ไม่พบตาราง ai_tutor_messages ในฐานข้อมูลที่เทสต่อ (ตั้ง DATABASE_URL ถูกต้องไหม? รัน migration 0045-0049 แล้วหรือยัง?)',
+        ).toEqual([]);
+      });
     });
-  });
+  } else if (!hasAllColumns) {
+    describe(`quota AI Tutor ↔ DB จริง (schema ไม่ครบ: ขาด ${missingColumns.join(', ')})`, () => {
+      it('คอลัมน์ที่เทสใช้ไม่ครบ — ต้องรัน migration 0045-0049 ก่อน', () => {
+        expect(
+          missingColumns,
+          `ตาราง ai_tutor_messages ขาดคอลัมน์: ${missingColumns.join(', ')} — ต้องรัน migration 0045-0049 ก่อน`,
+        ).toEqual([]);
+      });
+    });
+  }
 }
 
 const describeLive = connectionString && guard.allowed && hasTable && hasAllColumns ? describe : describe.skip;

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit --incremental false",
     "test": "vitest run",
     "test:unit": "vitest run",
+    "test:db": "node scripts/test-db.mjs",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
