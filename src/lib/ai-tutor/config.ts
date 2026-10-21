@@ -118,6 +118,12 @@ export function getAiTutorEnvDefaults(): AiTutorConfig {
     clampToRange('firstTokenTimeoutMs', envInt('AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS', Math.floor(timeoutMs / 2))),
     timeoutMs,
   );
+  const questionQuota = clampToRange('questionQuota', envInt('AI_TUTOR_QUESTION_QUOTA', 5));
+  // เพดานรายวันต้องไม่น้อยกว่าโควตาต่อข้อ (เหมือนที่ normalizeConfig บังคับตอนอ่านค่า)
+  const userDailyLimit = Math.max(
+    clampToRange('userDailyLimit', envInt('AI_TUTOR_USER_DAILY_LIMIT', 50)),
+    questionQuota,
+  );
   return {
     envMasterEnabled,
     runtimeEnabled: envMasterEnabled,
@@ -129,8 +135,8 @@ export function getAiTutorEnvDefaults(): AiTutorConfig {
     maxTokens: clampToRange('maxTokens', envInt('AI_TUTOR_MAX_TOKENS', 1200)),
     timeoutMs,
     firstTokenTimeoutMs,
-    questionQuota: clampToRange('questionQuota', envInt('AI_TUTOR_QUESTION_QUOTA', 5)),
-    userDailyLimit: clampToRange('userDailyLimit', envInt('AI_TUTOR_USER_DAILY_LIMIT', 50)),
+    questionQuota,
+    userDailyLimit,
     systemDailyLimit: clampToRange('systemDailyLimit', envInt('AI_TUTOR_SYSTEM_DAILY_LIMIT', 10_000)),
     rolloutPercent: clampToRange('rolloutPercent', envInt('AI_TUTOR_ROLLOUT_PERCENT', 0)),
     promptCache: process.env.AI_TUTOR_PROMPT_CACHE?.trim() === '1',
@@ -238,6 +244,13 @@ export function normalizeConfig(raw: AiTutorConfig, envDefaults: AiTutorConfig):
     clampToRange('firstTokenTimeoutMs', raw.firstTokenTimeoutMs ?? Math.floor(timeoutMs / 2)),
     timeoutMs,
   );
+  const questionQuota = clampToRange('questionQuota', raw.questionQuota ?? 5);
+  // เพดานรายวันต้องไม่น้อยกว่าโควตาต่อข้อเสมอ (ไม่งั้นผู้เรียนจะชนเพดานรายวัน
+  // ก่อนโควตาต่อข้อที่ตั้งไว้ แล้วเข้าใจยากว่าทำไมถามได้แค่ 1 ครั้ง)
+  const userDailyLimit = Math.max(
+    clampToRange('userDailyLimit', raw.userDailyLimit ?? 50),
+    questionQuota,
+  );
   return {
     ...raw,
     envMasterEnabled: envDefaults.envMasterEnabled,
@@ -246,8 +259,8 @@ export function normalizeConfig(raw: AiTutorConfig, envDefaults: AiTutorConfig):
     timeoutMs,
     firstTokenTimeoutMs,
     maxTokens: clampToRange('maxTokens', raw.maxTokens ?? 1200),
-    questionQuota: clampToRange('questionQuota', raw.questionQuota ?? 5),
-    userDailyLimit: clampToRange('userDailyLimit', raw.userDailyLimit ?? 50),
+    questionQuota,
+    userDailyLimit,
     systemDailyLimit: clampToRange('systemDailyLimit', raw.systemDailyLimit ?? 10_000),
     rolloutPercent: clampToRange('rolloutPercent', raw.rolloutPercent ?? 0),
   };

@@ -175,6 +175,30 @@ describe('normalizeConfig — บีบค่าให้อยู่ในข�
     const result = normalizeConfig({ ...base, runtimeEnabled: true }, { ...base, envMasterEnabled: false });
     expect(result.runtimeEnabled).toBe(false);
   });
+
+  it('เพดานรายวันน้อยกว่าโควตาต่อข้อ → ยกเพดานรายวันขึ้นให้ไม่น้อยกว่าโควตาต่อข้อ', () => {
+    const result = normalizeConfig({ ...base, questionQuota: 10, userDailyLimit: 1 }, base);
+    expect(result.userDailyLimit).toBe(10);
+    expect(result.userDailyLimit).toBeGreaterThanOrEqual(result.questionQuota);
+  });
+
+  it('ค่าทั้งสองอยู่ในช่วงแต่ผิดความสัมพันธ์ → บังคับเสมอ (ไม่ใช่แค่ตอนบันทึก)', () => {
+    const result = normalizeConfig({ ...base, questionQuota: 8, userDailyLimit: 3 }, base);
+    expect(result.userDailyLimit).toBe(8);
+  });
+
+  it('โควตาต่อข้อถูกบีบลงมาก่อน → เพดานรายวันต้องเทียบกับค่าที่บีบแล้ว', () => {
+    // questionQuota เดิม 20 → บีบเป็น 10 (ช่วงใหม่ 1–10) → เพดานรายวันต้องไม่ต่ำกว่า 10
+    const result = normalizeConfig({ ...base, questionQuota: 20, userDailyLimit: 5 }, base);
+    expect(result.questionQuota).toBe(10);
+    expect(result.userDailyLimit).toBe(10);
+  });
+
+  it('ค่าปกติ → ไม่ถูกแก้', () => {
+    const result = normalizeConfig({ ...base }, base);
+    expect(result.userDailyLimit).toBe(50);
+    expect(result.questionQuota).toBe(5);
+  });
 });
 
 describe('saveAiTutorSettings — ตรวจก่อนเขียน', () => {
