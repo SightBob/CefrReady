@@ -62,6 +62,7 @@ let hasAllColumns = false;
 let missingColumns: string[] = [];
 let tableMissing = false;
 let connectionFailed = false;
+let connectionError = '';
 
 if (guard.allowed) {
   const pool = new pg.Pool({ connectionString });
@@ -82,10 +83,11 @@ if (guard.allowed) {
       missingColumns = REQUIRED_COLUMNS.filter((column) => !found.has(column));
       hasAllColumns = missingColumns.length === 0;
     }
-  } catch {
+  } catch (error) {
     hasTable = false;
     hasAllColumns = false;
     connectionFailed = true;
+    connectionError = error instanceof Error ? error.message : String(error);
   } finally {
     await pool.end();
   }
@@ -115,6 +117,21 @@ if (guard.allowed && !connectionFailed) {
       });
     });
   }
+}
+
+/**
+ * ตั้ง DB ไว้ + ผ่าน guard แต่ต่อฐานข้อมูลไม่ได้ = ปัญหาจริง (ไม่ใช่ skip)
+ * → เทสต้อง "ตก" พร้อมบอกเหตุผล ไม่ใช่ข้ามเงียบ ๆ
+ */
+if (guard.allowed && connectionFailed) {
+  describe('quota AI Tutor ↔ DB จริง (ต่อฐานข้อมูลไม่ได้)', () => {
+    it('ต่อฐานข้อมูลที่เทสต่อไม่ได้ — เทส DB ต้องตก ไม่ใช่ skip', () => {
+      expect(
+        connectionError || 'ไม่ทราบสาเหตุ',
+        'ตั้ง DATABASE_URL + AI_TUTOR_TEST_DB_HOSTS ไว้แล้ว แต่ต่อฐานข้อมูลไม่ได้ — ตรวจว่าฐานยังอยู่/ยังรันอยู่ และเครือข่ายเข้าถึงได้',
+      ).toBe('');
+    });
+  });
 }
 
 const describeLive = connectionString && guard.allowed && hasTable && hasAllColumns ? describe : describe.skip;
