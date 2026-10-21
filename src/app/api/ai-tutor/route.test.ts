@@ -45,12 +45,17 @@ vi.mock('@/lib/ai-tutor/provider', () => ({
   streamAiTutorReply: mocks.stream,
   aiTutorTimeoutMs: () => 30_000,
   AiTutorProviderError: class AiTutorProviderError extends Error {
-    constructor(public status: number, message: string) { super(message); }
+    constructor(public status: number, message: string, public reason: string = 'unknown') {
+      super(message);
+      this.name = 'AiTutorProviderError';
+    }
   },
 }));
 
 import { POST, GET } from './route';
 import { issueAnswerProof } from '@/lib/ai-tutor/proof';
+import { AiTutorProviderError } from '@/lib/ai-tutor/provider';
+import type { AiTutorFailureReason } from '@/lib/ai-tutor/errors';
 
 process.env.AI_TUTOR_PROOF_SECRET = 'route-test-secret';
 
@@ -394,6 +399,47 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     expect(events.some((event) => event.type === 'error')).toBe(true);
     expect(mocks.markUserMessageFailed).toHaveBeenCalledWith(expect.objectContaining({ messageId: 99 }));
     expect(mocks.insertAssistantMessage).not.toHaveBeenCalled();
+  });
+
+  it('ข้อความที่ผู้เรียนเห็นเป็นข้อความกลางๆ — ไม่มีรายละเอียดดิบจาก provider หลุดไป', async () => {
+    const rawDetail = 'OpenRouter 500 — provider-secret-detail-xyz';
+    const learnerMessage = 'คำถามลับของผู้เรียนที่ห้ามไปโผล่ใน log';
+    mocks.stream.mockRejectedValue(new AiTutorProviderError(500, rawDetail, 'server-error'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const res = await post({ questionId: 7, message: learnerMessage, proof: validProof(), attemptKey: ATTEMPT_KEY });
+    const events = await readEvents(res);
+    const errorEvent = events.find((event) => event.type === 'error') as { error?: string } | undefined;
+
+    expect(errorEvent?.error).toBeTruthy();
+    expect(errorEvent?.error).not.toContain('provider-secret-detail-xyz');
+    expect(errorEvent?.error).not.toContain('OpenRouter');
+    expect(errorEvent?.error).toContain('ระบบ AI');
+
+    // log ฝั่ง server: มี status code + รายละเอียดที่ redact แล้ว แต่ไม่มีเนื้อหาข้อความผู้เรียน
+    const logged = warn.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain('500');
+    expect(logged).not.toContain(learnerMessage);
+    warn.mockRestore();
+  });
+
+  it('แต่ละประเภทความล้มเหลว → ข้อความกลางๆ ที่ต่างกัน', async () => {
+    const cases: Array<[AiTutorFailureReason, string]> = [
+      ['rate-limit', 'หนาแน่น'],
+      ['timeout', 'ใช้เวลานาน'],
+      ['empty', 'ไม่ได้ส่งคำตอบกลับมา'],
+      ['client-error', 'ไม่สามารถให้บริการคำถามนี้ได้'],
+      ['config', 'ยังไม่ได้ตั้งค่า'],
+    ];
+
+    for (const [reason, expected] of cases) {
+      mocks.stream.mockRejectedValue(new AiTutorProviderError(500, 'รายละเอียดดิบจาก provider', reason));
+      const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+      const events = await readEvents(res);
+      const errorEvent = events.find((event) => event.type === 'error') as { error?: string } | undefined;
+      expect(errorEvent?.error, reason).toContain(expected);
+      expect(errorEvent?.error, reason).not.toContain('รายละเอียดดิบ');
+    }
   });
 
   it('บันทึกโมเดลที่ตอบจริง + เหตุการณ์ fallback ลง usage ที่ส่งให้ client', async () => {    mocks.stream.mockResolvedValue({

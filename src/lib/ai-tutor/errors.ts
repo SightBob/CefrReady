@@ -5,7 +5,42 @@
  * - log เฉพาะ message + code (ไม่ log error object ทั้งก้อน เพราะอาจมี stack/DSN/ค่าใน query)
  * - ตัดท้ายด้วย pattern ที่ดูเหมือน connection string ออกทิ้งเสมอ
  * - ข้อความที่ส่งให้ผู้เรียนต้องบอกวิธีแก้ ไม่ใช่ dump ข้อผิดพลาดของเซิร์ฟเวอร์
+ * - ข้อความจาก provider (OpenRouter) **ไม่ส่งให้ผู้เรียน** — ส่งเฉพาะข้อความกลาง ๆ
+ *   ตามประเภทความล้มเหลว ส่วนรายละเอียดไป log ฝั่ง server
  */
+
+/**
+ * เหตุผลที่โมเดล/ระบบ AI ล้มเหลว — ใช้เลือกข้อความกลาง ๆ ให้ผู้เรียน
+ */
+export type AiTutorFailureReason =
+  | 'rate-limit'      // 429
+  | 'server-error'    // 5xx
+  | 'timeout'         // หมดเวลารวม
+  | 'first-token-timeout' // ไม่มีเนื้อหาชิ้นแรกภายในเวลาที่กำหนด
+  | 'empty'           // จบแล้วไม่มีเนื้อหา
+  | 'client-error'    // 4xx อื่น → ห้ามสลับ
+  | 'config'          // ระบบยังตั้งค่าไม่ครบ (ไม่มี key / ไม่มีโมเดล)
+  | 'unknown';
+
+/**
+ * ข้อความกลาง ๆ ที่ผู้เรียนเห็น (ไม่มีรายละเอียดจาก provider หลุดไปถึงผู้เรียน)
+ */
+export const AI_TUTOR_LEARNER_ERROR_MESSAGES: Record<AiTutorFailureReason, string> = {
+  'rate-limit': 'ระบบ AI กำลังมีผู้ใช้งานหนาแน่นอยู่ กรุณารอสักครู่แล้วลองใหม่',
+  'server-error': 'ระบบ AI มีปัญหาชั่วคราว กรุณาลองใหม่อีกครั้ง',
+  'timeout': 'ระบบ AI ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง',
+  'first-token-timeout': 'ระบบ AI ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง',
+  'empty': 'ระบบ AI ไม่ได้ส่งคำตอบกลับมา กรุณาลองใหม่อีกครั้ง',
+  'client-error': 'ระบบ AI ไม่สามารถให้บริการคำถามนี้ได้ กรุณาลองใหม่หรือถามคำถามอื่น',
+  'config': 'ระบบ AI ยังไม่ได้ตั้งค่าให้พร้อมใช้งาน กรุณาแจ้งผู้ดูแลระบบ',
+  'unknown': 'AI ตอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+};
+
+/** ข้อความกลาง ๆ ตามเหตุผล (ไม่มีเหตุผล = ข้อความกลาง ๆ ทั่วไป) */
+export function aiTutorLearnerErrorMessage(reason?: AiTutorFailureReason | null): string {
+  if (!reason) return AI_TUTOR_LEARNER_ERROR_MESSAGES.unknown;
+  return AI_TUTOR_LEARNER_ERROR_MESSAGES[reason] ?? AI_TUTOR_LEARNER_ERROR_MESSAGES.unknown;
+}
 
 /** ข้อความสหรับผู้เรียนเมื่อฝั่งเซิร์ฟเวอร์/ฐานข้อมูลใช้งานไม่ได้ชั่วคราว */
 export const AI_TUTOR_UNAVAILABLE_MESSAGE =

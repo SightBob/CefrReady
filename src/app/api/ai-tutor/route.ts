@@ -31,6 +31,7 @@ import {
   AI_TUTOR_CHAT_RATE_LIMIT_MESSAGE,
   AI_TUTOR_NO_ACCESS_MESSAGE,
   AI_TUTOR_UNAVAILABLE_MESSAGE,
+  aiTutorLearnerErrorMessage,
   localizedRateLimitError,
   warnWithSummary,
 } from '@/lib/ai-tutor/errors';
@@ -357,9 +358,15 @@ export async function POST(request: Request) {
           },
         });
       } catch (error) {
-        const errorMessage = error instanceof AiTutorProviderError
-          ? error.message
-          : 'AI ตอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+        // log ฝั่ง server: status + ข้อความที่ผ่านการ redact (ไม่พิมพ์เนื้อหาข้อความผู้เรียน)
+        warnWithSummary(
+          `ai-tutor] เรียกโมเดลไม่สำเร็จ (${error instanceof AiTutorProviderError ? error.status : 'n/a'})`,
+          error,
+        );
+        // ข้อความที่ส่งให้ผู้เรียน = ข้อความกลาง ๆ ตามประเภท (ไม่มีรายละเอียดจาก provider)
+        const errorMessage = aiTutorLearnerErrorMessage(
+          error instanceof AiTutorProviderError ? error.reason : null,
+        );
         // ล้มเหลวก่อนมีเนื้อหา → คืนโควตา (failed ไม่ถูกนับ)
         if (!answer) {
           await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });

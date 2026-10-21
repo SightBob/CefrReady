@@ -36,9 +36,23 @@ import {
 
 export const DEFAULT_AI_TUTOR_MAX_TOKENS = 1200;
 
+/**
+ * เหตุผลที่โมเดลล้มเหลว — ใช้เลือกข้อความกลาง ๆ ให้ผู้เรียน
+ * (รายละเอียดจาก provider ไป log ฝั่ง server แทนที่จะส่งให้ผู้เรียน)
+ */
+export type { AiTutorFailureReason } from './errors';
+
+import type { AiTutorFailureReason } from './errors';
+
 export class AiTutorProviderError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+    /** เหตุผล (ใช้เลือกข้อความกลาง ๆ ให้ผู้เรียน — ดู aiTutorLearnerErrorMessage) */
+    public reason: AiTutorFailureReason = 'unknown',
+  ) {
     super(message);
+    this.name = 'AiTutorProviderError';
   }
 }
 
@@ -72,7 +86,7 @@ export type StreamResult = {
 export function aiTutorModel(): string {
   const model = process.env.AI_TUTOR_MODEL?.trim();
   if (!model) {
-    throw new AiTutorProviderError(503, 'ยังไม่ได้ตั้งค่า AI_TUTOR_MODEL กรุณาแจ้งผู้ดูแล');
+    throw new AiTutorProviderError(503, 'ยังไม่ได้ตั้งค่า AI_TUTOR_MODEL กรุณาแจ้งผู้ดูแล', 'config');
   }
   return model;
 }
@@ -128,14 +142,11 @@ function describeProviderStatus(status: number, detail: string | null): string {
   return `ผู้ให้บริการ AI ตอบกลับไม่สำเร็จ (${status})${suffix} กรุณาลองอีกครั้ง`;
 }
 
-/** เหตุผลที่สลับโมเดลสำรองได้ (เกิดก่อนส่งเนื้อหาให้ผู้เรียนเท่านั้น) */
-type FailureReason =
-  | 'rate-limit'      // 429
-  | 'server-error'    // 5xx
-  | 'timeout'         // หมดเวลารวม
-  | 'first-token-timeout' // ไม่มีเนื้อหาชิ้นแรกภายในเวลาที่กำหนด
-  | 'empty'           // จบแล้วไม่มีเนื้อหา
-  | 'client-error';   // 4xx อื่น → ห้ามสลับ
+/**
+ * เหตุผลที่สลับโมเดลสำรองได้ (เกิดก่อนส่งเนื้อหาให้ผู้เรียนเท่านั้น)
+ * type FailureReason = AiTutorFailureReason (alias เดิมเพื่อไม่ให้แก้ทั้งไฟล์)
+ */
+type FailureReason = AiTutorFailureReason;
 
 type AttemptResult =
   | {
@@ -171,7 +182,7 @@ async function attemptModel(params: {
   const startedAt = Date.now();
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) {
-    throw new AiTutorProviderError(503, 'ยังไม่ได้ตั้งค่า OpenRouter API key กรุณาแจ้งผู้ดูแล');
+    throw new AiTutorProviderError(503, 'ยังไม่ได้ตั้งค่า OpenRouter API key กรุณาแจ้งผู้ดูแล', 'config');
   }
 
   const body: Record<string, unknown> = {
@@ -450,7 +461,7 @@ export async function streamAiTutorReply(params: {
 
   // 4xx อื่น (400/401/402/404) → รายงานเป็น error ตรง ๆ ห้ามสลับ
   if (primary.reason === 'client-error' || !fallbackModel) {
-    throw new AiTutorProviderError(primary.status ?? 502, primary.message);
+    throw new AiTutorProviderError(primary.status ?? 502, primary.message, primary.reason);
   }
 
   // สลับไปโมเดลสำรอง (ยังไม่เคยส่งเนื้อหาให้ผู้เรียน)
@@ -485,5 +496,6 @@ export async function streamAiTutorReply(params: {
   throw new AiTutorProviderError(
     fallback.status ?? 502,
     `${primary.message} (ลองโมเดลสำรองแล้วก็ไม่สำเร็จ: ${fallback.message})`,
+    fallback.reason,
   );
 }
