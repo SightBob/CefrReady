@@ -318,7 +318,10 @@ describe('POST /api/ai-tutor — รหัสรอบการทำข้อ�
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof() });
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain('attemptKey');
+    expect(body.error).toContain('รหัสรอบการทำข้อสอบ');
+    expect(body.error).toContain('รีเฟรชหน้า');
+    // ไม่เผยชื่อ field ภายในของ API ให้ผู้เรียน
+    expect(body.error).not.toContain('attemptKey');
     expect(mocks.reserveQuestion).not.toHaveBeenCalled();
   });
 
@@ -336,6 +339,9 @@ describe('POST /api/ai-tutor — รหัสรอบการทำข้อ�
   it('GET: ไม่ส่ง attemptKey → 400', async () => {
     const res = await GET(new Request('http://localhost:3000/api/ai-tutor?questionId=7'));
     expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('รหัสรอบการทำข้อสอบ');
+    expect(body.error).not.toContain('attemptKey');
     expect(mocks.getThreadMessages).not.toHaveBeenCalled();
   });
 

@@ -100,7 +100,7 @@ export async function GET(request: Request) {
 
   const attemptKey = readAttemptKey(new URL(request.url).searchParams.get('attemptKey'));
   if (!attemptKey) {
-    return jsonError(400, 'ไม่พบรหัสรอบการทำข้อสอบ (attemptKey) — กรุณารีเฟรชหน้าแล้วลองใหม่');
+    return jsonError(400, 'ไม่พบรหัสรอบการทำข้อสอบ — กรุณารีเฟรชหน้าแล้วลองใหม่');
   }
 
   try {
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
       : path.includes('proof')
         ? 'ยังไม่ได้ส่งหลักฐานการตอบคำถาม — กรุณากด "ตรวจคำตอบ" ของข้อนี้ก่อนถาม AI'
         : path.includes('attemptKey')
-          ? 'ไม่พบรหัสรอบการทำข้อสอบ (attemptKey) — กรุณารีเฟรชหน้าแล้วลองใหม่'
+          ? 'ไม่พบรหัสรอบการทำข้อสอบ — กรุณารีเฟรชหน้าแล้วลองใหม่'
           : 'คำขอไม่ถูกต้อง';
     return jsonError(400, error);
   }
