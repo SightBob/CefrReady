@@ -5,6 +5,12 @@ import { users } from './schema';
 /**
  * มุมมองของตาราง users สำหรับ NextAuth adapter — ตัดคอลัมน์ของฟีเจอร์ AI Tutor ออก
  *
+ * ⚠️ ห้ามอัปเดต `drizzle-orm` / `@auth/drizzle-adapter` โดยไม่รันเทสชุดนี้ก่อน
+ *    (`src/db/auth-compat.test.ts`) — เพราะข้อนี้พึ่งกลไกภายในของ drizzle
+ *    (`Table.Symbol.Columns` เป็น @internal) ถ้ากลไกเปลี่ยน มุมมองจะหยุดกรองคอลัมน์
+ *    แบบเงียบ ๆ → ล็อกอิน/สมัครจะพังทันทีถ้า migration 0045 ยังไม่รัน
+ *    → เวอร์ชัน drizzle-orm ถูก pin ไว้ (ไม่มี ^ หรือ ~) ใน package.json เพื่อกันการอัปเดตเงียบ ๆ
+ *
  * ทำไมต้องมี:
  * - @auth/drizzle-adapter อ่านผู้ใช้ด้วย `db.select().from(usersTable)` (ไม่ระบุคอลัมน์)
  *   → drizzle จะแปลงเป็น "select <ทุกคอลัมน์ใน schema>" รวมถึง ai_tutor_access

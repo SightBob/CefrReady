@@ -10,10 +10,10 @@
  * 2. ตาราง users ต้นฉบับยังมีคอลัมน์ครบ (drizzle-kit เห็น schema เดิม)
  */
 import { describe, expect, it } from 'vitest';
-import { Table, getTableColumns } from 'drizzle-orm';
+import { Table, getTableColumns, and, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pg-proxy';
 
-import { users } from '@/db/schema';
+import { accounts, users } from '@/db/schema';
 import { AUTH_OMITTED_USER_COLUMNS, omitTableColumns, usersForAuth } from './auth-compat';
 
 /**
@@ -21,6 +21,10 @@ import { AUTH_OMITTED_USER_COLUMNS, omitTableColumns, usersForAuth } from './aut
  * — ไม่ต้องมี DATABASE_URL และไม่เปิด connection pool
  */
 const db = drizzle(async () => ({ rows: [] }));
+
+/** ตาราง users ที่ adapter ใช้จริง (ดู @auth/drizzle-adapter/lib/pg.js) */
+const authUsers = usersForAuth as never as typeof users;
+const authAccounts = accounts as never as typeof accounts;
 
 describe('usersForAuth — มุมมองตารางสำหรับ NextAuth adapter', () => {
   it('ไม่ดึงคอลัมน์ ai_tutor_access ใน SQL', () => {
@@ -61,5 +65,70 @@ describe('usersForAuth — มุมมองตารางสำหรับ N
     const before = Object.keys(getTableColumns(users));
     omitTableColumns(users, ['aiTutorAccess']);
     expect(Object.keys(getTableColumns(users))).toEqual(before);
+  });
+});
+
+/**
+ * ทุก query ที่ @auth/drizzle-adapter ใช้กับตาราง users
+ * (อ้างอิง: node_modules/@auth/drizzle-adapter/lib/pg.js)
+ *
+ * - getUser / getUserByEmail → ล็อกอินผู้ใช้เดิม (ค้นด้วย id / email)
+ * - getUserByAccount → เชื่อมบัญชี OAuth เข้ากับผู้ใช้
+ * - createUser → สมัครผู้ใช้ใหม่ (INSERT)
+ * - updateUser → อัปเดตโปรไฟล์
+ * - deleteUser → ลบผู้ใช้
+ *
+ * ทุก query ต้องไม่มี ai_tutor_access → ใช้ได้ทั้งก่อนและหลังรัน migration 0045
+ */
+describe('auth-compat — query ทุกตัวของ @auth/drizzle-adapter ที่แตะตาราง users', () => {
+  const adapterQueries: Array<{ name: string; sql: string }> = [
+    {
+      name: 'getUser (ล็อกอินผู้ใช้เดิม)',
+      sql: db.select().from(authUsers).where(eq(authUsers.id, 'u1')).toSQL().sql,
+    },
+    {
+      name: 'getUserByEmail (ล็อกอินด้วยอีเมล)',
+      sql: db.select().from(authUsers).where(eq(authUsers.email, 'user@example.com')).toSQL().sql,
+    },
+    {
+      name: 'getUserByAccount (เชื่อมบัญชี OAuth)',
+      sql: db
+        .select({ account: authAccounts, user: authUsers })
+        .from(authAccounts)
+        .innerJoin(authUsers, eq(authAccounts.userId, authUsers.id))
+        .where(and(
+          eq(authAccounts.provider, 'google'),
+          eq(authAccounts.providerAccountId, 'acc-1'),
+        ))
+        .toSQL().sql,
+    },
+    {
+      name: 'createUser (สมัครผู้ใช้ใหม่)',
+      sql: db
+        .insert(authUsers)
+        .values({ id: 'u1', name: 'n', email: 'user@example.com', emailVerified: null, image: null })
+        .toSQL().sql,
+    },
+    {
+      name: 'updateUser (อัปเดตโปรไฟล์)',
+      sql: db.update(authUsers).set({ name: 'ชื่อใหม่' }).where(eq(authUsers.id, 'u1')).toSQL().sql,
+    },
+    {
+      name: 'deleteUser (ลบผู้ใช้)',
+      sql: db.delete(authUsers).where(eq(authUsers.id, 'u1')).toSQL().sql,
+    },
+  ];
+
+  it.each(adapterQueries)('$name — ไม่มี ai_tutor_access', ({ sql }) => {
+    expect(sql).not.toContain('ai_tutor_access');
+  });
+
+  it.each(adapterQueries)('$name — ยังอ้างถึงตาราง users ตามปกติ', ({ sql }) => {
+    expect(sql).toContain('"users"');
+  });
+
+  it('ถ้าเอา compat ออก (ตารางปกติ) คิวรีจะดึงคอลัมน์ใหม่มา — เทสนี้จึงมีความหมาย', () => {
+    const sql = db.select().from(users).toSQL().sql;
+    expect(sql).toContain('ai_tutor_access');
   });
 });
