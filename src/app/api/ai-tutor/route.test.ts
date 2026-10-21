@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   minuteLimit: vi.fn(),
   reserveQuestion: vi.fn(),
   getQuotaSnapshot: vi.fn(),
+  getDailyQuotaSnapshot: vi.fn(),
   getAiTutorConfig: vi.fn(),
   getThreadMessages: vi.fn(),
   getThreadFeedback: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock('@/lib/rate-limit', () => ({ rateLimit: mocks.rateLimit }));
 vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRateLimit: mocks.minuteLimit }));
 vi.mock('@/lib/ai-tutor/quota', () => ({
   reserveQuestion: mocks.reserveQuestion,
-  getQuotaSnapshot: mocks.getQuotaSnapshot,
+  getDailyQuotaSnapshot: mocks.getDailyQuotaSnapshot,
   questionQuotaLimit: () => 5,
   userDailyLimit: () => 50,
   systemDailyLimit: () => 10_000,
@@ -118,6 +119,8 @@ beforeEach(() => {
   mocks.getThreadFeedback.mockResolvedValue({});
   mocks.buildProviderMessages.mockReturnValue([{ role: 'system', content: 'x' }]);
   mocks.getQuotaSnapshot.mockResolvedValue({ used: 1, limit: 5, remaining: 4 });
+  // ตัวเลขโควตาที่ส่งให้ client = เพดานรายวันของผู้เรียน
+  mocks.getDailyQuotaSnapshot.mockResolvedValue({ used: 2, limit: 100, remaining: 98 });
   // config = DB ทับ env (ผู้ดูแลตั้งในหน้า admin) — ค่าโควตาจริงต้องมาจากตรงนี้
   mocks.getAiTutorConfig.mockResolvedValue({
     questionQuota: 10,
@@ -214,7 +217,7 @@ describe('POST /api/ai-tutor — 401/403', () => {
 });
 
 describe('POST /api/ai-tutor — โควตา', () => {
-  it('โควตาข้อนี้หมด → 429 พร้อมตัวเลขโควตา', async () => {
+  it('โควตาข้อนี้หมด → 429 พร้อมตัวเลขโควตาตามเพดานรายวัน (ข้อความบอกโควตาของข้อนี้)', async () => {
     mocks.reserveQuestion.mockResolvedValue({
       ok: false,
       reason: 'quota',
@@ -223,7 +226,11 @@ describe('POST /api/ai-tutor — โควตา', () => {
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(429);
     const body = await res.json();
-    expect(body.quota).toEqual({ used: 5, limit: 5, remaining: 0 });
+    // ตัวเลขที่ client แสดง = เพดานรายวัน (เหมือนตอนแสดงผลปกติ)
+    expect(body.quota).toEqual({ used: 2, limit: 100, remaining: 98 });
+    // ข้อความยังบอกว่าโควตาของ "ข้อนี้" หมด (พร้อมตัวเลขของข้อนี้)
+    expect(body.error).toContain('โควตาคำถามของข้อนี้หมดแล้ว');
+    expect(body.error).toContain('5/5');
     expect(mocks.stream).not.toHaveBeenCalled();
   });
 
@@ -381,12 +388,15 @@ describe('โควตาต้องมาจาก config (DB ทับ env) �
     );
   });
 
-  it('GET: ส่ง limit จาก config ไปกับ getQuotaSnapshot', async () => {
-    await GET(new Request(`http://localhost:3000/api/ai-tutor?questionId=7&attemptKey=${ATTEMPT_KEY}`));
+  it('GET: ส่งตัวเลขโควตาตามเพดานรายวันของผู้เรียน (userDailyLimit)', async () => {
+    const res = await GET(new Request(`http://localhost:3000/api/ai-tutor?questionId=7&attemptKey=${ATTEMPT_KEY}`));
+    const body = await res.json();
 
-    expect(mocks.getQuotaSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 10, questionId: 7 }),
+    expect(mocks.getDailyQuotaSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 100, userId: 'u1' }),
     );
+    // ตัวเลขที่ client แสดง = รายวัน (ไม่ใช่ต่อข้อ)
+    expect(body.quota).toEqual({ used: 2, limit: 100, remaining: 98 });
   });
 
   it('เพดานต่อผู้เรียน/วัน และทั้งระบบ/วัน ใช้ค่าจาก config', async () => {

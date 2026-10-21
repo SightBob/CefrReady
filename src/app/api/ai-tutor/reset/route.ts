@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { isAiTutorEnabled } from '@/lib/ai-tutor';
 import { archiveThread } from '@/lib/ai-tutor/messages';
-import { getQuotaSnapshot } from '@/lib/ai-tutor/quota';
+import { getDailyQuotaSnapshot } from '@/lib/ai-tutor/quota';
 import { getAiTutorConfig } from '@/lib/ai-tutor/config';
 import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import {
@@ -65,12 +65,11 @@ export async function POST(request: Request) {
       questionId: parsed.data.questionId,
       attemptKey: parsed.data.attemptKey,
     });
-    // โควตาที่แสดง = ค่าจาก config (DB ทับ env) → ตรงกับที่บังคับจริง
+    // โควตาที่แสดง = เพดานรายวันของผู้เรียน (เหมือนตอนแสดงผลปกติ)
     const config = await getAiTutorConfig();
-    const quota = await getQuotaSnapshot({
+    const quota = await getDailyQuotaSnapshot({
       userId,
-      questionId: parsed.data.questionId,
-      limit: config.questionQuota,
+      limit: config.userDailyLimit,
     });
     return Response.json({ success: true, archived, quota });
   } catch (error) {

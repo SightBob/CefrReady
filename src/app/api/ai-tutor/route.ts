@@ -17,7 +17,7 @@ import {
   markUserMessageOk,
 } from '@/lib/ai-tutor/messages';
 import {
-  getQuotaSnapshot,
+  getDailyQuotaSnapshot,
   reserveQuestion,
 } from '@/lib/ai-tutor/quota';
 import { getAiTutorConfig } from '@/lib/ai-tutor/config';
@@ -108,7 +108,8 @@ export async function GET(request: Request) {
   try {
     const [thread, quota, feedback] = await Promise.all([
       getThreadMessages({ userId: session.user.id, questionId, attemptKey }),
-      getQuotaSnapshot({ userId: session.user.id, questionId, limit: config.questionQuota }),
+      // ตัวเลขที่แสดงฝั่งผู้เรียน = เพดานรายวันของผู้เรียน (userDailyLimit)
+      getDailyQuotaSnapshot({ userId: session.user.id, limit: config.userDailyLimit }),
       getThreadFeedback({ userId: session.user.id, questionId }),
     ]);
 
@@ -247,8 +248,10 @@ export async function POST(request: Request) {
     });
     if (!reservation.ok) {
       // โควตาของข้อนี้เต็ม → ไม่แตะตัวนับรายวันด้วย (ไม่งั้นผู้เรียนจะเสียโควตาวันนี้เปล่า ๆ)
+      // ตัวเลขที่ส่งให้ client = เพดานรายวัน (เหมือนตอนแสดงผลปกติ) ส่วนข้อความบอกเป็นโควตาของข้อนี้
+      const dailyQuota = await getDailyQuotaSnapshot({ userId, limit: config.userDailyLimit });
       return jsonError(429, `โควตาคำถามของข้อนี้หมดแล้ว (${reservation.quota.used}/${reservation.quota.limit} ครั้งต่อวัน)`, {
-        quota: reservation.quota,
+        quota: dailyQuota,
       });
     }
   } catch (error) {
@@ -351,7 +354,7 @@ export async function POST(request: Request) {
           attemptKey,
         });
 
-        const quota = await getQuotaSnapshot({ userId, questionId, limit: config.questionQuota });
+        const quota = await getDailyQuotaSnapshot({ userId, limit: config.userDailyLimit });
         send({
           type: 'done',
           messageId: assistantId,

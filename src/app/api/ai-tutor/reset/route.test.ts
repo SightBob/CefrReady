@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   minuteLimit: vi.fn(),
   archiveThread: vi.fn(),
   getQuotaSnapshot: vi.fn(),
+  getDailyQuotaSnapshot: vi.fn(),
   getAiTutorConfig: vi.fn(),
 }));
 
@@ -16,7 +17,7 @@ vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/ai-tutor', () => ({ isAiTutorEnabled: mocks.enabled }));
 vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRateLimit: mocks.minuteLimit }));
 vi.mock('@/lib/ai-tutor/messages', () => ({ archiveThread: mocks.archiveThread }));
-vi.mock('@/lib/ai-tutor/quota', () => ({ getQuotaSnapshot: mocks.getQuotaSnapshot }));
+vi.mock('@/lib/ai-tutor/quota', () => ({ getDailyQuotaSnapshot: mocks.getDailyQuotaSnapshot }));
 // โควตาที่แสดงต้องมาจาก config (DB ทับ env) → ตรงกับที่บังคับจริง
 vi.mock('@/lib/ai-tutor/config', () => ({ getAiTutorConfig: mocks.getAiTutorConfig }));
 
@@ -37,7 +38,7 @@ beforeEach(() => {
   mocks.minuteLimit.mockResolvedValue(null);
   mocks.archiveThread.mockResolvedValue(4);
   // โควตาไม่เปลี่ยนหลัง reset (ยังนับแถวที่ถูกเก็บถัง)
-  mocks.getQuotaSnapshot.mockResolvedValue({ used: 3, limit: 5, remaining: 2 });
+  mocks.getDailyQuotaSnapshot.mockResolvedValue({ used: 2, limit: 100, remaining: 98 });
   mocks.getAiTutorConfig.mockResolvedValue({
     questionQuota: 10,
     userDailyLimit: 100,
@@ -72,13 +73,13 @@ describe('POST /api/ai-tutor/reset', () => {
 
   it('ไม่คืนโควตา — ตัวเลขโควตาหลัง reset เท่าเดิม', async () => {
     const body = await (await post({ questionId: 7, attemptKey: 'attempt-key-0001' })).json();
-    expect(body.quota).toEqual({ used: 3, limit: 5, remaining: 2 });
+    expect(body.quota).toEqual({ used: 2, limit: 100, remaining: 98 });
   });
 
-  it('โควตาที่แสดงใช้ค่าจาก config (DB ทับ env)', async () => {
+  it('โควตาที่แสดงใช้ค่าจาก config (DB ทับ env) — เพดานรายวันของผู้เรียน', async () => {
     await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
-    expect(mocks.getQuotaSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 10, questionId: 7 }),
+    expect(mocks.getDailyQuotaSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 100, userId: 'u1' }),
     );
   });
 

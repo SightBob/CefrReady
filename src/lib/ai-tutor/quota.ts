@@ -125,6 +125,51 @@ export async function getQuotaSnapshot(params: {
   return { used, limit, remaining: Math.max(0, limit - used) };
 }
 
+/**
+ * จำนวนครั้งที่ผู้เรียนถาม AI วันนี้ — ทุกข้อรวมกัน (ไม่ใช่ต่อข้อ)
+ *
+ * นับแถวเดียวกับ countUsedQuestions (แถว role='user' ที่สำเร็จ หรือค้างไม่เกิน 2 นาที
+ * แถว failed ไม่นับ = คืนโควตา) แต่ไม่กรองด้วย question_id
+ */
+export async function countUserDailyQuestions(params: {
+  userId: string;
+  now?: Date;
+  executor?: Pick<typeof db, 'select'>;
+}): Promise<number> {
+  const executor = params.executor ?? db;
+  const now = params.now ?? new Date();
+  const rows = await executor
+    .select({ count: sql<number>`count(*)::int` })
+    .from(aiTutorMessages)
+    .where(and(
+      eq(aiTutorMessages.userId, params.userId),
+      eq(aiTutorMessages.role, 'user'),
+      or(
+        eq(aiTutorMessages.status, 'ok'),
+        and(
+          eq(aiTutorMessages.status, 'pending'),
+          gte(aiTutorMessages.createdAt, new Date(now.getTime() - STALE_PENDING_MS)),
+        ),
+      ),
+      gte(aiTutorMessages.createdAt, bangkokDayStartUtc(now)),
+    ));
+  return rows[0]?.count ?? 0;
+}
+
+/**
+ * โควตารวมทั้งวันของผู้เรียน (เพดานรายวัน = userDailyLimit)
+ *
+ * ใช้แสดงฝั่ง client ("ถามแล้ว N คำถาม / เหลือโควตา M ครั้ง") ให้ตรงกับเพดานที่ผู้ดูแลตั้ง
+ */
+export async function getDailyQuotaSnapshot(params: {
+  userId: string;
+  limit: number;
+  now?: Date;
+}): Promise<QuotaSnapshot> {
+  const used = await countUserDailyQuestions({ userId: params.userId, now: params.now });
+  return { used, limit: params.limit, remaining: Math.max(0, params.limit - used) };
+}
+
 export type ReserveResult =
   | { ok: true; messageId: number; quota: QuotaSnapshot; reused: boolean }
   | { ok: false; reason: 'quota'; quota: QuotaSnapshot };
