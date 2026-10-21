@@ -6,7 +6,7 @@
  *   (เช่น prod ที่ยังไม่ได้รัน migration 0049) — และลบแถวที่ทดสอบทิ้งเสมอ
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import pg from 'pg';
 
 try {
@@ -51,8 +51,8 @@ describeLive('AI Tutor attempt_key ↔ DB จริง', () => {
 
   beforeAll(async () => {
     const [user] = await db.select({ id: users.id }).from(users).limit(1);
-    // ใช้ข้อที่ id สูงสุด (quota.db.test.ts ใช้ข้อ id ต่ำสุด → สองไฟล์ไม่ชนกันตอนรันขนาน)
-    const [question] = await db.select({ id: questions.id }).from(questions).orderBy(desc(questions.id)).limit(1);
+    // ใช้ข้อที่เรียงจาก id ต่ำสุดลำดับที่ 3 (ไฟล์เทส DB จริงแต่ละไฟล์ใช้คนละข้อ → ไม่ชนกันตอนรันขนาน)
+    const [question] = await db.select({ id: questions.id }).from(questions).orderBy(asc(questions.id)).offset(2).limit(1);
     userId = user?.id ?? '';
     questionId = question?.id ?? 0;
 
