@@ -220,3 +220,29 @@ export async function archiveThread(params: {
     .returning({ id: aiTutorMessages.id });
   return archived.length;
 }
+
+/**
+ * ปิดบทสนทนาทั้งรอบ (ทุกข้อที่ถามในรอบนั้น) — ใช้ตอน "ทำจบ/ออกจากการทำข้อสอบ"
+ *
+ * ต่างจาก archiveThread ตรงที่ครอบทุกข้อของรอบ (ไม่ใช่แค่ข้อเดียว) → ประวัติการคุย
+ * ของรอบที่จบแล้วไม่ค้างเป็น "รอบที่ยังไม่จบ" และกลับมาทำชุดเดิมภายหลังจะได้แชทใหม่
+ *
+ * - เก็บถัง (archived) ไม่ลบ → ข้อมูลยังอยู่ใน DB เพื่อวิเคราะห์/ส่งออก CSV
+ * - **ไม่คืนโควตา** (แถวที่เรียกโมเดลจริงยังถูกนับเหมือนเดิม)
+ * - จำกัดขอบเขตด้วย userId เสมอ → ผู้เรียนปิดรอบของตัวเองเท่านั้น
+ */
+export async function archiveAttempt(params: {
+  userId: string;
+  attemptKey: string;
+}): Promise<number> {
+  const archived = await db
+    .update(aiTutorMessages)
+    .set({ archived: true })
+    .where(and(
+      eq(aiTutorMessages.userId, params.userId),
+      eq(aiTutorMessages.archived, false),
+      eq(aiTutorMessages.attemptKey, params.attemptKey),
+    ))
+    .returning({ id: aiTutorMessages.id });
+  return archived.length;
+}

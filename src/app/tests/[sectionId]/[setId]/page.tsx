@@ -39,8 +39,9 @@ import { wasSetExplainRead, clearSetExplainRead } from '@/lib/test-explain-read'
 import {
   attemptKeyStorageKey,
   getOrCreateAttemptKey,
-  rotateAttemptKey,
 } from '@/lib/ai-tutor/attempt-key';
+import { endAiTutorAttempt } from '@/lib/ai-tutor/end-attempt';
+import { useEndAiTutorAttempt } from '@/lib/ai-tutor/use-end-attempt';
 import { groupTapReasonsByQuestion } from '@/lib/tap-reason-rewards';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
@@ -434,6 +435,14 @@ export default function SetQuizPage() {
     setAttemptKey(getOrCreateAttemptKey(attemptKeyStorageKey(sectionId, setId)));
   }, [sectionId, setId]);
 
+  /**
+   * ออกจากการทำข้อสอบ (กด ✕ / ออกจากข้อสอบ / เปลี่ยนชุด / ปิดแท็บ) → รีเซ็ตประวัติการคุยกับ AI
+   *
+   * - หมุนรหัสรอบ → ครั้งหน้าที่กลับมาเข้าชุดเดิม แชท AI เริ่มใหม่ (ไม่เห็นบทสนทนาของรอบก่อน)
+   * - เก็บถังบทสนทนาของรอบนี้บนเซิร์ฟเวอร์ (ไม่ลบ ไม่คืนโควตา)
+   */
+  useEndAiTutorAttempt({ sectionId, setId, attemptKey });
+
   // Track test_started when questions are loaded
   useEffect(() => {
     if (setData && posthog && testStartedAtRef.current === 0) {
@@ -696,9 +705,13 @@ export default function SetQuizPage() {
         setResults(data.data.results ?? []);
         setAttemptId(data.data.attemptId ?? null);
         setIsFinished(true);
-        // ส่งข้อสอบแล้ว = รอบการทำข้อสอบจบแล้ว → รอบถัดไปของชุดนี้ต้องเป็นรอบใหม่
-        // (บทสนทนา AI ของรอบนี้ยังอยู่ใน DB เพื่อวิเคราะห์ แต่ไม่โผล่ในรอบถัดไป)
-        setAttemptKey(rotateAttemptKey(attemptKeyStorageKey(sectionId, setId)));
+        // ส่งข้อสอบแล้ว = จบรอบการทำข้อสอบ → รีเซ็ตประวัติการคุยกับ AI
+        // (หมุนรหัสรอบใหม่ → ครั้งหน้าที่กลับมาทำชุดนี้อีกครั้งจะได้แชทใหม่
+        //  ข้อความเก่ายังอยู่ใน DB เพื่อวิเคราะห์ แต่ถูกเก็บถังเป็นรอบที่จบแล้ว)
+        setAttemptKey(endAiTutorAttempt({
+          storageKey: attemptKeyStorageKey(sectionId, setId),
+          attemptKey,
+        }));
         // Track test_submitted
         if (posthog && testStartedAtRef.current > 0) {
           const totalQuestions = data.data.totalQuestions ?? mainSlots.length;
@@ -813,8 +826,11 @@ export default function SetQuizPage() {
     setSelectedAnswer(null);
     setCurrentQuestion(0);
     setAttemptId(null);
-    // ทำชุดใหม่ = รอบใหม่ของ AI Tutor (บทสนทนาเก่าไม่โผล่ในรอบนี้)
-    setAttemptKey(rotateAttemptKey(attemptKeyStorageKey(sectionId, setId)));
+    // ทำชุดใหม่ = รอบใหม่ของ AI Tutor (บทสนทนาเก่าไม่โผล่ในรอบนี้ + เก็บถังรอบเดิม)
+    setAttemptKey(endAiTutorAttempt({
+      storageKey: attemptKeyStorageKey(sectionId, setId),
+      attemptKey,
+    }));
     setFormMeaningTotalBlanks(0);
     setAudioPlayedMap({});
     setIsFinished(false);

@@ -19,7 +19,7 @@ try {
 }
 
 const { aiTutorMessages, questions, users } = await import('@/db/schema');
-const { getThreadMessages, archiveThread } = await import('./messages');
+const { getThreadMessages, archiveAttempt, archiveThread } = await import('./messages');
 const { countUsedQuestions, reserveQuestion } = await import('./quota');
 const { db } = await import('@/db');
 const { createTestDbUserId, evaluateTestDbGuard, testDbUserEmail } = await import('@/lib/test-db-guard');
@@ -56,6 +56,7 @@ const describeLive = connectionString && guard.allowed && hasAttemptKey ? descri
 
 const ATTEMPT_A = 'attempt-aaaa-0001';
 const ATTEMPT_B = 'attempt-bbbb-0002';
+const ATTEMPT_C = 'attempt-cccc-0003';
 
 describeLive('AI Tutor attempt_key ↔ DB จริง', () => {
   let userId = '';
@@ -129,5 +130,30 @@ describeLive('AI Tutor attempt_key ↔ DB จริง', () => {
 
     const threadB = await getThreadMessages({ userId, questionId, attemptKey: ATTEMPT_B });
     expect(threadB).toHaveLength(0);
+  });
+
+  it('ปิดรอบ (ทำจบ/ออกจากข้อสอบ) → เก็บถังทุกข้อของรอบนั้น แต่รอบอื่นไม่โดน', async () => {
+    // ข้อที่ 2 ของรอบนี้ (คนละข้อกับข้อหลัก) → ต้องถูกเก็บถังพร้อมกัน
+    const [otherQuestion] = await db.select({ id: questions.id }).from(questions).orderBy(asc(questions.id)).offset(3).limit(1);
+    const otherQuestionId = otherQuestion?.id ?? 0;
+
+    await db.insert(aiTutorMessages).values([
+      { userId, questionId, role: 'user', content: 'คำถามรอบ C', status: 'ok', attemptKey: ATTEMPT_C },
+      { userId, questionId: otherQuestionId, role: 'user', content: 'คำถามรอบ C ข้ออื่น', status: 'ok', attemptKey: ATTEMPT_C },
+    ]);
+
+    const archived = await archiveAttempt({ userId, attemptKey: ATTEMPT_C });
+    expect(archived).toBe(2); // ทั้งสองข้อของรอบเดียวกัน
+
+    expect(await getThreadMessages({ userId, questionId, attemptKey: ATTEMPT_C })).toHaveLength(0);
+    expect(await getThreadMessages({ userId, questionId: otherQuestionId, attemptKey: ATTEMPT_C })).toHaveLength(0);
+
+    // รอบอื่นยังอยู่ครบ (ไม่กระทบ)
+    expect(await getThreadMessages({ userId, questionId, attemptKey: ATTEMPT_A })).toHaveLength(2);
+  });
+
+  it('ปิดรอบของคนอื่นไม่ได้ (ขอบเขตจำกัดด้วย userId)', async () => {
+    const archived = await archiveAttempt({ userId: 'user-ไม่มีจริง', attemptKey: ATTEMPT_A });
+    expect(archived).toBe(0);
   });
 });
