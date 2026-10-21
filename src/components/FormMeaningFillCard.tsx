@@ -61,9 +61,12 @@ export default function FormMeaningFillCard({
 
         const userAnswer = (answers[blank.id] ?? '').toLowerCase().trim();
         const correctRaw = correctAnswers?.[blank.id] ?? blank.correctAnswer;
-        const isCorrect = revealed && userAnswer !== '' && userAnswer === correctRaw.toLowerCase().trim();
-        const isWrong = revealed && !isCorrect && userAnswer !== '';
-        const isEmpty = revealed && userAnswer === '';
+        // เฉลยอาจไม่มี (payload ของผู้เรียนถูกถอดเฉลยออกแล้ว และยังไม่ได้ส่งข้อสอบ)
+        // → ห้ามเรียก .toLowerCase() ตรง ๆ เด็ดขาด (เคยทำให้หน้าพังตอนกดส่ง)
+        const hasCorrectAnswer = typeof correctRaw === 'string' && correctRaw.length > 0;
+        const isCorrect = revealed && hasCorrectAnswer && userAnswer !== '' && userAnswer === correctRaw!.toLowerCase().trim();
+        const isWrong = revealed && hasCorrectAnswer && !isCorrect && userAnswer !== '';
+        const isEmpty = revealed && hasCorrectAnswer && userAnswer === '';
 
         parts.push(
           // Figma 172:11412 — ช่องกรอก 128×40.45 r8 ขอบ 1.6px #BCD8F0 พื้นขาว ตัวอักษร 18px #9CA3AF กึ่งกลาง
@@ -86,17 +89,17 @@ export default function FormMeaningFillCard({
               onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
               disabled={revealed || disabled}
             />
-            {isWrong && (
+            {isWrong && hasCorrectAnswer && (
               <span className="flex items-center gap-1 mt-1">
                 <span className="text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                  <SelectableText text={correctRaw} contextSentence={correctRaw} />
+                  <SelectableText text={correctRaw!} contextSentence={correctRaw!} />
                 </span>
               </span>
             )}
-            {isEmpty && (
+            {isEmpty && hasCorrectAnswer && (
               <span className="flex items-center gap-1 mt-1">
                 <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
-                  Answer: <SelectableText text={correctRaw} contextSentence={correctRaw} />
+                  Answer: <SelectableText text={correctRaw!} contextSentence={correctRaw!} />
                 </span>
               </span>
             )}

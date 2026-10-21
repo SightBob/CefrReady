@@ -75,4 +75,25 @@ describe('FormMeaningFillCard — สถานะเฉลย (หน้า revi
     const body = articleBodyOf(render({ 20: 'x1' }));
     expect(body.match(/disabled/g)?.length ?? 0).toBe(3);
   });
+
+  it('ไม่มีเฉลย (payload ของผู้เรียนถูกถอดเฉลยออก) + โหมดเฉลยแล้ว → ไม่พัง', () => {
+    // เคยพังตอนกดส่งข้อสอบ: correctRaw เป็น undefined แล้วเอาไป .toLowerCase()
+    const sanitized = {
+      title: 'The Jones Family',
+      text: 'John Jones lives {{20}} the United States with {{21}} wife, Mary.',
+      blanks: [{ id: 20 }, { id: 21 }],
+    };
+    const html = renderToStaticMarkup(
+      <FormMeaningFillCard
+        article={sanitized as unknown as Parameters<typeof FormMeaningFillCard>[0]['article']}
+        answers={{ 20: 'x1' }}
+        onInputChange={() => {}}
+        revealed
+        disabled
+      />,
+    );
+    // ไม่มีเฉลยให้เทียบ → ไม่ต้องชนสีถูก/ผิด แต่ต้องเรนเดอร์ผ่าน
+    expect(html).toContain('x1');
+    expect(html).not.toContain('line-through');
+  });
 });

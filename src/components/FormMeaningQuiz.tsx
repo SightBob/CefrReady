@@ -94,20 +94,66 @@ export default function FormMeaningQuiz({
   const totalBlanks = combinedArticle.blanks.length;
   const answeredCount = Object.keys(answers).filter((k) => answers[parseInt(k)]).length;
 
-  // คำตอบที่ถูกต่อ blank (จากบทความที่รวมแล้ว) — ชุดปกติมีเฉลยฝั่ง client ตามเดิม
+  /**
+   * เฉลยที่ server ส่งกลับมาหลังส่งข้อสอบ (global blank id -> คำตอบที่ถูก)
+   *
+   * ทำไมต้องมี: /api/test-sets/[id] ถอดเฉลยออกจาก payload ของผู้เรียนแล้ว
+   * (stripAnswers → blanks[].correctAnswer ถูกลบ) → ฝั่ง client ไม่มีเฉลยให้เทียบ
+   * เฉลยจริงจึงมาจาก response ของ POST /api/tests/submit (server ส่งกลับหลังตรวจเสร็จ)
+   */
+  const [serverCorrectAnswers, setServerCorrectAnswers] = useState<Record<number, string>>({});
+
+  // คำตอบที่ถูกต่อ blank (จากบทความที่รวมแล้ว)
+  // - โหมด demo: มีเฉลยมากับ payload อยู่แล้ว
+  // - โหมดจริง: ใช้เฉลยที่ server ส่งกลับมาหลังส่งข้อสอบ
   const correctAnswersMap = useMemo(
-    () => Object.fromEntries(combinedArticle.blanks.map((b) => [b.id, b.correctAnswer])),
-    [combinedArticle]
+    () => Object.fromEntries(
+      combinedArticle.blanks.map((b) => [b.id, serverCorrectAnswers[b.id] ?? b.correctAnswer]),
+    ),
+    [combinedArticle, serverCorrectAnswers]
   );
+
+  /**
+   * แปลงเฉลยจาก server ให้เป็น global blank id
+   * (server ส่ง key เป็น blank id เดิมของแต่ละข้อ → ต้องแมปกลับมาเป็น id ของบทความที่รวมแล้ว)
+   */
+  const parseServerCorrectAnswers = (
+    results: Array<{ questionId: number; correctAnswer?: string | null }> | undefined,
+  ): Record<number, string> => {
+    const out: Record<number, string> = {};
+    for (const result of results ?? []) {
+      let parsed: Record<string, unknown> = {};
+      try {
+        const raw = JSON.parse(result.correctAnswer ?? '{}');
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+          parsed = raw as Record<string, unknown>;
+        }
+      } catch {
+        continue; // ไม่มีเฉลยของข้อนี้ → ข้าม
+      }
+      for (const [originalBlankId, answer] of Object.entries(parsed)) {
+        if (typeof answer !== 'string') continue;
+        for (const [globalId, mapping] of globalToOriginal) {
+          if (mapping.questionId === result.questionId && String(mapping.originalBlankId) === originalBlankId) {
+            out[Number(globalId)] = answer;
+          }
+        }
+      }
+    }
+    return out;
+  };
 
   const executeSubmit = async () => {
     if (submitting) return; // Guard: prevent double submit
     setSubmitting(true);
     setShowSubmitConfirm(false);
     try {
-      // Calculate score client-side: compare each blank answer against correct answer
+      // คะแนนฝั่ง client (ใช้ได้เฉพาะตอนที่ payload มีเฉลยมาให้เทียบ = โหมด demo)
+      // ถ้าเฉลยถูกถอดออก (โหมดจริง) ให้ข้ามช่องนี้ไป ไม่ใช่ throw
+      // — เคยทำให้ผู้เรียนส่งข้อสอบไม่ได้ ("เกิดข้อผิดพลาด กรุณาลองใหม่")
       const localCorrectCount = combinedArticle.blanks.filter(
-        (b) => answers[b.id]?.toLowerCase() === b.correctAnswer.toLowerCase()
+        (b) => !!b.correctAnswer
+          && answers[b.id]?.trim().toLowerCase() === b.correctAnswer.trim().toLowerCase()
       ).length;
 
       if (demo) {
@@ -148,6 +194,10 @@ export default function FormMeaningQuiz({
       const serverCorrect = data.success ? data.data.correctAnswers : localCorrectCount;
       if (data.success && data.data.attemptId) {
         onAttemptId?.(data.data.attemptId);
+      }
+      // เฉลยจริงมาจาก server (หลังส่งข้อสอบ) → ใช้แสดงผลถูก/ผิดในการ์ด
+      if (data.success) {
+        setServerCorrectAnswers(parseServerCorrectAnswers(data.data.results));
       }
       setIsSubmitted(true);
       setCorrectCount(serverCorrect);
