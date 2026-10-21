@@ -24,6 +24,16 @@ export function attemptKeyStorageKey(sectionId: string, setId: string | number):
   return `ai-tutor-attempt:${sectionId}:${setId}`;
 }
 
+/**
+ * fallback ในหน่วยความจำของหน้าเว็บ
+ *
+ * ทำไมต้องมี: Safari private mode / in-app browser (Facebook, LINE) ใช้ sessionStorage ไม่ได้
+ * (โยน error) → ถ้าไม่มีที่เก็บ fallback ทุกครั้งที่เรียกจะได้ key ใหม่
+ * → เธรดของผู้เรียนจะไม่ต่อกัน (ข้อความที่ถามไปแล้วหายไป)
+ * key ในหน่วยความจำนี้คงอยู่ตลอดอายุการโหลดหน้าเว็บ (คนละชุด = คนละ key)
+ */
+const memoryKeys = new Map<string, string>();
+
 function randomAttemptKey(): string {
   // crypto.randomUUID() มีในทุกเบราว์เซอร์สมัยใหม่ (และใน Node 19+)
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -50,11 +60,17 @@ export function getOrCreateAttemptKey(storageKey: string): string {
     if (existing && isValidAttemptKey(existing)) return existing;
     const created = randomAttemptKey();
     window.sessionStorage.setItem(storageKey, created);
+    memoryKeys.set(storageKey, created);
     return created;
   } catch {
-    // sessionStorage ใช้ไม่ได้ (private mode/quota) — ใช้ key ชั่วคราว
-    // (รีเฟรชแล้วบทสนทนาจะไม่ต่อ แต่ยังใช้งานได้)
-    return randomAttemptKey();
+    // sessionStorage ใช้ไม่ได้ (private mode / in-app browser)
+    // → ใช้ key ในหน่วยความจำที่คงเดิมตลอดอายุหน้าเว็บ
+    // (เดิมสร้าง key ใหม่ทุกครั้ง → เธรดไม่ต่อกันระหว่าง GET กับ POST)
+    const cached = memoryKeys.get(storageKey);
+    if (cached) return cached;
+    const created = randomAttemptKey();
+    memoryKeys.set(storageKey, created);
+    return created;
   }
 }
 
@@ -64,11 +80,13 @@ export function getOrCreateAttemptKey(storageKey: string): string {
  */
 export function rotateAttemptKey(storageKey: string): string {
   const created = randomAttemptKey();
+  // เก็บไว้ในหน่วยความจำด้วย เผื่อ sessionStorage ใช้ไม่ได้
+  memoryKeys.set(storageKey, created);
   if (typeof window === 'undefined') return created;
   try {
     window.sessionStorage.setItem(storageKey, created);
   } catch {
-    // ignore — ใช้ key ชั่วคราวต่อไป
+    // ใช้ key ในหน่วยความจำแทน
   }
   return created;
 }

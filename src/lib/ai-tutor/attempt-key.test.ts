@@ -4,7 +4,7 @@
  * - ต้องคงเดิมในรอบเดียว (รีเฟรชแล้วยังเห็นบทสนทนาเดิม)
  * - ต้องเปลี่ยนเมื่อเริ่มรอบใหม่ (ทำซ้ำ/ส่งแล้ว)
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ATTEMPT_KEY_PATTERN,
@@ -71,5 +71,46 @@ describe('attempt key — จัดการใน sessionStorage', () => {
     const key = attemptKeyStorageKey('focus-form', 15);
     window.sessionStorage.setItem(key, 'ผิดรูปแบบ');
     expect(isValidAttemptKey(getOrCreateAttemptKey(key))).toBe(true);
+  });
+});
+
+describe('attempt key — sessionStorage ใช้ไม่ได้ (Safari private / in-app browser)', () => {
+  // เดิม: catch → randomAttemptKey() ทุกครั้ง → ทุก request ได้ key ใหม่
+  // → เธรดของผู้เรียนไม่ต่อกัน (ข้อความที่ถามไปแล้วหายไป)
+  // แก้แล้ว: ใช้ key ในหน่วยความจำ → คงเดิมตลอดอายุหน้าเว็บ
+  const storageKey = attemptKeyStorageKey('focus-form', 99);
+
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    vi.spyOn(window.sessionStorage, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError: sessionStorage is disabled');
+    });
+    vi.spyOn(window.sessionStorage, 'setItem').mockImplementation(() => {
+      throw new Error('SecurityError: sessionStorage is disabled');
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('คีย์เดิมถูกใช้ซ้ำ (ไม่ใช่สุ่มใหม่ทุกครั้ง)', () => {
+    const first = getOrCreateAttemptKey(storageKey);
+    expect(isValidAttemptKey(first)).toBe(true);
+    expect(getOrCreateAttemptKey(storageKey)).toBe(first);
+    expect(getOrCreateAttemptKey(storageKey)).toBe(first);
+  });
+
+  it('คนละชุดข้อสอบ = คนละ key', () => {
+    const keyA = attemptKeyStorageKey('focus-form', 100);
+    const keyB = attemptKeyStorageKey('focus-form', 101);
+    expect(getOrCreateAttemptKey(keyA)).not.toBe(getOrCreateAttemptKey(keyB));
+  });
+
+  it('หมุนรอบแล้วได้ key ใหม่ และคงเดิมหลังจากนั้น', () => {
+    const first = getOrCreateAttemptKey(storageKey);
+    const rotated = rotateAttemptKey(storageKey);
+    expect(rotated).not.toBe(first);
+    expect(getOrCreateAttemptKey(storageKey)).toBe(rotated);
   });
 });
