@@ -26,11 +26,14 @@ export const THREAD_MESSAGE_LIMIT = 100;
  *
  * ผูกกับ attemptKey: รอบใหม่ (ทำซ้ำ/ส่งแล้วเริ่มใหม่) จะไม่เห็นบทสนทนาของรอบก่อน
  * แถวที่ attempt_key เป็น null (ข้อมูลเก่าก่อนมีรอบ) จะไม่แสดงในเธรด
+ *
+ * attemptKey **ต้องส่งมาเสมอ** (บังคับที่ระดับ type) — ถ้าลืมส่งแล้วไปกรองด้วย
+ * `IS NULL` จะเผยแถวเก่าที่ไม่ผูกกับรอบเข้ามาในประวัติของโมเดลโดยไม่ตั้งใจ
  */
 export async function getThreadMessages(params: {
   userId: string;
   questionId: number;
-  attemptKey?: string | null;
+  attemptKey: string;
 }): Promise<ThreadMessage[]> {
   const rows = await db
     .select({
@@ -49,10 +52,8 @@ export async function getThreadMessages(params: {
       eq(aiTutorMessages.userId, params.userId),
       eq(aiTutorMessages.questionId, params.questionId),
       eq(aiTutorMessages.archived, false),
-      // รอบของผู้เรียนเท่านั้น — ไม่มี attemptKey = ไม่มีรอบ = ไม่มีเธรด
-      params.attemptKey
-        ? eq(aiTutorMessages.attemptKey, params.attemptKey)
-        : isNull(aiTutorMessages.attemptKey),
+      // รอบของผู้เรียนเท่านั้น — แถว attempt_key IS NULL (ข้อมูลเก่า) ไม่เข้ามา
+      eq(aiTutorMessages.attemptKey, params.attemptKey),
     ))
     // เอาของใหม่สุด N ข้อความ (แล้วกลับลำดับให้เป็นเก่า→ใหม่อีกครั้งด้านล่าง)
     .orderBy(desc(aiTutorMessages.createdAt), desc(aiTutorMessages.id))
@@ -198,12 +199,14 @@ export async function getThreadFeedback(params: {
   return result;
 }
 
-/** ปุ่ม reset — เก็บถังข้อความของรอบนี้เท่านั้น (ไม่ลบ และไม่คืนโควตา) */
+/**
+ * ปุ่ม reset — เก็บถังข้อความของรอบนี้เท่านั้น (ไม่ลบ และไม่คืนโควตา)
+ * attemptKey ต้องส่งมาเสมอ (type-level) → เก็บถังผิดรอบไม่ได้
+ */
 export async function archiveThread(params: {
   userId: string;
   questionId: number;
-  /** รหัสรอบ — เก็บถังเฉพาะรอบนี้ (ข้อความรอบเก่ายังอยู่ใน DB เพื่อวิเคราะห์) */
-  attemptKey?: string | null;
+  attemptKey: string;
 }): Promise<number> {
   const archived = await db
     .update(aiTutorMessages)
@@ -212,9 +215,7 @@ export async function archiveThread(params: {
       eq(aiTutorMessages.userId, params.userId),
       eq(aiTutorMessages.questionId, params.questionId),
       eq(aiTutorMessages.archived, false),
-      params.attemptKey
-        ? eq(aiTutorMessages.attemptKey, params.attemptKey)
-        : isNull(aiTutorMessages.attemptKey),
+      eq(aiTutorMessages.attemptKey, params.attemptKey),
     ))
     .returning({ id: aiTutorMessages.id });
   return archived.length;

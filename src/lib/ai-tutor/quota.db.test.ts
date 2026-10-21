@@ -78,7 +78,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
 
   it('ส่งพร้อมกันเกินโควตา → สำเร็จไม่เกินโควตา (กัน race)', async () => {
     const results = await Promise.all(Array.from({ length: 8 }, (_, index) => (
-      reserveQuestion({ userId, questionId, message: `race-${index}` })
+      reserveQuestion({ userId, questionId, message: `race-${index}`, attemptKey: 'attempt-key-0001' })
     )));
     const okCount = results.filter((result) => result.ok).length;
     expect(okCount).toBe(2);
@@ -99,7 +99,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     const used = await countUsedQuestions({ userId, questionId });
     expect(used).toBe(1);
 
-    const next = await reserveQuestion({ userId, questionId, message: 'after-failure' });
+    const next = await reserveQuestion({ userId, questionId, message: 'after-failure', attemptKey: 'attempt-key-0001' });
     expect(next.ok).toBe(true);
   });
 
@@ -146,11 +146,13 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
       role: 'user',
       content: message,
       status: 'failed',
+      // ต้องอยู่รอบเดียวกันกับที่จะกด "ลองใหม่" (มิฉะนั้นจะไม่ใช้แถวเดิม)
+      attemptKey: 'attempt-key-0001',
     }).returning({ id: aiTutorMessages.id });
     await markUserMessageFailed({ messageId: created.id });
 
     const usedBefore = await countUsedQuestions({ userId, questionId });
-    const result = await reserveQuestion({ userId, questionId, message });
+    const result = await reserveQuestion({ userId, questionId, message, attemptKey: 'attempt-key-0001' });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.reused).toBe(true);

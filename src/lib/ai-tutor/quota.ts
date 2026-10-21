@@ -138,8 +138,9 @@ export async function reserveQuestion(params: {
   /**
    * รหัสรอบการทำข้อสอบ — ผูกแถวกับรอบ (แต่ **โควตาไม่ผูกกับรอบ**
    * นับต่อ (user, question) ต่อวันเหมือนเดิม ไม่งั้นผู้เรียนจะเปลี่ยนรอบเพื่อเลี่ยงโควตาได้)
+   * ต้องส่งมาเสมอ (type-level) → ปุ่ม "ลองใหม่" จะไม่ไปใช้แถวของรอบอื่น
    */
-  attemptKey?: string | null;
+  attemptKey: string;
 }): Promise<ReserveResult> {
   const now = params.now ?? new Date();
   const limit = params.limit ?? questionQuotaLimit();
@@ -188,9 +189,7 @@ export async function reserveQuestion(params: {
         eq(aiTutorMessages.role, 'user'),
         eq(aiTutorMessages.status, 'failed'),
         eq(aiTutorMessages.content, params.message),
-        params.attemptKey
-          ? eq(aiTutorMessages.attemptKey, params.attemptKey)
-          : isNull(aiTutorMessages.attemptKey),
+        eq(aiTutorMessages.attemptKey, params.attemptKey),
         gte(aiTutorMessages.createdAt, new Date(now.getTime() - 10 * 60 * 1000)),
       ))
       .limit(1);

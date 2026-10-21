@@ -41,7 +41,7 @@ beforeEach(() => {
 
 describe('getThreadMessages', () => {
   it('จำกัดจำนวนข้อความไว้ที่ 100 ข้อความล่าสุด', async () => {
-    await getThreadMessages({ userId: 'u1', questionId: 7 });
+    await getThreadMessages({ userId: 'u1', questionId: 7, attemptKey: 'attempt-key-0001' });
     expect(limitValue).toBe(THREAD_MESSAGE_LIMIT);
     expect(THREAD_MESSAGE_LIMIT).toBe(100);
   });
@@ -54,7 +54,7 @@ describe('getThreadMessages', () => {
     ];
     stubRows(rows);
 
-    const result = await getThreadMessages({ userId: 'u1', questionId: 7 });
+    const result = await getThreadMessages({ userId: 'u1', questionId: 7, attemptKey: 'attempt-key-0001' });
 
     expect(result.map((message) => message.id)).toEqual([1, 2, 3]);
     expect(result[0].content).toBe('เก่าสุด');
