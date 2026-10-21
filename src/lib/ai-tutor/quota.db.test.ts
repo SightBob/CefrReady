@@ -23,22 +23,53 @@ const { markUserMessageFailed } = await import('./messages');
 
 const connectionString = process.env.DATABASE_URL;
 
+/**
+ * คอลัมน์ที่เทสชุดนี้ต้องใช้ — ถ้าขาด (เช่น รัน migration แค่ 0046 แต่ยังไม่ได้ 0047/0049)
+ * ต้อง skip ไม่ใช่ fail
+ */
+const REQUIRED_COLUMNS = [
+  'attempt_key',      // 0049 — ผูกแถวกับรอบการทำข้อสอบ
+  'selected_answer',  // 0047 — คำตอบที่ผู้เรียนเลือก
+  'is_correct',       // 0047
+  'fallback_used',    // 0047
+  'finish_reason',    // 0047
+  'archived',         // 0046
+  'created_at',       // 0046
+  'status',           // 0046
+];
+
 let hasTable = false;
+let hasAllColumns = false;
 if (connectionString) {
   const pool = new pg.Pool({ connectionString });
   try {
-    const result = await pool.query(
+    const tableResult = await pool.query(
       `select count(*)::int as n from information_schema.tables where table_name = 'ai_tutor_messages'`,
     );
-    hasTable = (result.rows[0]?.n ?? 0) > 0;
+    hasTable = (tableResult.rows[0]?.n ?? 0) > 0;
+
+    if (hasTable) {
+      const columnResult = await pool.query(
+        `select column_name from information_schema.columns
+         where table_name = 'ai_tutor_messages' and column_name = any($1::text[])`,
+        [REQUIRED_COLUMNS],
+      );
+      const found = new Set((columnResult.rows as Array<{ column_name: string }>).map((row) => row.column_name));
+      const missing = REQUIRED_COLUMNS.filter((column) => !found.has(column));
+      hasAllColumns = missing.length === 0;
+      if (missing.length > 0) {
+        console.warn(`[quota.db.test] ข้ามเทส: ตาราง ai_tutor_messages ขาดคอลัมน์ ${missing.join(', ')}`);
+      }
+    }
   } catch {
     hasTable = false;
+    hasAllColumns = false;
   } finally {
     await pool.end();
   }
 }
 
-const describeLive = connectionString && hasTable ? describe : describe.skip;
+const describeLive = connectionString && hasTable && hasAllColumns ? describe : describe.skip;
 
 describeLive('quota AI Tutor ↔ DB จริง', () => {
   let pool: pg.Pool;
