@@ -15,6 +15,8 @@ export type RetentionArgs = {
   days: number;
   apply: boolean;
   blank: boolean;
+  /** host ที่ผู้ใช้ยืนยัน (ต้องตรงกับ host ของ DATABASE_URL ก่อนเขียนจริง) */
+  confirmHost: string | null;
 };
 
 export function parseRetentionArgs(argv: string[], env: NodeJS.ProcessEnv = process.env): RetentionArgs {
@@ -22,12 +24,19 @@ export function parseRetentionArgs(argv: string[], env: NodeJS.ProcessEnv = proc
   let days = Number.isFinite(envDays) && envDays > 0 ? envDays : DEFAULT_RETENTION_DAYS;
   let apply = false;
   let blank = false;
-  for (const arg of argv) {
+  let confirmHost: string | null = null;
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
     if (arg === '--apply') apply = true;
     else if (arg === '--blank') blank = true;
-    else if (arg.startsWith('--days=')) days = Number.parseInt(arg.split('=')[1], 10) || days;
+    else if (arg === '--confirm-host') {
+      index += 1;
+      confirmHost = argv[index] ?? null;
+    } else if (arg.startsWith('--confirm-host=')) {
+      confirmHost = arg.slice('--confirm-host='.length);
+    } else if (arg.startsWith('--days=')) days = Number.parseInt(arg.split('=')[1], 10) || days;
   }
-  return { days, apply, blank };
+  return { days, apply, blank, confirmHost };
 }
 
 export function retentionCutoff(days: number, now: Date = new Date()): Date {

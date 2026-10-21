@@ -1,23 +1,49 @@
 import 'dotenv/config';
 import { db } from '../src/db';
 import { sql } from 'drizzle-orm';
+import { checkScriptWriteGuards, extractScriptFlags } from '../src/lib/ai-tutor/script-guard';
 
+/**
+ * ล้างตารางเก่าที่ไม่ได้ใช้แล้ว (account / session / user / verification_token)
+ *
+ * ⚠️ ค่าเริ่มต้ม = dry-run (ไม่ลบอะไร) → ต้องใส่ --apply --confirm-host <host ของ DATABASE_URL>
+ * และ host ที่อยู่ในบล็อกลิสต์ (APPLY_MIGRATION_BLOCKED_HOSTS) จะถูกปฏิเสธ
+ */
 async function cleanupTables() {
-  console.log('🧹 Starting database cleanup...');
+  // ─── กันรันผิดฐาน ───
+  const { apply, confirmHost } = extractScriptFlags(process.argv.slice(2));
+  const guard = checkScriptWriteGuards({
+    apply,
+    confirmHost,
+    databaseUrl: process.env.DATABASE_URL,
+    blockedHosts: process.env.APPLY_MIGRATION_BLOCKED_HOSTS,
+  });
+  if (!guard.ok) {
+    console.error(guard.message);
+    process.exit(1);
+  }
+
+  // Drop legacy/unused tables (singular forms and unused tables)
+  const tablesToDrop = [
+    'account',              // Old singular (use 'accounts')
+    'session',              // Old singular (use 'sessions')
+    'user',                 // Old singular (use 'users')
+    'verification_token',   // Old singular (use 'verification_tokens')
+  ];
+
+  console.log('🧹 Database cleanup');
+  console.log(`host      : ${guard.host}`);
+  console.log(`โหมด      : ${guard.dryRun ? 'dry-run (ไม่ลบอะไร)' : 'ลบจริง'}`);
+  console.log('ตารางที่จะลบ:');
+  for (const table of tablesToDrop) console.log(`   - ${table}`);
+
+  if (guard.dryRun) {
+    console.log('\nยังไม่ได้ลบอะไร — ใส่ --apply --confirm-host <host> เพื่อลบจริง');
+    process.exit(0);
+  }
 
   try {
-    // Drop legacy/unused tables (singular forms and unused tables)
-    console.log('🗑️  Dropping legacy tables...');
-
-    // Drop legacy tables that no longer exist in the schema. `user_answers` is
-    // NOT here: it is still written by tests/submit and full-test/submit-attempt
-    // and read by admin/stats, admin/reports and tests/attempts.
-    const tablesToDrop = [
-      'account',              // Old singular (use 'accounts')
-      'session',              // Old singular (use 'sessions')
-      'user',                 // Old singular (use 'users')
-      'verification_token',   // Old singular (use 'verification_tokens')
-    ];
+    console.log('\n🗑️  Dropping legacy tables...');
 
     for (const table of tablesToDrop) {
       try {
