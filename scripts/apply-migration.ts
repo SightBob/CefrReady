@@ -53,7 +53,6 @@ import { join, resolve } from 'node:path';
 
 import { sql } from 'drizzle-orm';
 
-import { db } from '../src/db';
 import {
   describeTarget,
   isBlockedHost,
@@ -67,7 +66,13 @@ import {
 
 const JOURNAL_PATH = join(process.cwd(), 'drizzle/meta/_journal.json');
 
-async function ensureMigrationsTable() {
+/**
+ * โหลด db **หลัง** ตรวจ DATABASE_URL แล้วเท่านั้น
+ * (src/db/index.ts จะ throw ทันทีถ้าไม่มี DATABASE_URL → ข้อความแนะนำของสคริปต์จะไม่เคยแสดง)
+ */
+type Db = typeof import('../src/db')['db'];
+
+async function ensureMigrationsTable(db: Db) {
   await db.execute(sql`CREATE SCHEMA IF NOT EXISTS drizzle`);
   await db.execute(
     sql`CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
@@ -78,7 +83,7 @@ async function ensureMigrationsTable() {
   );
 }
 
-async function appliedHashes(): Promise<Set<string>> {
+async function appliedHashes(db: Db): Promise<Set<string>> {
   const rows = await db.execute(sql`SELECT hash FROM drizzle.__drizzle_migrations`);
   return new Set((rows.rows as Array<{ hash: string }>).map((row) => row.hash));
 }
@@ -91,6 +96,9 @@ async function main() {
     console.error('ไม่พบ DATABASE_URL — ตั้งค่าใน .env หรือส่งเป็น environment variable');
     process.exit(1);
   }
+
+  // โหลด db หลังตรวจ DATABASE_URL แล้ว (ไม่งั้นข้อความข้างบนจะไม่มีโอกาสแสดง)
+  const { db } = await import('../src/db');
 
   const target = describeTarget(rawUrl);
   const blockedList = parseBlockedHosts(process.env.APPLY_MIGRATION_BLOCKED_HOSTS);
@@ -154,11 +162,11 @@ async function main() {
   let appliedStatus: 'known' | 'unknown' = 'known';
 
   if (args.apply) {
-    await ensureMigrationsTable();
-    for (const hash of await appliedHashes()) done.add(hash);
+    await ensureMigrationsTable(db);
+    for (const hash of await appliedHashes(db)) done.add(hash);
   } else {
     try {
-      for (const hash of await appliedHashes()) done.add(hash);
+      for (const hash of await appliedHashes(db)) done.add(hash);
     } catch {
       appliedStatus = 'unknown';
       console.warn('\n⚠️  ต่อฐานข้อมูลไม่ได้ — แผนที่แสดงยังไม่ระบุว่าไฟล์ใดรันไปแล้ว');

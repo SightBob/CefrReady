@@ -16,7 +16,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { execFile } from 'node:child_process';
-import { join } from 'node:path';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -53,19 +55,30 @@ function buildChildEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   };
 }
 
-async function runCli(args: string[], env: Record<string, string> = {}): Promise<RunResult> {
+async function runCli(
+  args: string[],
+  env: Record<string, string> = {},
+  options: { cwd?: string; omitDbEnv?: boolean } = {},
+): Promise<RunResult> {
+  const childEnv = buildChildEnv(env);
+  if (options.omitDbEnv) {
+    // ลบตัวแปร DB ออกทั้งหมด → ถ้าสคริปต์ไปอ่าน .env เอง ค่าจะหลุดกลับมา
+    delete childEnv.DATABASE_URL;
+    delete childEnv.APPLY_MIGRATION_BLOCKED_HOSTS;
+  }
   try {
     const { stdout, stderr } = await execFileAsync(
       process.execPath,
       [
-        join('node_modules', 'tsx', 'dist', 'cli.mjs'),
-        join('scripts', 'apply-migration.ts'),
+        // ใช้พาธแบบเต็มเสมอ เพื่อให้รันได้แม้ cwd ของ child ถูกเปลี่ยน (เคส canary)
+        resolve(process.cwd(), 'node_modules', 'tsx', 'dist', 'cli.mjs'),
+        resolve(process.cwd(), 'scripts', 'apply-migration.ts'),
         ...args,
       ],
       {
-        cwd: process.cwd(),
+        cwd: options.cwd ?? process.cwd(),
         timeout: 60_000,
-        env: buildChildEnv(env),
+        env: childEnv,
       },
     );
     return { code: 0, stdout, stderr };
@@ -145,6 +158,28 @@ describe('scripts/apply-migration.ts — การป้องกันการ
     expect(output).not.toContain('✅');
     expect(output).not.toContain('เสร็จแล้ว');
   });
+
+  it('วาง .env ปลอม (ค่าแคนารี) ใน cwd ของ child + env ว่าง → สคริปต์ต้องไม่อ่านค่านั้น', async () => {
+    const canaryHost = 'canary-host.invalid';
+    const canaryDir = mkdtempSync(join(tmpdir(), 'apply-migration-canary-'));
+    writeFileSync(
+      join(canaryDir, '.env'),
+      `DATABASE_URL="postgresql://canary_user:canary_secret_pw@${canaryHost}:5432/canary_db"\n`
+      + `APPLY_MIGRATION_BLOCKED_HOSTS="${canaryHost}"\n`,
+    );
+
+    const result = await runCli(['--from', '45'], {}, { cwd: canaryDir, omitDbEnv: true });
+    const output = result.stdout + result.stderr;
+
+    // ถ้าสคริปต์อ่าน .env ของ cwd ได้ → host ที่พิมพ์จะเป็น canary (และค่าลับจะหลุด)
+    expect(output, 'ห้ามอ่าน .env จาก cwd ของ child').not.toContain(canaryHost);
+    expect(output).not.toContain('canary_secret_pw');
+    // ไม่มี DATABASE_URL เลย → ต้องบอกชัด ๆ ว่าขาด (ไม่ใช่ stack trace จาก src/db)
+    expect(result.code).not.toBe(0);
+    expect(output).toContain('ไม่พบ DATABASE_URL');
+    expect(output).not.toContain('Cannot find module');
+    expect(output).not.toContain('DATABASE_URL is not defined');
+  }, 120_000);
 
   it('ผลลัพธ์ไม่มี password ของ DATABASE_URL หลุดออกมา', async () => {
     for (const args of [
