@@ -176,22 +176,29 @@ describe('normalizeConfig — บีบค่าให้อยู่ในข�
     expect(result.runtimeEnabled).toBe(false);
   });
 
-  it('เพดานรายวันน้อยกว่าโควตาต่อข้อ → ยกเพดานรายวันขึ้นให้ไม่น้อยกว่าโควตาต่อข้อ', () => {
-    const result = normalizeConfig({ ...base, questionQuota: 10, userDailyLimit: 1 }, base);
-    expect(result.userDailyLimit).toBe(10);
-    expect(result.userDailyLimit).toBeGreaterThanOrEqual(result.questionQuota);
+  it('เพดานรายวันน้อยกว่าโควตาต่อข้อ → ลดโควตาต่อข้อลงให้เท่ากับเพดานรายวัน (ไม่ไปเพิ่มเพดานรายวัน)', () => {
+    const result = normalizeConfig({ ...base, questionQuota: 10, userDailyLimit: 3 }, base);
+    expect(result.questionQuota).toBe(3);
+    expect(result.userDailyLimit).toBe(3);
   });
 
   it('ค่าทั้งสองอยู่ในช่วงแต่ผิดความสัมพันธ์ → บังคับเสมอ (ไม่ใช่แค่ตอนบันทึก)', () => {
-    const result = normalizeConfig({ ...base, questionQuota: 8, userDailyLimit: 3 }, base);
-    expect(result.userDailyLimit).toBe(8);
+    const result = normalizeConfig({ ...base, questionQuota: 8, userDailyLimit: 2 }, base);
+    expect(result.questionQuota).toBe(2);
+    expect(result.userDailyLimit).toBe(2);
   });
 
-  it('โควตาต่อข้อถูกบีบลงมาก่อน → เพดานรายวันต้องเทียบกับค่าที่บีบแล้ว', () => {
-    // questionQuota เดิม 20 → บีบเป็น 10 (ช่วงใหม่ 1–10) → เพดานรายวันต้องไม่ต่ำกว่า 10
+  it('โควตาต่อข้อถูกบีบลงมาก่อน → เทียบกับเพดานรายวันที่บีบแล้ว', () => {
+    // questionQuota เดิม 20 → บีบเป็น 10 (ช่วงใหม่ 1–10) → แล้วเทียบกับเพดานรายวัน
     const result = normalizeConfig({ ...base, questionQuota: 20, userDailyLimit: 5 }, base);
-    expect(result.questionQuota).toBe(10);
-    expect(result.userDailyLimit).toBe(10);
+    expect(result.questionQuota).toBe(5);
+    expect(result.userDailyLimit).toBe(5);
+  });
+
+  it('เพดานรายวันสูงกว่าโควตาต่อข้อ → ไม่ถูกแก้ (คงค่าที่ผู้ดูแลตั้ง)', () => {
+    const result = normalizeConfig({ ...base, questionQuota: 5, userDailyLimit: 50 }, base);
+    expect(result.questionQuota).toBe(5);
+    expect(result.userDailyLimit).toBe(50);
   });
 
   it('ค่าปกติ → ไม่ถูกแก้', () => {

@@ -9,6 +9,10 @@
  * 2. ใส่ --apply แต่ไม่ใส่ --confirm-host → exit 1
  * 3. host ที่อยู่ใน APPLY_MIGRATION_BLOCKED_HOSTS → ถูกปฏิเสธ (exit 1)
  * 4. ผลลัพธ์ไม่มี password ของ DATABASE_URL หลุดออกมา
+ * 5. --apply แล้วต่อ DB ไม่ได้ → exit non-zero (ไม่ใช่แสดงแผนต่อ)
+ *
+ * ⚠️ env ของ child ถูกสร้างขึ้นใหม่ทั้งหมด (ไม่สืบทอด ...process.env ของเครื่อง)
+ *    และ DOTENV_CONFIG_PATH ชี้ไปที่ไฟล์ที่ไม่มีอยู่ → .env จริงของโปรเจกต์หลุดเข้าไปไม่ได้
  */
 import { describe, expect, it } from 'vitest';
 import { execFile } from 'node:child_process';
@@ -21,7 +25,32 @@ const execFileAsync = promisify(execFile);
 const FAKE_URL = 'postgresql://fake_user:sup3r-secret-pw@127.0.0.1:1/fake_db';
 const FAKE_HOST = '127.0.0.1';
 
+/** ตัวแปรที่สคริปต์อ่านเกี่ยวกับฐานข้อมูล — ต้องปลอมทุกตัว */
+const DB_ENV_KEYS = ['DATABASE_URL', 'APPLY_MIGRATION_BLOCKED_HOSTS'] as const;
+
 type RunResult = { code: number; stdout: string; stderr: string };
+
+/** env ของ child: สร้างใหม่ทั้งหมด ไม่สืบทอด env ของเครื่อง */
+function buildChildEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  return {
+    // ขั้นต่ำที่ node ต้องมีบน Windows
+    PATH: process.env.PATH ?? '',
+    SystemRoot: process.env.SystemRoot ?? '',
+    COMSPEC: process.env.COMSPEC ?? '',
+    PATHEXT: process.env.PATHEXT ?? '',
+    TEMP: process.env.TEMP ?? '',
+    TMP: process.env.TMP ?? '',
+    USERPROFILE: process.env.USERPROFILE ?? '',
+    APPDATA: process.env.APPDATA ?? '',
+    LOCALAPPDATA: process.env.LOCALAPPDATA ?? '',
+    // ไม่ให้ dotenv/config ไปอ่าน .env จริงของโปรเจกต์
+    DOTENV_CONFIG_PATH: join(process.cwd(), 'tmp', 'no-such-dotenv-file'),
+    // ค่าเริ่มต้นของตัวแปรที่สคริปต์อ่าน
+    DATABASE_URL: FAKE_URL,
+    APPLY_MIGRATION_BLOCKED_HOSTS: '',
+    ...extra,
+  };
+}
 
 async function runCli(args: string[], env: Record<string, string> = {}): Promise<RunResult> {
   try {
@@ -35,14 +64,7 @@ async function runCli(args: string[], env: Record<string, string> = {}): Promise
       {
         cwd: process.cwd(),
         timeout: 60_000,
-        env: {
-          ...process.env,
-          DATABASE_URL: FAKE_URL,
-          // ไม่ให้ค่าจาก .env ของเครื่องแทรกเข้ามา
-          AI_TUTOR_ENABLED: '',
-          APPLY_MIGRATION_BLOCKED_HOSTS: '',
-          ...env,
-        },
+        env: buildChildEnv(env),
       },
     );
     return { code: 0, stdout, stderr };
@@ -57,6 +79,16 @@ async function runCli(args: string[], env: Record<string, string> = {}): Promise
 }
 
 describe('scripts/apply-migration.ts — การป้องกันการรันผิดฐาน', () => {
+  it('env ที่สคริปต์อ่านเกี่ยวกับ DB ถูกปลอมครบทุกตัว', () => {
+    const env = buildChildEnv();
+    for (const key of DB_ENV_KEYS) {
+      expect(env[key], key).toBeDefined();
+    }
+    // ไม่สืบทอด env ของเครื่อง (เช่น DATABASE_URL จริงจาก .env)
+    expect(env.DATABASE_URL).toBe(FAKE_URL);
+    expect(env.DATABASE_URL).not.toContain('neon.tech');
+  });
+
   it('ไม่ใส่ --apply → dry-run และไม่เขียนอะไรลง DB', async () => {
     const result = await runCli(['--from', '45']);
 
@@ -97,6 +129,21 @@ describe('scripts/apply-migration.ts — การป้องกันการ
     const output = result.stdout + result.stderr;
     expect(output).toContain('ไม่ตรงกับ DATABASE_URL');
   }, 60_000);
+
+  it('--apply แล้วต่อ DB ไม่ได้ → exit non-zero (ไม่ใช่แสดงแผนต่อ)', async () => {
+    // ผ่านทุก gate (บล็อกลิสต์ + confirm-host ตรง) แต่ฐานข้อมูลปลอมชี้ไปที่พอร์ตที่ไม่มีอะไรฟัง
+    const result = await runCli([
+      '--from', '45',
+      '--apply',
+      '--confirm-host', FAKE_HOST,
+    ]);
+
+    expect(result.code).not.toBe(0);
+    const output = result.stdout + result.stderr;
+    expect(output).toMatch(/ล้มเหลว|ECONNREFUSED|connect/i);
+    expect(output).not.toContain('✅');
+    expect(output).not.toContain('เสร็จแล้ว');
+  });
 
   it('ผลลัพธ์ไม่มี password ของ DATABASE_URL หลุดออกมา', async () => {
     for (const args of [

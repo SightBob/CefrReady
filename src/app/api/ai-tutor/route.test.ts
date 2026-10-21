@@ -445,6 +445,11 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
       const errorEvent = events.find((event) => event.type === 'error') as { error?: string } | undefined;
       expect(errorEvent?.error, reason).toContain(expected);
       expect(errorEvent?.error, reason).not.toContain('รายละเอียดดิบ');
+      // 429 ของ provider ต้องไม่ถูกแสดงเป็น "โควตาของผู้เรียนหมด"
+      if (reason === 'rate-limit') {
+        expect(errorEvent?.error).not.toContain('โควตา');
+        expect(errorEvent?.error).toContain('ระบบ AI');
+      }
     }
   });
 

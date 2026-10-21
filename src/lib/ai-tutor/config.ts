@@ -118,11 +118,11 @@ export function getAiTutorEnvDefaults(): AiTutorConfig {
     clampToRange('firstTokenTimeoutMs', envInt('AI_TUTOR_FIRST_TOKEN_TIMEOUT_MS', Math.floor(timeoutMs / 2))),
     timeoutMs,
   );
-  const questionQuota = clampToRange('questionQuota', envInt('AI_TUTOR_QUESTION_QUOTA', 5));
-  // เพดานรายวันต้องไม่น้อยกว่าโควตาต่อข้อ (เหมือนที่ normalizeConfig บังคับตอนอ่านค่า)
-  const userDailyLimit = Math.max(
-    clampToRange('userDailyLimit', envInt('AI_TUTOR_USER_DAILY_LIMIT', 50)),
-    questionQuota,
+  const userDailyLimit = clampToRange('userDailyLimit', envInt('AI_TUTOR_USER_DAILY_LIMIT', 50));
+  // ถ้าเพดานรายวันต่ำกว่าโควตาต่อข้อ → ลดโควตาต่อข้อลงให้เท่ากับเพดานรายวัน (เหมือน normalizeConfig)
+  const questionQuota = Math.min(
+    clampToRange('questionQuota', envInt('AI_TUTOR_QUESTION_QUOTA', 5)),
+    userDailyLimit,
   );
   return {
     envMasterEnabled,
@@ -244,12 +244,13 @@ export function normalizeConfig(raw: AiTutorConfig, envDefaults: AiTutorConfig):
     clampToRange('firstTokenTimeoutMs', raw.firstTokenTimeoutMs ?? Math.floor(timeoutMs / 2)),
     timeoutMs,
   );
-  const questionQuota = clampToRange('questionQuota', raw.questionQuota ?? 5);
-  // เพดานรายวันต้องไม่น้อยกว่าโควตาต่อข้อเสมอ (ไม่งั้นผู้เรียนจะชนเพดานรายวัน
-  // ก่อนโควตาต่อข้อที่ตั้งไว้ แล้วเข้าใจยากว่าทำไมถามได้แค่ 1 ครั้ง)
-  const userDailyLimit = Math.max(
-    clampToRange('userDailyLimit', raw.userDailyLimit ?? 50),
-    questionQuota,
+  // ความสัมพันธ์ระหว่างเพดานรายวันกับโควตาต่อข้อ:
+  // ถ้าเพดานรายวันต่ำกว่าโควตาต่อข้อ → **ลดโควตาต่อข้อลง** ให้เท่ากับเพดานรายวัน
+  // (ไม่ใช่ไปเพิ่มเพดานรายวัน — เพดานรายวันคือ "โควตารวมของผู้เรียน" ที่ผู้ดูแลตั้งไว้)
+  const userDailyLimit = clampToRange('userDailyLimit', raw.userDailyLimit ?? 50);
+  const questionQuota = Math.min(
+    clampToRange('questionQuota', raw.questionQuota ?? 5),
+    userDailyLimit,
   );
   return {
     ...raw,
