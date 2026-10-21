@@ -170,9 +170,42 @@ export async function getDailyQuotaSnapshot(params: {
   return { used, limit: params.limit, remaining: Math.max(0, params.limit - used) };
 }
 
+/**
+ * จำนวนคำถาม AI ทั้งระบบวันนี้ (ทุกผู้เรียน) — ใช้เป็น **เพดานต้นทุนแบบ SQL**
+ *
+ * ทำไมต้องมี: ตัวนับฝั่ง Redis (rateLimit) เป็น fail-open เมื่อ Upstash ล่ม
+ * (ดู src/lib/rate-limit.ts:43-47) → ถ้า Redis ล่ม เพดานรวมทั้งระบบจะหลุด
+ * → ต้องมี SQL เป็นตาข่ายที่สองก่อนเรียกโมเดล
+ *
+ * นับแถวเดียวกับ countUsedQuestions (role='user', สำเร็จ หรือค้างไม่เกิน 2 นาที)
+ * แต่ไม่กรอง user_id → นับทั้งระบบในวันเวลาไทย
+ */
+export async function countSystemDailyQuestions(params: {
+  now?: Date;
+  executor?: Pick<typeof db, 'select'>;
+} = {}): Promise<number> {
+  const executor = params.executor ?? db;
+  const now = params.now ?? new Date();
+  const rows = await executor
+    .select({ count: sql<number>`count(*)::int` })
+    .from(aiTutorMessages)
+    .where(and(
+      eq(aiTutorMessages.role, 'user'),
+      or(
+        eq(aiTutorMessages.status, 'ok'),
+        and(
+          eq(aiTutorMessages.status, 'pending'),
+          gte(aiTutorMessages.createdAt, new Date(now.getTime() - STALE_PENDING_MS)),
+        ),
+      ),
+      gte(aiTutorMessages.createdAt, bangkokDayStartUtc(now)),
+    ));
+  return rows[0]?.count ?? 0;
+}
+
 export type ReserveResult =
   | { ok: true; messageId: number; quota: QuotaSnapshot; reused: boolean }
-  | { ok: false; reason: 'quota'; quota: QuotaSnapshot };
+  | { ok: false; reason: 'quota' | 'daily_quota'; quota: QuotaSnapshot };
 
 /**
  * จองโควตา 1 ครั้ง (นับ + แทรกแถว pending) แบบ atomic
@@ -189,6 +222,14 @@ export async function reserveQuestion(params: {
   /** เพดานโควตาต่อข้อ — ค่าจาก config (DB ทับ env); ไม่ส่ง = ใช้ค่าตั้งต้นจาก env */
   limit?: number;
   /**
+   * เพดานรายวันของผู้เรียน (ทุกข้อรวมกัน) — ค่าจาก config (DB ทับ env)
+   *
+   * ตัวบังคับจริงเป็น **SQL** (ไม่ใช่ Redis) → นับด้วย countUserDailyQuestions()
+   * ซึ่งเป็นฟังก์ชันเดียวกับที่ใช้แสดงตัวเลขให้ผู้เรียน (แหล่งเดียวกัน)
+   * ไม่ส่ง = ไม่ตรวจเพดานรายวัน (ใช้ในเทส/สคริปต์ที่ไม่ต้องการ)
+   */
+  dailyLimit?: number;
+  /**
    * รหัสรอบการทำข้อสอบ — ผูกแถวกับรอบ (แต่ **โควตาไม่ผูกกับรอบ**
    * นับต่อ (user, question) ต่อวันเหมือนเดิม ไม่งั้นผู้เรียนจะเปลี่ยนรอบเพื่อเลี่ยงโควตาได้)
    * ต้องส่งมาเสมอ (type-level) → ปุ่ม "ลองใหม่" จะไม่ไปใช้แถวของรอบอื่น
@@ -198,11 +239,33 @@ export async function reserveQuestion(params: {
   const now = params.now ?? new Date();
   const limit = params.limit ?? questionQuotaLimit();
   const lockKey = `ai-tutor:${params.userId}:${params.questionId}`;
+  // ล็อกระดับผู้เรียนก่อน (กัน race ของเพดานรายวันระหว่างคนละข้อ) → แล้วค่อยล็อกระดับข้อ
+  // ลำดับการล็อกต้องเหมือนกันทุกครั้งเพื่อไม่ให้เกิด deadlock
+  const dailyLockKey = `ai-tutor-daily:${params.userId}`;
 
   return db.transaction(async (tx) => {
     await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${dailyLockKey}, 0))`,
+    );
+    await tx.execute(
       sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
     );
+
+    // ─── เพดานรายวันของผู้เรียน (SQL — แหล่งเดียวกับตัวเลขที่แสดง) ───
+    if (params.dailyLimit !== undefined) {
+      const dailyUsed = await countUserDailyQuestions({
+        userId: params.userId,
+        now,
+        executor: tx as never,
+      });
+      if (dailyUsed >= params.dailyLimit) {
+        return {
+          ok: false as const,
+          reason: 'daily_quota' as const,
+          quota: { used: dailyUsed, limit: params.dailyLimit, remaining: 0 },
+        };
+      }
+    }
 
     const usedRows = await tx
       .select({ count: sql<number>`count(*)::int` })

@@ -17,6 +17,7 @@ import {
   markUserMessageOk,
 } from '@/lib/ai-tutor/messages';
 import {
+  countSystemDailyQuestions,
   getDailyQuotaSnapshot,
   reserveQuestion,
 } from '@/lib/ai-tutor/quota';
@@ -238,18 +239,25 @@ export async function POST(request: Request) {
 
     // ─── จองโควตา (กัน race) ───
     // โควตานับต่อ (user, question) ต่อวัน — ไม่ผูกกับรอบ (attemptKey)
-    // limit มาจาก config (DB ทับ env) → ค่าที่ผู้ดูแลตั้งในหน้า admin มีผลจริง
+    // limit/dailyLimit มาจาก config (DB ทับ env) → ค่าที่ผู้ดูแลตั้งในหน้า admin มีผลจริง
+    // เพดานรายวันบังคับด้วย SQL (ใน reserveQuestion) ไม่ใช่ Redis → Redis ล่มก็ยังคุมได้
     reservation = await reserveQuestion({
       userId,
       questionId,
       message,
       attemptKey,
       limit: config.questionQuota,
+      dailyLimit: config.userDailyLimit,
     });
     if (!reservation.ok) {
       // โควตาของข้อนี้เต็ม → ไม่แตะตัวนับรายวันด้วย (ไม่งั้นผู้เรียนจะเสียโควตาวันนี้เปล่า ๆ)
       // ตัวเลขที่ส่งให้ client = เพดานรายวัน (เหมือนตอนแสดงผลปกติ) ส่วนข้อความบอกเป็นโควตาของข้อนี้
       const dailyQuota = await getDailyQuotaSnapshot({ userId, limit: config.userDailyLimit });
+      if (reservation.reason === 'daily_quota') {
+        return jsonError(429, 'คุณถาม AI วันนี้ครบโควตาทั้งหมดแล้ว ลองใช้คำถามพรุ่งนี้', {
+          quota: dailyQuota,
+        });
+      }
       return jsonError(429, `โควตาคำถามของข้อนี้หมดแล้ว (${reservation.quota.used}/${reservation.quota.limit} ครั้งต่อวัน)`, {
         quota: dailyQuota,
       });
@@ -259,21 +267,30 @@ export async function POST(request: Request) {
     return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
   }
 
-  // ─── เพดานซ่อน: ต่อผู้เรียน/วัน + รวมทั้งระบบ/วัน (kill switch) ───
-  // นับหลังจองโควตาสำเร็จแล้วเท่านั้น → request ที่ถูกปฏิเสธไม่กินโควตารายวัน
-  // (ถ้าตัวนับเต็ม → คืนโควตาข้อนี้ด้วยการ mark failed เพื่อไม่ให้เสียสิทธิ์)
-  const userCap = config.userDailyLimit;
-  const userLimit = await rateLimit(`user:${userId}:ai-tutor:day`, {
-    windowMs: 86_400_000,
-    maxRequests: userCap,
-  });
-  if (userLimit.limited) {
-    await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
-    return jsonError(429, 'คุณถาม AI วันนี้ครบโควตาทั้งหมดแล้ว ลองใช้คำถามพรุ่งนี้', {
-      quota: { used: userCap, limit: userCap, remaining: 0 },
-    });
-  }
+  // ─── เพดานซ่อน: รวมทั้งระบบ/วัน (kill switch) ───
+  // เพดานรายวันของผู้เรียนบังคับด้วย SQL ใน reserveQuestion() แล้ว (ไม่พึ่ง Redis)
+  // ที่นี่เหลือแค่เพดานรวมทั้งระบบ/วัน = ตัว kill switch ระดับต้นทุน
+  // (นับหลังจองโควตาสำเร็จแล้วเท่านั้น → request ที่ถูกปฏิเสธไม่กินโควตา
+  //  ถ้าตัวนับเต็ม → คืนโควตาข้อนี้ด้วยการ mark failed เพื่อไม่ให้เสียสิทธิ์)
+
+  // ─── เพดานต้นทุนรวมทั้งระบบ/วัน: เช็คด้วย SQL เป็นตาข่ายที่สอง ───
+  // Redis เป็นตัวนับเร็ว แต่ถ้า Upstash ล่มจะ fail-open (ปล่อยให้ยิงต่อ)
+  // (src/lib/rate-limit.ts:43-47) → เพดานต้นทุนต้องมี SQL คุมไว้ด้วย
   const systemCap = config.systemDailyLimit;
+  let systemUsed: number;
+  try {
+    systemUsed = await countSystemDailyQuestions();
+  } catch (error) {
+    // นับไม่ได้ = ไม่รู้ว่าเกินเพดานไหม → fail-closed (เฉพาะ AI Tutor) ไม่ยิงโมเดล
+    warnWithSummary('ai-tutor] นับโควตารวมทั้งระบบไม่สำเร็จ — ปิดชั่วคราว (fail-closed)', error);
+    await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
+    return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
+  }
+  if (systemCap > 0 && systemUsed >= systemCap) {
+    await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
+    return jsonError(429, 'ขณะนี้ระบบถาม AI ได้เต็มโควตาของวันนี้แล้ว กรุณาลองใหม่พรุ่งนี้');
+  }
+
   if (systemCap > 0) {
     const systemLimit = await rateLimit('system:ai-tutor:day', {
       windowMs: 86_400_000,

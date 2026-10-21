@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   reserveQuestion: vi.fn(),
   getQuotaSnapshot: vi.fn(),
   getDailyQuotaSnapshot: vi.fn(),
+  countSystemDailyQuestions: vi.fn(),
   getAiTutorConfig: vi.fn(),
   getThreadMessages: vi.fn(),
   getThreadFeedback: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRate
 vi.mock('@/lib/ai-tutor/quota', () => ({
   reserveQuestion: mocks.reserveQuestion,
   getDailyQuotaSnapshot: mocks.getDailyQuotaSnapshot,
+  countSystemDailyQuestions: mocks.countSystemDailyQuestions,
   questionQuotaLimit: () => 5,
   userDailyLimit: () => 50,
   systemDailyLimit: () => 10_000,
@@ -121,6 +123,8 @@ beforeEach(() => {
   mocks.getQuotaSnapshot.mockResolvedValue({ used: 1, limit: 5, remaining: 4 });
   // ตัวเลขโควตาที่ส่งให้ client = เพดานรายวันของผู้เรียน
   mocks.getDailyQuotaSnapshot.mockResolvedValue({ used: 2, limit: 100, remaining: 98 });
+  // ตัวนับโควตารวมทั้งระบบจาก SQL (ตาข่ายที่สองเมื่อ Redis ล่ม)
+  mocks.countSystemDailyQuestions.mockResolvedValue(10);
   // config = DB ทับ env (ผู้ดูแลตั้งในหน้า admin) — ค่าโควตาจริงต้องมาจากตรงนี้
   mocks.getAiTutorConfig.mockResolvedValue({
     questionQuota: 10,
@@ -399,13 +403,19 @@ describe('โควตาต้องมาจาก config (DB ทับ env) �
     expect(body.quota).toEqual({ used: 2, limit: 100, remaining: 98 });
   });
 
-  it('เพดานต่อผู้เรียน/วัน และทั้งระบบ/วัน ใช้ค่าจาก config', async () => {
+  it('เพดานต่อผู้เรียน/วัน (SQL) และทั้งระบบ/วัน (Redis) ใช้ค่าจาก config', async () => {
     await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
 
-    // rateLimit ถูกเรียก 2 ครั้ง: ต่อผู้เรียน/วัน (100) และทั้งระบบ/วัน (10_000)
+    // เพดานรายวันของผู้เรียน บังคับด้วย SQL ใน reserveQuestion (ไม่ใช้ Redis แล้ว)
+    expect(mocks.reserveQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({ dailyLimit: 100, limit: 10 }),
+    );
+
+    // เพดานรวมทั้งระบบ/วัน ยังใช้ Redis (kill switch) + SQL ตาข่ายที่สอง
     const calls = mocks.rateLimit.mock.calls as Array<[string, { maxRequests: number }]>;
-    expect(calls.find(([key]) => key.includes('user:'))?.[1].maxRequests).toBe(100);
     expect(calls.find(([key]) => key.includes('system:'))?.[1].maxRequests).toBe(10_000);
+    // ไม่มีการเรียก Redis ต่อผู้เรียน/วันอีกแล้ว (คีย์เดิมคือ user:<id>:ai-tutor:day)
+    expect(calls.find(([key]) => key.startsWith('user:'))).toBeUndefined();
   });
 });
 
@@ -560,6 +570,54 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     expect(mocks.stream).not.toHaveBeenCalled();
   });
 
+  // ─── เพดานต้นทุนรวมทั้งระบบ/วัน: ต้องมี SQL เป็นตาข่ายที่สอง (Redis ล่ม = fail-open) ───
+  it('Redis ปล่อยผ่าน (fail-open) แต่ SQL นับว่าเกินเพดานรวมทั้งระบบ → 429', async () => {
+    // Redis ตอบว่าไม่ limited (จำลอง Redis ล่ม/ช้า → fail-open)
+    mocks.rateLimit.mockResolvedValue({ limited: false, retryAfterMs: 0 });
+    // SQL นับได้ว่าเกินเพดานรวมทั้งระบบ (cap = 10_000)
+    mocks.countSystemDailyQuestions.mockResolvedValue(10_001);
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toContain('ระบบถาม AI ได้เต็มโควตาของวันนี้แล้ว');
+    // ต้องไม่ยิงโมเดล และต้องคืนโควตาข้อนี้
+    expect(mocks.stream).not.toHaveBeenCalled();
+    expect(mocks.markUserMessageFailed).toHaveBeenCalled();
+  });
+
+  it('นับโควตารวมทั้งระบบด้วย SQL ไม่ได้ → fail-closed (503 ไม่ยิงโมเดล)', async () => {
+    mocks.countSystemDailyQuestions.mockRejectedValue(new Error('relation "ai_tutor_messages" does not exist'));
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toBeTruthy();
+    // ไม่เผยรายละเอียดภายในของ error
+    expect(JSON.stringify(body)).not.toContain('ai_tutor_messages');
+    expect(mocks.stream).not.toHaveBeenCalled();
+    // คืนโควตาข้อนี้ (ผู้เรียนไม่เสียสิทธิ์เพราะระบบล่ม)
+    expect(mocks.markUserMessageFailed).toHaveBeenCalled();
+  });
+
+  it('ปกติ: Redis ผ่าน + SQL ไม่เกินเพดาน → เรียกโมเดลได้', async () => {
+    mocks.rateLimit.mockResolvedValue({ limited: false, retryAfterMs: 0 });
+    mocks.countSystemDailyQuestions.mockResolvedValue(5);
+    mocks.stream.mockResolvedValue({
+      text: 'คำตอบ',
+      finishReason: 'stop',
+      ttftMs: 10,
+      fallbackUsed: false,
+      fallbackReason: null,
+      usage: { inputTokens: 1, outputTokens: 2, reasoningTokens: 0, model: 'm', latencyMs: 10 },
+    });
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+    await res.text();
+    expect(res.status).toBe(200);
+    expect(mocks.stream).toHaveBeenCalled();
+  });
+
   it('เพดานรวมทั้งระบบที่ตั้งใน DB (systemDailyLimit) ถูกใช้กับ rateLimit + ข้อความ 429 ถูกต้อง', async () => {
     // ค่าใน DB = 7 (ไม่ใช่ค่า env) → rateLimit ต้องถูกเรียกด้วย maxRequests 7
     mocks.getAiTutorConfig.mockResolvedValue({
@@ -567,6 +625,8 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
       userDailyLimit: 100,
       systemDailyLimit: 7,
     });
+    // SQL ยังไม่เกินเพดาน → ถึงจะไปถึงขั้น Redis
+    mocks.countSystemDailyQuestions.mockResolvedValue(1);
     mocks.rateLimit.mockImplementation(async (key: string) => (
       key.startsWith('system:') ? { limited: true, retryAfterMs: 1000 } : { limited: false, retryAfterMs: 0 }
     ));
