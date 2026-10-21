@@ -147,8 +147,23 @@ async function main() {
     process.exit(0);
   }
 
-  await ensureMigrationsTable();
-  const done = await appliedHashes();
+  // ─── อ่านสถานะว่าไฟล์ไหนรันไปแล้ว ───
+  // dry-run: อ่านอย่างเดียว (ไม่สร้าง/ไม่แก้ตาราง) และถ้าต่อ DB ไม่ได้ก็ยังแสดงแผนได้
+  // --apply : ต้องต่อ DB ได้ (ถ้าไม่ได้ = ล้มเหลว ไม่ใช่รันต่อ)
+  const done = new Set<string>();
+  let appliedStatus: 'known' | 'unknown' = 'known';
+
+  if (args.apply) {
+    await ensureMigrationsTable();
+    for (const hash of await appliedHashes()) done.add(hash);
+  } else {
+    try {
+      for (const hash of await appliedHashes()) done.add(hash);
+    } catch {
+      appliedStatus = 'unknown';
+      console.warn('\n⚠️  ต่อฐานข้อมูลไม่ได้ — แผนที่แสดงยังไม่ระบุว่าไฟล์ใดรันไปแล้ว');
+    }
+  }
 
   const pending = candidates.filter((file) => {
     const hash = createHash('sha256').update(readFileSync(file)).digest('hex');
@@ -160,7 +175,11 @@ async function main() {
   console.log(`รอรัน      : ${pending.length}`);
   for (const file of candidates) {
     const hash = createHash('sha256').update(readFileSync(file)).digest('hex');
-    const mark = done.has(hash) ? 'ข้าม (บันทึกไว้แล้ว)' : 'รอรัน';
+    const mark = done.has(hash)
+      ? 'ข้าม (บันทึกไว้แล้ว)'
+      : appliedStatus === 'unknown'
+        ? 'รอรัน (ยังไม่รู้ว่ารันไปแล้วหรือไม่)'
+        : 'รอรัน';
     console.log(`  [${mark}] ${file.replace(`${process.cwd()}\\`, '')}  (${hash.slice(0, 12)})`);
   }
 
