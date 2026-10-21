@@ -43,6 +43,7 @@ function buildChildEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
     USERPROFILE: process.env.USERPROFILE ?? '',
     APPDATA: process.env.APPDATA ?? '',
     LOCALAPPDATA: process.env.LOCALAPPDATA ?? '',
+    NODE_ENV: 'test',
     // ไม่ให้ dotenv/config ไปอ่าน .env จริงของโปรเจกต์
     DOTENV_CONFIG_PATH: join(process.cwd(), 'tmp', 'no-such-dotenv-file'),
     // ค่าเริ่มต้นของตัวแปรที่สคริปต์อ่าน
