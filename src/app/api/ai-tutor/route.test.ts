@@ -560,6 +560,29 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     expect(mocks.stream).not.toHaveBeenCalled();
   });
 
+  it('เพดานรวมทั้งระบบที่ตั้งใน DB (systemDailyLimit) ถูกใช้กับ rateLimit + ข้อความ 429 ถูกต้อง', async () => {
+    // ค่าใน DB = 7 (ไม่ใช่ค่า env) → rateLimit ต้องถูกเรียกด้วย maxRequests 7
+    mocks.getAiTutorConfig.mockResolvedValue({
+      questionQuota: 10,
+      userDailyLimit: 100,
+      systemDailyLimit: 7,
+    });
+    mocks.rateLimit.mockImplementation(async (key: string) => (
+      key.startsWith('system:') ? { limited: true, retryAfterMs: 1000 } : { limited: false, retryAfterMs: 0 }
+    ));
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toContain('ระบบถาม AI ได้เต็มโควตาของวันนี้แล้ว');
+
+    const calls = mocks.rateLimit.mock.calls as Array<[string, { maxRequests: number }]>;
+    const systemCall = calls.find(([key]) => key.includes('system:'));
+    expect(systemCall?.[1].maxRequests).toBe(7);
+    // คืนโควตาข้อนี้ (ผู้เรียนไม่เสียสิทธิ์เพราะระบบเต็ม)
+    expect(mocks.markUserMessageFailed).toHaveBeenCalled();
+  });
+
   it('บันทึก selected_answer + is_correct ที่แถวผู้เรียน (คำนวณจากเฉลยใน DB และคำตอบใน proof)', async () => {
     // คำตอบใน proof = 'do' และเฉลยใน DB (option B) = 'do' → ถูก
     mocks.stream.mockResolvedValue({
