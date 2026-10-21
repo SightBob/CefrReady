@@ -26,7 +26,7 @@ try {
 }
 
 const { aiTutorMessages, questions, users } = await import('@/db/schema');
-const { reserveQuestion, countUsedQuestions, bangkokDayStartUtc } = await import('./quota');
+const { reserveQuestion, countUsedQuestions, getDailyQuotaSnapshot, bangkokDayStartUtc } = await import('./quota');
 const { markUserMessageFailed } = await import('./messages');
 const { createTestDbUserId, evaluateTestDbGuard, testDbUserEmail } = await import('@/lib/test-db-guard');
 
@@ -283,5 +283,102 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     });
     expect(rejected.ok).toBe(false);
     process.env.AI_TUTOR_QUESTION_QUOTA = '10';
+  });
+});
+
+describe('quota AI Tutor ↔ DB จริง — เพดานรายวันของผู้เรียน (SQL)', () => {
+  let pool: pg.Pool;
+  let db: NodePgDatabase<Record<string, never>>;
+  let userId = '';
+  let questionIds: number[] = [];
+
+  beforeAll(async () => {
+    pool = new pg.Pool({ connectionString });
+    db = drizzle(pool) as unknown as NodePgDatabase<Record<string, never>>;
+    userId = createTestDbUserId('daily');
+    await db.insert(users).values({
+      id: userId,
+      email: testDbUserEmail(userId),
+      name: 'AI Tutor Test (daily)',
+    });
+    // ใช้ 3 ข้อแรกที่ id ต่ำสุด (ไฟล์เทสอื่นใช้ข้อถัดไป → ไม่ชนกัน)
+    const rows = await db.select({ id: questions.id }).from(questions).orderBy(asc(questions.id)).limit(3);
+    questionIds = rows.map((row) => row.id);
+  });
+
+  afterAll(async () => {
+    if (userId) {
+      await db.delete(aiTutorMessages).where(eq(aiTutorMessages.userId, userId));
+      await db.delete(users).where(eq(users.id, userId));
+    }
+    await pool.end();
+  });
+
+  it('เกินเพดานรายวัน → ปฏิเสธ และจำนวนที่สำเร็จไม่เกินเพดาน (ข้ามข้อ → ไม่ชนกับข้อเดียวกัน)', async () => {
+    const dailyLimit = 2;
+    const results = [];
+    for (const questionId of questionIds) {
+      results.push(await reserveQuestion({
+        userId,
+        questionId,
+        message: `daily-${questionId}`,
+        attemptKey: 'attempt-key-daily-0001',
+        limit: 10,
+        dailyLimit,
+      }));
+    }
+
+    const okCount = results.filter((r) => r.ok).length;
+    expect(okCount).toBe(dailyLimit);
+    const rejected = results.find((r) => !r.ok);
+    expect(rejected).toBeTruthy();
+    if (rejected && !rejected.ok) {
+      expect(rejected.reason).toBe('daily_quota');
+      expect(rejected.quota.limit).toBe(dailyLimit);
+      expect(rejected.quota.remaining).toBe(0);
+    }
+
+    // ตัวเลขที่แสดงผล (แหล่งเดียวกับตัวบังคับ) ต้องตรงกัน
+    const snapshot = await getDailyQuotaSnapshot({ userId, limit: dailyLimit });
+    expect(snapshot.used).toBe(dailyLimit);
+    expect(snapshot.remaining).toBe(0);
+  });
+
+  it('ยิงพร้อมกันเกินเพดานรายวัน → สำเร็จไม่เกินเพดาน (advisory lock กัน race)', async () => {
+    const dailyLimit = 2;
+    const results = await Promise.all(questionIds.map((questionId) => reserveQuestion({
+      userId,
+      questionId,
+      message: `race-${questionId}`,
+      attemptKey: 'attempt-key-race-0001',
+      limit: 10,
+      dailyLimit,
+    })));
+
+    const okCount = results.filter((r) => r.ok).length;
+    expect(okCount).toBeLessThanOrEqual(dailyLimit);
+    const rejected = results.filter((r) => !r.ok);
+    expect(rejected.length).toBeGreaterThanOrEqual(1);
+    for (const r of rejected) {
+      if (!r.ok) expect(r.reason).toBe('daily_quota');
+    }
+  });
+
+  it('คำขอที่ล้มเหลว (แถว failed) ไม่ถูกนับเป็นโควตารายวัน', async () => {
+    const before = await getDailyQuotaSnapshot({ userId, limit: 100 });
+    const reserved = await reserveQuestion({
+      userId,
+      questionId: questionIds[0],
+      message: 'daily-failed-case',
+      attemptKey: 'attempt-key-daily-0001',
+      limit: 10,
+      dailyLimit: 100,
+    });
+    expect(reserved.ok).toBe(true);
+    if (reserved.ok) {
+      await markUserMessageFailed({ messageId: reserved.messageId });
+    }
+    const after = await getDailyQuotaSnapshot({ userId, limit: 100 });
+    expect(after.used).toBe(before.used); // แถว failed ไม่นับ = โควตาถูกคืน
   });
 });
