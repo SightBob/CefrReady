@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   minuteLimit: vi.fn(),
   archiveThread: vi.fn(),
   getQuotaSnapshot: vi.fn(),
+  getAiTutorConfig: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
@@ -16,6 +17,8 @@ vi.mock('@/lib/ai-tutor', () => ({ isAiTutorEnabled: mocks.enabled }));
 vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRateLimit: mocks.minuteLimit }));
 vi.mock('@/lib/ai-tutor/messages', () => ({ archiveThread: mocks.archiveThread }));
 vi.mock('@/lib/ai-tutor/quota', () => ({ getQuotaSnapshot: mocks.getQuotaSnapshot }));
+// โควตาที่แสดงต้องมาจาก config (DB ทับ env) → ตรงกับที่บังคับจริง
+vi.mock('@/lib/ai-tutor/config', () => ({ getAiTutorConfig: mocks.getAiTutorConfig }));
 
 import { POST } from './route';
 
@@ -35,6 +38,11 @@ beforeEach(() => {
   mocks.archiveThread.mockResolvedValue(4);
   // โควตาไม่เปลี่ยนหลัง reset (ยังนับแถวที่ถูกเก็บถัง)
   mocks.getQuotaSnapshot.mockResolvedValue({ used: 3, limit: 5, remaining: 2 });
+  mocks.getAiTutorConfig.mockResolvedValue({
+    questionQuota: 10,
+    userDailyLimit: 100,
+    systemDailyLimit: 10_000,
+  });
 });
 
 describe('POST /api/ai-tutor/reset', () => {
@@ -65,6 +73,13 @@ describe('POST /api/ai-tutor/reset', () => {
   it('ไม่คืนโควตา — ตัวเลขโควตาหลัง reset เท่าเดิม', async () => {
     const body = await (await post({ questionId: 7, attemptKey: 'attempt-key-0001' })).json();
     expect(body.quota).toEqual({ used: 3, limit: 5, remaining: 2 });
+  });
+
+  it('โควตาที่แสดงใช้ค่าจาก config (DB ทับ env)', async () => {
+    await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
+    expect(mocks.getQuotaSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 10, questionId: 7 }),
+    );
   });
 
   it('ฐานข้อมูลใช้ไม่ได้ → 503 พร้อมข้อความที่ผู้เรียนอ่านรู้เรื่อง (ไม่ใช่ 500)', async () => {

@@ -18,11 +18,9 @@ import {
 } from '@/lib/ai-tutor/messages';
 import {
   getQuotaSnapshot,
-  questionQuotaLimit,
   reserveQuestion,
-  systemDailyLimit,
-  userDailyLimit,
 } from '@/lib/ai-tutor/quota';
+import { getAiTutorConfig } from '@/lib/ai-tutor/config';
 import { AiTutorProviderError, streamAiTutorReply } from '@/lib/ai-tutor/provider';
 import { trimToLastCompleteSentence } from '@/lib/ai-tutor/trim';
 import { buildQuestionContext, type AiTutorQuestionContext } from '@/lib/ai-tutor/prompt';
@@ -103,10 +101,14 @@ export async function GET(request: Request) {
     return jsonError(400, 'ไม่พบรหัสรอบการทำข้อสอบ — กรุณารีเฟรชหน้าแล้วลองใหม่');
   }
 
+  // โควตาที่ใช้จริง = ค่าจาก config (DB ทับ env) — ผู้ดูแลตั้งในหน้า admin ได้
+  // (ถ้าอ่าน env ตรง ๆ ค่าที่ตั้งในหน้า admin จะไม่มีผล)
+  const config = await getAiTutorConfig();
+
   try {
     const [thread, quota, feedback] = await Promise.all([
       getThreadMessages({ userId: session.user.id, questionId, attemptKey }),
-      getQuotaSnapshot({ userId: session.user.id, questionId }),
+      getQuotaSnapshot({ userId: session.user.id, questionId, limit: config.questionQuota }),
       getThreadFeedback({ userId: session.user.id, questionId }),
     ]);
 
@@ -174,6 +176,9 @@ export async function POST(request: Request) {
   }
   const { questionId, message, proof, attemptKey } = parsed.data;
 
+  // ค่าโควตาทั้งหมด = config (DB ทับ env) — ผู้ดูแลตั้งในหน้า admin ได้
+  const config = await getAiTutorConfig();
+
   let selectedAnswer = '';
   try {
     // คำตอบที่ผู้เรียนเลือกมาจาก proof ที่ลงชื่อไว้ฝั่ง server (ไม่รับจาก client โดยตรง)
@@ -232,7 +237,14 @@ export async function POST(request: Request) {
 
     // ─── จองโควตา (กัน race) ───
     // โควตานับต่อ (user, question) ต่อวัน — ไม่ผูกกับรอบ (attemptKey)
-    reservation = await reserveQuestion({ userId, questionId, message, attemptKey });
+    // limit มาจาก config (DB ทับ env) → ค่าที่ผู้ดูแลตั้งในหน้า admin มีผลจริง
+    reservation = await reserveQuestion({
+      userId,
+      questionId,
+      message,
+      attemptKey,
+      limit: config.questionQuota,
+    });
     if (!reservation.ok) {
       // โควตาของข้อนี้เต็ม → ไม่แตะตัวนับรายวันด้วย (ไม่งั้นผู้เรียนจะเสียโควตาวันนี้เปล่า ๆ)
       return jsonError(429, `โควตาคำถามของข้อนี้หมดแล้ว (${reservation.quota.used}/${reservation.quota.limit} ครั้งต่อวัน)`, {
@@ -247,7 +259,7 @@ export async function POST(request: Request) {
   // ─── เพดานซ่อน: ต่อผู้เรียน/วัน + รวมทั้งระบบ/วัน (kill switch) ───
   // นับหลังจองโควตาสำเร็จแล้วเท่านั้น → request ที่ถูกปฏิเสธไม่กินโควตารายวัน
   // (ถ้าตัวนับเต็ม → คืนโควตาข้อนี้ด้วยการ mark failed เพื่อไม่ให้เสียสิทธิ์)
-  const userCap = userDailyLimit();
+  const userCap = config.userDailyLimit;
   const userLimit = await rateLimit(`user:${userId}:ai-tutor:day`, {
     windowMs: 86_400_000,
     maxRequests: userCap,
@@ -258,7 +270,7 @@ export async function POST(request: Request) {
       quota: { used: userCap, limit: userCap, remaining: 0 },
     });
   }
-  const systemCap = systemDailyLimit();
+  const systemCap = config.systemDailyLimit;
   if (systemCap > 0) {
     const systemLimit = await rateLimit('system:ai-tutor:day', {
       windowMs: 86_400_000,
@@ -339,7 +351,7 @@ export async function POST(request: Request) {
           attemptKey,
         });
 
-        const quota = await getQuotaSnapshot({ userId, questionId });
+        const quota = await getQuotaSnapshot({ userId, questionId, limit: config.questionQuota });
         send({
           type: 'done',
           messageId: assistantId,

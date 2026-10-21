@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   minuteLimit: vi.fn(),
   reserveQuestion: vi.fn(),
   getQuotaSnapshot: vi.fn(),
+  getAiTutorConfig: vi.fn(),
   getThreadMessages: vi.fn(),
   getThreadFeedback: vi.fn(),
   buildProviderMessages: vi.fn(),
@@ -32,6 +33,11 @@ vi.mock('@/lib/ai-tutor/quota', () => ({
   questionQuotaLimit: () => 5,
   userDailyLimit: () => 50,
   systemDailyLimit: () => 10_000,
+}));
+// ค่าโควตาจริงมาจาก config (DB ทับ env) — ไม่ใช่ค่า env ตรง ๆ
+// (ถ้า route ไปอ่าน env เอง ค่าที่ผู้ดูแลตั้งในหน้า admin จะไม่มีผล)
+vi.mock('@/lib/ai-tutor/config', () => ({
+  getAiTutorConfig: mocks.getAiTutorConfig,
 }));
 vi.mock('@/lib/ai-tutor/messages', () => ({
   getThreadMessages: mocks.getThreadMessages,
@@ -112,6 +118,12 @@ beforeEach(() => {
   mocks.getThreadFeedback.mockResolvedValue({});
   mocks.buildProviderMessages.mockReturnValue([{ role: 'system', content: 'x' }]);
   mocks.getQuotaSnapshot.mockResolvedValue({ used: 1, limit: 5, remaining: 4 });
+  // config = DB ทับ env (ผู้ดูแลตั้งในหน้า admin) — ค่าโควตาจริงต้องมาจากตรงนี้
+  mocks.getAiTutorConfig.mockResolvedValue({
+    questionQuota: 10,
+    userDailyLimit: 100,
+    systemDailyLimit: 10_000,
+  });
   mocks.reserveQuestion.mockResolvedValue({
     ok: true,
     messageId: 99,
@@ -355,6 +367,35 @@ describe('POST /api/ai-tutor — รหัสรอบการทำข้อ�
     const res = await GET(new Request(`http://localhost:3000/api/ai-tutor?questionId=7&attemptKey=${ATTEMPT_KEY}`));
     expect(res.status).toBe(200);
     expect(mocks.getThreadMessages).toHaveBeenCalledWith({ userId: 'u1', questionId: 7, attemptKey: ATTEMPT_KEY });
+  });
+});
+
+describe('โควตาต้องมาจาก config (DB ทับ env) — ไม่ใช่ค่า env ตรง ๆ', () => {
+  // บั๊ก: ผู้ดูแลตั้ง questionQuota = 10 ในหน้า admin แต่โค้ดอ่าน env ตรง ๆ
+  // → ได้ค่าเริ่มต้น 5 (และเพดานรายวัน/ทั้งระบบก็ถูกลดตาม env ด้วย)
+  it('POST: จองโควตาด้วย limit จาก config', async () => {
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+
+    expect(mocks.reserveQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 10, questionId: 7 }),
+    );
+  });
+
+  it('GET: ส่ง limit จาก config ไปกับ getQuotaSnapshot', async () => {
+    await GET(new Request(`http://localhost:3000/api/ai-tutor?questionId=7&attemptKey=${ATTEMPT_KEY}`));
+
+    expect(mocks.getQuotaSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 10, questionId: 7 }),
+    );
+  });
+
+  it('เพดานต่อผู้เรียน/วัน และทั้งระบบ/วัน ใช้ค่าจาก config', async () => {
+    await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+
+    // rateLimit ถูกเรียก 2 ครั้ง: ต่อผู้เรียน/วัน (100) และทั้งระบบ/วัน (10_000)
+    const calls = mocks.rateLimit.mock.calls as Array<[string, { maxRequests: number }]>;
+    expect(calls.find(([key]) => key.includes('user:'))?.[1].maxRequests).toBe(100);
+    expect(calls.find(([key]) => key.includes('system:'))?.[1].maxRequests).toBe(10_000);
   });
 });
 

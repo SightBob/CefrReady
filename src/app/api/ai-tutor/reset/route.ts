@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { isAiTutorEnabled } from '@/lib/ai-tutor';
 import { archiveThread } from '@/lib/ai-tutor/messages';
 import { getQuotaSnapshot } from '@/lib/ai-tutor/quota';
+import { getAiTutorConfig } from '@/lib/ai-tutor/config';
 import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import {
   AI_TUTOR_NO_ACCESS_MESSAGE,
@@ -64,7 +65,13 @@ export async function POST(request: Request) {
       questionId: parsed.data.questionId,
       attemptKey: parsed.data.attemptKey,
     });
-    const quota = await getQuotaSnapshot({ userId, questionId: parsed.data.questionId });
+    // โควตาที่แสดง = ค่าจาก config (DB ทับ env) → ตรงกับที่บังคับจริง
+    const config = await getAiTutorConfig();
+    const quota = await getQuotaSnapshot({
+      userId,
+      questionId: parsed.data.questionId,
+      limit: config.questionQuota,
+    });
     return Response.json({ success: true, archived, quota });
   } catch (error) {
     // ฐานข้อมูลล่ม/ยังไม่ได้รัน migration → 503 ที่ผู้เรียนอ่านรู้เรื่อง

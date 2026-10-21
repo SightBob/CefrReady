@@ -28,7 +28,13 @@ export function bangkokDayStartUtc(now: Date = new Date()): Date {
   return new Date(bangkokMidnight - BANGKOK_OFFSET_MS);
 }
 
-/** โควตาต่อ (ผู้เรียน, ข้อ) ต่อวัน — ค่าเริ่มต้น 5 */
+/**
+ * โควตาต่อ (ผู้เรียน, ข้อ) ต่อวัน — ค่าเริ่มต้น 5
+ *
+ * ⚠️ ค่านี้อ่านจาก env เท่านั้น (AI_TUTOR_QUESTION_QUOTA) — ใช้เป็น fallback
+ * เส้นทางที่บังคับโควตาจริงต้องส่ง `limit` มาจาก getAiTutorConfig() (DB ทับ env)
+ * ไม่งั้นค่าที่ผู้ดูแลตั้งในหน้า admin จะไม่มีผลกับโควตาจริง
+ */
 export function questionQuotaLimit(): number {
   const raw = Number.parseInt(process.env.AI_TUTOR_QUESTION_QUOTA ?? '', 10);
   if (!Number.isFinite(raw) || raw <= 0) return 5;
@@ -111,8 +117,10 @@ export async function getQuotaSnapshot(params: {
   userId: string;
   questionId: number;
   now?: Date;
+  /** โควตาต่อข้อ/วัน — ส่งค่าจาก getAiTutorConfig() (DB ทับ env); ไม่ส่ง = ใช้ค่า env */
+  limit?: number;
 }): Promise<QuotaSnapshot> {
-  const limit = questionQuotaLimit();
+  const limit = params.limit ?? questionQuotaLimit();
   const used = await countUsedQuestions(params);
   return { used, limit, remaining: Math.max(0, limit - used) };
 }
