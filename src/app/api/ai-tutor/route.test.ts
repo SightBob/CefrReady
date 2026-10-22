@@ -571,22 +571,49 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
   });
 
   // ─── เพดานต้นทุนรวมทั้งระบบ/วัน: ต้องมี SQL เป็นตาข่ายที่สอง (Redis ล่ม = fail-open) ───
-  it('Redis ปล่อยผ่าน (fail-open) แต่ SQL นับว่าเกินเพดานรวมทั้งระบบ → 429', async () => {
+  it('Redis ปล่อยผ่าน (fail-open) แต่ SQL นับว่าเกินเพดานรวมทั้งระบบ → 429 (ก่อนจองโควตา)', async () => {
     // Redis ตอบว่าไม่ limited (จำลอง Redis ล่ม/ช้า → fail-open)
     mocks.rateLimit.mockResolvedValue({ limited: false, retryAfterMs: 0 });
     // SQL นับได้ว่าเกินเพดานรวมทั้งระบบ (cap = 10_000)
-    mocks.countSystemDailyQuestions.mockResolvedValue(10_001);
+    mocks.countSystemDailyQuestions.mockResolvedValue(10_000);
 
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.error).toContain('ระบบถาม AI ได้เต็มโควตาของวันนี้แล้ว');
-    // ต้องไม่ยิงโมเดล และต้องคืนโควตาข้อนี้
     expect(mocks.stream).not.toHaveBeenCalled();
-    expect(mocks.markUserMessageFailed).toHaveBeenCalled();
+    // เช็คก่อนจองโควตา → ไม่มี insert แถว pending และไม่ต้อง update เป็น failed
+    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+    expect(mocks.markUserMessageFailed).not.toHaveBeenCalled();
   });
 
-  it('นับโควตารวมทั้งระบบด้วย SQL ไม่ได้ → fail-closed (503 ไม่ยิงโมเดล)', async () => {
+  it('ขอบเขต: นับได้ cap-1 → ผ่าน (ยิงโมเดลได้) · นับได้ cap → ปฏิเสธ 429', async () => {
+    // cap = 10_000 · เกณฑ์เทียบคือ >= → ขอสุดท้ายที่ยังไม่เต็ม (cap-1) ต้องผ่าน
+    mocks.rateLimit.mockResolvedValue({ limited: false, retryAfterMs: 0 });
+    mocks.countSystemDailyQuestions.mockResolvedValue(10_000 - 1);
+    mocks.stream.mockResolvedValue({
+      text: 'คำตอบ',
+      finishReason: 'stop',
+      ttftMs: 10,
+      fallbackUsed: false,
+      fallbackReason: null,
+      usage: { inputTokens: 1, outputTokens: 2, reasoningTokens: 0, model: 'm', latencyMs: 10 },
+    });
+
+    const lastAllowed = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+    await lastAllowed.text();
+    expect(lastAllowed.status).toBe(200);
+    expect(mocks.stream).toHaveBeenCalled();
+
+    // ขอแรกที่เต็มพอดี (นับได้ = cap) → ต้องถูกปฏิเสธ
+    mocks.stream.mockClear();
+    mocks.countSystemDailyQuestions.mockResolvedValue(10_000);
+    const firstRejected = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+    expect(firstRejected.status).toBe(429);
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
+
+  it('นับโควตารวมทั้งระบบด้วย SQL ไม่ได้ → fail-closed (503 ไม่ยิงโมเดล ไม่จองโควตา)', async () => {
     mocks.countSystemDailyQuestions.mockRejectedValue(new Error('relation "ai_tutor_messages" does not exist'));
 
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
@@ -596,8 +623,9 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     // ไม่เผยรายละเอียดภายในของ error
     expect(JSON.stringify(body)).not.toContain('ai_tutor_messages');
     expect(mocks.stream).not.toHaveBeenCalled();
-    // คืนโควตาข้อนี้ (ผู้เรียนไม่เสียสิทธิ์เพราะระบบล่ม)
-    expect(mocks.markUserMessageFailed).toHaveBeenCalled();
+    // เช็คก่อนจองโควตา → ยังไม่มีแถวให้คืน และผู้เรียนไม่เสียโควตา
+    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+    expect(mocks.markUserMessageFailed).not.toHaveBeenCalled();
   });
 
   it('ปกติ: Redis ผ่าน + SQL ไม่เกินเพดาน → เรียกโมเดลได้', async () => {

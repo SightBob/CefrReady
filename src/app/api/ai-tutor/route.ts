@@ -237,6 +237,41 @@ export async function POST(request: Request) {
       ? selectedAnswer.trim().toLocaleLowerCase() === context.correctAnswerText.trim().toLocaleLowerCase()
       : null;
 
+    // ─── เพดานต้นทุนรวมทั้งระบบ/วัน: เช็คด้วย SQL ก่อนจองโควตา ───
+    // ทำไมต้องเช็คก่อนจอง: ถ้าเต็มเพดานแล้ว การจองก่อนจะทำให้ต้อง insert แถว pending
+    // แล้ว update เป็น failed ตอนปฏิเสธ (เขียน 2 ครั้งเปล่า ๆ) → เช็คก่อนจองไม่มีแถวให้เสีย
+    // และผู้เรียนไม่เสียโควตาด้วย
+    //
+    // Redis เป็นตัวนับเร็ว แต่ถ้า Upstash ล่มจะ fail-open (ปล่อยให้ยิงต่อ)
+    // (src/lib/rate-limit.ts:43-47) → เพดานต้นทุนต้องมี SQL คุมไว้ด้วย
+    //
+    // เกณฑ์การเทียบ: **>=** → ปฏิเสธเมื่อ "จำนวนที่นับได้ >= เพดาน"
+    //   → เพดานหมายถึง "เรียกโมเดลได้มากสุด cap ครั้ง/วัน" (ตรงกับ Redis maxRequests = cap)
+    //   (ก่อนแก้: นับหลังจอง → แถว pending ของคำขอตัวเองถูกนับด้วย → เพดานจริงจะเป็น cap-1)
+    // จำนวนที่นับ: แถว role='user' ที่สำเร็จ หรือค้างไม่เกิน 2 นาที (ของคำขออื่นที่กำลังวิ่งอยู่)
+    //   **ไม่รวมแถวของคำขอนี้** เพราะเช็คก่อน insert → แถวของตัวเองยังไม่มี
+    //   นับจาก "วันเวลาไทย" ด้วย bangkokDayStartUtc() ตัวเดียวกับเพดานรายวันของผู้เรียน
+    //   (src/lib/ai-tutor/quota.ts:25 → ใช้ที่ quota.ts:154 และ quota.ts:201)
+    //
+    // ข้อจำกัด: การนับนี้ **ไม่อยู่ใต้ lock** → ถ้ามี K คำขอมาพร้อมกันตอนเพดานใกล้เต็ม
+    // ทุกคำขออาจผ่านการเช็คพร้อมกัน → เกินเพดานได้มากสุด K-1 คำขอ (ในทางปฏิบัติไม่กี่คำขอ
+    // เพราะมี rate limit ต่อนาที 10/คนอยู่แล้ว) — เป็นการ "เกินเล็กน้อยในทางปลอดภัย" ของเพดานต้นทุน
+    const systemCap = config.systemDailyLimit;
+    if (systemCap > 0) {
+      let systemUsed: number;
+      try {
+        systemUsed = await countSystemDailyQuestions();
+      } catch (error) {
+        // นับไม่ได้ = ไม่รู้ว่าเกินเพดานไหม → fail-closed (เฉพาะ AI Tutor) ไม่ยิงโมเดล
+        warnWithSummary('ai-tutor] นับโควตารวมทั้งระบบไม่สำเร็จ — ปิดชั่วคราว (fail-closed)', error);
+        return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
+      }
+      if (systemUsed >= systemCap) {
+        // ยังไม่ได้จองโควตา → ไม่ต้องคืนอะไร และผู้เรียนไม่เสียโควตา
+        return jsonError(429, 'ขณะนี้ระบบถาม AI ได้เต็มโควตาของวันนี้แล้ว กรุณาลองใหม่พรุ่งนี้');
+      }
+    }
+
     // ─── จองโควตา (กัน race) ───
     // โควตานับต่อ (user, question) ต่อวัน — ไม่ผูกกับรอบ (attemptKey)
     // limit/dailyLimit มาจาก config (DB ทับ env) → ค่าที่ผู้ดูแลตั้งในหน้า admin มีผลจริง
@@ -267,29 +302,12 @@ export async function POST(request: Request) {
     return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
   }
 
-  // ─── เพดานซ่อน: รวมทั้งระบบ/วัน (kill switch) ───
+  // ─── เพดานซ่อน: รวมทั้งระบบ/วัน (kill switch ฝั่ง Redis) ───
   // เพดานรายวันของผู้เรียนบังคับด้วย SQL ใน reserveQuestion() แล้ว (ไม่พึ่ง Redis)
-  // ที่นี่เหลือแค่เพดานรวมทั้งระบบ/วัน = ตัว kill switch ระดับต้นทุน
+  // เพดานรวมทั้งระบบเช็คด้วย SQL ไปแล้ว (ก่อนจองโควตา) ที่นี่เหลือชั้นที่สอง = Redis
   // (นับหลังจองโควตาสำเร็จแล้วเท่านั้น → request ที่ถูกปฏิเสธไม่กินโควตา
   //  ถ้าตัวนับเต็ม → คืนโควตาข้อนี้ด้วยการ mark failed เพื่อไม่ให้เสียสิทธิ์)
-
-  // ─── เพดานต้นทุนรวมทั้งระบบ/วัน: เช็คด้วย SQL เป็นตาข่ายที่สอง ───
-  // Redis เป็นตัวนับเร็ว แต่ถ้า Upstash ล่มจะ fail-open (ปล่อยให้ยิงต่อ)
-  // (src/lib/rate-limit.ts:43-47) → เพดานต้นทุนต้องมี SQL คุมไว้ด้วย
   const systemCap = config.systemDailyLimit;
-  let systemUsed: number;
-  try {
-    systemUsed = await countSystemDailyQuestions();
-  } catch (error) {
-    // นับไม่ได้ = ไม่รู้ว่าเกินเพดานไหม → fail-closed (เฉพาะ AI Tutor) ไม่ยิงโมเดล
-    warnWithSummary('ai-tutor] นับโควตารวมทั้งระบบไม่สำเร็จ — ปิดชั่วคราว (fail-closed)', error);
-    await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
-    return jsonError(503, AI_TUTOR_UNAVAILABLE_MESSAGE);
-  }
-  if (systemCap > 0 && systemUsed >= systemCap) {
-    await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
-    return jsonError(429, 'ขณะนี้ระบบถาม AI ได้เต็มโควตาของวันนี้แล้ว กรุณาลองใหม่พรุ่งนี้');
-  }
 
   if (systemCap > 0) {
     const systemLimit = await rateLimit('system:ai-tutor:day', {
