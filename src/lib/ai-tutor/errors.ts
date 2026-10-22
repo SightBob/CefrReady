@@ -97,12 +97,18 @@ function redactConnectionString(message: string): string {
  *   Failed query: insert into "x" (...) values ($1, $2)
  *   params: learner@example.com, ...
  * → params อาจเป็นอีเมล/คำถามของผู้เรียน/proof token → **ห้ามหลุดลง log**
- * โดยเก็บไว้แค่บรรทัดแรก (ชื่อ error + SQL ที่มี placeholder เท่านั้น)
+ *
+ * นอกจากนี้ pg error มีฟิลด์ `detail` / `hint` ที่มักมี "ค่าในคอลัมน์" อยู่
+ * (เช่น Key (email)=(learner@example.com) already exists) → ตัดทิ้งด้วย
+ * ถ้า driver ใดไปติดมาในข้อความเดียวกัน
  */
 function stripQueryParams(message: string): string {
   const withoutParams = message.split('\nparams:')[0];
   const firstLine = withoutParams.split('\n')[0];
-  return firstLine.trim();
+  const cleaned = firstLine
+    .replace(/\s+(detail|hint|params?|values)\s*[:=].*$/i, '')
+    .trim();
+  return cleaned || firstLine.trim();
 }
 
 /**

@@ -76,6 +76,56 @@ describe('describeError — สรุป error แบบปลอดภัย', 
     expect(summary.message).toBe('เกิดข้อผิดพลาด');
     expect(summary.message).not.toContain('proof-token-abc123');
   });
+
+  it('pg error (23505) → ไม่ log ฟิลด์ detail ที่มีค่าคอลัมน์ (อีเมลตัวอย่าง)', () => {
+    // รูปแบบจริงของ node-postgres: ค่าในคอลัมน์อยู่ใน field "detail" ไม่ใช่ message
+    const pgError = Object.assign(
+      new Error('duplicate key value violates unique constraint "ai_tutor_feedback_unique"'),
+      {
+        code: '23505',
+        detail: 'Key (user_id, message_id)=(learner@example.com, 42) already exists.',
+        hint: 'ลองใช้ค่าอื่น',
+        severity: 'ERROR',
+      },
+    );
+
+    const summary = describeError(pgError);
+
+    expect(summary.message).not.toContain('learner@example.com');
+    expect(summary.message).not.toContain('already exists');
+    expect(summary.message).not.toContain('ลองใช้ค่าอื่น');
+    expect(summary.code).toBe('23505');
+  });
+
+  it('pg error ที่ driver ติด detail มาใน message → ตัดส่วนนั้นทิ้ง', () => {
+    const pgError = Object.assign(
+      new Error('duplicate key value violates unique constraint "x" detail: Key (email)=(leak@example.com) already exists.'),
+      { code: '23505', detail: 'Key (email)=(leak@example.com) already exists.' },
+    );
+
+    const summary = describeError(pgError);
+
+    expect(summary.message).not.toContain('leak@example.com');
+    expect(summary.code).toBe('23505');
+  });
+
+  it('DrizzleQueryError ที่พ่วง cause (pg error ที่มี detail) → ไม่หลุดค่าใน cause', () => {
+    const cause = Object.assign(
+      new Error('duplicate key value violates unique constraint "x"'),
+      { code: '23505', detail: 'Key (email)=(cause@example.com) already exists.' },
+    );
+    const drizzleError = Object.assign(
+      new Error('Failed query: insert into "ai_tutor_messages" ("content") values ($1)\nparams: content-value'),
+      { name: 'DrizzleQueryError', cause },
+    );
+
+    const summary = describeError(drizzleError);
+
+    expect(summary.message).not.toContain('cause@example.com');
+    expect(summary.message).not.toContain('content-value');
+    expect(summary.message).not.toContain('params:');
+    expect(summary.message).toContain('DrizzleQueryError');
+  });
 });
 
 describe('warnWithSummary — log เฉพาะ message + code', () => {
