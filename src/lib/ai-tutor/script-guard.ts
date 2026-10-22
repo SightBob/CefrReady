@@ -1,16 +1,18 @@
 /**
  * กันสคริปต์ AI Tutor ที่ "เขียน DB" ให้รันผิดฐานโดยไม่ตั้งใจ
  *
- * กฎเดียวกับ scripts/apply-migration.ts:
+ * กฎ (2 ชั้นที่มีผลจริง):
  * 1. ค่าเริ่มต้น = dry-run (ไม่เขียนอะไร) → ต้องใส่ --apply จึงเขียน
  * 2. ต้องยืนยัน host ปลายทางด้วย --confirm-host <host ของ DATABASE_URL>
  * 3. host ที่อยู่ในบล็อกลิสต์ (APPLY_MIGRATION_BLOCKED_HOSTS) → ปฏิเสธ
- *    (รวมชื่อ host ที่มีคำว่า prod/production)
  *
  * ⚠️ ตั้งใจไม่ใช้ AI_TUTOR_TEST_DB_HOSTS — ตัวนั้นคือ allowlist ของ "เทสที่ต่อ DB"
  * ไม่ใช่รายชื่อฐานที่อนุญาตให้สคริปต์เขียน
+ *
+ * ⚠️ ไม่ใช้เกณฑ์ "ชื่อ host มีคำว่า prod/production" (แบบของ scripts/apply-migration.ts)
+ * เพราะเป็นการเดาจากชื่อ ไม่ใช่ชั้นป้องกันจริง → ผู้ดูแลต้องตั้งบล็อกลิสต์เอง
  */
-import { isBlockedHost, parseBlockedHosts } from '@/lib/migration/apply-core';
+import { parseBlockedHosts } from '@/lib/migration/apply-core';
 
 export type ScriptGuardFailure = {
   ok: false;
@@ -25,6 +27,25 @@ export type ScriptGuardFailure = {
 export type ScriptGuardResult =
   | { ok: true; host: string; dryRun: boolean }
   | ScriptGuardFailure;
+
+/**
+ * ทำให้ host ของ Neon ที่สองแบบเทียบกันได้
+ *
+ * Neon ให้ connection string 2 แบบของ "branch เดียวกัน":
+ * - แบบ pooled  : ep-xxx-pooler.<region>.aws.neon.tech
+ * - แบบ direct  : ep-xxx.<region>.aws.neon.tech
+ * ถ้าเทียบแบบตรง ๆ บล็อกลิสต์ที่ใส่แบบหนึ่งจะไม่มีผลกับอีกแบบ
+ * → ตัด suffix "-pooler" ออกก่อนเทียบเสมอ
+ */
+export function normalizeHost(host: string): string {
+  return host.trim().toLowerCase().replace(/^([a-z0-9-]+)-pooler\./, '$1.');
+}
+
+/** host อยู่ในบล็อกลิสต์ไหม (เทียบแบบไม่สนคำว่า pooler) */
+export function isHostBlocked(host: string, blockedList: string[]): boolean {
+  const normalized = normalizeHost(host);
+  return blockedList.some((value) => normalizeHost(value) === normalized);
+}
 
 /** ดึง host จาก DATABASE_URL (null = อ่านไม่ได้) */
 export function hostOfDatabaseUrl(databaseUrl: string | undefined): string | null {
@@ -84,7 +105,7 @@ export function checkScriptWriteGuards(options: {
   }
 
   const blockedList = parseBlockedHosts(options.blockedHosts);
-  if (isBlockedHost(host, blockedList)) {
+  if (isHostBlocked(host, blockedList)) {
     return {
       ok: false,
       reason: 'blocked_host',
@@ -105,7 +126,8 @@ export function checkScriptWriteGuards(options: {
     };
   }
 
-  if (options.confirmHost.trim().toLowerCase() !== host) {
+  // เทียบแบบ normalize (ตัด -pooler) → host แบบ pooled/direct ของ branch เดียวกันถือว่าตรงกัน
+  if (normalizeHost(options.confirmHost) !== normalizeHost(host)) {
     return {
       ok: false,
       reason: 'mismatched_confirm_host',
