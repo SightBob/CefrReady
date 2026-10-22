@@ -199,7 +199,7 @@ SELECT count(*) FROM drizzle.__drizzle_migrations;
   และพบด้วยว่าค่าต่อรอบ/ต่อวันถูกบีบให้อยู่ในช่วงที่กำหนด ดูหน้า admin
 - **ข้อความ/คำตอบของผู้เรียนถูกบันทึกไว้เพื่อวิเคราะห์** (ตาราง `ai_tutor_messages`)
   → มีข้อความแจ้งผู้เรียนในหน้าแชท · export ใช้ hash user_id (`AI_TUTOR_EXPORT_SALT`)
-  · ลบข้อมูลเก่าด้วย `npx tsx scripts/ai-tutor-retention.ts --apply` (ค่าเริ่มต้ม = dry-run)
+  · ลบข้อมูลเก่าด้วย `npx tsx scripts/ai-tutor-retention.ts --apply --confirm-host <host>` (ค่าเริ่มต้ม = dry-run)
 - **ระบบตั้งค่าไม่ครบ → ผู้เรียนถาม AI ไม่ได้** — ถ้าไม่ได้ตั้ง `AI_TUTOR_PROOF_SECRET`
   ข้อความจะเป็น "ระบบ AI Tutor ยังไม่ได้ตั้งค่าให้พร้อมใช้งาน" (ไม่ใช่โทษผู้เรียนว่าไม่ได้กดตรวจคำตอบ)
   ดูสถานะได้ที่ `/admin/ai-tutor`
@@ -212,20 +212,21 @@ SELECT count(*) FROM drizzle.__drizzle_migrations;
 ## 8. คำสั่งที่ใช้บ่อย
 
 ```powershell
-# grant / revoke สิทธิ์ผู้ใช้
+# grant / revoke สิทธิ์ผู้ใช้ (ค่าเริ่มต้ม = dry-run → ต้องยืนยัน host ก่อนเขียนจริง)
 npx tsx scripts/ai-tutor-access.ts grant <email>
-npx tsx scripts/ai-tutor-access.ts revoke <email>
+npx tsx scripts/ai-tutor-access.ts grant <email> --apply --confirm-host <host ของ DATABASE_URL>
+npx tsx scripts/ai-tutor-access.ts revoke <email> --apply --confirm-host <host ของ DATABASE_URL>
 
-# รายงานสรุปการใช้งาน (ต้องมี DATABASE_URL)
+# รายงานสรุปการใช้งาน (ต้องมี DATABASE_URL · อ่านอย่างเดียว ไม่ต้องยืนยัน host)
 npx tsx scripts/ai-tutor-report.ts [--days 30]
 
-# export ข้อมูลเพื่อวิเคราะห์ (ต้องมี AI_TUTOR_EXPORT_SALT)
+# export ข้อมูลเพื่อวิเคราะห์ (ต้องมี AI_TUTOR_EXPORT_SALT · อ่านอย่างเดียว)
 npx tsx scripts/ai-tutor-export.ts --days 30
 
-# ลบข้อมูลเก่า (ค่าเริ่มต้ม = dry-run ยังไม่ลบ)
+# ลบข้อมูลเก่า (ค่าเริ่มต้ม = dry-run ยังไม่ลบ · ต้องยืนยัน host)
 npx tsx scripts/ai-tutor-retention.ts
-npx tsx scripts/ai-tutor-retention.ts --apply
-npx tsx scripts/ai-tutor-retention.ts --apply --blank   # เบลอ content ด้วย
+npx tsx scripts/ai-tutor-retention.ts --apply --confirm-host <host ของ DATABASE_URL>
+npx tsx scripts/ai-tutor-retention.ts --apply --blank --confirm-host <host ของ DATABASE_URL>  # เบลอ content ด้วย
 
 # migration (ดูข้อ 2)
 npx tsx scripts/apply-migration.ts --from 45
