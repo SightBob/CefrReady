@@ -16,6 +16,7 @@ import { and, eq, gte, isNull, or, sql } from 'drizzle-orm';
 
 import { db } from '@/db';
 import { aiTutorMessages } from '@/db/schema';
+import { insertAiTutorMessage } from './messages';
 
 /** Asia/Bangkok = UTC+7 ตลอดปี (ไม่มี DST) → คำนวณวันเริ่มต้นได้โดยไม่ต้องมี tz database */
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -324,9 +325,9 @@ export async function reserveQuestion(params: {
       };
     }
 
-    const [inserted] = await tx
-      .insert(aiTutorMessages)
-      .values({
+    // insert ผ่านตัวช่วยกลาง → บังคับ questionId เป็นเลขเสมอ (ไม่มีแถว NULL โดยบังเอิญ)
+    const insertedId = await insertAiTutorMessage(
+      {
         userId: params.userId,
         questionId: params.questionId,
         role: 'user',
@@ -334,12 +335,13 @@ export async function reserveQuestion(params: {
         status: 'pending',
         createdAt: now,
         attemptKey: params.attemptKey ?? null,
-      })
-      .returning({ id: aiTutorMessages.id });
+      },
+      tx as never,
+    );
 
     return {
       ok: true as const,
-      messageId: inserted?.id ?? 0,
+      messageId: insertedId,
       quota: { used: used + 1, limit, remaining: Math.max(0, limit - used - 1) },
       reused: false,
     };

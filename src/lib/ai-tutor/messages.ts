@@ -139,6 +139,72 @@ export async function markUserMessageFailed(params: {
     .where(eq(aiTutorMessages.id, params.messageId));
 }
 
+/**
+ * ค่าที่ใช้ insert ลงตาราง ai_tutor_messages
+ *
+ * ⚠️ `questionId` **ต้องเป็น number เสมอ** (ไม่ใช่ null)
+ *   หลัง migration 0050 คอลัมน์ในฐานเป็น nullable (ลบข้อสอบแล้วค่าเป็น NULL) → ถ้าใคร
+ *   insert โดยไม่ใส่ค่า จะได้แถวที่ "ไม่ผูกกับข้อสอบ" ตั้งแต่ตอนเขียน (ไม่ใช่เพราะข้อสอบถูกลบ)
+ *   → ตัวช่วย insert นี้เป็นจุดเดียวที่บังคับ (type + runtime assert)
+ */
+export type AiTutorMessageInsert = {
+  userId: string;
+  questionId: number;
+  role: 'user' | 'assistant';
+  content: string;
+  status: 'pending' | 'ok' | 'failed';
+  createdAt?: Date;
+  attemptKey?: string | null;
+  selectedAnswer?: string | null;
+  isCorrect?: boolean | null;
+  latencyMs?: number | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  model?: string | null;
+  fallbackUsed?: boolean | null;
+  finishReason?: string | null;
+};
+
+/** ข้อความ error ตอนใส่ questionId ผิด (ไม่มีค่า PII) */
+export const AI_TUTOR_QUESTION_ID_REQUIRED_MESSAGE =
+  'ai_tutor_messages: ต้องระบุ questionId เป็นเลขข้อสอบเสมอ (ห้ามเป็น null)';
+
+/**
+ * insert ข้อความลง ai_tutor_messages — จุดเดียวที่ทุกข้อความต้องผ่าน
+ *
+ * - บังคับ questionId เป็นเลข (runtime assert) → ไม่มีแถว NULL โดยบังเอิญ
+ * - คืน id ของแถวที่เพิ่งเขียน
+ */
+export async function insertAiTutorMessage(
+  values: AiTutorMessageInsert,
+  executor: Pick<typeof db, 'insert'> = db,
+): Promise<number> {
+  if (!Number.isInteger(values.questionId) || values.questionId <= 0) {
+    throw new Error(AI_TUTOR_QUESTION_ID_REQUIRED_MESSAGE);
+  }
+  const [row] = await executor
+    .insert(aiTutorMessages)
+    .values({
+      userId: values.userId,
+      questionId: values.questionId,
+      role: values.role,
+      content: values.content,
+      status: values.status,
+      createdAt: values.createdAt,
+      attemptKey: values.attemptKey ?? null,
+      selectedAnswer: values.selectedAnswer ?? null,
+      isCorrect: values.isCorrect ?? null,
+      latencyMs: values.latencyMs ?? null,
+      inputTokens: values.inputTokens ?? null,
+      outputTokens: values.outputTokens ?? null,
+      model: values.model ?? null,
+      fallbackUsed: values.fallbackUsed ?? null,
+      finishReason: values.finishReason ?? null,
+    })
+    .returning({ id: aiTutorMessages.id });
+  return row?.id ?? 0;
+}
+
 /** บันทึกคำตอบของโมเดล */
 export async function insertAssistantMessage(params: {
   userId: string;
@@ -155,24 +221,20 @@ export async function insertAssistantMessage(params: {
   /** รหัสรอบการทำข้อสอบ (แยกบทสนทนาต่อรอบ) */
   attemptKey?: string | null;
 }): Promise<number> {
-  const [row] = await db
-    .insert(aiTutorMessages)
-    .values({
-      userId: params.userId,
-      questionId: params.questionId,
-      role: 'assistant',
-      content: params.content,
-      status: 'ok',
-      latencyMs: params.latencyMs,
-      inputTokens: params.inputTokens,
-      outputTokens: params.outputTokens,
-      model: params.model,
-      fallbackUsed: params.fallbackUsed ?? null,
-      finishReason: params.finishReason ?? null,
-      attemptKey: params.attemptKey ?? null,
-    })
-    .returning({ id: aiTutorMessages.id });
-  return row?.id ?? 0;
+  return insertAiTutorMessage({
+    userId: params.userId,
+    questionId: params.questionId,
+    role: 'assistant',
+    content: params.content,
+    status: 'ok',
+    latencyMs: params.latencyMs,
+    inputTokens: params.inputTokens,
+    outputTokens: params.outputTokens,
+    model: params.model,
+    fallbackUsed: params.fallbackUsed ?? null,
+    finishReason: params.finishReason ?? null,
+    attemptKey: params.attemptKey ?? null,
+  });
 }
 
 /** feedback ของผู้เรียนต่อข้อความในเธรด (ไว้แสดงสถานะปุ่ม 👍/👎) */
