@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { withAdmin } from '@/lib/admin-route';
+import { warnWithSummary } from '@/lib/ai-tutor/errors';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -161,7 +162,9 @@ export async function POST(request: Request) {
       changedUserIds = changedLocal;
     });
   } catch (error) {
-    console.error('[admin/ai-tutor/testers] เปลี่ยนสิทธิ์ไม่สำเร็จ — ยกเลิกทั้งชุด:', error);
+    // log เฉพาะชื่อ error + code (ไม่ log error object ทั้งก้อน — params ของ query
+    // อาจเป็นอีเมล/คำถามของผู้เรียน) → ใช้ตัวช่วยกลางของ AI Tutor
+    warnWithSummary('admin/ai-tutor/testers] เปลี่ยนสิทธิ์ไม่สำเร็จ — ยกเลิกทั้งชุด', error);
     return Response.json(
       { success: false, error: 'บันทึกการเปลี่ยนสิทธิ์ไม่สำเร็จ — ไม่มีการเปลี่ยนแปลงใด ๆ (ลองใหม่อีกครั้ง)' },
       { status: 500 },

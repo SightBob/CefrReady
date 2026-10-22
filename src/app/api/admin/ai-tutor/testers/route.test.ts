@@ -253,6 +253,43 @@ describe('POST /api/admin/ai-tutor/testers — ความปลอดภัย
     expect(committedUpdates, 'สิทธิ์ต้องถูก rollback เมื่อ audit ล้ม').toBe(0);
   });
 
+  it('log ตอน audit ล้มไม่มีอีเมลผู้เรียน (params ของ query ต้องไม่หลุดลง log)', async () => {
+    const logged: string[] = [];
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+      logged.push(args.map((value) => String(value)).join(' '));
+    });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      logged.push(args.map((value) => String(value)).join(' '));
+    });
+
+    selectedUsers = [{ id: 'u3', email: 'leak-check@example.com', name: null, access: false, updatedAt: new Date() }];
+    mocks.insert.mockImplementation(() => {
+      const chain: Record<string, unknown> = {};
+      chain.values = vi.fn(() => chain);
+      chain.then = (_resolve: unknown, reject: (reason: unknown) => unknown) => {
+        // รูปแบบของ DrizzleQueryError: ข้อความมี params ของ query ติดมา
+        reject(Object.assign(
+          new Error('Failed query: insert into "ai_tutor_admin_audit" ("actor_user_id","action") values ($1, $2)\nparams: admin-1, leak-check@example.com'),
+          { name: 'DrizzleQueryError', code: '23505' },
+        ));
+      };
+      return chain;
+    });
+
+    const res = await post({ action: 'grant', emails: ['leak-check@example.com'] });
+    expect(res.status).toBe(500);
+
+    const output = logged.join('\n');
+    expect(output).not.toBe('');
+    expect(output).not.toContain('leak-check@example.com');
+    // log ยังบอกได้ว่า error เป็นชนิดไหน + code
+    expect(output).toContain('DrizzleQueryError');
+    expect(output).toContain('23505');
+
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it('audit ไม่มีสตริงอีเมลผู้เรียนเลย (เก็บ user id แทน)', async () => {
     selectedUsers = [{ id: 'u3', email: 'learner@example.com', name: null, access: false, updatedAt: new Date() }];
     await post({ action: 'grant', emails: ['learner@example.com'] });

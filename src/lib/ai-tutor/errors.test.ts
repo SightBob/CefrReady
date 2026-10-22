@@ -58,6 +58,24 @@ describe('describeError — สรุป error แบบปลอดภัย', 
   it('error ที่ไม่มี message → ใช้ชื่อคลาสแทน', () => {
     expect(describeError(new Error('')).message).toBe('Error');
   });
+
+  it('DrizzleQueryError → ตัด "params" ทิ้ง (params อาจเป็นอีเมล/คำถามของผู้เรียน)', () => {
+    const drizzleError = Object.assign(
+      new Error('Failed query: insert into "ai_tutor_messages" ("user_id","content") values ($1, $2)\nparams: u-1, learner@example.com'),
+      { name: 'DrizzleQueryError', code: '23505' },
+    );
+    const summary = describeError(drizzleError);
+    expect(summary.message).not.toContain('learner@example.com');
+    expect(summary.message).not.toContain('params:');
+    expect(summary.message).toContain('DrizzleQueryError');
+    expect(summary.code).toBe('23505');
+  });
+
+  it('ข้อความหลายบรรทัด → เก็บแค่บรรทัดแรก (ไม่ดึงข้อมูลจากบรรทัดถัดไป)', () => {
+    const summary = describeError(new Error('เกิดข้อผิดพลาด\nบรรทัดที่สอง: proof-token-abc123'));
+    expect(summary.message).toBe('เกิดข้อผิดพลาด');
+    expect(summary.message).not.toContain('proof-token-abc123');
+  });
 });
 
 describe('warnWithSummary — log เฉพาะ message + code', () => {
@@ -81,6 +99,21 @@ describe('warnWithSummary — log เฉพาะ message + code', () => {
     warnWithSummary('ai-tutor] ทดสอบ', new Error('postgres://u:sup3r-secret@h/db'));
     const logged = warn.mock.calls[0][0] as string;
     expect(logged).not.toContain('sup3r-secret');
+  });
+
+  it('log ที่ถูกเรียกไม่มีอีเมล/คำถามของผู้เรียนที่อยู่ใน params ของ query', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const drizzleError = Object.assign(
+      new Error('Failed query: select ... where "email" = $1\nparams: learner@example.com'),
+      { name: 'DrizzleQueryError', code: '23505' },
+    );
+
+    warnWithSummary('ai-tutor] ทดสอบ', drizzleError);
+
+    const logged = warn.mock.calls[0][0] as string;
+    expect(logged).not.toContain('learner@example.com');
+    expect(logged).toContain('DrizzleQueryError');
+    expect(logged).toContain('23505');
   });
 });
 

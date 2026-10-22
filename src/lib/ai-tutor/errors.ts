@@ -91,8 +91,23 @@ function redactConnectionString(message: string): string {
 }
 
 /**
+ * ตัด "ค่าใน query" ออกจากข้อความของ error
+ *
+ * DrizzleQueryError ติดข้อความ SQL + params ติดมาด้วย เช่น
+ *   Failed query: insert into "x" (...) values ($1, $2)
+ *   params: learner@example.com, ...
+ * → params อาจเป็นอีเมล/คำถามของผู้เรียน/proof token → **ห้ามหลุดลง log**
+ * โดยเก็บไว้แค่บรรทัดแรก (ชื่อ error + SQL ที่มี placeholder เท่านั้น)
+ */
+function stripQueryParams(message: string): string {
+  const withoutParams = message.split('\nparams:')[0];
+  const firstLine = withoutParams.split('\n')[0];
+  return firstLine.trim();
+}
+
+/**
  * สรุป error เป็นข้อความสั้น ๆ ที่ปลอดภัยพอจะ log
- * - message: ข้อความของ error (ตัด connection string + จำกัดความยาว)
+ * - message: ชื่อ error + ข้อความ (ตัด params ของ query + ตัด connection string + จำกัดความยาว)
  * - code: รหัสของ error ถ้ามี (เช่น '42P01' = relation does not exist, '42703' = column does not exist)
  */
 export function describeError(error: unknown): ErrorSummary {
@@ -100,11 +115,17 @@ export function describeError(error: unknown): ErrorSummary {
   let code: string | null = null;
 
   if (error instanceof Error) {
-    message = error.message || error.name;
+    const rawMessage = error.message || error.name;
+    message = stripQueryParams(rawMessage);
+    // ใส่ชื่อคลาสของ error (เช่น DrizzleQueryError) เพื่อให้รู้ว่า error ชนิดไหน
+    // (Error ธรรมดาไม่ต้องเติม — อ่านง่ายกว่า)
+    if (error.name && error.name !== 'Error' && !message.startsWith(error.name)) {
+      message = `${error.name}: ${message}`;
+    }
     const rawCode = (error as { code?: unknown }).code;
     if (typeof rawCode === 'string' && rawCode.length > 0) code = rawCode;
   } else if (typeof error === 'string') {
-    message = error;
+    message = stripQueryParams(error);
   }
 
   return {
