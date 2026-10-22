@@ -208,6 +208,57 @@ SELECT count(*) FROM drizzle.__drizzle_migrations;
   รายละเอียดอยู่ใน log ฝั่ง server เท่านั้น
 - **หน้า `/dev/tutor-mock`** (หน้าตัวอย่าง UI) ตอบ 404 ใน production โดยอัตโนมัติ ✓
 
+### 7.1 Redis ล่ม = เหลือเพดานจาก SQL อย่างเดียว (ไม่มี burst limit)
+
+ตัวนับโควตาฝั่ง Redis (`src/lib/rate-limit.ts`) **fail-open** เมื่อ Redis ล่ม
+(บรรทัด 43-47: คืน `limited: false` เมื่อต่อ Redis ไม่ได้) → เมื่อเกิดเหตุการณ์นี้:
+
+| กลไก | ยังทำงานไหม | หมายเหตุ |
+|---|---|---|
+| rate limit ต่อนาที (10/นาที/คน) | **ไม่** | ใช้ Redis ตัวเดียวกัน → ยิงรวดได้ชั่วคราว |
+| kill switch รวมทั้งระบบ/วัน | **ไม่** | ใช้ Redis ตัวเดียวกัน |
+| เพดานต่อข้อ (question quota) | **ใช่** | SQL ใน `reserveQuestion` (บังคับด้วย advisory lock) |
+| เพดานรายวันของผู้เรียน | **ใช่** | SQL ใน `reserveQuestion` (นับด้วย `countUserDailyQuestions`) |
+| เพดานรวมทั้งระบบ/วัน | **ใช่** | SQL (`countSystemDailyQuestions`) + fail-closed ถ้านับไม่ได้ → ตอบ 503 |
+
+→ **ต้นทุนรายวันยังถูกจำกัดอยู่** (เพดานจาก DB) แต่ **การกันยิงรวด (burst) หายไปชั่วคราว**
+→ เกณฑ์การเทียบของเพดานรวมทั้งระบบ: `>=` และนับ **ก่อน** insert แถวของคำขอนั้น
+  (ดู `src/app/api/ai-tutor/route.ts`) · การนับนี้ไม่อยู่ใต้ lock → คำขอที่มาพร้อมกัน K คำขอ
+  อาจเกินเพดานได้มากสุด K-1 คำขอ (ในทางปฏิบัติไม่กี่คำขอ)
+
+### 7.2 แถวที่ `question_id` เป็น NULL (หลัง migration 0050)
+
+`drizzle/0050_ai_tutor_messages_question_set_null.sql` เปลี่ยน FK ของ
+`ai_tutor_messages.question_id` เป็น `ON DELETE SET NULL` (+ คอลัมน์เป็น nullable)
+→ **ลบข้อสอบแล้ว ข้อความ/คำตอบของผู้เรียนไม่หาย** (เดิม `ON DELETE CASCADE` = หายทั้งชุด)
+
+- ข้อความที่เหลือ: นับโควตาได้ปกติ (นับจาก `role`/`status`/`created_at` ไม่กรอง `question_id`)
+  → เพดานรายวัน/รวมทั้งระบบไม่เปลี่ยน
+- ไม่โผล่ในเธรดของข้อสอบ (กรองด้วย `question_id = X` → NULL ไม่ match) และไม่กินโควตาของข้อนั้น
+- **การลบด้วย retention ยังนับแถวพวกนี้** (นับจาก `created_at` เท่านั้น → รวมแถว `question_id IS NULL`)
+  → ถ้าต้องการเก็บสถิติไว้นานกว่า 180 วัน ให้เพิ่ม `--days` (ขั้นต่ำ 30) ตอนรัน retention
+- เทสที่พิสูจน์เรื่องนี้: `src/lib/ai-tutor/question-set-null.db.test.ts` และ
+  `src/lib/ai-tutor/retention.test.ts` (เคส "แถวที่ question_id = NULL") — **ข้ามอัตโนมัติ
+  จนกว่า migration 0050 จะถูกใช้กับฐานนั้น**
+
+### 7.3 ขั้นตอนใช้ migration 0050 (ทำที่ฐานทดสอบก่อนเสมอ)
+
+```powershell
+# 1) ดูก่อนว่าจะรันอะไร (dry-run · ไม่แตะฐาน)
+npx tsx scripts/apply-migration.ts --from 50
+
+# 2) รันจริงที่ฐานทดสอบ (ต้องยืนยัน host ให้ตรงกับ DATABASE_URL)
+npx tsx scripts/apply-migration.ts --from 50 --apply --confirm-host <host ของ DATABASE_URL>
+
+# 3) รันเทสที่ต่อ DB (ต้องมี AI_TUTOR_TEST_DB_HOSTS ใน .env.local)
+npm run test:db
+```
+
+- ค่าเริ่มต้นของ `apply-migration.ts` = **dry-run** (ต้องมี `--apply` + `--confirm-host`)
+- ถ้าไฟล์ถูกแก้หลังจากที่รันไปแล้ว → hash เปลี่ยน → สคริปต์จะเตือนว่าไฟล์ถูกแก้ (ไม่รันซ้ำเงียบ ๆ)
+- `drizzle/meta/_journal.json` อยู่ใน `.gitignore` → ไม่ต้องแก้ด้วยมือ (สคริปต์จัดการเอง)
+- ใช้ `DO $$ … $$` หา constraint จาก `pg_constraint` ได้ ถ้าชื่อ constraint ในฐานไม่ตรงกับไฟล์
+
 ---
 
 ## 8. คำสั่งที่ใช้บ่อย

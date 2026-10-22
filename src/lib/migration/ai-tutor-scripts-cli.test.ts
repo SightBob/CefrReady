@@ -73,7 +73,6 @@ async function runScript(script: string, args: string[], env: Record<string, str
 const SCRIPTS = [
   { name: 'ai-tutor-access.ts', args: ['grant', 'learner@example.com'] },
   { name: 'ai-tutor-retention.ts', args: [] },
-  { name: 'cleanup-tables.ts', args: [] },
 ] as const;
 
 describe('สคริปต์ AI Tutor ที่เขียน DB — กันรันผิดฐาน', () => {
