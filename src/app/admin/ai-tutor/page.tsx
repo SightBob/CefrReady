@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bot, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, Bot, Loader2, MessageSquareText, Users } from 'lucide-react';
 
 import ConfigTab from './ConfigTab';
+import QuestionsTab from './QuestionsTab';
 import TestersTab from './TestersTab';
 
-type Tab = 'settings' | 'testers';
+type Tab = 'settings' | 'testers' | 'questions';
 
 export default function AdminAiTutorPage() {
   const [tab, setTab] = useState<Tab>('settings');
@@ -62,11 +63,22 @@ export default function AdminAiTutorPage() {
           >
             <Users className="size-4" aria-hidden="true" /> ผู้ทดสอบ
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'questions'}
+            onClick={() => setTab('questions')}
+            className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${tab === 'questions' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}
+          >
+            <MessageSquareText className="size-4" aria-hidden="true" /> คำถามผู้เรียน
+          </button>
         </div>
 
         {tab === 'settings'
           ? <ConfigTab />
-          : <TestersTab rolloutPercent={rolloutPercent} />}
+          : tab === 'testers'
+            ? <TestersTab rolloutPercent={rolloutPercent} />
+            : <QuestionsTab />}
       </main>
     </div>
   );
