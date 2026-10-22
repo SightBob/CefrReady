@@ -68,8 +68,6 @@ export default function ConfigTab() {
   const [audit, setAudit] = useState<AdminAuditRow[]>([]);
   const [form, setForm] = useState<FormState>({});
   const [resetKeys, setResetKeys] = useState<string[]>([]);
-  const [modelQuery, setModelQuery] = useState('');
-  const [fallbackQuery, setFallbackQuery] = useState('');
   const [testedModel, setTestedModel] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<ModelTestResult | null>(null);
   const [testBusy, setTestBusy] = useState(false);
@@ -179,21 +177,11 @@ export default function ConfigTab() {
   const primaryModelInfo = models.find((model) => model.id === primaryModel);
   const fallbackModelInfo = models.find((model) => model.id === fallbackModel);
 
-  const filteredModels = useMemo(() => {
-    const query = modelQuery.trim().toLowerCase();
-    const list = query
-      ? models.filter((model) => model.id.toLowerCase().includes(query) || model.name.toLowerCase().includes(query))
-      : models;
-    return list.slice(0, 60);
-  }, [models, modelQuery]);
-
-  const filteredFallbackModels = useMemo(() => {
-    const query = fallbackQuery.trim().toLowerCase();
-    const list = query
-      ? models.filter((model) => model.id.toLowerCase().includes(query) || model.name.toLowerCase().includes(query))
-      : models;
-    return list.slice(0, 60);
-  }, [models, fallbackQuery]);
+  /**
+   * รายการโมเดลที่แนะนำ (datalist) — เอาไว้ให้พิมพ์เองได้อิสระ
+   * แต่ถ้าอยากได้ตัวเลือกให้กดก็ยังมีให้เลือกจากรายการนี้
+   */
+  const modelOptions = useMemo(() => models.slice(0, 200), [models]);
 
   const runTest = async (model: string) => {
     if (!model) {
@@ -432,27 +420,26 @@ export default function ConfigTab() {
               โมเดลหลัก {sourceBadge('primaryModel')}
             </label>
             <input
-              value={modelQuery}
-              onChange={(event) => setModelQuery(event.target.value)}
-              placeholder="ค้นหาโมเดล (id หรือชื่อ)"
-              aria-label="ค้นหาโมเดลหลัก"
+              value={primaryModel}
+              onChange={(event) => setField('primaryModel', event.target.value)}
+              placeholder="พิมพ์ model id เอง เช่น vendor/model:free"
+              aria-label="โมเดลหลัก"
+              list="ai-tutor-primary-model-options"
+              disabled={busy}
               className={inputClass}
             />
-            <select
-              aria-label="เลือกโมเดลหลัก"
-              value={primaryModel}
-              disabled={busy}
-              onChange={(event) => setField('primaryModel', event.target.value)}
-              className={inputClass}
-            >
-              {filteredModels.map((model) => (
+            {/* รายการแนะนำจาก OpenRouter — พิมพ์เองได้อิสระ ถ้าอยากเลือกจากรายการก็กดได้ */}
+            <datalist id="ai-tutor-primary-model-options">
+              {modelOptions.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.id} · ${model.pricing.prompt}/1M · ${model.pricing.completion}/1M
-                  {model.overPriceLimit ? ' · เกินเพดานราคา' : ''}
+                  {model.name} · ${model.pricing.prompt}/1M · ${model.pricing.completion}/1M
                 </option>
               ))}
-            </select>
-            {primaryModelInfo && (
+            </datalist>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              พิมพ์ id เองได้ (คัดลอกจาก openrouter.ai/models) — โมเดลใหม่ที่ยังไม่อยู่ในรายการก็ใช้ได้
+            </p>
+            {primaryModelInfo ? (
               <p className="mt-2 text-sm text-slate-500">
                 {primaryModelInfo.reasoningMandatory
                   ? 'โมเดลนี้บังคับให้คิด (reasoning) ปิดไม่ได้ — ใช้ effort ต่ำแทน'
@@ -461,7 +448,11 @@ export default function ConfigTab() {
                   <span className="ml-2 font-semibold text-rose-600">ราคาเกินเพดาน (input ${data.limits.maxModelPriceInPerMtok} / output ${data.limits.maxModelPriceOutPerMtok})</span>
                 )}
               </p>
-            )}
+            ) : primaryModel.trim() ? (
+              <p className="mt-2 text-sm text-amber-700">
+                ไม่พบ &quot;{primaryModel.trim()}&quot; ในรายชื่อที่โหลดมา — ถ้าเป็นโมเดลใหม่ ให้กด “ทดสอบเรียกโมเดลหลัก” ให้ผ่านก่อนบันทึก
+              </p>
+            ) : null}
 
             <label className="mt-4 block text-sm font-semibold text-slate-700">
               Reasoning effort ของโมเดลหลัก {sourceBadge('primaryEffort')}
@@ -487,28 +478,31 @@ export default function ConfigTab() {
               โมเดลสำรอง {sourceBadge('fallbackModel')}
             </label>
             <input
-              value={fallbackQuery}
-              onChange={(event) => setFallbackQuery(event.target.value)}
-              placeholder="ค้นหาโมเดลสำรอง"
-              aria-label="ค้นหาโมเดลสำรอง"
+              value={fallbackModel ?? ''}
+              onChange={(event) => setField('fallbackModel', event.target.value === '' ? null : event.target.value)}
+              placeholder="พิมพ์ model id เอง เช่น vendor/model (เว้นว่าง = ไม่ใช้โมเดลสำรอง)"
+              aria-label="โมเดลสำรอง"
+              list="ai-tutor-fallback-model-options"
+              disabled={busy}
               className={inputClass}
             />
-            <select
-              aria-label="เลือกโมเดลสำรอง"
-              value={fallbackModel ?? ''}
-              disabled={busy}
-              onChange={(event) => setField('fallbackModel', event.target.value === '' ? null : event.target.value)}
-              className={inputClass}
-            >
-              <option value="">ไม่ใช้โมเดลสำรอง</option>
-              {filteredFallbackModels.map((model) => (
+            <datalist id="ai-tutor-fallback-model-options">
+              {modelOptions.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.id} · ${model.pricing.prompt}/1M · ${model.pricing.completion}/1M
-                  {model.overPriceLimit ? ' · เกินเพดานราคา' : ''}
+                  {model.name} · ${model.pricing.prompt}/1M · ${model.pricing.completion}/1M
                 </option>
               ))}
-            </select>
-            {fallbackModelInfo && (
+            </datalist>
+            <button
+              type="button"
+              aria-label="ไม่ใช้โมเดลสำรอง"
+              disabled={busy || !fallbackModel}
+              onClick={() => setField('fallbackModel', null)}
+              className="mt-2 inline-flex min-h-11 items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            >
+              ไม่ใช้โมเดลสำรอง
+            </button>
+            {fallbackModelInfo ? (
               <p className="mt-2 text-sm text-slate-500">
                 {fallbackModelInfo.reasoningMandatory
                   ? 'โมเดลนี้บังคับให้คิด — ปิด reasoning ไม่ได้'
@@ -517,7 +511,11 @@ export default function ConfigTab() {
                   <span className="ml-2 font-semibold text-rose-600">ราคาเกินเพดาน</span>
                 )}
               </p>
-            )}
+            ) : fallbackModel?.trim() ? (
+              <p className="mt-2 text-sm text-amber-700">
+                ไม่พบ &quot;{fallbackModel.trim()}&quot; ในรายชื่อที่โหลดมา — server จะตรวจอีกครั้งตอนบันทึก
+              </p>
+            ) : null}
 
             <label className="mt-4 block text-sm font-semibold text-slate-700">
               Reasoning effort ของโมเดลสำรอง {sourceBadge('fallbackEffort')}

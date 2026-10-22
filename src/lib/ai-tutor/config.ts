@@ -359,7 +359,25 @@ export async function saveAiTutorSettings(
       continue;
     }
     if (known === undefined) {
-      return { ok: false, error: `ไม่พบโมเดล "${check.model}" ใน OpenRouter (${check.label})` };
+      // ไม่เจอในแคช (15 นาที) → ดึงรายชื่อใหม่จาก OpenRouter ก่อนตัดสิน
+      // (ผู้ดูแลพิมพ์ id เองได้ → โมเดลใหม่ที่เพิ่งออกต้องไม่ถูกตอบว่า "ไม่พบ" ทั้งที่ใช้ได้)
+      const refreshed = await findKnownModel(check.model, true);
+      if (refreshed === undefined) {
+        return { ok: false, error: `ไม่พบโมเดล "${check.model}" ใน OpenRouter (${check.label})` };
+      }
+      if (refreshed !== null && refreshed.overPriceLimit) {
+        return {
+          ok: false,
+          error: `โมเดล "${check.model}" ราคาเกินเพดาน (input $${refreshed.pricing.prompt}/1M, output $${refreshed.pricing.completion}/1M · เพดาน input $${maxModelPriceInPerMtok()}, output $${maxModelPriceOutPerMtok()})`,
+        };
+      }
+      if (refreshed !== null && check.effort && !refreshed.supportsEffort(check.effort)) {
+        return {
+          ok: false,
+          error: `โมเดล "${check.model}" ไม่รองรับ reasoning effort "${check.effort}" (รองรับ: ${refreshed.supportedEfforts.join(', ') || 'ไม่ระบุ'})`,
+        };
+      }
+      continue;
     }
     if (known.overPriceLimit) {
       return {
@@ -464,9 +482,11 @@ export async function listAiTutorAudit(limit = 50) {
 /**
  * คืนโมเดลที่รู้จัก (พร้อมข้อมูล effort ที่รองรับ) · undefined = ไม่พบ · null = ตรวจไม่ได้
  * (import แบบ dynamic เพื่อไม่ให้เกิด circular dependency ระหว่าง config ↔ models)
+ *
+ * @param refresh true = ข้ามแคชรายชื่อโมเดล (ใช้ตอนบันทึกค่าที่พิมพ์เอง)
  */
-async function findKnownModel(modelId: string) {
+async function findKnownModel(modelId: string, refresh = false) {
   const { findModel } = await import('./models');
-  return findModel(modelId);
+  return findModel(modelId, { refresh });
 }
 

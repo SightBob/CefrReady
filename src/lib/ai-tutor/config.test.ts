@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   insert: vi.fn(),
+  findModel: vi.fn(),
 }));
 
 // db จำลอง — config อ่าน/เขียนผ่าน dynamic import ของ '@/db'
@@ -14,6 +15,12 @@ vi.mock('@/db', () => ({
     select: mocks.select,
     insert: mocks.insert,
   },
+}));
+
+// รายชื่อโมเดลจำลอง (config import แบบ dynamic)
+vi.mock('./models', () => ({
+  findModel: mocks.findModel,
+  clearOpenRouterModelsCache: vi.fn(),
 }));
 
 import {
@@ -242,5 +249,42 @@ describe('saveAiTutorSettings — ตรวจก่อนเขียน', () =
     const result = await saveAiTutorSettings({ questionQuota: 3 }, 'admin-1');
     expect(result.ok).toBe(true);
     expect(mocks.insert).toHaveBeenCalled();
+  });
+
+  it('โมเดลที่พิมพ์เองแล้วไม่อยู่ในแคช → ดึงรายชื่อใหม่แล้วบันทึกได้', async () => {
+    stubSettings([]);
+    stubInsert();
+    mocks.findModel
+      // ครั้งแรก: ไม่เจอในแคช 15 นาที
+      .mockResolvedValueOnce(undefined)
+      // ครั้งที่สอง (refresh): เจอแล้ว → ผ่านการตรวจราคา/ระดับ effort
+      .mockResolvedValueOnce({
+        id: 'vendor/new-model:free',
+        name: 'New Model',
+        pricing: { prompt: 0, completion: 0 },
+        reasoningMandatory: false,
+        supportedEfforts: [],
+        contextLength: 8000,
+        overPriceLimit: false,
+        supportsEffort: () => true,
+      });
+
+    const result = await saveAiTutorSettings({ primaryModel: 'vendor/new-model:free' }, 'admin-1');
+
+    expect(result.ok).toBe(true);
+    expect(mocks.findModel).toHaveBeenCalledTimes(2);
+    // ครั้งที่สองต้องข้ามแคช
+    expect(mocks.findModel.mock.calls[1]?.[1]).toEqual({ refresh: true });
+  });
+
+  it('ไม่พบโมเดลแม้ดึงรายชื่อใหม่แล้ว → ปฏิเสธพร้อมข้อความ', async () => {
+    stubSettings([]);
+    stubInsert();
+    mocks.findModel.mockResolvedValue(undefined);
+
+    const result = await saveAiTutorSettings({ primaryModel: 'vendor/typo-model' }, 'admin-1');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('ไม่พบโมเดล');
   });
 });

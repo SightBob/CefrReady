@@ -127,6 +127,13 @@ function button(label: string): HTMLButtonElement {
   return element;
 }
 
+/** พิมพ์ค่าลง input แบบ React รับรู้ (ต้องใช้ native setter + เปลี่ยนแปลง 'input') */
+function setInputValue(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 describe('หน้า /admin/ai-tutor — แท็บตั้งค่า', () => {
   it('เรนเดอร์ได้ พร้อมสถานะ env และช่องตั้งค่า', async () => {
     await renderTab();
@@ -146,12 +153,11 @@ describe('หน้า /admin/ai-tutor — แท็บตั้งค่า', (
 
   it('เปลี่ยนโมเดลแล้วปุ่มบันทึกถูกปิด จนกว่าจะทดสอบโมเดลนั้นผ่าน', async () => {
     await renderTab();
-    const select = container.querySelector<HTMLSelectElement>('select[aria-label="เลือกโมเดลหลัก"]');
-    expect(select).toBeTruthy();
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="โมเดลหลัก"]');
+    expect(input).toBeTruthy();
 
     await act(async () => {
-      select!.value = 'deepseek/deepseek-v4.1-flash';
-      select!.dispatchEvent(new Event('change', { bubbles: true }));
+      setInputValue(input!, 'deepseek/deepseek-v4.1-flash');
     });
 
     expect(button('บันทึกการตั้งค่า').disabled).toBe(true);
@@ -163,6 +169,48 @@ describe('หน้า /admin/ai-tutor — แท็บตั้งค่า', (
 
     expect(container.textContent).toContain('ทดสอบโมเดลนี้ผ่านแล้ว');
     expect(button('บันทึกการตั้งค่า').disabled).toBe(false);
+  });
+
+  it('พิมพ์ model id เองได้ แม้ไม่มีในรายการที่โหลดมา (โมเดลใหม่จาก OpenRouter)', async () => {
+    await renderTab();
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="โมเดลหลัก"]');
+    expect(input).toBeTruthy();
+
+    await act(async () => {
+      setInputValue(input!, 'vendor/brand-new-model:free');
+    });
+
+    // ค่าที่พิมพ์เองอยู่ในช่อง (ไม่ถูกตัดทิ้ง/ไม่ถูกบังคับให้เลือกจากรายการ)
+    expect(input!.value).toBe('vendor/brand-new-model:free');
+    // เตือนว่าไม่พบในรายชื่อที่แคชไว้ แต่ยังพิมพ์ต่อได้
+    expect(container.textContent).toContain('ไม่พบ');
+    // ยังต้องทดสอบก่อนบันทึก (กันพิมพ์ผิด)
+    expect(button('บันทึกการตั้งค่า').disabled).toBe(true);
+  });
+
+  it('ช่องโมเดลหลักมี datalist ของรายการจาก OpenRouter ไว้ให้เลือก', async () => {
+    await renderTab();
+    const datalist = container.querySelector('datalist#ai-tutor-primary-model-options');
+    expect(datalist).toBeTruthy();
+    expect(datalist!.querySelectorAll('option').length).toBeGreaterThan(0);
+    const values = [...datalist!.querySelectorAll('option')].map((option) => option.getAttribute('value'));
+    expect(values).toContain('minimax/minimax-m3.1-flash:free');
+  });
+
+  it('โมเดลสำรอง: พิมพ์เองได้ และล้างเป็น "ไม่ใช้โมเดลสำรอง" ได้', async () => {
+    await renderTab();
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="โมเดลสำรอง"]');
+    expect(input).toBeTruthy();
+
+    await act(async () => {
+      setInputValue(input!, 'vendor/other-model');
+    });
+    expect(input!.value).toBe('vendor/other-model');
+
+    await act(async () => {
+      button('ไม่ใช้โมเดลสำรอง').click();
+    });
+    expect(input!.value).toBe('');
   });
 
   it('ปิดสวิตช์ต้องมีกล่องยืนยันก่อน', async () => {

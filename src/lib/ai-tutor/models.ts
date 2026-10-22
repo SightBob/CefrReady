@@ -114,9 +114,17 @@ export function clearOpenRouterModelsCache(): void {
 
 /**
  * หาโมเดลจาก id
+ *
+ * @param options.refresh true = ข้ามแคชแล้วดึงรายชื่อใหม่จาก OpenRouter
+ *   (ใช้ตอนบันทึกค่า: ถ้าโมเดลที่พิมพ์เองไม่อยู่ในแคช 15 นาที ต้องดึงใหม่ก่อน
+ *    ไม่งั้นโมเดลใหม่ที่เพิ่งออกจะถูกตอบว่า "ไม่พบ" ทั้งที่ใช้ได้)
  * @returns โมเดล · undefined = ไม่พบ · null = ตรวจไม่ได้ (เรียก OpenRouter ไม่สำเร็จ)
  */
-export async function findModel(modelId: string): Promise<OpenRouterModel | undefined | null> {
+export async function findModel(
+  modelId: string,
+  options: { refresh?: boolean } = {},
+): Promise<OpenRouterModel | undefined | null> {
+  if (options.refresh) clearOpenRouterModelsCache();
   const models = await fetchOpenRouterModels();
   if (models.length === 0) return null; // ตรวจไม่ได้
   return models.find((model) => model.id === modelId);
