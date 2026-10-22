@@ -97,7 +97,8 @@ async function main() {
       asks: sql<number>`count(*)::int`,
     })
     .from(aiTutorMessages)
-    .innerJoin(questions, eq(questions.id, aiTutorMessages.questionId))
+    // leftJoin: ข้อความของข้อสอบที่ถูกลบแล้ว (question_id = NULL) ยังต้องนับได้
+    .leftJoin(questions, eq(questions.id, aiTutorMessages.questionId))
     .where(and(eq(aiTutorMessages.role, 'user'), gte(aiTutorMessages.createdAt, since)))
     .groupBy(aiTutorMessages.questionId, questions.grammarTopic, questions.cefrLevel, questions.questionText)
     .orderBy(sql`count(*) desc`)
@@ -105,7 +106,7 @@ async function main() {
 
   console.log('\n## ข้อสอบ/หัวข้อที่ถูกถามบ่อยที่สุด');
   for (const row of topics) {
-    console.log(`- ${row.asks} ครั้ง · id ${row.questionId} · ${row.grammarTopic ?? '-'} (${row.cefrLevel ?? '-'}) · ${row.questionText.slice(0, 60)}`);
+    console.log(`- ${row.asks} ครั้ง · id ${row.questionId ?? '(ถูกลบแล้ว)'} · ${row.grammarTopic ?? '-'} (${row.cefrLevel ?? '-'}) · ${(row.questionText ?? '(ข้อสอบถูกลบแล้ว)').slice(0, 60)}`);
   }
 
   // ─── เทียบคำถามของคนตอบผิด กับ ตอบถูก ───
@@ -161,13 +162,14 @@ async function main() {
       })
       .from(aiTutorFeedback)
       .innerJoin(aiTutorMessages, eq(aiTutorMessages.id, aiTutorFeedback.messageId))
-      .innerJoin(questions, eq(questions.id, aiTutorMessages.questionId))
+      // leftJoin: ข้อความของข้อสอบที่ถูกลบแล้ว (question_id = NULL) ยังต้องนับได้
+      .leftJoin(questions, eq(questions.id, aiTutorMessages.questionId))
       .where(eq(aiTutorFeedback.value, 'down'))
       .orderBy(aiTutorFeedback.createdAt)
       .limit(10);
     console.log('\n  ข้อความที่ได้ 👎 (พร้อมโจทย์):');
     for (const row of downMessages) {
-      console.log(`   - [${row.grammarTopic ?? '-'}] โจทย์: ${row.questionText.slice(0, 50)}`);
+      console.log(`   - [${row.grammarTopic ?? '-'}] โจทย์: ${(row.questionText ?? '(ข้อสอบถูกลบแล้ว)').slice(0, 50)}`);
       console.log(`     คำตอบ: ${row.content.slice(0, 90).replace(/\n/g, ' ')} (${row.model ?? '-'})`);
     }
   }

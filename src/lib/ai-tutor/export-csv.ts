@@ -9,7 +9,8 @@ import { createHash } from 'node:crypto';
 export type AiTutorExportRow = {
   id: number;
   userId: string;
-  questionId: number;
+  /** null เมื่อข้อสอบถูกลบไปแล้ว (migration 0050 → ON DELETE SET NULL) */
+  questionId: number | null;
   role: string;
   content: string;
   status: string;
@@ -25,7 +26,8 @@ export type AiTutorExportRow = {
   createdAt: Date;
   grammarTopic: string | null;
   cefrLevel: string | null;
-  questionText: string;
+  /** null เมื่อข้อสอบถูกลบไปแล้ว (migration 0050 → leftJoin) */
+  questionText: string | null;
   feedback?: string | null;
   /** รหัสรอบการทำข้อสอบ (แยกบทสนทนาต่อรอบ — migration 0049) */
   attemptKey?: string | null;

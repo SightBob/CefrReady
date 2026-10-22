@@ -566,7 +566,8 @@ export type NewAiUsageLog = typeof aiUsageLogs.$inferInsert;
 export const aiTutorMessages = pgTable('ai_tutor_messages', {
   id: serial('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  // migration 0050: ข้อสอบถูกลบ → เก็บข้อความไว้ให้วิเคราะห์ (question_id = NULL) แทนที่จะถูก cascade ลบ
+  questionId: integer('question_id').references(() => questions.id, { onDelete: 'set null' }),
   // 'user' = คำถามของผู้เรียน (1 แถว = 1 การเรียกโมเดล) · 'assistant' = คำตอบของโมเดล
   role: varchar('role', { length: 20 }).notNull(),
   content: text('content').default('').notNull(),

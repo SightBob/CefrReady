@@ -24,7 +24,8 @@ export type AiTutorMessageRow = {
   status: string;
   content: string;
   archived: boolean;
-  questionId: number;
+  /** null เมื่อข้อสอบถูกลบไปแล้ว (migration 0050 → ON DELETE SET NULL) */
+  questionId: number | null;
   questionText: string | null;
   cefrLevel: string | null;
   grammarTopic: string | null;
@@ -49,8 +50,8 @@ export type AiTutorMessageSummary = {
   failed: number;
   /** จำนวนผู้เรียนที่ถาม */
   learners: number;
-  /** ข้อที่ถูกถามบ่อยที่สุด */
-  topQuestions: Array<{ questionId: number; count: number; questionText: string | null }>;
+  /** ข้อที่ถูกถามบ่อยที่สุด (questionId = null เมื่อข้อสอบถูกลบแล้ว) */
+  topQuestions: Array<{ questionId: number | null; count: number; questionText: string | null }>;
 };
 
 /**

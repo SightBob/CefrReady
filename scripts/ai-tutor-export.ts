@@ -66,7 +66,8 @@ async function main() {
       questionText: questions.questionText,
     })
     .from(aiTutorMessages)
-    .innerJoin(questions, eq(questions.id, aiTutorMessages.questionId))
+    // leftJoin: ข้อความของข้อสอบที่ถูกลบแล้ว (question_id = NULL) ต้องยังถูก export
+    .leftJoin(questions, eq(questions.id, aiTutorMessages.questionId))
     .where(gte(aiTutorMessages.createdAt, since))
     .orderBy(aiTutorMessages.createdAt);
 
