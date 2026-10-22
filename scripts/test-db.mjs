@@ -36,6 +36,7 @@ const dbTestFiles = [
   'src/lib/ai-tutor/quota.db.test.ts',
   'src/lib/ai-tutor/retention.test.ts',
   'src/lib/ai-tutor/attempt.db.test.ts',
+  'src/app/api/admin/ai-tutor/testers/route.db.test.ts',
   'src/app/api/verb-banks/schema-live.test.ts',
   'src/lib/migration/apply-migration-rollback.db.test.ts',
 ].filter((file) => existsSync(join(process.cwd(), file)));
