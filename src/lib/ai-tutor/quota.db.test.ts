@@ -172,7 +172,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
 
   it('ส่งพร้อมกันเกินโควตา → สำเร็จไม่เกินโควตา (กัน race)', async () => {
     const results = await Promise.all(Array.from({ length: 8 }, (_, index) => (
-      reserveQuestion({ userId, questionId, message: `race-${index}`, attemptKey: 'attempt-key-0001' })
+      reserveQuestion({ userId, questionId, message: `race-${index}`, attemptKey: 'attempt-key-0001', dailyLimit: 100 })
     )));
     const okCount = results.filter((result) => result.ok).length;
     expect(okCount).toBe(2);
@@ -193,7 +193,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     const used = await countUsedQuestions({ userId, questionId });
     expect(used).toBe(1);
 
-    const next = await reserveQuestion({ userId, questionId, message: 'after-failure', attemptKey: 'attempt-key-0001' });
+    const next = await reserveQuestion({ userId, questionId, message: 'after-failure', attemptKey: 'attempt-key-0001', dailyLimit: 100 });
     expect(next.ok).toBe(true);
   });
 
@@ -248,7 +248,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     await markUserMessageFailed({ messageId: created.id });
 
     const usedBefore = await countUsedQuestions({ userId, questionId });
-    const result = await reserveQuestion({ userId, questionId, message, attemptKey: 'attempt-key-0001' });
+    const result = await reserveQuestion({ userId, questionId, message, attemptKey: 'attempt-key-0001', dailyLimit: 100 });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.reused).toBe(true);
@@ -264,12 +264,12 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
 
     // ถามคนละรอบ (attemptKey ต่างกัน) ที่ข้อเดียวกัน → ต้องนับต่อ ไม่รีเซ็ต
     const first = await reserveQuestion({
-      userId, questionId, message: 'รอบ-A-ครั้งแรก', attemptKey: 'attempt-key-A',
+      userId, questionId, message: 'รอบ-A-ครั้งแรก', attemptKey: 'attempt-key-A', dailyLimit: 100,
     });
     expect(first.ok).toBe(true);
 
     const second = await reserveQuestion({
-      userId, questionId, message: 'รอบ-B-ครั้งแรก', attemptKey: 'attempt-key-B',
+      userId, questionId, message: 'รอบ-B-ครั้งแรก', attemptKey: 'attempt-key-B', dailyLimit: 100,
     });
     expect(second.ok).toBe(true);
 
@@ -279,7 +279,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
     // และถ้าเต็มโควตาแล้ว การเปลี่ยนรอบก็ยังถูกปฏิเสธ (เลี่ยงโควตาไม่ได้)
     process.env.AI_TUTOR_QUESTION_QUOTA = '2';
     const rejected = await reserveQuestion({
-      userId, questionId, message: 'รอบ-C-พยายามเลี่ยง', attemptKey: 'attempt-key-C',
+      userId, questionId, message: 'รอบ-C-พยายามเลี่ยง', attemptKey: 'attempt-key-C', dailyLimit: 100,
     });
     expect(rejected.ok).toBe(false);
     process.env.AI_TUTOR_QUESTION_QUOTA = '10';

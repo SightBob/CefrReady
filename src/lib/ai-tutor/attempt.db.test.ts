@@ -115,7 +115,7 @@ describeLive('AI Tutor attempt_key ↔ DB จริง', () => {
       userId,
       questionId,
       message: 'คำถามใหม่ในรอบ B',
-      attemptKey: ATTEMPT_B,
+      attemptKey: ATTEMPT_B, dailyLimit: 100,
     });
     expect(reservation.ok).toBe(false); // โควตาของข้อนี้เต็มแล้ว แม้เปลี่ยนรอบ
     delete process.env.AI_TUTOR_QUESTION_QUOTA;

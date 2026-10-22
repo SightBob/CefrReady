@@ -226,9 +226,11 @@ export async function reserveQuestion(params: {
    *
    * ตัวบังคับจริงเป็น **SQL** (ไม่ใช่ Redis) → นับด้วย countUserDailyQuestions()
    * ซึ่งเป็นฟังก์ชันเดียวกับที่ใช้แสดงตัวเลขให้ผู้เรียน (แหล่งเดียวกัน)
-   * ไม่ส่ง = ไม่ตรวจเพดานรายวัน (ใช้ในเทส/สคริปต์ที่ไม่ต้องการ)
+   *
+   * **บังคับต้องส่ง** (type-level) → typecheck จับ caller ที่ลืมส่ง
+   * (ถ้าไม่ส่ง = ไม่มีเพดานรายวัน = ผู้เรียนถามได้ไม่จำกัด)
    */
-  dailyLimit?: number;
+  dailyLimit: number;
   /**
    * รหัสรอบการทำข้อสอบ — ผูกแถวกับรอบ (แต่ **โควตาไม่ผูกกับรอบ**
    * นับต่อ (user, question) ต่อวันเหมือนเดิม ไม่งั้นผู้เรียนจะเปลี่ยนรอบเพื่อเลี่ยงโควตาได้)
@@ -252,19 +254,17 @@ export async function reserveQuestion(params: {
     );
 
     // ─── เพดานรายวันของผู้เรียน (SQL — แหล่งเดียวกับตัวเลขที่แสดง) ───
-    if (params.dailyLimit !== undefined) {
-      const dailyUsed = await countUserDailyQuestions({
-        userId: params.userId,
-        now,
-        executor: tx as never,
-      });
-      if (dailyUsed >= params.dailyLimit) {
-        return {
-          ok: false as const,
-          reason: 'daily_quota' as const,
-          quota: { used: dailyUsed, limit: params.dailyLimit, remaining: 0 },
-        };
-      }
+    const dailyUsed = await countUserDailyQuestions({
+      userId: params.userId,
+      now,
+      executor: tx as never,
+    });
+    if (dailyUsed >= params.dailyLimit) {
+      return {
+        ok: false as const,
+        reason: 'daily_quota' as const,
+        quota: { used: dailyUsed, limit: params.dailyLimit, remaining: 0 },
+      };
     }
 
     const usedRows = await tx
