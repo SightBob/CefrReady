@@ -281,6 +281,18 @@ describe('POST /api/ai-tutor — จำกัดต่อนาที (10/นา
     expect(mocks.stream).not.toHaveBeenCalled();
     expect(mocks.reserveQuestion).not.toHaveBeenCalled();
   });
+
+  it('ลำดับ: rate limit ต่อนาทีมาก่อน → ถ้าถูกปฏิเสธ ต้องไม่นับโควตารวมทั้งระบบด้วย SQL', async () => {
+    mocks.minuteLimit.mockResolvedValue(limited('42'));
+
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
+
+    expect(res.status).toBe(429);
+    // ไม่แตะฐานข้อมูลเลย: ไม่นับเพดานรวม ไม่จองโควตา ไม่ยิงโมเดล
+    expect(mocks.countSystemDailyQuestions).not.toHaveBeenCalled();
+    expect(mocks.reserveQuestion).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
 });
 
 describe('POST /api/ai-tutor — history มาจาก DB เท่านั้น', () => {
