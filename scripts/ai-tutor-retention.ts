@@ -22,7 +22,13 @@ import { checkScriptWriteGuards } from '../src/lib/ai-tutor/script-guard';
  *   AI_TUTOR_RETENTION_DAYS=90 npx tsx scripts/ai-tutor-retention.ts
  */
 async function main() {
-  const { days, apply, blank, confirmHost } = parseRetentionArgs(process.argv.slice(2));
+  const parsedArgs = parseRetentionArgs(process.argv.slice(2));
+  if (!parsedArgs.ok) {
+    // ค่า --days ผิด → หยุดทันที (exit 1) ไม่ fallback ไปใช้ค่าเริ่มต้มเงียบ ๆ
+    console.error(`🚫 ${parsedArgs.error}`);
+    process.exit(1);
+  }
+  const { days, apply, blank, confirmHost } = parsedArgs;
   const cutoff = retentionCutoff(days);
 
   // ─── กันรันผิดฐาน: ค่าเริ่มต้ม = dry-run, ต้อง --apply + --confirm-host, host ในบล็อกลิสต์ = ปฏิเสธ ───
@@ -50,8 +56,10 @@ async function main() {
 
   console.log(`\n=== AI Tutor retention (เก่ากว่า ${days} วัน · ก่อน ${cutoff.toISOString()}) ===`);
   console.log(`host              : ${guard.host}`);
+  console.log(`cutoff (วันที่)    : ${cutoff.toISOString()}`);
   if (!countFailed) {
-    console.log(`- ข้อความที่เก่ากว่านั้น: ${targets.messages} แถว`);
+    console.log(`- ข้อความที่เก่ากว่า cutoff (จะถูกลบ): ${targets.messages} แถว`);
+    console.log(`  (นับรวมแถวที่ question_id = NULL ด้วย — ข้อสอบถูกลบแล้วแต่ข้อความยังอยู่)`);
     console.log(`- feedback ที่ผูกกับข้อความเก่า: ${targets.feedback} แถว`);
   }
   console.log(`- โหมด: ${guard.dryRun ? 'dry-run (ไม่ลบอะไร)' : (blank ? 'ลบจริง (เว้นว่าง content)' : 'ลบจริง')}`);

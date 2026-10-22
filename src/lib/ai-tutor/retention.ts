@@ -11,17 +11,55 @@ import { aiTutorFeedback, aiTutorMessages } from '@/db/schema';
  */
 export const DEFAULT_RETENTION_DAYS = 180;
 
-export type RetentionArgs = {
-  days: number;
-  apply: boolean;
-  blank: boolean;
-  /** host ที่ผู้ใช้ยืนยัน (ต้องตรงกับ host ของ DATABASE_URL ก่อนเขียนจริง) */
-  confirmHost: string | null;
-};
+/**
+ * จำนวนวันขั้นต่ำที่ยอมให้ลบ (กันลบข้อมูลผิดช่วงด้วยค่าพิมพ์ผิด)
+ * เช่น "--days 3O" (ตัว O) หรือ "--days 0" → ต้อง error ไม่ใช่ fallback เงียบ ๆ
+ */
+export const MIN_RETENTION_DAYS = 30;
+
+export type RetentionArgs =
+  | {
+      ok: true;
+      days: number;
+      apply: boolean;
+      blank: boolean;
+      /** host ที่ผู้ใช้ยืนยัน (ต้องตรงกับ host ของ DATABASE_URL ก่อนเขียนจริง) */
+      confirmHost: string | null;
+    }
+  | { ok: false; error: string };
+
+/**
+ * ตรวจค่า --days: ต้องเป็นจำนวนเต็มบวกตาม /^\d+$/ และไม่น้อยกว่า MIN_RETENTION_DAYS
+ * ค่าผิด → คืน error (ผู้เรียกต้องออกด้วย exit 1 ไม่ใช่ใช้ค่าเริ่มต้มเงียบ ๆ)
+ */
+function parseDaysValue(raw: string, source: string): { ok: true; days: number } | { ok: false; error: string } {
+  const value = raw.trim();
+  if (!/^\d+$/.test(value)) {
+    return {
+      ok: false,
+      error: `${source} ต้องเป็นจำนวนเต็มบวก (เช่น 30, 90) — ได้รับ "${raw}"`,
+    };
+  }
+  const days = Number.parseInt(value, 10);
+  if (days < MIN_RETENTION_DAYS) {
+    return {
+      ok: false,
+      error: `${source} ต้องไม่น้อยกว่า ${MIN_RETENTION_DAYS} วัน — ได้รับ ${days}`,
+    };
+  }
+  return { ok: true, days };
+}
 
 export function parseRetentionArgs(argv: string[], env: NodeJS.ProcessEnv = process.env): RetentionArgs {
-  const envDays = Number.parseInt(env.AI_TUTOR_RETENTION_DAYS ?? '', 10);
-  let days = Number.isFinite(envDays) && envDays > 0 ? envDays : DEFAULT_RETENTION_DAYS;
+  // ค่าเริ่มต้นจาก env (ถ้าตั้งไว้) — ต้องผ่านการตรวจเหมือนกัน
+  let days = DEFAULT_RETENTION_DAYS;
+  const envDaysRaw = (env.AI_TUTOR_RETENTION_DAYS ?? '').trim();
+  if (envDaysRaw) {
+    const parsedEnv = parseDaysValue(envDaysRaw, 'AI_TUTOR_RETENTION_DAYS');
+    if (!parsedEnv.ok) return { ok: false, error: parsedEnv.error };
+    days = parsedEnv.days;
+  }
+
   let apply = false;
   let blank = false;
   let confirmHost: string | null = null;
@@ -37,15 +75,17 @@ export function parseRetentionArgs(argv: string[], env: NodeJS.ProcessEnv = proc
     } else if (arg === '--days') {
       // รูปแบบ "--days 30" (ค่าเป็นอาร์กิวเมนต์ถัดไป)
       index += 1;
-      const value = Number.parseInt(argv[index] ?? '', 10);
-      if (Number.isFinite(value) && value > 0) days = value;
+      const parsed = parseDaysValue(argv[index] ?? '', '--days');
+      if (!parsed.ok) return { ok: false, error: parsed.error };
+      days = parsed.days;
     } else if (arg.startsWith('--days=')) {
       // รูปแบบ "--days=30"
-      const value = Number.parseInt(arg.split('=')[1], 10);
-      if (Number.isFinite(value) && value > 0) days = value;
+      const parsed = parseDaysValue(arg.slice('--days='.length), '--days');
+      if (!parsed.ok) return { ok: false, error: parsed.error };
+      days = parsed.days;
     }
   }
-  return { days, apply, blank, confirmHost };
+  return { ok: true, days, apply, blank, confirmHost };
 }
 
 export function retentionCutoff(days: number, now: Date = new Date()): Date {
