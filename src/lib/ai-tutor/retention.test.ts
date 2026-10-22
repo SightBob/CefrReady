@@ -80,6 +80,34 @@ describe('parseRetentionArgs', () => {
     expect(parseRetentionArgs([], env({ AI_TUTOR_RETENTION_DAYS: '90' })).days).toBe(90);
     expect(parseRetentionArgs(['--days=30'], env({})).days).toBe(30);
   });
+
+  it('--days ทุกรูปแบบ: "--days 30" · "--days=30" · ไม่ใส่', () => {
+    // ค่าเริ่มต้ม (ไม่ใส่ --days)
+    expect(parseRetentionArgs([], env({})).days).toBe(DEFAULT_RETENTION_DAYS);
+    expect(parseRetentionArgs(['--apply'], env({})).days).toBe(DEFAULT_RETENTION_DAYS);
+
+    // มีช่องว่าง: --days 30
+    expect(parseRetentionArgs(['--days', '30'], env({})).days).toBe(30);
+    // มีเท่ากับ: --days=30
+    expect(parseRetentionArgs(['--days=30'], env({})).days).toBe(30);
+    // ผสมกับ flag อื่น
+    expect(parseRetentionArgs(['--apply', '--days', '45', '--confirm-host', 'h.example.com'], env({})).days).toBe(45);
+    expect(parseRetentionArgs(['--days=45', '--blank'], env({})).days).toBe(45);
+  });
+
+  it('--days ที่ผิด/ไม่มีค่า → ใช้ค่าเริ่มต้ม (กันลบข้อมูลผิดช่วง)', () => {
+    expect(parseRetentionArgs(['--days'], env({})).days).toBe(DEFAULT_RETENTION_DAYS);
+    expect(parseRetentionArgs(['--days=abc'], env({})).days).toBe(DEFAULT_RETENTION_DAYS);
+    expect(parseRetentionArgs(['--days=0'], env({})).days).toBe(DEFAULT_RETENTION_DAYS);
+    expect(parseRetentionArgs(['--days=-5'], env({})).days).toBe(DEFAULT_RETENTION_DAYS);
+    expect(parseRetentionArgs(['--days', '-5'], env({})).days).toBe(DEFAULT_RETENTION_DAYS);
+  });
+
+  it('--confirm-host ทั้งสองรูปแบบ', () => {
+    expect(parseRetentionArgs(['--confirm-host', 'h.example.com'], env({})).confirmHost).toBe('h.example.com');
+    expect(parseRetentionArgs(['--confirm-host=h.example.com'], env({})).confirmHost).toBe('h.example.com');
+    expect(parseRetentionArgs([], env({})).confirmHost).toBeNull();
+  });
 });
 
 describeLive('retention ↔ DB จริง', () => {

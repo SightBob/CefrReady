@@ -34,7 +34,16 @@ export function parseRetentionArgs(argv: string[], env: NodeJS.ProcessEnv = proc
       confirmHost = argv[index] ?? null;
     } else if (arg.startsWith('--confirm-host=')) {
       confirmHost = arg.slice('--confirm-host='.length);
-    } else if (arg.startsWith('--days=')) days = Number.parseInt(arg.split('=')[1], 10) || days;
+    } else if (arg === '--days') {
+      // รูปแบบ "--days 30" (ค่าเป็นอาร์กิวเมนต์ถัดไป)
+      index += 1;
+      const value = Number.parseInt(argv[index] ?? '', 10);
+      if (Number.isFinite(value) && value > 0) days = value;
+    } else if (arg.startsWith('--days=')) {
+      // รูปแบบ "--days=30"
+      const value = Number.parseInt(arg.split('=')[1], 10);
+      if (Number.isFinite(value) && value > 0) days = value;
+    }
   }
   return { days, apply, blank, confirmHost };
 }
