@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   findModel: vi.fn(),
   fetchModels: vi.fn(),
+  streamAiTutorReply: vi.fn(),
 }));
 
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
@@ -21,6 +22,7 @@ vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: mocks.rateLimit }));
 vi.mock('@/db', () => ({
   db: { select: mocks.select, insert: mocks.insert, delete: mocks.delete, update: mocks.update },
 }));
+vi.mock('@/lib/ai-tutor/provider', () => ({ streamAiTutorReply: mocks.streamAiTutorReply }));
 vi.mock('@/lib/ai-tutor/models', () => ({
   findModel: mocks.findModel,
   fetchOpenRouterModels: mocks.fetchModels,
@@ -28,6 +30,7 @@ vi.mock('@/lib/ai-tutor/models', () => ({
 }));
 
 import { GET as GET_CONFIG, PUT as PUT_CONFIG } from './route';
+import { getAiTutorConfig } from '@/lib/ai-tutor/config';
 import { GET as GET_MODELS } from '../models/route';
 import { POST as POST_MODEL_TEST } from '../models/test/route';
 import { GET as GET_AUDIT } from '../audit/route';
@@ -348,24 +351,91 @@ describe('GET /api/admin/ai-tutor/models', () => {
 });
 
 describe('POST /api/admin/ai-tutor/models/test', () => {
-  it('โมเดลไม่มีจริง → 400', async () => {
-    mocks.findModel.mockResolvedValue(undefined);
-    const res = await POST_MODEL_TEST(new NextRequest('http://localhost/api/admin/ai-tutor/models/test', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'no/such-model' }),
+  const MODEL_KNOWN = {
+    id: 'x/y', name: 'x', pricing: { prompt: 0, completion: 0 },
+    reasoningMandatory: false, supportedEfforts: ['low', 'high'], contextLength: 100,
+    supportsEffort: (effort: string) => effort === 'low' || effort === 'high',
+  };
+
+  const post = (body: Record<string, unknown>) =>
+    POST_MODEL_TEST(new NextRequest('http://localhost/api/admin/ai-tutor/models/test', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     }));
-    expect(res.status).toBe(400);
+
+  /** ผลลัพธ์ของ provider ที่จำลอง — รูปร่างตรง StreamResult ที่ route อ่าน */
+  function stubProviderReply(model: string) {
+    mocks.streamAiTutorReply.mockResolvedValue({
+      text: 'ทดสอบสำเร็จ',
+      ttftMs: 900,
+      finishReason: 'stop',
+      fallbackUsed: false,
+      fallbackReason: null,
+      usage: { model, latencyMs: 1200, inputTokens: 10, outputTokens: 20, reasoningTokens: 0 },
+    });
+  }
+
+  beforeEach(() => {
+    stubProviderReply(MODEL_KNOWN.id);
   });
 
-  it('effort ที่โมเดลไม่รองรับ → 400', async () => {
+  it('โมเดลไม่มีจริง → 400 (เจอในแคช/ดึงใหม่แล้วไม่เจอทั้งสองครั้ง)', async () => {
+    mocks.findModel.mockResolvedValue(undefined);
+    const res = await post({ model: 'no/such-model' });
+    expect(res.status).toBe(400);
+    // ครั้งแรกจากแคช + ครั้งที่สองดึงรายชื่อใหม่ (กันโมเดลใหม่ถูกตอบว่าไม่พบทั้งที่ใช้ได้)
+    expect(mocks.findModel).toHaveBeenCalledTimes(2);
+    expect(mocks.findModel.mock.calls[1]?.[1]).toEqual({ refresh: true });
+  });
+
+  it('ไม่พบในแคชแต่ดึงรายชื่อใหม่แล้วเจอ → ทดสอบได้', async () => {
+    const fresh = { ...MODEL_KNOWN, id: 'fresh/model' };
+    mocks.findModel
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(fresh);
+    stubProviderReply('fresh/model');
+
+    const res = await post({ model: 'fresh/model', effort: 'low' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.model).toBe('fresh/model');
+  });
+
+  it('effort ที่โมเดลไม่รองรับ → 400 (ไม่เรียก provider)', async () => {
     mocks.findModel.mockResolvedValue({
       id: 'x/y', name: 'x', pricing: { prompt: 0, completion: 0 },
       reasoningMandatory: true, supportedEfforts: ['low'], contextLength: 100,
       supportsEffort: (effort: string) => effort === 'low',
     });
-    const res = await POST_MODEL_TEST(new NextRequest('http://localhost/api/admin/ai-tutor/models/test', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'x/y', effort: 'none' }),
-    }));
+    const res = await post({ model: 'x/y', effort: 'none' });
     expect(res.status).toBe(400);
+    expect(mocks.streamAiTutorReply).not.toHaveBeenCalled();
+  });
+
+  it('เรียกโมเดลที่พิมพ์เองจริง ด้วย effort ที่หน้าจอเลือก และปิดโมเดลสำรอง', async () => {
+    mocks.findModel.mockResolvedValue(MODEL_KNOWN);
+
+    const res = await post({ model: 'x/y', effort: 'high' });
+    expect(res.status).toBe(200);
+
+    const used = mocks.streamAiTutorReply.mock.calls[0]?.[0] as {
+      config: { primaryModel: string; primaryEffort: string; fallbackModel: string | null };
+    };
+    expect(used.config.primaryModel).toBe('x/y');
+    expect(used.config.primaryEffort).toBe('high');
+    expect(used.config.fallbackModel).toBeNull();
+  });
+
+  it('ไม่ส่ง effort → ใช้ระดับที่บันทึกไว้ (ไม่ใช่ low ตั้งต้น)', async () => {
+    mocks.findModel.mockResolvedValue(MODEL_KNOWN);
+    const saved = await getAiTutorConfig();
+
+    const res = await post({ model: 'x/y' });
+    expect(res.status).toBe(200);
+
+    const used = mocks.streamAiTutorReply.mock.calls[0]?.[0] as {
+      config: { primaryEffort: string };
+    };
+    expect(used.config.primaryEffort).toBe(saved.primaryEffort);
   });
 });
 

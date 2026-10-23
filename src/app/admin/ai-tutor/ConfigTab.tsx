@@ -62,6 +62,46 @@ function toFormState(config: AdminConfigResponse['config']): FormState {
   };
 }
 
+/** ระดับ effort เริ่มต้นตอนยังไม่รู้ว่าโมเดลรองรับอะไร (ต้องตรงกับ options เดิมในหน้าจอ) */
+const DEFAULT_PRIMARY_EFFORTS = ['low', 'medium', 'high'];
+const DEFAULT_FALLBACK_EFFORTS = ['none', 'low', 'medium', 'high'];
+
+/**
+ * ระดับ effort ที่จะแสดงใน dropdown ของโมเดลนี้
+ * - โมเดลอยู่ในรายชื่อ → ใช้.supportedEfforts ของโมเดลนั้น (หรือรายการเริ่มต้นถ้าไม่ระบุ)
+ * - โมเดลที่พิมพ์เอง (ไม่อยู่ในรายชื่อ) → ตรวจไม่ได้ว่ารองรับอะไร จึงคงค่าที่เลือกไว้เป็นตัวแรก
+ *   เพื่อให้ค่าที่แสดงกับค่าที่จะบันทึกเป็นตัวเดียวกัน
+ */
+function allowedEfforts(
+  modelId: string,
+  models: AdminModel[],
+  defaults: string[],
+  current: string | null,
+): string[] {
+  const info = models.find((model) => model.id === modelId);
+  const list = info?.supportedEfforts?.length ? info.supportedEfforts : defaults;
+  const value = String(current ?? '');
+  if (!info && value && !list.includes(value)) return [value, ...list];
+  return list;
+}
+
+/**
+ * effort ที่จะบันทึกคู่กับโมเดลนี้: จำค่าเดิมถ้าโมเดลรองรับ ไม่งั้นใช้ระดับแรกที่รองรับ
+ * (กันค่าเก่า เช่น low ค้างในฟอร์มตอนเปลี่ยนไปโมเดลที่ไม่รองรับ low แล้ว server ปฏิเสธตอนบันทึก)
+ */
+function effortForModel(
+  modelId: string,
+  models: AdminModel[],
+  defaults: string[],
+  current: string | null,
+): string {
+  const info = models.find((model) => model.id === modelId);
+  if (!info) return String(current ?? defaults[0]);
+  const list = info.supportedEfforts?.length ? info.supportedEfforts : defaults;
+  const value = String(current ?? '');
+  return list.includes(value) ? value : (list[0] ?? defaults[0]);
+}
+
 export default function ConfigTab() {
   const [data, setData] = useState<AdminConfigResponse | null>(null);
   const [models, setModels] = useState<AdminModel[]>([]);
@@ -106,7 +146,27 @@ export default function ConfigTab() {
     // ─── รายการโมเดล (เสริม) ───
     if (modelsResult.status === 'fulfilled' && modelsResult.value.ok) {
       const modelsBody = await modelsResult.value.json().catch(() => null);
-      if (modelsBody?.success) setModels(modelsBody.data ?? []);
+      if (modelsBody?.success) {
+        const list: AdminModel[] = modelsBody.data ?? [];
+        setModels(list);
+        // โมเดลที่บันทึกไว้อาจไม่รองรับ effort ที่บันทึกคู่กันไว้อีกต่อไป
+        // → ปรับค่าในฟอร์มให้เป็นระดับที่โมเดลรองรับ ก่อนแสดง/ก่อนบันทึก
+        setForm((current) => ({
+          ...current,
+          primaryEffort: effortForModel(
+            String(current.primaryModel ?? ''),
+            list,
+            DEFAULT_PRIMARY_EFFORTS,
+            typeof current.primaryEffort === 'string' ? current.primaryEffort : null,
+          ),
+          fallbackEffort: effortForModel(
+            typeof current.fallbackModel === 'string' ? current.fallbackModel : '',
+            list,
+            DEFAULT_FALLBACK_EFFORTS,
+            typeof current.fallbackEffort === 'string' ? current.fallbackEffort : null,
+          ),
+        }));
+      }
     }
 
     // ─── ประวัติการเปลี่ยนค่า (เสริม: ล้มได้ ไม่ทำให้ทั้งหน้าล้ม) ───
@@ -129,7 +189,27 @@ export default function ConfigTab() {
   useEffect(() => { void load(); }, [load]);
 
   const setField = (key: string, value: string | boolean | null) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next: FormState = { ...current, [key]: value };
+      // เปลี่ยนโมเดล → ระดับ effort เดิมอาจไม่อยู่ในระดับที่โมเดลใหม่รองรับ
+      // ปรับให้ทันที ไม่ให้ค่าเก่า (เช่น low) ค้างไปพุ่งเข้าปุ่มบันทึก/ปุ่มทดสอบ
+      if (key === 'primaryModel') {
+        next.primaryEffort = effortForModel(
+          String(value ?? ''),
+          models,
+          DEFAULT_PRIMARY_EFFORTS,
+          typeof current.primaryEffort === 'string' ? current.primaryEffort : null,
+        );
+      } else if (key === 'fallbackModel') {
+        next.fallbackEffort = effortForModel(
+          typeof value === 'string' ? value : '',
+          models,
+          DEFAULT_FALLBACK_EFFORTS,
+          typeof current.fallbackEffort === 'string' ? current.fallbackEffort : null,
+        );
+      }
+      return next;
+    });
     // เปลี่ยนโมเดล = ต้องทดสอบใหม่ก่อนบันทึก
     if (key === 'primaryModel' || key === 'fallbackModel') {
       setTestedModel(null);
@@ -139,6 +219,26 @@ export default function ConfigTab() {
 
   const primaryModel = String(form.primaryModel ?? '');
   const fallbackModel = typeof form.fallbackModel === 'string' ? form.fallbackModel : null;
+
+  /** ระดับ effort ที่ dropdown โชว์ได้ — ค่าในฟอร์มต้องอยู่ในรายการนี้เสมอ */
+  const primaryEffortOptions = useMemo(
+    () => allowedEfforts(
+      primaryModel,
+      models,
+      DEFAULT_PRIMARY_EFFORTS,
+      typeof form.primaryEffort === 'string' ? form.primaryEffort : null,
+    ),
+    [models, primaryModel, form.primaryEffort],
+  );
+  const fallbackEffortOptions = useMemo(
+    () => allowedEfforts(
+      fallbackModel ?? '',
+      models,
+      DEFAULT_FALLBACK_EFFORTS,
+      typeof form.fallbackEffort === 'string' ? form.fallbackEffort : null,
+    ),
+    [models, fallbackModel, form.fallbackEffort],
+  );
 
   /** ปุ่มบันทึกปิดไว้ถ้าเปลี่ยนโมเดลหลักแต่ยังไม่ได้ทดสอบโมเดลนั้นในหน้านี้ */
   const modelChanged = Boolean(data && primaryModel !== data.config.primaryModel);
@@ -183,7 +283,7 @@ export default function ConfigTab() {
    */
   const modelOptions = useMemo(() => models.slice(0, 200), [models]);
 
-  const runTest = async (model: string) => {
+  const runTest = async (model: string, effort?: string) => {
     if (!model) {
       setNotice('เลือกโมเดลก่อนทดสอบ');
       setNoticeKind('error');
@@ -195,7 +295,9 @@ export default function ConfigTab() {
       const response = await fetch('/api/admin/ai-tutor/models/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model }),
+        // ส่ง effort ที่เลือกไว้ด้วย — ไม่งั้นฝั่ง server ใช้ low ตั้งต้นแล้วฟ้องว่า
+        // "ไม่รองรับ reasoning effort low" ทั้งที่หน้าจอเลือกระดับอื่นไว้แล้ว
+        body: JSON.stringify(effort ? { model, effort } : { model }),
       });
       const body = await response.json();
       if (!response.ok || !body.success) throw new Error(body.error || 'ทดสอบโมเดลไม่สำเร็จ');
@@ -459,15 +561,12 @@ export default function ConfigTab() {
             </label>
             <select
               aria-label="เลือก reasoning effort ของโมเดลหลัก"
-              value={String(form.primaryEffort ?? '')}
+              value={primaryEffortOptions.includes(String(form.primaryEffort ?? '')) ? String(form.primaryEffort ?? '') : ''}
               disabled={busy}
               onChange={(event) => setField('primaryEffort', event.target.value)}
               className={inputClass}
             >
-              {(primaryModelInfo?.supportedEfforts?.length
-                ? primaryModelInfo.supportedEfforts
-                : ['low', 'medium', 'high']
-              ).map((effort) => (
+              {primaryEffortOptions.map((effort) => (
                 <option key={effort} value={effort}>{effort}</option>
               ))}
             </select>
@@ -522,15 +621,12 @@ export default function ConfigTab() {
             </label>
             <select
               aria-label="เลือก reasoning effort ของโมเดลสำรอง"
-              value={String(form.fallbackEffort ?? '')}
+              value={fallbackEffortOptions.includes(String(form.fallbackEffort ?? '')) ? String(form.fallbackEffort ?? '') : ''}
               disabled={busy}
               onChange={(event) => setField('fallbackEffort', event.target.value)}
               className={inputClass}
             >
-              {(fallbackModelInfo?.supportedEfforts?.length
-                ? fallbackModelInfo.supportedEfforts
-                : ['none', 'low', 'medium', 'high']
-              ).map((effort) => (
+              {fallbackEffortOptions.map((effort) => (
                 <option key={effort} value={effort}>{effort}</option>
               ))}
             </select>
@@ -542,7 +638,7 @@ export default function ConfigTab() {
             type="button"
             aria-label="ทดสอบเรียกโมเดลหลัก"
             disabled={busy}
-            onClick={() => void runTest(primaryModel)}
+            onClick={() => void runTest(primaryModel, String(form.primaryEffort ?? ''))}
             className="btn-secondary min-h-11 disabled:opacity-50"
           >
             {testBusy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Search className="size-4" aria-hidden="true" />}

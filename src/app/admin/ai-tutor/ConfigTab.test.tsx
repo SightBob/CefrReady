@@ -67,8 +67,20 @@ const MODELS = {
       contextLength: 1048576,
       overPriceLimit: false,
     },
+    {
+      id: 'vendor/high-only:free',
+      name: 'High Only',
+      pricing: { prompt: 0, completion: 0 },
+      reasoningMandatory: true,
+      supportedEfforts: ['medium', 'high'],
+      contextLength: 200000,
+      overPriceLimit: false,
+    },
   ],
 };
+
+/** บันทึกทุกคำขอที่หน้าจอยิงออกไป (ตรวจ body ของปุ่มทดสอบ) */
+let fetchCalls: Array<{ href: string; init?: RequestInit }> = [];
 
 let container: HTMLDivElement;
 let root: Root;
@@ -81,8 +93,10 @@ function jsonResponse(body: unknown) {
 }
 
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  fetchCalls = [];
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const href = String(url);
+    fetchCalls.push({ href, init });
     if (href.includes('/api/admin/ai-tutor/config')) return jsonResponse({ success: true, data: CONFIG });
     if (href.includes('/api/admin/ai-tutor/models/test')) {
       return jsonResponse({
@@ -171,6 +185,24 @@ describe('หน้า /admin/ai-tutor — แท็บตั้งค่า', (
     expect(button('บันทึกการตั้งค่า').disabled).toBe(false);
   });
 
+  it('ปุ่มทดสอบต้องส่ง effort ที่เลือกไว้ไปด้วย (ไม่ใช่ให้ server ใช้ low ตั้งต้น)', async () => {
+    await renderTab();
+
+    await act(async () => {
+      const effort = container.querySelector<HTMLSelectElement>('select[aria-label="เลือก reasoning effort ของโมเดลหลัก"]');
+      effort!.value = 'medium';
+      effort!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => {
+      button('ทดสอบเรียกโมเดลหลัก').click();
+    });
+
+    const testCall = fetchCalls.find((call) => call.href.includes('/api/admin/ai-tutor/models/test'));
+    expect(testCall).toBeTruthy();
+    const body = JSON.parse(String(testCall!.init?.body));
+    expect(body).toEqual({ model: 'minimax/minimax-m3.1-flash:free', effort: 'medium' });
+  });
+
   it('พิมพ์ model id เองได้ แม้ไม่มีในรายการที่โหลดมา (โมเดลใหม่จาก OpenRouter)', async () => {
     await renderTab();
     const input = container.querySelector<HTMLInputElement>('input[aria-label="โมเดลหลัก"]');
@@ -186,6 +218,23 @@ describe('หน้า /admin/ai-tutor — แท็บตั้งค่า', (
     expect(container.textContent).toContain('ไม่พบ');
     // ยังต้องทดสอบก่อนบันทึก (กันพิมพ์ผิด)
     expect(button('บันทึกการตั้งค่า').disabled).toBe(true);
+  });
+
+  it('เปลี่ยนไปโมเดลที่ไม่รองรับ effort เดิม (low) → ปรับ effort ให้อัตโนมัติ ให้คำว่า low ไม่ค้าง', async () => {
+    await renderTab();
+    // ค่าที่โหลดมา: โมเดลหลัก low (CONFIG_VALUES) — พิมพ์โมเดลที่รองรับแค่ medium/high
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="โมเดลหลัก"]');
+    const effort = container.querySelector<HTMLSelectElement>('select[aria-label="เลือก reasoning effort ของโมเดลหลัก"]');
+    expect(input).toBeTruthy();
+    expect(effort!.value).toBe('low');
+
+    await act(async () => {
+      setInputValue(input!, 'vendor/high-only:free');
+    });
+
+    expect(input!.value).toBe('vendor/high-only:free');
+    // ค่า effort ในฟอร์มต้องพุ่งตามโมเดลใหม่ทันที (ปรับเป็นระดับแรกที่รองรับ)
+    expect(effort!.value).toBe('medium');
   });
 
   it('ช่องโมเดลหลักมี datalist ของรายการจาก OpenRouter ไว้ให้เลือก', async () => {
