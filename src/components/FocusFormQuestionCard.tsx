@@ -59,6 +59,10 @@ interface FocusFormQuestionCardProps {
   aiTutorReady?: boolean | null;
   /** รหัสรอบการทำข้อสอบ — แยกบทสนทนา AI ต่อรอบ */
   attemptKey?: string | null;
+  /** รหัสพาร์ทข้อสอบ — ส่งต่อให้ AI Tutor ใช้ผูก event PostHog */
+  sectionId?: string | number | null;
+  /** รหัสชุดข้อสอบ — ส่งต่อให้ AI Tutor ใช้ผูก event PostHog */
+  testSetId?: string | number | null;
 }
 
 /**
@@ -109,6 +113,8 @@ export default function FocusFormQuestionCard({
   answerProof,
   aiTutorReady = null,
   attemptKey = null,
+  sectionId = null,
+  testSetId = null,
 }: FocusFormQuestionCardProps) {
   const theme = ACCENT[accent] ?? ACCENT.primary;
   const isCorrect = selectedAnswer === correctAnswer;
@@ -293,6 +299,8 @@ export default function FocusFormQuestionCard({
         answerProof={answerProof}
         aiTutorReady={aiTutorReady}
         attemptKey={attemptKey}
+        sectionId={sectionId}
+        testSetId={testSetId}
       />
     ) : (
     <>

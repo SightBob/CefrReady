@@ -1262,6 +1262,8 @@ export default function SetQuizPage() {
         answerProof={activeCheck?.answerProof ?? null}
         aiTutorReady={activeCheck?.aiTutorReady ?? null}
         attemptKey={attemptKey}
+        sectionId={sectionId}
+        testSetId={setId}
       />
       {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}

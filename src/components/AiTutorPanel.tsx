@@ -15,8 +15,9 @@
 //
 // โหมดสด (มี questionId): แชทจริงกับ /api/ai-tutor — เธรดมาจาก server เท่านั้น
 // โหมด mock (ไม่มี questionId): เนื้อหา demo ตามแบบ Figma เดิมทุกพิกเซล
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { usePostHog } from '@/lib/posthog';
 import ExplanationText from './ExplanationText';
 import RichText from './RichText';
 
@@ -195,7 +196,20 @@ interface AiTutorPanelProps {
    * แต่รีเฟรชในรอบเดิมยังเห็นบทสนทนาเดิม)
    */
   attemptKey?: string | null;
+  /** รหัสพาร์ทข้อสอบ — ผูก event PostHog ชุด ai_tutor_* กับพาร์ท (โหมด mock ไม่ส่ง) */
+  sectionId?: string | number | null;
+  /** รหัสชุดข้อสอบ — ผูก event PostHog ชุด ai_tutor_* กับชุด */
+  testSetId?: string | number | null;
 }
+
+/** ชื่อ event PostHog ของ AI Tutor — snapshot ที่หน้าทำข้อสอบให้ประสานกับ report */
+export const AI_TUTOR_EVENTS = [
+  'ai_tutor_opened',
+  'ai_tutor_question_asked',
+  'ai_tutor_quota_exhausted',
+  'ai_tutor_error',
+  'ai_tutor_thread_reset',
+] as const;
 
 /** ข้อความตอนระบบยังตั้งค่าไม่ครบ (กลางๆ ไม่โทษผู้เรียน + บอกให้แจ้งผู้ดูแล) */
 const AI_TUTOR_NOT_CONFIGURED_MESSAGE =
@@ -209,8 +223,11 @@ export default function AiTutorPanel({
   answerProof = null,
   aiTutorReady = null,
   attemptKey = null,
+  sectionId = null,
+  testSetId = null,
 }: AiTutorPanelProps = {}) {
   const isLive = questionId !== null;
+  const posthog = usePostHog();
   const [chatInput, setChatInput] = useState('');
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [quota, setQuota] = useState<Quota | null>(null);
@@ -221,6 +238,11 @@ export default function AiTutorPanel({
   const [quotaExhausted, setQuotaExhausted] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // mirror ของ entries สำหรับอ่านใน callback โดยไม่ทำให้ callback ถูกสร้างใหม่ทุกข้อความ
+  // (ตัวนับ index ของ AI Tutor ใช้อ่านจากที่นี่ — สถานะจริงยังอยู่ใน useState เหมือนเดิม)
+  const entriesRef = useRef<ChatEntry[]>([]);
+  if (entriesRef.current !== entries) entriesRef.current = entries;
 
   // สถานะแยกต่อข้อ: เปลี่ยนข้อ → ล้างช่องพิมพ์/เธรดของข้อเดิม (ตัวนับคำถามจะผูกกับ
   // threadKey เดียวกันตอนต่อ AI จริง) ไม่ให้สถานะข้อก่อนหน้าปนกับข้อใหม่
@@ -234,13 +256,36 @@ export default function AiTutorPanel({
     setQuotaExhausted(false);
   }, [threadKey]);
 
+  // ─── Analytics: PostHog ชุด ai_tutor_* (โหมด mock ไม่ยิงอะไรเลย) ─────────────
+  // ห้ามส่งเนื้อหาคำถามผู้เรียนขึ้น PostHog — เชิงปริมาณเท่านั้น (เนื้อหาอยู่ใน DB แล้ว)
+  const analyticsBase = useMemo(() => ({
+    question_id: questionId,
+    attempt_key: attemptKey,
+    section_id: sectionId,
+    test_set_id: testSetId,
+  }), [questionId, attemptKey, sectionId, testSetId]);
+
+  // ai_tutor_opened — เห็นกรอบ AI ต่อข้อหนึ่งครั้ง (threadKey ป้องกันยิงซ้ำเมื่อข้อเดิม re-render)
+  const openedThreadRef = useRef<string | number | undefined | null>(null);
+  useEffect(() => {
+    if (!isLive || !posthog || openedThreadRef.current === threadKey) return;
+    openedThreadRef.current = threadKey;
+    posthog.capture('ai_tutor_opened', analyticsBase);
+  }, [analyticsBase, isLive, posthog, threadKey]);
+
   // ระบบยังตั้งค่าไม่ครบ (เช่น ไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET) → บอกทันทีว่าเป็นปัญหาระบบ
   // ไม่ใช่โทษผู้เรียนว่า "ยังไม่ได้กดตรวจคำตอบ" (ต้องมาหลัง effect ข้างบน เพื่อไม่ให้ถูกล้างทับ)
+  // พร้อมกันนั้นรายงาน event ai_tutor_error (error_kind: not_configured) ต่อข้อหนึ่งครั้ง
+  const notConfiguredReportedRef = useRef<string | number | undefined | null>(null);
   useEffect(() => {
     if (aiTutorReady === false) {
       setError(AI_TUTOR_NOT_CONFIGURED_MESSAGE);
+      if (isLive && posthog && notConfiguredReportedRef.current !== threadKey) {
+        notConfiguredReportedRef.current = threadKey;
+        posthog.capture('ai_tutor_error', { ...analyticsBase, error_kind: 'not_configured' });
+      }
     }
-  }, [aiTutorReady, threadKey]);
+  }, [aiTutorReady, threadKey, isLive, posthog, analyticsBase]);
 
   // ดึงเธรดเดิม + โควตาจาก server (ไม่ต้องใช้ proof — เป็นข้อมูลของผู้เรียนเอง)
   // เฉพาะรอบการทำข้อสอบนี้ (attemptKey) — รอบก่อนหน้าไม่โผล่
@@ -292,6 +337,11 @@ export default function AiTutorPanel({
           ? AI_TUTOR_NOT_CONFIGURED_MESSAGE
           : 'ยังไม่ได้กด "ตรวจคำตอบ" ของข้อนี้ — กรุณากดตรวจคำตอบก่อนถาม AI',
       );
+      // ผู้เรียนพยายามถามแต่กันไว้ — รายงานเพื่อวัดว่ากันไว้ถูกเจอบ่อยแค่ไหน
+      posthog?.capture('ai_tutor_error', {
+        ...analyticsBase,
+        error_kind: aiTutorReady === false ? 'not_configured' : 'not_checked',
+      });
       return;
     }
     if (quotaExhausted) return;
@@ -314,6 +364,14 @@ export default function AiTutorPanel({
       setEntries((current) => current.filter((entry) => entry.key !== localKey));
     };
 
+    // ai_tutor_question_asked — ยิงจริงเมื่อถามต่อ (ทุกครั้ง) — นับเฉพาะจำนวน ไม่ส่งเนื้อหา
+    const questionIndex = entriesRef.current.filter((entry) => entry.role === 'user').length + 1;
+    posthog?.capture('ai_tutor_question_asked', {
+      ...analyticsBase,
+      question_index: questionIndex,
+      answer_length: message.length,
+    });
+
     try {
       const response = await fetch('/api/ai-tutor', {
         method: 'POST',
@@ -330,6 +388,12 @@ export default function AiTutorPanel({
           if (body?.quota) {
             setQuotaExhausted(true);
             setQuota(body.quota);
+            posthog?.capture('ai_tutor_quota_exhausted', {
+              ...analyticsBase,
+              used: body.quota.used, limit: body.quota.limit,
+            });
+          } else {
+            posthog?.capture('ai_tutor_error', { ...analyticsBase, error_kind: 'rate_limit' });
           }
         }
         removeLocalEntry();
@@ -375,6 +439,11 @@ export default function AiTutorPanel({
             }
             setStreamingText('');
           } else if (event.type === 'error') {
+            posthog?.capture('ai_tutor_error', {
+              ...analyticsBase,
+              error_kind: 'provider',
+              answered_partially: answer.length > 0,
+            });
             if (answer) {
               setEntries((current) => [...current, { key: `ai-${Date.now()}`, role: 'ai', content: answer }]);
             } else {
@@ -401,12 +470,13 @@ export default function AiTutorPanel({
       if (buffer) handleEvent(buffer);
     } catch {
       removeLocalEntry();
+      posthog?.capture('ai_tutor_error', { ...analyticsBase, error_kind: 'network' });
       setError('เชื่อมต่อ AI ไม่สำเร็จ กรุณาลองใหม่');
       setRetryMessage(message);
     } finally {
       setSending(false);
     }
-  }, [answerProof, attemptKey, aiTutorReady, isLive, questionId, quotaExhausted, sending]);
+  }, [answerProof, attemptKey, aiTutorReady, isLive, questionId, quotaExhausted, sending, posthog, analyticsBase]);
 
   /**
    * ส่งจากช่องพิมพ์ — อ่านค่าจาก DOM (ช่องพิมพ์เป็น uncontrolled) แล้วล้างช่องทันที
@@ -460,14 +530,17 @@ export default function AiTutorPanel({
       if (!response.ok) {
         // เช่นถี่เกินไป (429) หรือระบบใช้ไม่ได้ (503) → บอกผู้เรียน ไม่ล้างบทสนทนา
         setError(typeof body?.error === 'string' ? body.error : 'เริ่มคำถามใหม่ไม่สำเร็จ กรุณาลองใหม่');
+        posthog?.capture('ai_tutor_thread_reset', { ...analyticsBase, status: 'error' });
         return;
       }
       if (body?.quota) setQuota(body.quota);
       setEntries([]);
+      posthog?.capture('ai_tutor_thread_reset', { ...analyticsBase, status: 'ok' });
     } catch {
       setError('เริ่มคำถามใหม่ไม่สำเร็จ กรุณาลองใหม่');
+      posthog?.capture('ai_tutor_thread_reset', { ...analyticsBase, status: 'error' });
     }
-  }, [attemptKey, isLive, questionId]);
+  }, [attemptKey, isLive, questionId, posthog, analyticsBase]);
 
   const quotaText = quota
     ? `ถามแล้ว ${quota.used} คำถาม`
