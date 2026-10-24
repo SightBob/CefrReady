@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, MessageSquareText, Search } from 'lucide-react';
+import { AlertTriangle, Bot, Loader2, MessageSquareText, Search, Users } from 'lucide-react';
 
 type MessageRow = {
   id: number;
@@ -43,6 +43,13 @@ const STATUS_LABEL: Record<string, string> = {
   ok: 'สำเร็จ',
   failed: 'ล้มเหลว',
   pending: 'กำลังประมวลผล',
+};
+
+/** สีของป้ายสถานะ — อ่านเร็ว ๆ ในตาราง */
+const STATUS_STYLE: Record<string, string> = {
+  ok: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  failed: 'bg-rose-50 text-rose-700 ring-rose-200',
+  pending: 'bg-amber-50 text-amber-700 ring-amber-200',
 };
 
 function formatTime(value: string): string {
@@ -125,7 +132,7 @@ export default function QuestionsTab() {
         </div>
 
         <form
-          className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
+          className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:grid-cols-2 lg:grid-cols-5"
           onSubmit={(event) => {
             event.preventDefault();
             void load(1);
@@ -205,22 +212,25 @@ export default function QuestionsTab() {
 
         {summary && (
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">คำถามผู้เรียน</p>
-              <p className="text-2xl font-bold text-slate-900">{summary.questions}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">ผู้เรียนที่ถาม</p>
-              <p className="text-2xl font-bold text-slate-900">{summary.learners}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">คำตอบ AI</p>
-              <p className="text-2xl font-bold text-slate-900">{summary.answers}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">ล้มเหลว (คืนโควตา)</p>
-              <p className="text-2xl font-bold text-slate-900">{summary.failed}</p>
-            </div>
+            {[
+              { label: 'คำถามผู้เรียน', value: summary.questions, icon: MessageSquareText, accent: 'bg-sky-50 text-sky-600' },
+              { label: 'ผู้เรียนที่ถาม', value: summary.learners, icon: Users, accent: 'bg-violet-50 text-violet-600' },
+              { label: 'คำตอบ AI', value: summary.answers, icon: Bot, accent: 'bg-emerald-50 text-emerald-600' },
+              { label: 'ล้มเหลว (คืนโควตา)', value: summary.failed, icon: AlertTriangle, accent: 'bg-amber-50 text-amber-600' },
+            ].map((card) => {
+              const Icon = card.icon;
+              return (
+                <div key={card.label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${card.accent}`}>
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-500">{card.label}</p>
+                    <p className="text-2xl font-bold tabular-nums text-slate-900">{card.value}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -241,7 +251,10 @@ export default function QuestionsTab() {
           </div>
         )}
 
-        <p className="mt-4 text-sm text-slate-500">ทั้งหมด {total} รายการ · หน้า {page} / {totalPages}</p>
+        <p className="mt-5 flex items-center gap-2 text-sm text-slate-500">
+          ทั้งหมด <strong className="font-semibold text-slate-700">{total}</strong> รายการ
+          <span className="text-slate-300" aria-hidden="true">·</span> หน้า {page} / {totalPages}
+        </p>
 
         {loading ? (
           <p className="mt-4 flex items-center gap-2 text-sm text-slate-500">
@@ -253,18 +266,18 @@ export default function QuestionsTab() {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-3">เวลา</th>
-                  <th className="py-2 pr-3">ผู้เรียน</th>
-                  <th className="py-2 pr-3">ข้อ</th>
-                  <th className="py-2 pr-3">ประเภท</th>
-                  <th className="py-2 pr-3">ข้อความ</th>
-                  <th className="py-2">สถานะ</th>
+                <tr className="border-b border-slate-200 bg-slate-50/80 text-xs tracking-wide text-slate-500">
+                  <th className="py-2.5 pr-3 pl-3 font-semibold">เวลา</th>
+                  <th className="py-2.5 pr-3 font-semibold">ผู้เรียน</th>
+                  <th className="py-2.5 pr-3 font-semibold">ข้อ</th>
+                  <th className="py-2.5 pr-3 font-semibold">ประเภท</th>
+                  <th className="py-2.5 pr-3 font-semibold">ข้อความ</th>
+                  <th className="py-2.5 pr-3 font-semibold">สถานะ</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-slate-100 align-top">
+                  <tr key={row.id} className="border-b border-slate-100 align-top transition-colors last:border-0 hover:bg-slate-50/70">
                     <td className="whitespace-nowrap py-2 pr-3 text-xs text-slate-500">{formatTime(row.createdAt)}</td>
                     <td className="break-all py-2 pr-3 text-slate-700">
                       {row.userEmail}
@@ -278,7 +291,7 @@ export default function QuestionsTab() {
                       #{row.questionId}
                       {row.cefrLevel && <span className="ml-1">{row.cefrLevel}</span>}
                     </td>
-                    <td className="py-2 pr-3 text-xs text-slate-500">{ROLE_LABEL[row.role] ?? row.role}</td>
+                    <td className="py-2 pr-3 text-xs whitespace-nowrap text-slate-500">{ROLE_LABEL[row.role] ?? row.role}</td>
                     <td className="py-2 pr-3 text-slate-700">
                       <details>
                         <summary className="cursor-pointer break-words">
@@ -311,7 +324,13 @@ export default function QuestionsTab() {
                         )}
                       </details>
                     </td>
-                    <td className="py-2 text-xs text-slate-500">{STATUS_LABEL[row.status] ?? row.status}</td>
+                    <td className="py-2 pr-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ring-1 ring-inset ${STATUS_STYLE[row.status] ?? 'bg-slate-50 text-slate-600 ring-slate-200'}`}
+                      >
+                        {STATUS_LABEL[row.status] ?? row.status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Search, UserMinus, UserPlus } from 'lucide-react';
+import { Loader2, Search, UserMinus, UserPlus, Users } from 'lucide-react';
 
 import ConfirmModal from './ConfirmModal';
 import type { BulkResult } from './types';
@@ -113,10 +113,22 @@ export default function TestersTab({ rolloutPercent }: { rolloutPercent: number 
       )}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-bold text-slate-900">ผู้ที่มีสิทธิ์ใช้ AI Tutor</h2>
-          <p className="text-sm text-slate-500">
-            rollout ปัจจุบัน <strong className="text-slate-700">{rolloutPercent}%</strong> (ตั้งค่าได้ในแท็บ “ตั้งค่า”)
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
+              <Users className="size-[18px]" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">ผู้ที่มีสิทธิ์ใช้ AI Tutor</h2>
+              <p className="mt-0.5 text-sm leading-5 text-slate-500">
+                บัญชีที่ได้รับสิทธิ์เฉพาะราย — นอกเหนือจากกลุ่ม rollout
+              </p>
+            </div>
+          </div>
+          <p className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">
+            rollout ปัจจุบัน <strong className="text-slate-700">{rolloutPercent}%</strong>
+            <span className="text-slate-300" aria-hidden="true">·</span>
+            แก้ในแท็บ “ตั้งค่า”
           </p>
         </div>
 
@@ -146,20 +158,22 @@ export default function TestersTab({ rolloutPercent }: { rolloutPercent: number 
             <Loader2 className="size-4 animate-spin" aria-hidden="true" /> กำลังโหลด…
           </p>
         ) : testers.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-500">ไม่พบผู้ที่มีสิทธิ์</p>
+          <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-8 text-center text-sm text-slate-500">
+            ไม่พบผู้ที่มีสิทธิ์
+          </p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-3">อีเมล</th>
-                  <th className="py-2 pr-3">ชื่อ</th>
-                  <th className="py-2 text-right">จัดการ</th>
+                <tr className="border-b border-slate-200 bg-slate-50/80 text-xs tracking-wide text-slate-500">
+                  <th className="py-2.5 pr-3 pl-3 font-semibold">อีเมล</th>
+                  <th className="py-2.5 pr-3 font-semibold">ชื่อ</th>
+                  <th className="py-2.5 pr-3 text-right font-semibold">จัดการ</th>
                 </tr>
               </thead>
               <tbody>
                 {testers.map((tester) => (
-                  <tr key={tester.id} className="border-b border-slate-100">
+                  <tr key={tester.id} className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70">
                     <td className="break-all py-2 pr-3 text-slate-700">{tester.email}</td>
                     <td className="py-2 pr-3 text-slate-500">{tester.name ?? '-'}</td>
                     <td className="py-2 text-right">
@@ -202,8 +216,17 @@ export default function TestersTab({ rolloutPercent }: { rolloutPercent: number 
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-lg font-bold text-slate-900">เพิ่ม/ถอนสิทธิ์แบบหลายรายการ</h2>
-        <p className="mt-1 text-sm text-slate-500">วางอีเมลทีละบรรทัด (หรือคั่นด้วยจุลภาค) · สูงสุด 200 รายการต่อครั้ง</p>
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
+            <UserPlus className="size-[18px]" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">เพิ่ม/ถอนสิทธิ์แบบหลายรายการ</h2>
+            <p className="mt-0.5 text-sm leading-5 text-slate-500">
+              วางอีเมลทีละบรรทัด (หรือคั่นด้วยจุลภาค) · สูงสุด 200 รายการต่อครั้ง
+            </p>
+          </div>
+        </div>
         <textarea
           value={emailsInput}
           onChange={(event) => setEmailsInput(event.target.value)}

@@ -1,7 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, RotateCcw, Search } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Cpu,
+  History,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  XCircle,
+} from 'lucide-react';
 
 import { aiTutorSaveRequestSchema, type AiTutorSettingsKey } from '@/lib/ai-tutor/settings-schema';
 import {
@@ -13,7 +25,32 @@ import {
 import ConfirmModal from './ConfirmModal';
 import type { AdminAuditRow, AdminConfigResponse, AdminModel, ModelTestResult } from './types';
 
-const inputClass = 'mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-primary-500';
+const inputClass = 'mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base outline-none transition-colors hover:border-slate-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-100';
+
+const sectionClass = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6';
+
+/** หัวข้อ section — ไอคอนในกรอบสี + คำอธิบายสั้น เพื่อให้อ่านผ่านหน้าที่ยาวได้เร็ว */
+function SectionHeader({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof Cpu;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
+        <Icon className="size-[18px]" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+        {description && <p className="mt-0.5 text-sm leading-5 text-slate-500">{description}</p>}
+      </div>
+    </div>
+  );
+}
 
 /** ดึงเฉพาะขอบเขตจากแหล่งเดียว (ไม่เอา hint มาด้วย — หน้านี้ใช้คำอธิบายของตัวเอง) */
 const rangeOf = (key: AiTutorRangeKey) => {
@@ -394,6 +431,23 @@ export default function ConfigTab() {
   const proofSecretMissing = !data.envStatus.proofSecret;
   const openRouterKeyMissing = !data.envStatus.openrouterKey;
 
+  const envItems = [
+    { label: 'env AI_TUTOR_ENABLED', ok: data.envStatus.masterEnabled, okText: 'เปิดอยู่', badText: 'ปิดอยู่' },
+    { label: 'OPENROUTER_API_KEY', ok: data.envStatus.openrouterKey, okText: 'ตั้งแล้ว', badText: 'ยังไม่ได้ตั้ง' },
+    { label: 'AI_TUTOR_PROOF_SECRET', ok: data.envStatus.proofSecret, okText: 'ตั้งแล้ว', badText: 'ยังไม่ได้ตั้ง' },
+    { label: 'AI_TUTOR_EXPORT_SALT', ok: data.envStatus.exportSalt, okText: 'ตั้งแล้ว', badText: 'ยังไม่ได้ตั้ง' },
+  ];
+
+  /** คีย์ที่แก้แล้วยังไม่บันทึก (ใช้แสดงบนแถบดำเนินการ) */
+  const changedKeys = Object.entries(form)
+    .filter(([key, value]) => {
+      const original = (data.config as unknown as Record<string, unknown>)[key];
+      const current = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+      return JSON.stringify(current) !== JSON.stringify(original);
+    })
+    .map(([key]) => key);
+  const pendingCount = new Set([...changedKeys, ...resetKeys]).size;
+
   return (
     <div className="space-y-6">
       {notice && (
@@ -452,33 +506,29 @@ export default function ConfigTab() {
       )}
 
       {/* ─── สถานะ ─── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-lg font-bold text-slate-900">สถานะ</h2>
+      <section className={sectionClass}>
+        <SectionHeader
+          icon={ShieldCheck}
+          title="สถานะระบบ"
+          description="ค่าที่ต้องตั้งใน env และสวิตช์เปิดใช้งานชั่วคราว"
+        />
         <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 p-3">
-            <dt className="text-xs font-semibold text-slate-500">env AI_TUTOR_ENABLED</dt>
-            <dd className={`mt-1 text-sm font-bold ${data.envStatus.masterEnabled ? 'text-emerald-700' : 'text-rose-600'}`}>
-              {data.envStatus.masterEnabled ? 'เปิดอยู่' : 'ปิดอยู่'}
-            </dd>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-3">
-            <dt className="text-xs font-semibold text-slate-500">OPENROUTER_API_KEY</dt>
-            <dd className={`mt-1 text-sm font-bold ${data.envStatus.openrouterKey ? 'text-emerald-700' : 'text-rose-600'}`}>
-              {data.envStatus.openrouterKey ? 'ตั้งแล้ว' : 'ยังไม่ได้ตั้ง'}
-            </dd>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-3">
-            <dt className="text-xs font-semibold text-slate-500">AI_TUTOR_PROOF_SECRET</dt>
-            <dd className={`mt-1 text-sm font-bold ${data.envStatus.proofSecret ? 'text-emerald-700' : 'text-rose-600'}`}>
-              {data.envStatus.proofSecret ? 'ตั้งแล้ว' : 'ยังไม่ได้ตั้ง'}
-            </dd>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-3">
-            <dt className="text-xs font-semibold text-slate-500">AI_TUTOR_EXPORT_SALT</dt>
-            <dd className={`mt-1 text-sm font-bold ${data.envStatus.exportSalt ? 'text-emerald-700' : 'text-rose-600'}`}>
-              {data.envStatus.exportSalt ? 'ตั้งแล้ว' : 'ยังไม่ได้ตั้ง'}
-            </dd>
-          </div>
+          {envItems.map((item) => (
+            <div
+              key={item.label}
+              className={`rounded-xl border p-3 transition-colors ${item.ok ? 'border-slate-200 bg-white' : 'border-rose-200 bg-rose-50/70'}`}
+            >
+              <dt className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                {item.ok
+                  ? <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
+                  : <XCircle className="size-3.5 shrink-0 text-rose-600" aria-hidden="true" />}
+                <span className="truncate font-mono">{item.label}</span>
+              </dt>
+              <dd className={`mt-1.5 text-sm font-bold ${item.ok ? 'text-emerald-700' : 'text-rose-600'}`}>
+                {item.ok ? item.okText : item.badText}
+              </dd>
+            </div>
+          ))}
         </dl>
 
         {masterOff && (
@@ -489,7 +539,13 @@ export default function ConfigTab() {
           </p>
         )}
 
-        <label className="mt-5 flex min-h-11 items-center gap-3 text-base text-slate-700">
+        <label
+          className={`mt-5 flex min-h-14 items-start gap-3 rounded-xl border p-4 transition-colors ${
+            masterOff
+              ? 'cursor-not-allowed border-slate-200 bg-slate-50'
+              : 'cursor-pointer border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+          }`}
+        >
           <input
             type="checkbox"
             aria-label="สวิตช์เปิดใช้งาน AI Tutor"
@@ -502,21 +558,38 @@ export default function ConfigTab() {
               }
               setField('runtimeEnabled', true);
             }}
-            className="h-5 w-5"
+            className="mt-0.5 size-5 shrink-0 accent-primary-600"
           />
-          เปิดใช้งาน AI Tutor (สวิตช์ชั่วคราว)
-          {sourceBadge('runtimeEnabled')}
+          <span className="min-w-0">
+            <span className="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-800">
+              เปิดใช้งาน AI Tutor (สวิตช์ชั่วคราว)
+              {sourceBadge('runtimeEnabled')}
+            </span>
+            <span className="mt-0.5 block text-sm leading-5 text-slate-500">
+              ผู้เรียนจะเห็นโหมด AI ในหน้าทำข้อสอบเมื่อสวิตช์นี้และ rollout เปิดอยู่
+            </span>
+          </span>
         </label>
+        {!masterOff && Boolean(form.runtimeEnabled) && (
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
+            <CheckCircle2 className="size-3.5 text-emerald-600" aria-hidden="true" />
+            ระบบพร้อมให้บริการ — เปลี่ยนแปลงมีผลภายใน ~30 วินาที
+          </p>
+        )}
         {masterOff && (
           <p className="mt-1 text-sm text-slate-500">ปิดสวิตช์นี้ไม่ได้ขณะที่ env AI_TUTOR_ENABLED ปิดอยู่</p>
         )}
       </section>
 
       {/* ─── โมเดล ─── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-lg font-bold text-slate-900">โมเดล</h2>
+      <section className={sectionClass}>
+        <SectionHeader
+          icon={Cpu}
+          title="โมเดล"
+          description="โมเดลหลักที่ใช้ตอบ และโมเดลสำรองเมื่อหลักล้มเหลวหรือไม่ตอบ"
+        />
 
-        <div className="mt-4 grid gap-5 lg:grid-cols-2">
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <div>
             <label className="block text-sm font-semibold text-slate-700">
               โมเดลหลัก {sourceBadge('primaryModel')}
@@ -667,9 +740,13 @@ export default function ConfigTab() {
       </section>
 
       {/* ─── ค่าตัวเลข ─── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-lg font-bold text-slate-900">ค่าตัวเลข</h2>
-        <div className="mt-4 grid gap-5 md:grid-cols-2">
+      <section className={sectionClass}>
+        <SectionHeader
+          icon={SlidersHorizontal}
+          title="ค่าตัวเลข"
+          description="โควตา · rollout · เพดาน token · เวลารอ — แต่ละค่ามีช่วงที่ server ยอมรับ"
+        />
+        <div className="mt-5 grid gap-6 md:grid-cols-2">
           {NUMERIC_FIELDS.map((field) => (
             <div key={field.key}>
               <label className="block text-sm font-semibold text-slate-700">
@@ -694,9 +771,9 @@ export default function ConfigTab() {
                 type="button"
                 disabled={busy}
                 onClick={() => resetField(field.key)}
-                className="mt-2 inline-flex min-h-11 items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="mt-1 inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-lg px-2 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary-700 disabled:opacity-50"
               >
-                <RotateCcw className="size-4" aria-hidden="true" /> คืนค่า env
+                <RotateCcw className="size-3.5" aria-hidden="true" /> คืนค่า env
               </button>
             </div>
           ))}
@@ -731,30 +808,15 @@ export default function ConfigTab() {
           ค่าที่บันทึกจะมีผลภายในราว <strong>30 วินาที</strong> (แคชฝั่ง server) · {data.limits.note}
         </p>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            aria-label="บันทึกการตั้งค่า"
-            onClick={() => void save()}
-            disabled={!canSave}
-            className="btn-primary min-h-11 disabled:opacity-50"
-          >
-            {saving ? 'กำลังบันทึก…' : 'บันทึกการตั้งค่า'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={busy}
-            className="btn-secondary min-h-11 disabled:opacity-50"
-          >
-            <RefreshCw className="size-4" aria-hidden="true" /> โหลดค่าใหม่
-          </button>
-        </div>
       </section>
 
       {/* ─── ประวัติการเปลี่ยนแปลง ─── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-lg font-bold text-slate-900">ประวัติการเปลี่ยนแปลงล่าสุด</h2>
+      <section className={sectionClass}>
+        <SectionHeader
+          icon={History}
+          title="ประวัติการเปลี่ยนแปลงล่าสุด"
+          description="ใครเปลี่ยนค่าไหน จากอะไรเป็นอะไร — พร้อมข้อมูลก่อน/หลัง"
+        />
         {audit.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">ยังไม่มีรายการ</p>
         ) : (
@@ -789,6 +851,36 @@ export default function ConfigTab() {
           </div>
         )}
       </section>
+
+      {/* แถบดำเนินการ — ติดขอบล่างเมื่อเลื่อน (หน้าตั้งค่ายาวกว่าจอมาก) */}
+      <div className="sticky bottom-3 z-20 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2.5 shadow-lg shadow-slate-900/5 backdrop-blur sm:bottom-4 sm:px-4 sm:py-3">
+        <p className="hidden min-w-0 flex-1 items-center gap-1.5 text-xs text-slate-500 sm:flex">
+          {pendingCount > 0
+            ? <span className="font-semibold text-amber-700">มีการแก้ไขที่ยังไม่บันทึก ({pendingCount} รายการ)</span>
+            : 'ทุกค่าตรงกับที่บันทึกไว้'}
+        </p>
+        <div className="flex flex-1 items-center gap-2 sm:flex-none">
+          <button
+            type="button"
+            aria-label="โหลดค่าใหม่"
+            onClick={() => void load()}
+            disabled={busy}
+            className="btn-secondary inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 px-3 py-2 text-sm disabled:opacity-50 sm:flex-none sm:px-5"
+          >
+            <RefreshCw className="size-4" aria-hidden="true" />
+            <span className="hidden sm:inline">โหลดค่าใหม่</span>
+          </button>
+          <button
+            type="button"
+            aria-label="บันทึกการตั้งค่า"
+            onClick={() => void save()}
+            disabled={!canSave}
+            className="btn-primary inline-flex min-h-11 flex-[2] cursor-pointer items-center justify-center px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50 sm:flex-none sm:px-6"
+          >
+            {saving ? 'กำลังบันทึก…' : 'บันทึกการตั้งค่า'}
+          </button>
+        </div>
+      </div>
 
       <ConfirmModal
         open={confirmDisable}
