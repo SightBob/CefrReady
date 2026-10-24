@@ -1,0 +1,112 @@
+/**
+ * POST /api/ai-tutor/reset — เก็บถังข้อความเดิมของข้อนั้น (ไม่ลบ) และไม่คืนโควตา
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  auth: vi.fn(),
+  enabled: vi.fn(),
+  minuteLimit: vi.fn(),
+  archiveThread: vi.fn(),
+  getQuotaSnapshot: vi.fn(),
+  getDailyQuotaSnapshot: vi.fn(),
+  getAiTutorConfig: vi.fn(),
+}));
+
+vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
+vi.mock('@/lib/ai-tutor', () => ({ isAiTutorEnabled: mocks.enabled }));
+vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRateLimit: mocks.minuteLimit }));
+vi.mock('@/lib/ai-tutor/messages', () => ({ archiveThread: mocks.archiveThread }));
+vi.mock('@/lib/ai-tutor/quota', () => ({ getDailyQuotaSnapshot: mocks.getDailyQuotaSnapshot }));
+// โควตาที่แสดงต้องมาจาก config (DB ทับ env) → ตรงกับที่บังคับจริง
+vi.mock('@/lib/ai-tutor/config', () => ({ getAiTutorConfig: mocks.getAiTutorConfig }));
+
+import { POST } from './route';
+
+function post(body: unknown) {
+  return POST(new Request('http://localhost:3000/api/ai-tutor/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }));
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.auth.mockResolvedValue({ user: { id: 'u1' } });
+  mocks.enabled.mockResolvedValue(true);
+  mocks.minuteLimit.mockResolvedValue(null);
+  mocks.archiveThread.mockResolvedValue(4);
+  // โควตาไม่เปลี่ยนหลัง reset (ยังนับแถวที่ถูกเก็บถัง)
+  mocks.getDailyQuotaSnapshot.mockResolvedValue({ used: 2, limit: 100, remaining: 98 });
+  mocks.getAiTutorConfig.mockResolvedValue({
+    questionQuota: 10,
+    userDailyLimit: 100,
+    systemDailyLimit: 10_000,
+  });
+});
+
+describe('POST /api/ai-tutor/reset', () => {
+  it('ไม่ล็อกอิน → 401', async () => {
+    mocks.auth.mockResolvedValue(null);
+    expect((await post({ questionId: 7, attemptKey: 'attempt-key-0001' })).status).toBe(401);
+    expect(mocks.archiveThread).not.toHaveBeenCalled();
+  });
+
+  it('ไม่ผ่าน feature flag → 403', async () => {
+    mocks.enabled.mockResolvedValue(false);
+    expect((await post({ questionId: 7, attemptKey: 'attempt-key-0001' })).status).toBe(403);
+    expect(mocks.archiveThread).not.toHaveBeenCalled();
+  });
+
+  it('body ผิด → 400', async () => {
+    expect((await post({ questionId: 0, attemptKey: 'attempt-key-0001' })).status).toBe(400);
+  });
+
+  it('เก็บถังข้อความของผู้เรียนคนนั้นเท่านั้น', async () => {
+    const res = await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(mocks.archiveThread).toHaveBeenCalledWith({ userId: 'u1', questionId: 7, attemptKey: 'attempt-key-0001' });
+    expect(body.archived).toBe(4);
+  });
+
+  it('ไม่คืนโควตา — ตัวเลขโควตาหลัง reset เท่าเดิม', async () => {
+    const body = await (await post({ questionId: 7, attemptKey: 'attempt-key-0001' })).json();
+    expect(body.quota).toEqual({ used: 2, limit: 100, remaining: 98 });
+  });
+
+  it('โควตาที่แสดงใช้ค่าจาก config (DB ทับ env) — เพดานรายวันของผู้เรียน', async () => {
+    await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
+    expect(mocks.getDailyQuotaSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 100, userId: 'u1' }),
+    );
+  });
+
+  it('ฐานข้อมูลใช้ไม่ได้ → 503 พร้อมข้อความที่ผู้เรียนอ่านรู้เรื่อง (ไม่ใช่ 500)', async () => {
+    mocks.archiveThread.mockRejectedValue(new Error('relation "ai_tutor_messages" does not exist'));
+
+    const res = await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('ระบบ AI Tutor ยังไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่อีกครั้ง');
+  });
+
+  it('จำกัด 10 ครั้ง/นาที → 429 พร้อม Retry-After และข้อความไทย', async () => {
+    await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
+    expect(mocks.minuteLimit).toHaveBeenCalledWith('u1', { keySuffix: 'ai-tutor:reset', maxRequests: 10 });
+
+    mocks.minuteLimit.mockResolvedValue(new Response(JSON.stringify({ success: false, error: 'Too many requests' }), {
+      status: 429,
+      headers: { 'Retry-After': '60' },
+    }));
+    mocks.archiveThread.mockClear();
+    const res = await post({ questionId: 7, attemptKey: 'attempt-key-0001' });
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+    const body = await res.json();
+    expect(body.error).toBe('เริ่มคำถามใหม่ถี่เกินไป กรุณารอสักครู่แล้วลองใหม่');
+    expect(mocks.archiveThread).not.toHaveBeenCalled();
+  });
+});

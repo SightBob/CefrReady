@@ -16,6 +16,9 @@ export const users = pgTable('users', {
   // Taster role: can browse the site even while maintenance mode is ON
   // (beta tester). Does NOT grant admin access.
   isTaster: boolean('is_taster').default(false).notNull(),
+  // AI Tutor (Figma 580:27829) — สิทธิ์เห็นฟีเจอร์ AI Tutor เฉพาะบัญชี
+  // (master switch + rollout ที่ src/lib/ai-tutor.ts)
+  aiTutorAccess: boolean('ai_tutor_access').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -555,4 +558,90 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
 
 export type DbAiUsageLog = typeof aiUsageLogs.$inferSelect;
 export type NewAiUsageLog = typeof aiUsageLogs.$inferInsert;
+
+// ─── AI Tutor (Figma 580:27829) ─────────────────────────────────────────────
+// บทสนทนากับโมเดลของผู้เรียน (โหมด AI ในหน้าทำข้อสอบ)
+// เก็บเฉพาะข้อความที่ "เรียกโมเดลจริง" — เทิร์นแรกที่เป็นคำอธิบายเดิมจาก
+// questions.explanation ไม่ได้เก็บ (ดึงสดจาก DB ทุกครั้ง ลด token และไม่หลอกตัวเอง)
+export const aiTutorMessages = pgTable('ai_tutor_messages', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // migration 0050: ข้อสอบถูกลบ → เก็บข้อความไว้ให้วิเคราะห์ (question_id = NULL) แทนที่จะถูก cascade ลบ
+  questionId: integer('question_id').references(() => questions.id, { onDelete: 'set null' }),
+  // 'user' = คำถามของผู้เรียน (1 แถว = 1 การเรียกโมเดล) · 'assistant' = คำตอบของโมเดล
+  role: varchar('role', { length: 20 }).notNull(),
+  content: text('content').default('').notNull(),
+  // 'pending' = จองโควตาแล้วกำลังเรียกโมเดล · 'ok' = สำเร็จ · 'failed' = ล้มเหลว (คืนโควตา)
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  archived: boolean('archived').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  latencyMs: integer('latency_ms'),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  model: varchar('model', { length: 200 }),
+  // คำตอบที่ผู้เรียนเลือกในข้อนี้ (คำนวณจาก proof ที่ลงชื่อไว้ฝั่ง server — ไม่รับจาก client)
+  selectedAnswer: text('selected_answer'),
+  // ผู้เรียนตอบถูกไหม (เทียบกับเฉลยใน DB)
+  isCorrect: boolean('is_correct'),
+  // หมวดคำถาม — เตรียมคอลัมน์ไว้ ยังไม่จัดอัตโนมัติ
+  category: text('category'),
+  // ครั้งนี้สลับไปใช้โมเดลสำรองไหม
+  fallbackUsed: boolean('fallback_used'),
+  // finish_reason ของโมเดล (stop / length …) ใช้แยกคำตอบที่ถูกตัด
+  finishReason: text('finish_reason'),
+  // รหัสรอบการทำข้อสอบ — แยกบทสนทนาต่อรอบ (migration 0049)
+  // null = แถวเก่าที่ยังไม่ได้ผูกกับรอบ (ไม่แสดงในเธรด)
+  attemptKey: text('attempt_key'),
+}, (table) => ({
+  threadIdx: index('ai_tutor_messages_thread_idx').on(table.userId, table.questionId, table.createdAt),
+  quotaIdx: index('ai_tutor_messages_quota_idx').on(table.userId, table.questionId, table.status),
+  questionIdx: index('ai_tutor_messages_question_idx').on(table.questionId),
+  attemptIdx: index('ai_tutor_messages_attempt_idx').on(table.userId, table.questionId, table.attemptKey, table.createdAt),
+}));
+
+export type DbAiTutorMessage = typeof aiTutorMessages.$inferSelect;
+export type NewAiTutorMessage = typeof aiTutorMessages.$inferInsert;
+
+// ─── AI Tutor feedback (👍/👎 ของผู้เรียน) ─────────────────────────────────
+export const aiTutorFeedback = pgTable('ai_tutor_feedback', {
+  id: serial('id').primaryKey(),
+  messageId: integer('message_id').notNull().references(() => aiTutorMessages.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // 'up' = 👍 · 'down' = 👎
+  value: varchar('value', { length: 10 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  // หนึ่งคนกดได้หนึ่งครั้งต่อข้อความ
+  uniqueFeedback: unique('ai_tutor_feedback_unique').on(table.messageId, table.userId),
+  userIdx: index('ai_tutor_feedback_user_idx').on(table.userId),
+}));
+
+export type DbAiTutorFeedback = typeof aiTutorFeedback.$inferSelect;
+export type NewAiTutorFeedback = typeof aiTutorFeedback.$inferInsert;
+
+// ─── ค่าตั้ง AI Tutor ที่ผู้ดูแลแก้ได้จากหน้า admin ─────────────────────
+// key/value (value เป็น jsonb) — ค่าในตารางนี้ทับค่า env (env = ค่าตั้งต้น)
+export const aiTutorSettings = pgTable('ai_tutor_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// บันทึกการเปลี่ยนค่าโดยผู้ดูแล (ก่อน/หลัง) เพื่อตรวจย้อนหลังได้
+export const aiTutorAdminAudit = pgTable('ai_tutor_admin_audit', {
+  id: serial('id').primaryKey(),
+  actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+  action: varchar('action', { length: 50 }).notNull(),
+  target: varchar('target', { length: 200 }),
+  before: jsonb('before'),
+  after: jsonb('after'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  createdIdx: index('ai_tutor_admin_audit_created_idx').on(table.createdAt),
+  actorIdx: index('ai_tutor_admin_audit_actor_idx').on(table.actorUserId),
+}));
+
+export type DbAiTutorSetting = typeof aiTutorSettings.$inferSelect;
+export type DbAiTutorAdminAudit = typeof aiTutorAdminAudit.$inferSelect;
 

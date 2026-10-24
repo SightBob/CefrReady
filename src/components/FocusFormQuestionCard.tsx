@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Sparkle } from '@phosphor-icons/react';
+import AiTutorPanel from './AiTutorPanel';
 import SelectableText from './SelectableText';
 import ExplanationText from './ExplanationText';
 import { useScrollIntoViewOnReveal } from '@/lib/use-scroll-on-reveal';
@@ -40,6 +41,28 @@ interface FocusFormQuestionCardProps {
    * (ผู้ใช้กำหนด 2026-10-18: เลื่อนเฉพาะหน้าทำข้อสอบ)
    */
   scrollToExplanationOnReveal?: boolean;
+  /**
+   * ผู้ใช้กำหนด 2026-10-19 — เปิดโหมด AI Tutor: บล็อกเฉลย "แวะอ่านสักนิด
+   * ครั้งหน้าทำได้แน่ 💛" ถูกแทนด้วยกรอบ AI Tutor และคำอธิบายของข้อกลายเป็น
+   * บทสนทนาแรกในแชท (หน้าสอบจริงเท่านั้น — ธงจาก /api/tests/ai-tutor-access)
+   * สถานะถูก/ผิดยังแสดงผ่านสีตัวเลือก (เขียว/ชมพู) เหมือนเดิม
+   */
+  aiTutor?: boolean;
+  /** รหัสข้อ — ใช้เป็นคีย์เธรดของ AI Tutor ให้สถานะแยกต่อข้อ (เปลี่ยนข้อ = เธรดใหม่) */
+  questionId?: string | number;
+  /** หลักฐานว่าผู้เรียนกด "ตรวจคำตอบ" ข้อนี้แล้ว — ใช้ยืนยันกับ /api/ai-tutor */
+  answerProof?: string | null;
+  /**
+   * ระบบ AI Tutor พร้อมให้ถามหรือไม่ — false = ตั้งค่าไม่ครบ (ไม่ใช่ความผิดของผู้เรียน)
+   * null/undefined = ไม่ทราบ / ฟีเจอร์ปิด
+   */
+  aiTutorReady?: boolean | null;
+  /** รหัสรอบการทำข้อสอบ — แยกบทสนทนา AI ต่อรอบ */
+  attemptKey?: string | null;
+  /** รหัสพาร์ทข้อสอบ — ส่งต่อให้ AI Tutor ใช้ผูก event PostHog */
+  sectionId?: string | number | null;
+  /** รหัสชุดข้อสอบ — ส่งต่อให้ AI Tutor ใช้ผูก event PostHog */
+  testSetId?: string | number | null;
 }
 
 /**
@@ -85,6 +108,13 @@ export default function FocusFormQuestionCard({
   headerIcon: HeaderIcon,
   headerLabel,
   scrollToExplanationOnReveal = false,
+  aiTutor = false,
+  questionId,
+  answerProof,
+  aiTutorReady = null,
+  attemptKey = null,
+  sectionId = null,
+  testSetId = null,
 }: FocusFormQuestionCardProps) {
   const theme = ACCENT[accent] ?? ACCENT.primary;
   const isCorrect = selectedAnswer === correctAnswer;
@@ -258,6 +288,22 @@ export default function FocusFormQuestionCard({
 
       {showExplanation && (
   <div ref={explanationRef} className="mt-6">
+    {aiTutor ? (
+      /* AI Tutor แทนบล็อก "แวะอ่านสักนิด…" — คำอธิบายข้อนี้เป็นบทสนทนาแรกในแชท
+         (ผู้ใช้กำหนด 2026-10-19 เพื่อลด token: ไม่ต้องส่งคำอธิบายซ้ำอีกชั้น) */
+      <AiTutorPanel
+        introMessage={explanation}
+        threadKey={questionId}
+        showBetaLabels
+        questionId={typeof questionId === 'number' ? questionId : null}
+        answerProof={answerProof}
+        aiTutorReady={aiTutorReady}
+        attemptKey={attemptKey}
+        sectionId={sectionId}
+        testSetId={testSetId}
+      />
+    ) : (
+    <>
     {/* Header — Otter + caption */}
     <div className="relative z-20 inline-flex items-end gap-2 pl-[2.6rem]">
       <Image
@@ -326,6 +372,8 @@ export default function FocusFormQuestionCard({
         </div>
       </div>
     </div>
+    </>
+    )}
   </div>
 )}
     </div>

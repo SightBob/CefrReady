@@ -3,6 +3,7 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { accounts, users, verificationTokens } from '../db/schema';
+import { usersForAuth } from '../db/auth-compat';
 import { authConfig } from './auth.config';
 import { isAdminEmail } from './admin-identity';
 
@@ -29,8 +30,15 @@ if (!process.env.NEXTAUTH_SECRET) {
 type AnyTable = any;
 
 // NOTE: sessions table is intentionally omitted — JWT strategy doesn't use it
+//
+// usersTable ที่ส่งให้ adapter = "มุมมอง" ของตาราง users ที่ตัดคอลัมน์ของฟีเจอร์
+// AI Tutor (users.ai_tutor_access จาก migration 0045) ออก
+// เหตุผล: adapter อ่านด้วย `db.select().from(usersTable)` (ไม่ระบุคอลัมน์) → drizzle
+// จะ select ทุกคอลัมน์ใน schema รวมทั้ง ai_tutor_access → ถ้า migration ยังไม่รัน
+// การล็อกอิน/สมัครผ่าน OAuth จะพัง แม้ฟีเจอร์ AI Tutor จะปิดอยู่ก็ตาม
+// ดูรายละเอียดที่ src/db/auth-compat.ts
 const adapter = DrizzleAdapter(db, {
-  usersTable: users as AnyTable,
+  usersTable: usersForAuth as AnyTable,
   accountsTable: accounts as AnyTable,
   verificationTokensTable: verificationTokens as AnyTable,
 });

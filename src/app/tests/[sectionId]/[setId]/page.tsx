@@ -36,6 +36,12 @@ import dynamic from 'next/dynamic';
 import TestExplainOverlay, { type TestExplainContent } from '@/components/TestExplainOverlay';
 import { buildTopicRuns, firstSlotIndexForTopic, topicRunForSlot } from '@/lib/test-set-topics';
 import { wasSetExplainRead, clearSetExplainRead } from '@/lib/test-explain-read';
+import {
+  attemptKeyStorageKey,
+  getOrCreateAttemptKey,
+} from '@/lib/ai-tutor/attempt-key';
+import { endAiTutorAttempt } from '@/lib/ai-tutor/end-attempt';
+import { useEndAiTutorAttempt } from '@/lib/ai-tutor/use-end-attempt';
 import { groupTapReasonsByQuestion } from '@/lib/tap-reason-rewards';
 
 const TestLayout = dynamic(() => import('@/components/TestLayout'), {
@@ -99,6 +105,18 @@ type AnswerCheck = {
   /** ข้อความเฉลยสำหรับช่องกรอกคำ */
   correctText: string | null;
   explanation: string | null;
+  /**
+   * หลักฐานว่าผู้เรียนกด "ตรวจคำตอบ" ของข้อนี้แล้ว (มีเฉพาะผู้ที่ผ่าน feature flag
+   * AI Tutor) — ส่งตามไปกับ POST /api/ai-tutor เพื่อยืนยันว่าถามเกี่ยวกับข้อที่ตอบแล้ว
+   */
+  answerProof?: string | null;
+  /**
+   * ระบบ AI Tutor พร้อมให้ถามหรือไม่
+   * - ไม่มีฟิลด์นี้ = ฟีเจอร์ปิดทั้งระบบ
+   * - false = ระบบยังตั้งค่าไม่ครบ (เช่น ไม่ได้ตั้ง AI_TUTOR_PROOF_SECRET) → ต้องบอกผู้เรียนว่าเป็นปัญหาระบบ
+   *   ไม่ใช่โทษว่า "ยังไม่ได้กดตรวจคำตอบ"
+   */
+  aiTutorReady?: boolean | null;
 };
 
 /** คืนคีย์คำตอบถูกจากเฉลยที่ติดมากับ payload (ไม่มีในข้อมูลชนิด Public ที่ถูกถอดเฉลย) */
@@ -148,6 +166,19 @@ export default function SetQuizPage() {
     : undefined;
   /** เรื่องที่แอดมินขอเปิดตรง ๆ (?topic=…) — ใช้เฉพาะโหมดพรีวิว */
   const previewTopic = previewMode ? searchParams.get('topic') : null;
+
+  /**
+   * AI Tutor (Figma 580:27829) — ธงฝั่งเซิร์ฟเวอร์: เซิร์ฟเวอร์เช็ค master switch
+   * + สิทธิ์ users.ai_tutor_access + rollout แล้วส่ง boolean มาให้ทางช่องทางเดียว
+   * /api/tests/ai-tutor-access ไปเอาจาก query string ไม่ได้ และตัดสินใจที่เซิร์ฟเวอร์
+   * (ไม่ใช่ธง env แบบ client โดยเดียว)
+   */
+  const [aiTutorEnabled, setAiTutorEnabled] = useState(false);
+  /**
+   * รหัสรอบการทำข้อสอบของ AI Tutor — สร้างใหม่เมื่อเริ่มรอบใหม่ (ทำซ้ำ/ส่งแล้ว)
+   * เก็บใน sessionStorage ผูกกับชุดข้อสอบ → รีเฟรชในรอบเดิมยังเห็นบทสนทนาเดิม
+   */
+  const [attemptKey, setAttemptKey] = useState<string | null>(null);
 
   const [setData, setSetData] = useState<SetData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -390,6 +421,28 @@ export default function SetQuizPage() {
     }
   }, [status, setId, sectionId, router, fetchSet]);
 
+  // AI Tutor flag — ถามเซิร์ฟเวอร์หลังล็อกอิน (fail-closed: ผิดพลาด = ไม่เห็น panel)
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    apiFetch('/api/tests/ai-tutor-access')
+      .then((res) => (res.ok ? res.json() : { enabled: false }))
+      .then((data: { enabled?: boolean } | null) => setAiTutorEnabled(Boolean(data?.enabled)))
+      .catch(() => undefined);
+  }, [status]);
+
+  // รหัสรอบการทำข้อสอบ (AI Tutor) — อ่านจาก sessionStorage ของชุดนี้
+  useEffect(() => {
+    setAttemptKey(getOrCreateAttemptKey(attemptKeyStorageKey(sectionId, setId)));
+  }, [sectionId, setId]);
+
+  /**
+   * ออกจากการทำข้อสอบ (กด ✕ / ออกจากข้อสอบ / เปลี่ยนชุด / ปิดแท็บ) → รีเซ็ตประวัติการคุยกับ AI
+   *
+   * - หมุนรหัสรอบ → ครั้งหน้าที่กลับมาเข้าชุดเดิม แชท AI เริ่มใหม่ (ไม่เห็นบทสนทนาของรอบก่อน)
+   * - เก็บถังบทสนทนาของรอบนี้บนเซิร์ฟเวอร์ (ไม่ลบ ไม่คืนโควตา)
+   */
+  useEndAiTutorAttempt({ sectionId, setId, attemptKey });
+
   // Track test_started when questions are loaded
   useEffect(() => {
     if (setData && posthog && testStartedAtRef.current === 0) {
@@ -490,6 +543,8 @@ export default function SetQuizPage() {
         correctKey: typeof body.data.correctKey === 'string' ? body.data.correctKey : null,
         correctText: typeof body.data.correctText === 'string' ? body.data.correctText : null,
         explanation: typeof body.data.explanation === 'string' ? body.data.explanation : null,
+        answerProof: typeof body.data.answerProof === 'string' ? body.data.answerProof : null,
+        aiTutorReady: typeof body.data.aiTutorReady === 'boolean' ? body.data.aiTutorReady : null,
       };
       setCheckedSlots(current => ({ ...current, [slotIndex]: result }));
     } catch (error) {
@@ -650,6 +705,13 @@ export default function SetQuizPage() {
         setResults(data.data.results ?? []);
         setAttemptId(data.data.attemptId ?? null);
         setIsFinished(true);
+        // ส่งข้อสอบแล้ว = จบรอบการทำข้อสอบ → รีเซ็ตประวัติการคุยกับ AI
+        // (หมุนรหัสรอบใหม่ → ครั้งหน้าที่กลับมาทำชุดนี้อีกครั้งจะได้แชทใหม่
+        //  ข้อความเก่ายังอยู่ใน DB เพื่อวิเคราะห์ แต่ถูกเก็บถังเป็นรอบที่จบแล้ว)
+        setAttemptKey(endAiTutorAttempt({
+          storageKey: attemptKeyStorageKey(sectionId, setId),
+          attemptKey,
+        }));
         // Track test_submitted
         if (posthog && testStartedAtRef.current > 0) {
           const totalQuestions = data.data.totalQuestions ?? mainSlots.length;
@@ -764,6 +826,11 @@ export default function SetQuizPage() {
     setSelectedAnswer(null);
     setCurrentQuestion(0);
     setAttemptId(null);
+    // ทำชุดใหม่ = รอบใหม่ของ AI Tutor (บทสนทนาเก่าไม่โผล่ในรอบนี้ + เก็บถังรอบเดิม)
+    setAttemptKey(endAiTutorAttempt({
+      storageKey: attemptKeyStorageKey(sectionId, setId),
+      attemptKey,
+    }));
     setFormMeaningTotalBlanks(0);
     setAudioPlayedMap({});
     setIsFinished(false);
@@ -1190,6 +1257,13 @@ export default function SetQuizPage() {
         conversation={question.conversation ?? null}
         onAnswerSelect={handleAnswer}
         disabled={submitting}
+        aiTutor={aiTutorEnabled}
+        questionId={question.id}
+        answerProof={activeCheck?.answerProof ?? null}
+        aiTutorReady={activeCheck?.aiTutorReady ?? null}
+        attemptKey={attemptKey}
+        sectionId={sectionId}
+        testSetId={setId}
       />
       {activeCheckError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{activeCheckError}</p>}
       {modalsFragment}
