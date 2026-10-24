@@ -259,6 +259,25 @@ npm run test:db
 - `drizzle/meta/_journal.json` อยู่ใน `.gitignore` → ไม่ต้องแก้ด้วยมือ (สคริปต์จัดการเอง)
 - ใช้ `DO $$ … $$` หา constraint จาก `pg_constraint` ได้ ถ้าชื่อ constraint ในฐานไม่ตรงกับไฟล์
 
+### 7.4 Cron ล้างข้อมูลเก่า (Vercel Cron → `GET /api/cron/ai-tutor-retention`)
+
+`vercel.json` ตั้ง cron รายวัน `0 3 * * *` (03:00 UTC = 10:00 เวลาไทย) เรียก
+`/api/cron/ai-tutor-retention` — **ค่าเริ่มต้นคือ dry-run** (นับแถวที่เก่ากว่า cutoff แล้วรายงาน ไม่ลบอะไร)
+
+| env | ผล |
+|---|---|
+| `CRON_SECRET` | **จำเป็น** · Vercel แนบ `Authorization: Bearer <secret>` ให้เอง · ไม่ตั้ง = endpoint ตอบ 503 และไม่รัน |
+| `AI_TUTOR_RETENTION_DAYS` | จำนวนวัน (ค่าเริ่มต้น 180 · ขั้นต่ำ 30) · ค่าผิด = 500 และไม่รัน |
+| `AI_TUTOR_RETENTION_APPLY` | `true`/`1` = ลบจริง (ไม่ตั้ง = dry-run) |
+| `AI_TUTOR_RETENTION_BLANK` | `true`/`1` (ต้องมี APPLY ด้วย) = เว้นว่าง `content` แทนการลบแถว |
+
+- คำตอบเป็น JSON: `days`, `cutoff`, `mode` (`dry-run` / `delete` / `blank`), `messages`, `feedback` และ `no-store`
+- token ผิด = 401 · DB ล่ม/ตารางยังไม่มี = 503 โดยไม่เผยรายละเอียดภายใน
+- เรียกมือ (ทดสอบว่า secret ถูก): `curl -H "Authorization: Bearer $CRON_SECRET" https://<โดเมน>/api/cron/ai-tutor-retention`
+- **ถ้า deploy ด้วย Railway** (`railway.json`) cron ของ Vercel จะไม่ทำงาน → ต้องตั้ง cron ของโฮสต์นั้นเรียก path นี้พร้อม header เอง
+  (หรือรัน `npx tsx scripts/ai-tutor-retention.ts` ตามปกติ)
+- จะเปลี่ยนเป็นลบจริง: ตั้ง `AI_TUTOR_RETENTION_APPLY=true` หลังดูผล dry-run หลายวันแล้วว่าจำนวนแถวที่ตรงกับที่คาด
+
 ---
 
 ## 8. คำสั่งที่ใช้บ่อย
