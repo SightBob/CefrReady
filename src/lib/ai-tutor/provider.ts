@@ -208,7 +208,16 @@ async function attemptModel(params: {
   const firstTokenController = new AbortController();
   let firstTokenTimer: ReturnType<typeof setTimeout> | null = null;
   let sawContent = false;
+  // เคลียร์ timer ให้ครบทุกทางออกก่อนเข้าลูปสตรีม — ถ้า return ออกก่อนเข้า finally
+  // ของลูป (เช่น fetch throw / response ไม่ ok) timer จะค้างรอจนหมดเวลา แม้ request จบไปแล้ว
+  const clearFirstTokenTimer = () => {
+    if (firstTokenTimer) {
+      clearTimeout(firstTokenTimer);
+      firstTokenTimer = null;
+    }
+  };
   const armFirstTokenTimer = () => {
+    clearFirstTokenTimer();
     firstTokenTimer = setTimeout(() => {
       if (!sawContent) firstTokenController.abort();
     }, params.firstTokenTimeoutMs);
@@ -234,6 +243,7 @@ async function attemptModel(params: {
     });
   } catch (error) {
     if (firstTokenController.signal.aborted && !sawContent) {
+      clearFirstTokenTimer();
       return {
         ok: false,
         reason: 'first-token-timeout',
@@ -243,8 +253,10 @@ async function attemptModel(params: {
       };
     }
     if (params.signal?.aborted) {
+      clearFirstTokenTimer();
       throw new AiTutorProviderError(499, 'การเชื่อมต่อถูกตัด');
     }
+    clearFirstTokenTimer();
     return {
       ok: false,
       reason: 'timeout',
@@ -255,6 +267,7 @@ async function attemptModel(params: {
   }
 
   if (!response.ok) {
+    clearFirstTokenTimer();
     const detail = await response.text()
       .then((text) => {
         try {
@@ -282,6 +295,7 @@ async function attemptModel(params: {
   }
 
   if (!response.body) {
+    clearFirstTokenTimer();
     return {
       ok: false,
       reason: 'empty',

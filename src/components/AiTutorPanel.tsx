@@ -76,8 +76,8 @@ function AiSummaryBubble() {
 // ก้อนแชทฝั่งผู้เรียน (580:27986–27990)
 function UserAnswerBubble() {
   return (
-    <div className="flex w-full max-w-[361px] flex-col items-end gap-[8px]">
-      <div className="flex h-auto min-h-[52px] w-full items-center justify-end overflow-clip rounded-[18px] bg-[#c8e6ff] pl-[19px] pr-[16px] min-[890px]:h-[52px]">
+    <div className="flex w-full flex-col items-end gap-[8px]">
+      <div className="flex h-auto min-h-[52px] w-fit max-w-[361px] items-center justify-end overflow-clip rounded-[18px] bg-[#c8e6ff] pl-[19px] pr-[16px] min-[890px]:h-[52px]">
         <p className="text-right text-[14px] leading-[22px] font-medium whitespace-normal text-[#0d6d97] min-[890px]:whitespace-nowrap">
           พิมพ์คำถามต่อในเธรดนี้ (เช่น ขอตัวอย่างโจทย์คล้ายกัน)...
         </p>
@@ -143,9 +143,9 @@ function AiLiveBubble({ text }: { text: string }) {
 /** ก้อนข้อความผู้เรียนสด (ขวา) พร้อมป้าย "คำถาม N" */
 function UserLiveBubble({ text, index }: { text: string; index: number }) {
   return (
-    <div className="flex w-full max-w-[361px] flex-col items-end gap-[8px]">
-      <div className="flex h-auto min-h-[52px] w-full items-center justify-end overflow-clip rounded-[18px] bg-[#c8e6ff] pl-[19px] pr-[16px]">
-        <p className="text-right text-[14px] leading-[22px] font-medium whitespace-pre-wrap text-[#0d6d97]">{text}</p>
+    <div className="flex w-full flex-col items-end gap-[8px]">
+      <div className="flex h-auto min-h-[52px] w-fit max-w-[361px] items-center justify-end overflow-clip rounded-[18px] bg-[#c8e6ff] pl-[19px] pr-[16px]">
+        <p className="text-right text-[14px] leading-[22px] font-medium whitespace-pre-wrap break-words text-[#0d6d97]">{text}</p>
       </div>
       <div className="flex w-full items-center justify-end px-[10px]">
         <p className="text-[12px] leading-[19px] text-[#536176]">คำถาม {index}</p>
@@ -300,12 +300,19 @@ export default function AiTutorPanel({
     setError(null);
     setRetryMessage(null);
     setStreamingText('');
+    const localKey = `local-${Date.now()}`;
     setEntries((current) => [...current, {
-      key: `local-${Date.now()}`,
+      key: localKey,
       role: 'user',
       content: message,
       index: current.filter((entry) => entry.role === 'user').length + 1,
     }]);
+
+    // ถ้าคำขอไม่ถูกบันทึกลง DB (error ก่อน/ระหว่างส่ง) ต้องถอดฟองข้อความ local ออก
+    // เพื่อให้ "บนจอ = ข้อมูลใน DB" — ไม่งั้นรีเฟรชเธรดแล้วข้อความจะหายไป
+    const removeLocalEntry = () => {
+      setEntries((current) => current.filter((entry) => entry.key !== localKey));
+    };
 
     try {
       const response = await fetch('/api/ai-tutor', {
@@ -325,6 +332,7 @@ export default function AiTutorPanel({
             setQuota(body.quota);
           }
         }
+        removeLocalEntry();
         setError(text);
         setRetryMessage(message);
         setSending(false);
@@ -369,6 +377,9 @@ export default function AiTutorPanel({
           } else if (event.type === 'error') {
             if (answer) {
               setEntries((current) => [...current, { key: `ai-${Date.now()}`, role: 'ai', content: answer }]);
+            } else {
+              // โมเดลไม่ได้ตอบอะไรเลย → คำขอถูก mark failed ใน DB → ถอดฟองข้อความ local ออก
+              removeLocalEntry();
             }
             setStreamingText('');
             setError(event.error ?? 'AI ตอบไม่สำเร็จ กรุณาลองใหม่');
@@ -389,6 +400,7 @@ export default function AiTutorPanel({
       }
       if (buffer) handleEvent(buffer);
     } catch {
+      removeLocalEntry();
       setError('เชื่อมต่อ AI ไม่สำเร็จ กรุณาลองใหม่');
       setRetryMessage(message);
     } finally {
@@ -484,11 +496,6 @@ export default function AiTutorPanel({
               <p className="text-[12px] whitespace-nowrap font-semibold leading-[15px] text-[#081425]">
                 {quotaText} <span className="text-[#6d5b16]">(เหลือโควตา {quota ? quota.remaining : 5} ครั้ง)</span>
               </p>
-              {showBetaLabels && (
-                <p className="ml-auto shrink-0 text-[11px] leading-[15px] whitespace-nowrap text-[#8a7a4e]">
-                  AI อาจตอบผิดได้
-                </p>
-              )}
             </div>
           </div>
           <div className="flex shrink-0 items-start gap-[22px] pt-[8px]">
@@ -618,7 +625,7 @@ export default function AiTutorPanel({
            → วางที่ 92px จึงอยู่เหนือช่องพิมพ์ ในพื้นที่ว่างท้ายแชท) */}
       {showBetaLabels && (
         <p className="pointer-events-none absolute right-[12px] bottom-[92px] max-w-[calc(100%-24px)] rounded-[6px] bg-[#fffffd]/85 px-[6px] py-[1px] text-right text-[10px] leading-[14px] text-[#a08a4a]">
-          ระบบบันทึกคำถามเพื่อนำไปปรับปรุงการสอน อย่าพิมพ์ข้อมูลส่วนตัว
+          ระบบบันทึกคำถามเพื่อนำไปปรับปรุงการสอน
         </p>
       )}
     </div>

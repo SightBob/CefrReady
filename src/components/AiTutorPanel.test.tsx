@@ -89,10 +89,10 @@ describe('AiTutorPanel — ป้าย Beta + ข้อความกันเ
     expect(mock).not.toContain('AI อาจตอบผิดได้');
   });
 
-  it('แสดงเมื่อเปิด showBetaLabels โดยไม่ดันหัวข้อความเดิม', () => {
+  it('แสดงป้าย Beta โดยไม่แสดงคำเตือน "AI อาจตอบผิดได้" (ตัดออกทุกตำแหน่ง)', () => {
     const live = renderToStaticMarkup(<AiTutorPanel showBetaLabels questionId={7} answerProof="proof" />);
     expect(live).toContain('ทดลองใช้ (Beta)');
-    expect(live).toContain('AI อาจตอบผิดได้');
+    expect(live).not.toContain('AI อาจตอบผิดได้');
     // หัวข้อ/โควตาเดิมยังอยู่และไม่ถูกแทนที่
     expect(live).toContain('โหมด AI');
     expect(live).toContain('(เหลือโควตา 5 ครั้ง)');

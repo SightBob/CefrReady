@@ -447,7 +447,9 @@ export async function saveAiTutorSettings(
 
   await db.insert(aiTutorAdminAudit).values({
     actorUserId,
-    action: resetKeys.length ? 'update_settings' : 'update_settings',
+    // ลบคีย์ทั้งหมดเพื่อคืนค่า env = reset_settings, ถ้ามีการเขียนค่าด้วย = update_settings
+    // (เดิมเป็น ternary ที่สองฝั่งคืนค่าเดียวกัน — โค้ดตาย)
+    action: keys.length ? 'update_settings' : 'reset_settings',
     target: [...keys, ...resetKeys].join(','),
     before: { effective: beforeEffective, db: beforeDb } as never,
     after: { effective: afterEffective, db: afterDb } as never,

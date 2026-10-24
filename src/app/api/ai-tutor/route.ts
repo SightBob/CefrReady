@@ -324,7 +324,11 @@ export async function POST(request: Request) {
   let providerMessages: ReturnType<typeof buildProviderMessages>;
   try {
     const thread = await getThreadMessages({ userId, questionId, attemptKey });
-    providerMessages = buildProviderMessages({ context, thread, learnerMessage: message });
+    // กรองแถวที่เพิ่งจองโควตาใน request นี้ออก — reserveQuestion() insert แถว pending
+    // ของคำถามเดียวกันไปแล้ว ถ้าไม่กรอง buildProviderMessages จะ push คำถามซ้ำ
+    // (ครั้งจากแถว DB + ครั้งจาก learnerMessage) → โมเดลได้คำถามเดิม 2 บรรทัดทุกครั้ง
+    const threadWithoutCurrent = thread.filter((row) => row.id !== reservation.messageId);
+    providerMessages = buildProviderMessages({ context, thread: threadWithoutCurrent, learnerMessage: message });
   } catch (error) {
     await markUserMessageFailed({ messageId: reservation.messageId, selectedAnswer, isCorrect });
     warnWithSummary('ai-tutor] อ่านประวัติไม่สำเร็จ', error);

@@ -312,9 +312,12 @@ export async function reserveQuestion(params: {
       .limit(1);
 
     if (recentFailed[0]) {
+      // คืน archived=false ด้วย: แถว failed อาจถูกเก็บถังด้วยปุ่ม reset ไปก่อนหน้า
+      // (reset เก็บถังไม่คืนโควตา) ถ้าไม่คืน แถวจะยังค้าง archived=true
+      // → ข้อความของผู้เรียนไม่โผล่ในเธรด แม้เรียกโมเดลจริง
       const [updated] = await tx
         .update(aiTutorMessages)
-        .set({ status: 'pending', createdAt: now })
+        .set({ status: 'pending', createdAt: now, archived: false })
         .where(eq(aiTutorMessages.id, recentFailed[0].id))
         .returning({ id: aiTutorMessages.id });
       return {
