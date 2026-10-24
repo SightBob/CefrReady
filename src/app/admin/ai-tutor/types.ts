@@ -84,6 +84,23 @@ export type AdminUsageResponse = {
   runtimeEnabled: boolean;
 };
 
+/** สถิติ 👍/👎 จาก GET /api/admin/ai-tutor/feedback */
+export type AdminFeedbackResponse = {
+  days: number;
+  up: number;
+  down: number;
+  total: number;
+  downvoted: Array<{
+    messageId: number;
+    votedAt: string;
+    content: string;
+    model: string | null;
+    questionText: string | null;
+    grammarTopic: string | null;
+    cefrLevel: string | null;
+  }>;
+};
+
 /** ผลของการทดสอบโมเดล */
 export type ModelTestResult = {
   model: string;

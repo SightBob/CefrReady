@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bot, ChevronRight, MessageSquareText, Users } from 'lucide-react';
+import { ArrowLeft, Bot, ChevronRight, MessageSquareText, ThumbsUp, Users } from 'lucide-react';
 
 import ConfigTab from './ConfigTab';
+import FeedbackTab from './FeedbackTab';
 import QuestionsTab from './QuestionsTab';
 import TestersTab from './TestersTab';
 
-type Tab = 'settings' | 'testers' | 'questions';
+type Tab = 'settings' | 'testers' | 'questions' | 'feedback';
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof Bot }> = [
   { id: 'settings', label: 'ตั้งค่า', icon: Bot },
   { id: 'testers', label: 'ผู้ทดสอบ', icon: Users },
   { id: 'questions', label: 'คำถามผู้เรียน', icon: MessageSquareText },
+  { id: 'feedback', label: 'ความพึงพอใจ', icon: ThumbsUp },
 ];
 
 type TutorStatus = {
@@ -155,7 +157,9 @@ export default function AdminAiTutorPage() {
             ? <ConfigTab />
             : tab === 'testers'
               ? <TestersTab rolloutPercent={status?.rolloutPercent ?? 0} />
-              : <QuestionsTab />}
+              : tab === 'questions'
+                ? <QuestionsTab />
+                : <FeedbackTab />}
         </div>
       </main>
     </div>
