@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { contactMessages, testAttempts } from '@/db/schema';
 import { z } from 'zod';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { validateOrigin } from '@/lib/api-security';
 import { auth } from '@/lib/auth';
 import { and, eq, ilike } from 'drizzle-orm';
 
@@ -49,6 +50,9 @@ const contactSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, error: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });

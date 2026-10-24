@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
+import { checkIpThrottle, checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import { auth } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -64,6 +64,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: NextRequest) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'users-post' });
   if (ipThrottleError) return ipThrottleError;
 

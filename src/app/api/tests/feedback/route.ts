@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { testFeedback, testAttempts } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
+import { checkIpThrottle, checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import { z } from 'zod';
 
 const feedbackBodySchema = z.object({
@@ -15,6 +15,9 @@ const feedbackBodySchema = z.object({
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'tests-feedback' });
   if (ipThrottleError) return ipThrottleError;
 

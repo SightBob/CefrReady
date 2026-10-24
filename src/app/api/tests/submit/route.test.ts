@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
 }));
 
-vi.mock('@/lib/api-security', () => ({ checkIpThrottle: mocks.ip, checkUserRateLimit: mocks.userLimit }));
+vi.mock('@/lib/api-security', () => ({ checkIpThrottle: mocks.ip, checkUserRateLimit: mocks.userLimit, validateOrigin: () => null }));
 vi.mock('@/lib/auth-utils', () => ({ getCurrentUser: mocks.currentUser }));
 vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: vi.fn(async () => false) }));
 vi.mock('@/lib/rate-limit', () => ({

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { questions, testSetQuestions, testSets } from '@/db/schema';
-import { checkUserRateLimit } from '@/lib/api-security';
+import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import { isAdminRequest } from '@/lib/admin-auth';
 import { isTapExerciseVisibleToLearners } from '@/lib/tap-visibility';
 
@@ -18,6 +18,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });

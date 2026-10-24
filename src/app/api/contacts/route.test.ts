@@ -19,11 +19,14 @@ vi.mock('@/db/schema', () => ({ contactMessages: Symbol('contactMessages') }));
 
 import { POST } from './route';
 
+// Origin ของโดเมนที่อนุญาต — route ตรวจ CSRF ด้วย validateOrigin (fail closed)
+const ALLOWED_ORIGIN = 'http://localhost:3000';
+
 function request(body: unknown) {
   return new NextRequest('http://localhost/api/contacts', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
   });
 }
 
@@ -31,7 +34,7 @@ function rawRequest(body: string) {
   return new NextRequest('http://localhost/api/contacts', {
     method: 'POST',
     body,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
   });
 }
 

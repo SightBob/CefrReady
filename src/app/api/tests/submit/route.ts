@@ -8,7 +8,7 @@ import { filterQuestionsForLearners } from '@/lib/tap-visibility';
 import { isAdminRequest } from '@/lib/admin-auth';
 import { MAX_TAP_REASON_LENGTH, collectTapReasonRows, computeTapReasonRewardPoints } from '@/lib/tap-reason-rewards';
 import { getTapReasonRewardSettingsSafe } from '@/lib/tap-reason-settings';
-import { checkIpThrottle, checkUserRateLimit } from '@/lib/api-security';
+import { checkIpThrottle, checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
 import { z } from 'zod';
 
@@ -55,6 +55,10 @@ export async function POST(request: NextRequest) {
 }
 
 async function submitRequest(request: NextRequest) {
+  // CSRF: ปฏิเสธคำขอที่ไม่มี Origin/Referer ของโดเมนเรา (fail closed)
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   // IP throttle for DoS protection (applies to both demo and real)
   const ipThrottleError = await checkIpThrottle(request, { keySuffix: 'tests-submit' });
   if (ipThrottleError) return ipThrottleError;

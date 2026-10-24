@@ -6,9 +6,10 @@ const mocks = vi.hoisted(() => ({
   rate: vi.fn(),
   select: vi.fn(),
   isAdmin: vi.fn(),
+  origin: vi.fn((): Response | null => null),
 }));
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
-vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: mocks.rate }));
+vi.mock('@/lib/api-security', () => ({ checkUserRateLimit: mocks.rate, validateOrigin: mocks.origin }));
 vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: mocks.isAdmin }));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
 
@@ -43,6 +44,16 @@ beforeEach(() => {
 });
 
 describe('POST tap-answer', () => {
+  it('rejects a cross-origin request before doing any work', async () => {
+    mocks.origin.mockReturnValueOnce(
+      new Response(JSON.stringify({ success: false, error: 'Forbidden' }), { status: 403 }),
+    );
+
+    expect((await POST(request())).status).toBe(403);
+    expect(mocks.auth).not.toHaveBeenCalled();
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+
   it('requires authentication', async () => {
     mocks.auth.mockResolvedValue(null);
     expect((await POST(request())).status).toBe(401);

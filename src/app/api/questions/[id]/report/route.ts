@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { questions, questionReports } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
-import { checkIpThrottle } from '@/lib/api-security';
+import { checkIpThrottle, validateOrigin } from '@/lib/api-security';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
 import { z } from 'zod';
 
@@ -18,6 +18,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = validateOrigin(req);
+  if (originError) return originError;
+
   const ip = getRateLimitIdentifier(req);
 
   const ipThrottleError = await checkIpThrottle(req, { keySuffix: 'question-report' });
