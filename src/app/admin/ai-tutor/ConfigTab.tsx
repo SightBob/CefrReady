@@ -23,6 +23,7 @@ import {
 } from '@/lib/ai-tutor/ranges';
 
 import ConfirmModal from './ConfirmModal';
+import UsagePanel from './UsagePanel';
 import type { AdminAuditRow, AdminConfigResponse, AdminModel, ModelTestResult } from './types';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base outline-none transition-colors hover:border-slate-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-100';
@@ -504,6 +505,9 @@ export default function ConfigTab() {
           </p>
         </div>
       )}
+
+      {/* ─── การใช้งานวันนี้ (กดรีเฟรชเอง) ─── */}
+      <UsagePanel />
 
       {/* ─── สถานะ ─── */}
       <section className={sectionClass}>

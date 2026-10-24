@@ -65,6 +65,25 @@ export type AdminAuditRow = {
   createdAt: string;
 };
 
+/** สถิติการใช้งานวันนี้จาก GET /api/admin/ai-tutor/usage */
+export type AdminUsageResponse = {
+  dayStart: string;
+  resetAt: string;
+  questions: number;
+  answers: number;
+  failed: number;
+  learners: number;
+  pending: number;
+  lastActivityAt: string | null;
+  topLearners: Array<{ userId: string; email: string; name: string | null; count: number }>;
+  limits: {
+    systemDailyLimit: number;
+    userDailyLimit: number;
+    questionQuota: number;
+  };
+  runtimeEnabled: boolean;
+};
+
 /** ผลของการทดสอบโมเดล */
 export type ModelTestResult = {
   model: string;
