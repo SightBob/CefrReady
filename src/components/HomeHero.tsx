@@ -55,11 +55,14 @@ export default function HomeHero() {
           sizes="100vw"
           className="object-cover object-center max-md:hidden"
         />
+        {/* มือถือ: ภาพนี้คือ LCP ของหน้าแรก → โหลดทันที ไม่ปล่อยให้ browser เลื่อนไป lazy
+            (เดสก์ท็อปซ่อนภาพนี้ด้วย max-md → ไฟล์ AVIF เล็ก 3-14 KB จึงโหลดเผื่อได้ไม่คุ้มเสีย) */}
         <Image
           src="/bg/bg-mobile.png"
           alt=""
           fill
           sizes="100vw"
+          loading="eager"
           className="hidden object-cover object-center max-md:block"
         />
       </div>

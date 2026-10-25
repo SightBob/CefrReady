@@ -111,6 +111,27 @@ export default async function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         {/* PostHog is the remaining third-party — warm the connection early. */}
         <link rel="preconnect" href="https://us.i.posthog.com" crossOrigin="" />
+        {/*
+          Preload the two font subsets every page's body text needs (Thai + Latin
+          of weight 400, ~21 KB total). Without this the browser only discovers
+          the woff2 after it has parsed fonts.css, so Thai text paints once in a
+          fallback face and swaps (FOUT + small layout shift). Same files
+          fonts.css declares — crossOrigin is required for font preloads.
+        */}
+        <link
+          rel="preload"
+          as="font"
+          type="font/woff2"
+          href="/fonts/ibm-plex-sans-thai-400-thai.woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          as="font"
+          type="font/woff2"
+          href="/fonts/ibm-plex-sans-thai-400-latin.woff2"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="font-sans">
         <Suspense fallback={null}>
