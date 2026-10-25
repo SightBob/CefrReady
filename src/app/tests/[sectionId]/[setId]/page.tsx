@@ -35,7 +35,12 @@ import type { PublicTapExerciseData } from '@/lib/test-set-slots';
 import dynamic from 'next/dynamic';
 import TestExplainOverlay, { type TestExplainContent } from '@/components/TestExplainOverlay';
 import { buildTopicRuns, firstSlotIndexForTopic, topicRunForSlot } from '@/lib/test-set-topics';
-import { wasSetExplainRead, clearSetExplainRead } from '@/lib/test-explain-read';
+import {
+  wasSetExplainRead,
+  clearSetExplainRead,
+} from '@/lib/test-explain-read';
+import { topicsWithExplain } from '@/lib/set-intro';
+import { loadTestProgress, saveTestProgress } from '@/lib/test-progress';
 import {
   attemptKeyStorageKey,
   getOrCreateAttemptKey,
@@ -228,10 +233,6 @@ export default function SetQuizPage() {
   // หลายเรื่องไว้จะเด้ง intro+explain ของเรื่องนั้นตอนขึ้นเรื่องใหม่
   const [topicExplains, setTopicExplains] = useState<Record<string, TestExplainContent>>({});
   const [explainsLoaded, setExplainsLoaded] = useState(false);
-  /** คิวอธิบายทุกเรื่องของชุด — แสดงทีละเรื่องหลังหน้า intro ตอนเริ่มชุด (เรื่องแรกอยู่หัวคิว) */
-  const [introQueue, setIntroQueue] = useState<TestExplainContent[]>([]);
-  /** เรื่องที่เด้งไปแล้วในรอบนี้ — เด้งครั้งเดียวต่อเรื่องต่อการทำชุดหนึ่งครั้ง */
-  const seenTopics = useRef(new Set<string>());
 
   // Listening state: track per-question whether audio has finished playing
   const [audioPlayedMap, setAudioPlayedMap] = useState<Record<number, boolean>>({});
@@ -299,32 +300,62 @@ export default function SetQuizPage() {
       });
   }, [explainTopic, setId, previewMode]);
 
-  // เด้ง intro + explain เฉพาะ "เรื่องแรกของชุด" ก่อนข้อ 1 ครั้งเดียว — เรื่องถัด ๆ ไป
-  // ไม่เด้งระหว่างทำข้อสอบ (เนื้อหายังเปิดซ้ำได้ทุกเรื่องผ่านปุ่ม "โหมดทบทวน")
-  // ยกเว้น: ผู้เรียนเพิ่งอ่านหน้า /explain ระดับชุดมา — เนื้อหาเดียวกันอย่าให้อ่านซ้ำ
+  // ─── ตำแหน่งข้อที่ค้างอยู่ (ผู้ใช้กำหนด 2026-10-25) ──────────────────
+  // "รีเฟรชหน้าไหนก็ให้อยู่ตรงหน้านั้น" — จำข้อล่าสุดไว้ใน sessionStorage แล้ว
+  // กลับมาเริ่มที่ข้อเดิม (เช่น ทำข้อ 2 อยู่ → refresh → ข้อ 2)
+  const progressKey = `${sectionId}-${setId}`;
+  /** ชุดที่ state ปัจจุบันเป็นของ — กันค่าของชุดเก่าไปเขียนทับคีย์ของชุดใหม่ */
+  const progressScope = useRef<string | null>(null);
+  /** มีความคืบหน้าอยู่แล้วหรือยัง — true = เคยเริ่มชุดนี้ (รวมการ refresh) */
+  const hasProgress = useRef(false);
+
   useEffect(() => {
-    if (!setData || !explainsLoaded) return;
-    if (currentQuestion !== 0) return; // เด้งเฉพาะตอนเริ่มชุด (ข้อแรก)
-    // คิวถูกสร้างครั้งเดียวต่อการทำชุดหนึ่งครั้ง (fetchSet ล้าง seenTopics เมื่อเปลี่ยนชุด)
-    if (seenTopics.current.size > 0) return;
-    // รวมทุกเรื่องของชุดตามลำดับข้อสอบ (เรื่องซ้ำที่ไม่ติดกันแสดงครั้งเดียว)
-    const queue: TestExplainContent[] = [];
-    for (const run of topicRuns) {
-      const topic = run.topic;
-      if (!topic || seenTopics.current.has(topic)) continue;
-      const explain = topicExplains[topic];
-      if (!explain) continue;
-      seenTopics.current.add(topic);
-      queue.push(explain);
-    }
-    if (queue.length === 0) return;
-    if (wasSetExplainRead(sectionId, setId)) {
-      // เพิ่งอ่านจากหน้า /explain แล้ว — ข้าม และรีเซ็ต flag ให้ครั้งถัดไปเด้งตามปกติ
-      clearSetExplainRead(sectionId, setId);
+    if (isNaN(setId)) return;
+    // โหมดพรีวิว (?topic=…) เลือกข้อเอง — ห้ามค่าที่จำไว้ทับ
+    if (previewTopic) {
+      progressScope.current = progressKey;
+      hasProgress.current = false;
       return;
     }
-    setIntroQueue(queue);
-  }, [currentQuestion, explainsLoaded, setData, topicExplains, topicRuns, sectionId, setId]);
+    const saved = loadTestProgress(sectionId, setId);
+    progressScope.current = progressKey;
+    hasProgress.current = saved !== null;
+    setCurrentQuestion(saved ?? 0);
+  }, [progressKey, sectionId, setId, previewTopic]);
+
+  useEffect(() => {
+    if (progressScope.current !== progressKey) return;
+    saveTestProgress(sectionId, setId, currentQuestion);
+  }, [currentQuestion, progressKey, sectionId, setId]);
+
+  // ข้อที่จำไว้ยาวเกินจำนวนข้อจริง (เนื้อหาชุดถูกแก้) → ถอยมาข้อสุดท้าย
+  useEffect(() => {
+    if (!setData || mainSlots.length === 0) return;
+    setCurrentQuestion((index) => (index < mainSlots.length ? index : mainSlots.length - 1));
+  }, [setData, mainSlots.length]);
+
+  // เข้าชุดครั้งแรก (ยังไม่มีความคืบหน้าในเครื่อง) = ยังไม่ได้อ่านเนื้อหาอธิบายของชุด
+  // → **พาไปหน้า /explain ของชุดนั้นเลย** (ไม่ใช่ overlay ทับหน้าสอบ และไม่ใช่คิว
+  // ทีละเรื่องที่ปิดอันหนึ่งแล้วขึ้นอันถัดไป)
+  // การ **refresh** ไม่เด้งแล้ว เพราะความคืบหน้าถูกบันทึกไว้ → อยู่ข้อเดิมเสมอ
+  // เรื่องถัด ๆ ไปก็ไม่เด้งเอง — เปิดซ้ำได้ทุกเรื่องผ่านปุ่ม "โหมดทบทวน"
+  useEffect(() => {
+    if (!setData || !explainsLoaded) return;
+    // โหมดพรีวิวของแอดมินต้องเห็นหน้าสอบจริง — ห้ามเด้งออก
+    if (previewMode) return;
+    if (hasProgress.current) return;
+    const topics = topicsWithExplain(topicRuns, topicExplains);
+    if (topics.length === 0) return;
+    if (wasSetExplainRead(sectionId, setId)) {
+      // เพิ่งอ่านจากหน้า /explain แล้ว — อยู่หน้าสอบต่อ ไม่เด้งกลับ
+      clearSetExplainRead(sectionId, setId);
+      saveTestProgress(sectionId, setId, 0);
+      return;
+    }
+    // เก็บตำแหน่งไม่ได้ = กลับมาจาก /explain จะเด้งซ้ำไม่จบ → ไม่เด้ง (กันลูป)
+    if (!saveTestProgress(sectionId, setId, 0)) return;
+    router.replace(`/tests/${sectionId}/${setId}/explain`);
+  }, [explainsLoaded, setData, topicExplains, topicRuns, sectionId, setId, router, previewMode]);
 
   useEffect(() => {
     if (!showTestExplain) return;
@@ -364,10 +395,6 @@ export default function SetQuizPage() {
   }, [posthog, sectionId, setId, previewMode]);
 
   const fetchSet = useCallback(async () => {
-    // เปลี่ยนชุด (dropdown) = เริ่มนับเรื่องใหม่ — ไม่งั้นชุดใหม่ที่ใช้ชื่อเรื่อง
-    // เดิมจะไม่เด้ง intro ให้อีก
-    seenTopics.current.clear();
-    setIntroQueue([]);
     // สลับชุดเร็ว ๆ response ของชุดเก่าจะกลับมาทีหลังแล้วทับของชุดใหม่
     const { signal, isCurrent } = setRequestGuard.begin();
     try {
@@ -834,9 +861,6 @@ export default function SetQuizPage() {
     setFormMeaningTotalBlanks(0);
     setAudioPlayedMap({});
     setIsFinished(false);
-    // ทำชุดใหม่ = เห็นหน้า intro ของทุกเรื่องอีกครั้ง
-    seenTopics.current.clear();
-    setIntroQueue([]);
     Object.keys(tapRequestVersions.current).forEach(key => { tapRequestVersions.current[key] += 1; });
     setTapReasons({});
     setTapReasonResults({});
@@ -987,18 +1011,6 @@ export default function SetQuizPage() {
     </>
   );
 
-  // ขึ้นเรื่องแรกของชุด → เด้งหน้าเนื้อหาอธิบายเต็มจอ (UI เดียวกับ "โหมดทบทวน")
-  // ปิดแล้วเข้าข้อสอบต่อได้ทันที · หน้าการ์ด intro รายเรื่องถูกลบไปแล้ว (ไม่ใช้แล้ว)
-  const topicGate = introQueue.length > 0 ? (
-    <TestExplainOverlay
-      key={introQueue[0].id}
-      explain={introQueue[0]}
-      open
-      sectionId={sectionId}
-      onClose={() => setIntroQueue((queue) => queue.slice(1))}
-    />
-  ) : null;
-
   // ─── Mixed form-meaning blank slot ────────────────────────────────
   if (articleBlank && activeSlot?.kind === 'article') {
     const articleText = question.article?.text ?? '';
@@ -1047,7 +1059,6 @@ export default function SetQuizPage() {
           )}
         </div>
         {modalsFragment}
-        {topicGate}
       </TestLayout>
     );
   }
@@ -1109,7 +1120,6 @@ export default function SetQuizPage() {
           {modalsFragment}
         </TestLayout>
         <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
-        {topicGate}
       </>
     );
   }
@@ -1165,7 +1175,6 @@ export default function SetQuizPage() {
         {modalsFragment}
       </TestLayout>
       <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
-      {topicGate}
       </>
     );
   }
@@ -1213,7 +1222,6 @@ export default function SetQuizPage() {
         {modalsFragment}
       </TestLayout>
       <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
-      {topicGate}
       </>
     );
   }
@@ -1269,7 +1277,6 @@ export default function SetQuizPage() {
       {modalsFragment}
     </TestLayout>
     <TestExplainOverlay explain={testExplain} open={showTestExplain} sectionId={sectionId} onClose={() => setShowTestExplain(false)} />
-    {topicGate}
     </>
   );
 }

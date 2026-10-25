@@ -36,6 +36,26 @@ export function wasSetExplainRead(sectionId: string, setId: number | string): bo
   }
 }
 
+/**
+ * sessionStorage เขียน/อ่านได้จริงไหม
+ *
+ * หน้าข้อสอบใช้ตัดสินว่า "เด้งไปหน้า /explain" ซ้ำได้หรือไม่: ถ้าเก็บ flag
+ * ไม่ได้ (private mode/ถูกบล็อก) การเด้งจะกลายเป็นลูปไม่จบ — /explain →
+ * "ทำข้อสอบต่อ" → หน้าสอบ → เด้งไป /explain อีก เพราะไม่มีอะไรจำว่าเพิ่งอ่าน
+ * จึงต้องเช็คความสามารถนี้ก่อนทุกครั้ง
+ */
+export function canTrackSetExplainRead(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const probe = `${KEY_PREFIX}probe`;
+    window.sessionStorage.setItem(probe, '1');
+    window.sessionStorage.removeItem(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** หน้าสอบเรียกหลังเทียบแล้ว — รีเซ็ตให้การเข้าชุดครั้งถัดไปเด้งเนื้อหาตามปกติ */
 export function clearSetExplainRead(sectionId: string, setId: number | string): void {
   if (typeof window === 'undefined') return;
