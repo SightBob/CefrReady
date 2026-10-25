@@ -120,6 +120,13 @@ export default function FocusFormQuestionCard({
   const isCorrect = selectedAnswer === correctAnswer;
   const showExplanation = selectedAnswer !== null && explanation !== null && correctAnswer !== null;
 
+  // กรอบ AI Tutor เปิดจากปุ่มในกล่องเฉลยเท่านั้น (Figma 600:27645) — เริ่มจากหุบไว้
+  // เปลี่ยนข้อ/เริ่มตอบใหม่/new เฉลย = กลับไปเป็นบล็อกเฉลย + ปุ่มเหมือนเดิม
+  const [tutorOpen, setTutorOpen] = useState(false);
+  useEffect(() => {
+    setTutorOpen(false);
+  }, [showExplanation, questionId]);
+
   // เลื่อนไปคำอธิบายแบบ smooth เมื่อเฉลยโผล่ (เฉพาะเมื่อมองไม่เห็นครบ)
   // hook ผูกกับ showExplanation จึงยิงตรงกับตอนเฉลยปรากฏ ไม่ต้องพึ่งจังหวะ
   // mount/detach ของ ref ซึ่ง StrictMode เรียกซ้ำจนการเลื่อนหายไป
@@ -288,9 +295,9 @@ export default function FocusFormQuestionCard({
 
       {showExplanation && (
   <div ref={explanationRef} className="mt-6">
-    {aiTutor ? (
-      /* AI Tutor แทนบล็อก "แวะอ่านสักนิด…" — คำอธิบายข้อนี้เป็นบทสนทนาแรกในแชท
-         (ผู้ใช้กำหนด 2026-10-19 เพื่อลด token: ไม่ต้องส่งคำอธิบายซ้ำอีกชั้น) */
+    {aiTutor && tutorOpen ? (
+      /* กดปุ่ม "หากยังไม่เข้าใจ ลองถาม AI เพิ่มเติมได้เลย" แล้วจึงเป็นกรอบ AI Tutor
+         (ผู้ใช้กำหนด 2026-10-25 ตาม Figma 600:27645) — คำอธิบายข้อนี้เป็นบทสนทนาแรกในแชท */
       <AiTutorPanel
         introMessage={explanation}
         threadKey={questionId}
@@ -301,6 +308,8 @@ export default function FocusFormQuestionCard({
         attemptKey={attemptKey}
         sectionId={sectionId}
         testSetId={testSetId}
+        /* เปิดจากปุ่มในกล่องเฉลย → เลื่อนไปช่องพิมพ์ให้พร้อมพิมพ์ทันที */
+        scrollToComposerOnMount
       />
     ) : (
     <>
@@ -361,13 +370,41 @@ export default function FocusFormQuestionCard({
           <Sparkle className="size-4" weight="fill" />
         </span>
 
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
 
           {explanation && (
             <ExplanationText
               text={`“ ${explanation} ”`}
               className="mt-1 text-sm font-semibold text-[#8A7A4E]"
             />
+          )}
+
+          {/* Figma 600:27794–27797 — เส้นคั่น #F4F0DE 1px + ปุ่มชวนถาม AI
+              (h39 r7 bg #EEF7FF · ข้อความ 13px Medium #4B95B9 · ลูกศร 14px)
+              ปุ่มอยู่ "ใน" กล่องเฉลย และขึ้นก่อน — กรอบ AI Tutor เปิดเมื่อกดเท่านั้น */}
+          {aiTutor && (
+            <div className="mt-2.5 flex flex-col gap-2.5">
+              <div className="h-px w-full bg-[#F4F0DE]" />
+              {/* สูง 39 ตามแบบ แต่ใช้ min-h + py 7 (ครึ่งของ leading 25) ให้ป้ายที่
+                  หักสองบรรทัดบนจอ 320px ยังอยู่ในกรอบ ไม่ล้นขอบบน-ล่าง */}
+              <button
+                type="button"
+                onClick={() => setTutorOpen(true)}
+                className="inline-flex min-h-[39px] w-fit max-w-full items-center gap-[6px] rounded-[7px] bg-[#EEF7FF] px-[11px] py-[7px] text-left transition-[filter] hover:brightness-95 active:brightness-90"
+              >
+                <span className="text-[13px] font-medium leading-[25px] text-[#4B95B9]">
+                  หากยังไม่เข้าใจ ลองถาม AI เพิ่มเติมได้เลย
+                </span>
+                <Image
+                  src="/tests/tutor-mock/arrow-right.svg"
+                  alt=""
+                  width={14}
+                  height={14}
+                  className="size-[14px] shrink-0"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           )}
         </div>
       </div>

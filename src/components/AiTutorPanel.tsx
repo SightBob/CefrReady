@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { usePostHog } from '@/lib/posthog';
+import { measureBottomBarInset, scrollIntoViewIfClipped } from '@/lib/scroll-into-view';
 import ExplanationText from './ExplanationText';
 import RichText from './RichText';
 
@@ -200,6 +201,12 @@ interface AiTutorPanelProps {
   sectionId?: string | number | null;
   /** รหัสชุดข้อสอบ — ผูก event PostHog ชุด ai_tutor_* กับชุด */
   testSetId?: string | number | null;
+  /**
+   * เปิดกรอบนี้จากการกดปุ่ม "หากยังไม่เข้าใจ ลองถาม AI" → เลื่อนหน้าไปที่ช่องพิมพ์
+   * ให้พร้อมพิมพ์ทันที (ผู้ใช้กำหนด 2026-10-25). ค่าเริ่มต้น false เพราะหน้า mock
+   * /dev/tutor-mock ไม่ต้องกระโดด
+   */
+  scrollToComposerOnMount?: boolean;
 }
 
 /** ชื่อ event PostHog ของ AI Tutor — snapshot ที่หน้าทำข้อสอบให้ประสานกับ report */
@@ -225,6 +232,7 @@ export default function AiTutorPanel({
   attemptKey = null,
   sectionId = null,
   testSetId = null,
+  scrollToComposerOnMount = false,
 }: AiTutorPanelProps = {}) {
   const isLive = questionId !== null;
   const posthog = usePostHog();
@@ -238,6 +246,37 @@ export default function AiTutorPanel({
   const [quotaExhausted, setQuotaExhausted] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // ─── เลื่อนไปช่องพิมพ์เมื่อเปิดกรอบจากการกดปุ่มในกล่องเฉลย ──────────────
+  // คำอธิบาย (บทสนทนาแรก) อยู่เหนือช่องพิมพ์และสูงจนช่องพิมพ์ตกจอ — ถ้าไม่เลื่อน
+  // ผู้เรียนต้องหาทางเลื่อนเองก่อนพิมพ์
+  // ใช้ rAF สองชั้น (หลัง commit → หลัง paint) เหมือน useScrollIntoViewOnReveal
+  // ไม่ใช้ setTimeout เพราะเป็นการเดาเวลา; แล้วโฟกัสแบบ preventScroll เพื่อไม่ให้
+  // เบราว์เซอร์เลื่อนทับตำแหน่งที่จัดหาไว้ (บนมือถือคีย์บอร์ดจะเปิดขึ้นมาเลย)
+  //
+  // ห้ามใช้ ref กันการทำงานซ้ำ (บทเรียนจาก useScrollIntoViewOnReveal): ใน dev
+  // React StrictMode เรียก effect สองรอบ — attach → cleanup → attach ธงที่ตั้งไว้
+  // ในรอบแรกทำให้รอบที่สองออกก่อน ทั้งที่งานของรอบแรกถูก cleanup ยกเลิกไปแล้ว
+  // ผลคือไม่เลื่อนเลย (ผู้ใช้รายงาน 2026-10-25) ใช้ตัวแปร cancelled ในสโคปแทน
+  useEffect(() => {
+    if (!scrollToComposerOnMount) return;
+    let cancelled = false;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        // หักแถบล่างแบบ fixed ของหน้าสอบ ไม่งั้นช่องพิมพ์ที่อยู่ใต้แถบจะถูก
+        // ตัดสินว่า "เห็นครบ" แล้วไม่เลื่อน
+        scrollIntoViewIfClipped(inputRef.current, window.innerHeight, measureBottomBarInset());
+        inputRef.current?.focus({ preventScroll: true });
+      });
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [scrollToComposerOnMount]);
 
   // mirror ของ entries สำหรับอ่านใน callback โดยไม่ทำให้ callback ถูกสร้างใหม่ทุกข้อความ
   // (ตัวนับ index ของ AI Tutor ใช้อ่านจากที่นี่ — สถานะจริงยังอยู่ใน useState เหมือนเดิม)
@@ -666,6 +705,11 @@ export default function AiTutorPanel({
                 ref={inputRef}
                 rows={1}
                 defaultValue=""
+                // ช่องพิมพ์เป็น uncontrolled (อ่านค่าจริงจาก DOM ตอนส่ง) แต่ปุ่มส่ง
+                // ผูกกับ state `chatInput` — ต้อง mirror ค่าลง state ด้วย ไม่งั้น
+                // chatInput ว่างตลอดและปุ่มส่ง disabled ตลอดกาล
+                // (ผู้ใช้รายงาน 2026-10-25: ปุ่มส่งกดไม่ได้)
+                onChange={(event) => setChatInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
