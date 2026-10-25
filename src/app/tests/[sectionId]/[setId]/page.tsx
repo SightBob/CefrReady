@@ -40,7 +40,13 @@ import {
   clearSetExplainRead,
 } from '@/lib/test-explain-read';
 import { topicsWithExplain } from '@/lib/set-intro';
-import { loadTestProgress, saveTestProgress } from '@/lib/test-progress';
+import {
+  loadTestProgress,
+  loadTestProgressState,
+  saveTestProgress,
+  saveTestProgressState,
+  clearBlankAnswers,
+} from '@/lib/test-progress';
 import {
   attemptKeyStorageKey,
   getOrCreateAttemptKey,
@@ -328,6 +334,20 @@ export default function SetQuizPage() {
     saveTestProgress(sectionId, setId, currentQuestion);
   }, [currentQuestion, progressKey, sectionId, setId]);
 
+  // คำตอบ + สถานะเฉลยก็ต้องรอด refresh ด้วย — เดิมเก็บแค่ตำแหน่งข้อ ทำให้กลับมาแล้ว
+  // ตัวนับเป็น 0 และปุ่มเลขข้อขึ้น "ยังไม่ได้ตอบ" ทั้งที่ตอบไปแล้ว
+  // รอให้โหลดชุดเสร็จก่อน (answers ว่าง = ยังไม่พร้อม) ไม่งั้นอาร์เรย์ว่างจะทับของเดิม
+  useEffect(() => {
+    if (previewMode || isNaN(setId)) return;
+    if (!setData || answers.length === 0) return;
+    if (progressScope.current !== progressKey) return;
+    saveTestProgressState(sectionId, setId, {
+      index: currentQuestion,
+      answers,
+      checked: checkedSlots,
+    });
+  }, [answers, checkedSlots, currentQuestion, previewMode, setId, sectionId, setData, progressKey]);
+
   // ข้อที่จำไว้ยาวเกินจำนวนข้อจริง (เนื้อหาชุดถูกแก้) → ถอยมาข้อสุดท้าย
   useEffect(() => {
     if (!setData || mainSlots.length === 0) return;
@@ -418,7 +438,21 @@ export default function SetQuizPage() {
         // between the intended exam questions.
         const finalQuestions: RawQuestion[] = data.data.questions;
         setSetData({ ...data.data, questions: finalQuestions });
-        setAnswers(Array(countTestSetItems(finalQuestions)).fill(null));
+        // คืนคำตอบ/สถานะเฉลยที่ค้างไว้ของชุดนี้ (refresh แล้วต้องไม่กลับไปเริ่มใหม่ทั้งชุด)
+        // โหมดพรีวิวของแอดมินไม่ใช้ค่าที่จำไว้ — เนื้อหาอาจต่างจากรอบของผู้เรียน
+        const totalItems = countTestSetItems(finalQuestions);
+        const restoredProgress = previewMode ? null : loadTestProgressState(sectionId, setId);
+        const restoredAnswers: (string | null)[] = Array(totalItems).fill(null);
+        if (restoredProgress) {
+          restoredProgress.answers.forEach((value, index) => {
+            if (index < restoredAnswers.length && value !== null) restoredAnswers[index] = value;
+          });
+        }
+        setAnswers(restoredAnswers);
+        setCheckedSlots(restoredProgress?.checked ?? {});
+        setSelectedAnswer(
+          restoredProgress ? restoredProgress.answers[restoredProgress.index] ?? null : null,
+        );
       } else {
         setNotFound(true);
       }
@@ -433,7 +467,7 @@ export default function SetQuizPage() {
         setLoading(false);
       }
     }
-  }, [setId, previewMode, setRequestGuard]);
+  }, [sectionId, setId, previewMode, setRequestGuard]);
 
   // ยกเลิก request ที่ค้างอยู่ตอนออกจากหน้า
   useEffect(() => () => setRequestGuard.abort(), [setRequestGuard]);
@@ -852,6 +886,8 @@ export default function SetQuizPage() {
     setAnswers(Array(mainSlots.length).fill(null));
     setSelectedAnswer(null);
     setCurrentQuestion(0);
+    // ทำชุดใหม่ = คำตอบที่จำไว้ของชุดนี้ต้องหายด้วย ไม่งั้น refresh แล้วโผล่กลับมา
+    clearBlankAnswers(sectionId, setId);
     setAttemptId(null);
     // ทำชุดใหม่ = รอบใหม่ของ AI Tutor (บทสนทนาเก่าไม่โผล่ในรอบนี้ + เก็บถังรอบเดิม)
     setAttemptKey(endAiTutorAttempt({

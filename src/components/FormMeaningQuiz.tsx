@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Layers } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -8,6 +8,7 @@ import FormMeaningFillCard from '@/components/FormMeaningFillCard';
 import TestLayout from '@/components/TestLayout';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
+import { clearBlankAnswers, loadBlankAnswers, saveBlankAnswers } from '@/lib/test-progress';
 import type { Blank } from '@/types/test';
 
 export interface FormMeaningQuestionData {
@@ -45,13 +46,22 @@ export default function FormMeaningQuiz({
   reviewAction,
   reviewOverlay,
 }: FormMeaningQuizProps) {
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  // คำตอบที่กรอกไว้ค้างใน sessionStorage (ต่อชุด) — refresh แล้วไม่ต้องเริ่มกรอกใหม่
+  // ชุดตัวอย่าง (demo) ไม่เก็บ: รอบสาธิตไม่ควรค้างข้ามชุด/ข้ามคน
+  const [answers, setAnswers] = useState<Record<number, string>>(() =>
+    demo ? {} : loadBlankAnswers(sectionId, setId),
+  );
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [testStartedAt] = useState(() => new Date().toISOString());
   const router = useRouter();
+
+  useEffect(() => {
+    if (demo) return;
+    saveBlankAnswers(sectionId, setId, answers);
+  }, [answers, demo, sectionId, setId]);
 
   // Combine all articles into one, re-numbering blanks globally
   const combinedArticle = useMemo(() => {
@@ -201,6 +211,8 @@ export default function FormMeaningQuiz({
       }
       setIsSubmitted(true);
       setCorrectCount(serverCorrect);
+      // ส่งสำเร็จแล้ว = ไม่เก็บคำตอบค้างไว้อีก (กันการส่งซ้ำเงียบ ๆ หลัง refresh)
+      if (data.success) clearBlankAnswers(sectionId, setId);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         toast.error('กรุณาเข้าสู่ระบบใหม่');
