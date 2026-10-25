@@ -71,8 +71,12 @@ async function answerProofFields(
   return proof ? { answerProof: proof, aiTutorReady: true } : { aiTutorReady: false };
 }
 
-/** 20/นาที กันยิงรัวในหนึ่งชุด + 600/วัน กันไล่เดาทีละข้อทั้งคลัง */
-const MINUTE_LIMIT = { keySuffix: 'check-answer', maxRequests: 20 } as const;
+/**
+ * 60/นาที = เท่า tap-answer และเท่ากับคนทำข้อสอบเร็วสุดที่ยังเป็นไปได้ (1 ข้อ/วินาที)
+ * เดิม 20/นาที ต่ำกว่าความเร็วคนจริง: ชุด 25 ข้อใช้ 25 ครั้ง ทำให้ชนเพดานกลางชุด
+ * ด่านที่กันไล่ดูดเฉลยจริงคือ 600/วันด้านล่าง ไม่ใช่เพดานรายนาที
+ */
+const MINUTE_LIMIT = { keySuffix: 'check-answer', maxRequests: 60 } as const;
 const DAILY_LIMIT = {
   keySuffix: 'check-answer:day',
   maxRequests: 600,

@@ -8,9 +8,12 @@ export async function GET(req: NextRequest) {
   // to dictionaryapi.dev + translate.googleapis.com, so an unauthenticated
   // flood can exhaust Vercel function seconds, damage our IP reputation with
   // Google Translate, and be used as an arbitrary-URL lookup oracle.
+  // 60/นาที/IP: endpoint นี้ถูกยิงทุกครั้งที่ผู้เรียนคลิกคำในบทความและไม่มีแคช
+  // ฝั่ง client ต่อคำ — เดิม 15/นาทีทำให้คนอ่าน passage คลิกคำไม่กี่คำก็โดนบล็อก
+  // (ผลลัพธ์แคชที่ Next 24 ชม. อยู่แล้ว จึงไม่กระเทือน upstream)
   const ipThrottleError = await checkIpThrottle(req, {
     windowMs: 60_000,
-    maxRequests: 15,
+    maxRequests: 60,
     keySuffix: 'dictionary',
   });
   if (ipThrottleError) return ipThrottleError;

@@ -62,10 +62,11 @@ describe('POST check-answer', () => {
     expect(mocks.rate).not.toHaveBeenCalled();
   });
 
-  it('จำกัด 20 ครั้งต่อนาทีและเพดาน 600 ครั้งต่อวันต่อผู้เรียน', async () => {
+  it('จำกัด 60 ครั้งต่อนาทีและเพดาน 600 ครั้งต่อวันต่อผู้เรียน', async () => {
     await POST(request());
     const calls = mocks.rate.mock.calls.map(c => c[1]);
-    expect(calls).toContainEqual({ keySuffix: 'check-answer', maxRequests: 20 });
+    // 60/นาที ต้องไม่ต่ำกว่าจำนวนข้อในชุดใหญ่สุด (25) — เดิม 20 ทำให้ชนเพดานกลางชุด
+    expect(calls).toContainEqual({ keySuffix: 'check-answer', maxRequests: 60 });
     expect(calls).toContainEqual({
       keySuffix: 'check-answer:day',
       maxRequests: 600,
