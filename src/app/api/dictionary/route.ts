@@ -91,19 +91,23 @@ async function fetchThaiTranslation(word: string): Promise<string | null> {
  * 0.65–0.90 วิทุกครั้ง คำเดิมก็ไม่เร็วขึ้น) ทั้งที่ผลลัพธ์เป็นข้อมูลคงที่
  * — คำที่เคยค้นแล้วจึงเหลือแค่การอ่าน cache
  *
- * ทำไมต้องยิงคำแปลพร้อมพจนานุกรม: เดิมรอพจนานุกรมเสร็จก่อนแล้วค่อยยิงคำแปล
- * (ต่อคิวกัน ~0.3–0.4 วิ) ทั้งสองอย่างไม่ต้องใช้ผลของกันและกัน
+ * ทำไมต้องยิงทั้งสามแหล่งพร้อมกัน: เดิมต่อคิวกันเป็นทอด (พจนานุกรมหลัก → สำรอง →
+ * คำแปล) ทำให้คำที่ยังไม่เคยค้นใช้เวลาเป็นผลรวมของทุกทอด (วัดบน production
+ * 2026-10-26: 0.65–1.0 วิ) ทั้งที่ทั้งสามไม่ต้องใช้ผลของกันและกัน — ตอนนี้เวลา
+ * เท่ากับทอดที่ช้าที่สุดทอดเดียว และเลือกผลจากแหล่งหลักก่อนถ้ามี
  */
 const lookupWord = unstable_cache(
   async (word: string): Promise<DictionaryEntry> => {
-    const [dictionary, translation_th] = await Promise.all([
-      (async () => {
-        const primary = await fetchPrimaryEntry(word);
-        if (primary.meanings.length > 0) return primary;
-        return { ...primary, meanings: await fetchFallbackMeanings(word) };
-      })(),
+    const [primary, fallbackMeanings, translation_th] = await Promise.all([
+      fetchPrimaryEntry(word),
+      fetchFallbackMeanings(word),
       fetchThaiTranslation(word),
     ]);
+
+    // แหล่งหลักมาก่อนเสมอ (มี phonetic + partOfSpeech มาตรฐาน) — ไม่มีค่อยใช้สำรอง
+    const dictionary = primary.meanings.length > 0
+      ? primary
+      : { ...primary, meanings: fallbackMeanings };
 
     // notFound = ไม่มีอะไรจะแสดงเลยจริง ๆ (ทั้งคำอธิบายและคำแปล)
     // — เดิมตั้ง notFound ทุกครั้งที่แหล่งหลักล่ม ทำให้หน้าเว็บขึ้น "ไม่พบในพจนานุกรม"
