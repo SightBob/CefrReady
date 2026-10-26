@@ -18,7 +18,12 @@ export async function GET(request: NextRequest) {
     if (ipThrottleError) return ipThrottleError;
 
     const result = await getCachedSections();
-    return NextResponse.json({ success: true, sections: result });
+    // ข้อมูลสาธารณะ ไม่ผูกกับผู้ใช้ — ให้ CDN แชร์ต่อได้ตามอายุเดียวกับ
+    // unstable_cache ภายใน (300 วิ) ผู้ใช้คนถัดไปจึงไม่ต้องเข้าถึงฟังก์ชันเลย
+    return NextResponse.json(
+      { success: true, sections: result },
+      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' } }
+    );
   } catch (err) {
     console.error('[api/sections] error:', err);
     return NextResponse.json({ success: false, error: 'Failed to fetch sections' }, { status: 500 });
