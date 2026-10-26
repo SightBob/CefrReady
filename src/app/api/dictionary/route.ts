@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkIpThrottle } from '@/lib/api-security';
+import { mapWiktionaryEntries, type DictionaryMeaning } from '@/lib/dictionary-fallback';
 
 // GET /api/dictionary?word=xxx
 // ดึงความหมายจาก Free Dictionary API (ฟรี 100%)
@@ -31,10 +32,52 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
-      { next: { revalidate: 86400 } } // cache 1 วัน
-    );
+    // ─── แหล่งหลัก: dictionaryapi.dev ──────────────────────────────
+    // ต้องกันแยกทีละแหล่ง: ถ้าแหล่งหลักล่ม (เจอจริงบน production 2026-10-26 — ทุกคำตอบ
+    // ไม่สำเร็จ) ต้องยังไปต่อที่แหล่งสำรองได้ ไม่ใช่จบที่ notFound
+    let meanings: DictionaryMeaning[] = [];
+    let phonetic: string | null = null;
+    let resolvedWord: string = word;
+
+    try {
+      const res = await fetch(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+        { next: { revalidate: 86400 } } // cache 1 วัน
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const entry = Array.isArray(data) ? data[0] : null;
+        meanings = (entry?.meanings ?? []).slice(0, 2).map((m: {
+          partOfSpeech: string;
+          definitions: { definition: string; example?: string }[];
+        }) => ({
+          partOfSpeech: m.partOfSpeech,
+          definitions: (m.definitions ?? []).slice(0, 2).map((d: { definition: string; example?: string }) => ({
+            definition: d.definition,
+            example: d.example || null,
+          })),
+        }));
+        phonetic = entry?.phonetics?.find((p: { text?: string }) => p.text)?.text || null;
+        if (typeof entry?.word === 'string' && entry.word.trim()) resolvedWord = entry.word;
+      }
+    } catch (error) {
+      console.warn('[dictionary] Primary dictionary fetch failed:', error);
+    }
+
+    // ─── แหล่งสำรอง: Wiktionary (ใช้เมื่อแหล่งหลักไม่ได้คำอธิบายมาเลย) ───
+    if (meanings.length === 0) {
+      try {
+        const res = await fetch(
+          `https://en.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(word)}`,
+          { next: { revalidate: 86400 }, signal: AbortSignal.timeout(5_000) }
+        );
+        if (res.ok) {
+          meanings = mapWiktionaryEntries(await res.json());
+        }
+      } catch (error) {
+        console.warn('[dictionary] Fallback dictionary fetch failed:', error);
+      }
+    }
 
     // ดึงคำแปลภาษาไทยผ่าน Google Translate API (ฟรี)
     let translation_th = null;
@@ -51,33 +94,17 @@ export async function GET(req: NextRequest) {
       console.warn('[dictionary] Translation fetch failed:', error);
     }
 
-    if (!res.ok) {
-      // คำที่ไม่มีใน dictionary แต่ส่งคำแปลไทยไปเผื่อได้
-      return NextResponse.json({ notFound: true, word, translation_th }, { status: 200 });
-    }
-
-    const data = await res.json();
-
-    // สรุปข้อมูลที่ต้องการ
-    const entry = data[0];
-    const meanings = entry?.meanings?.slice(0, 2).map((m: {
-      partOfSpeech: string;
-      definitions: { definition: string; example?: string }[];
-    }) => ({
-      partOfSpeech: m.partOfSpeech,
-      definitions: m.definitions.slice(0, 2).map((d: { definition: string; example?: string }) => ({
-        definition: d.definition,
-        example: d.example || null,
-      })),
-    })) || [];
-
-    const phonetic = entry?.phonetics?.find((p: { text?: string }) => p.text)?.text || null;
+    // notFound = ไม่มีอะไรจะแสดงเลยจริง ๆ (ทั้งคำอธิบายและคำแปล)
+    // — เดิมตั้ง notFound ทุกครั้งที่แหล่งหลักล่ม ทำให้หน้าเว็บขึ้น "ไม่พบในพจนานุกรม"
+    //   คู่กับ "แปลว่า: ขนมปัง" ทั้งที่หาคำเจอ
+    const notFound = meanings.length === 0 && !translation_th;
 
     return NextResponse.json({
-      word: entry?.word || word,
+      word: resolvedWord,
       phonetic,
       translation_th,
       meanings,
+      ...(notFound ? { notFound: true } : {}),
     });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch dictionary' }, { status: 500 });

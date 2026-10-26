@@ -282,8 +282,16 @@ export default function SelectableText({
 
             <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
               <div className="px-4 py-3">
-            {!dictLoading && (!dictData?.meanings?.length || (dictData?.notFound && !dictData?.translation_th)) && (
+            {/* "ไม่พบ" เฉพาะเมื่อไม่มีอะไรจะแสดงจริง ๆ (ทั้งคำอธิบายและคำแปล)
+                — เดิมเช็คแค่ "ไม่มีคำอธิบาย" ทำให้ขึ้น "ไม่พบในพจนานุกรม"
+                คู่กับ "แปลว่า: ขนมปัง" ทั้งที่หาคำเจอ */}
+            {!dictLoading && dictData?.notFound && (
               <p className="text-slate-400 text-sm italic py-1">ไม่พบในพจนานุกรม</p>
+            )}
+
+            {/* คำแปลมีแต่ยังไม่มีคำอธิบายอังกฤษ (เช่น แหล่งข้อมูลทั้งสองไม่ตอบ) */}
+            {!dictLoading && dictData && !dictData.notFound && !dictData.meanings?.length && dictData.translation_th && (
+              <p className="text-slate-400 text-sm italic py-1">ยังไม่มีคำอธิบายภาษาอังกฤษสำหรับคำนี้ — ดูคำแปลด้านบนได้เลย</p>
             )}
 
             {!dictLoading && dictData && !dictData.notFound && !!dictData.meanings?.length && (

@@ -16,6 +16,7 @@
 
 const KEY_PREFIX = 'cefr_set_progress_';
 const BLANKS_KEY_PREFIX = 'cefr_set_blanks_';
+const CHOICE_SEED_KEY_PREFIX = 'cefr_set_choice_seed_';
 
 /** เพดานกันค่าที่เสียหาย/ถูกแก้จาก devtools ไม่ให้บวมจน sessionStorage เต็ม */
 const MAX_ANSWERS = 500;
@@ -214,6 +215,62 @@ export function saveBlankAnswers(
   } catch {
     return false;
   }
+}
+
+// ─── ลำดับตัวเลือกที่ผู้เรียนเห็น ─────────────────────────────────────────
+// คำตอบถูกเก็บเป็น "ป้ายบนจอ" (A/B/C/D หลังสลับ) ไม่ใช่ป้ายในฐานข้อมูล
+// → ลำดับตัวเลือกต้องคงเดิมตลอดรอบ ไม่งั้น refresh แล้วคำตอบเดิมจะชี้ไปตัวเลือกอื่น
+// (อาการจริงบน production: ตอบถูกแล้ว refresh → ขึ้นว่าผิด และส่งคำตอบผิดไปให้ server)
+
+function choiceSeedKey(sectionId: string, setId: number | string): string {
+  return `${CHOICE_SEED_KEY_PREFIX}${sectionId}-${setId}`;
+}
+
+/** seed ที่ใช้สลับตัวเลือกของชุดนี้ — null = ยังไม่เคยบันทึก (ค่าจากโค้ดรุ่นก่อน) */
+export function loadChoiceSeed(sectionId: string, setId: number | string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(choiceSeedKey(sectionId, setId));
+    return raw && raw.trim() ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function createChoiceSeed(setId: number | string): string {
+  return `${setId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * seed ของชุดนี้ — ใช้ค่าเดิมถ้ามี สร้างใหม่ถ้ายังไม่มี
+ *
+ * ต้องเรียก **ก่อน** คืนคำตอบที่บันทึกไว้เสมอ: ลำดับตัวเลือกที่ผู้เรียนเห็นต้องตรงกับ
+ * รอบที่เขาตอบ ไม่งั้นป้ายที่เก็บไว้จะชี้ไปคนละตัวเลือก
+ */
+export function ensureChoiceSeed(sectionId: string, setId: number | string): string {
+  const existing = loadChoiceSeed(sectionId, setId);
+  if (existing) return existing;
+
+  const seed = createChoiceSeed(setId);
+  if (typeof window === 'undefined') return seed;
+  try {
+    window.sessionStorage.setItem(choiceSeedKey(sectionId, setId), seed);
+  } catch {
+    // เก็บไม่ได้ก็ใช้ seed ชั่วคราวนี้ต่อ (อย่างน้อยรอบนี้ลำดับก็ไม่เปลี่ยนกลางทาง)
+  }
+  return seed;
+}
+
+/** เริ่มรอบใหม่ (เช่น "ทำชุดใหม่") — ลำดับตัวเลือกชุดใหม่ คำตอบที่จำไว้ใช้ไม่ได้แล้ว */
+export function rotateChoiceSeed(sectionId: string, setId: number | string): string {
+  const seed = createChoiceSeed(setId);
+  if (typeof window === 'undefined') return seed;
+  try {
+    window.sessionStorage.setItem(choiceSeedKey(sectionId, setId), seed);
+  } catch {
+    // ไม่มีอะไรต้องทำ
+  }
+  return seed;
 }
 
 /** ล้างคำตอบที่กรอกไว้ (เช่น เริ่มทำชุดใหม่) */

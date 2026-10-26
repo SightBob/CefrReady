@@ -239,6 +239,8 @@ export default function AiTutorPanel({
   const [chatInput, setChatInput] = useState('');
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [quota, setQuota] = useState<Quota | null>(null);
+  // เพดานต่อข้อ — ตัวที่บังคับจริงตอนถาม (ตัวบนหัวแผงเป็นเพดานรายวัน)
+  const [questionQuota, setQuestionQuota] = useState<Quota | null>(null);
   const [streamingText, setStreamingText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -334,7 +336,7 @@ export default function AiTutorPanel({
     const query = attemptKey ? `&attemptKey=${encodeURIComponent(attemptKey)}` : '';
     fetch(`/api/ai-tutor?questionId=${questionId}${query}`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((body: { messages?: Array<{ id: number; role: 'user' | 'assistant'; content: string; status?: string }>; quota?: Quota } | null) => {
+      .then((body: { messages?: Array<{ id: number; role: 'user' | 'assistant'; content: string; status?: string }>; quota?: Quota; questionQuota?: Quota } | null) => {
         if (cancelled || !body) return;
         let userIndex = 0;
         const restored: ChatEntry[] = (body.messages ?? [])
@@ -355,6 +357,7 @@ export default function AiTutorPanel({
         });
         setEntries(restored);
         if (body.quota) setQuota(body.quota);
+        if (body.questionQuota) setQuestionQuota(body.questionQuota);
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
@@ -424,6 +427,7 @@ export default function AiTutorPanel({
         if (response.status === 429) {
           // 429 ที่มีข้อมูลโควตา = โควตาหมด (ปิดช่องไว้)
           // 429 ที่ไม่มี = ถี่เกินไป (rate limit) → แสดงข้อความแต่ยังให้ลองใหม่ได้
+          if (body?.questionQuota) setQuestionQuota(body.questionQuota as Quota);
           if (body?.quota) {
             setQuotaExhausted(true);
             setQuota(body.quota);
@@ -458,6 +462,7 @@ export default function AiTutorPanel({
             text?: string;
             error?: string;
             quota?: Quota;
+            questionQuota?: Quota;
             messageId?: number;
           };
           if (event.type === 'delta' && typeof event.text === 'string') {
@@ -465,6 +470,7 @@ export default function AiTutorPanel({
             setStreamingText(answer);
           } else if (event.type === 'done') {
             if (event.quota) setQuota(event.quota);
+            if (event.questionQuota) setQuestionQuota(event.questionQuota);
             // ใช้ฉบับสุดท้ายจาก server (อาจถูกตัดที่ประโยคสมบูรณ์) ให้ตรงกับที่บันทึกลง DB
             const finalText = typeof event.text === 'string' ? event.text : answer;
             if (finalText) {
@@ -581,9 +587,10 @@ export default function AiTutorPanel({
     }
   }, [attemptKey, isLive, questionId, posthog, analyticsBase]);
 
+  // แยกให้ชัด: ตัวเลขซ้าย = เพดานรายวัน (เพดานที่บังคับจริงในการถามคือต่อข้อ)
   const quotaText = quota
-    ? `ถามแล้ว ${quota.used} คำถาม`
-    : 'ถามแล้ว 0 คำถาม';
+    ? `ถามแล้ว ${quota.used} คำถามวันนี้`
+    : 'ถามแล้ว 0 คำถามวันนี้';
 
   return (
     <div
@@ -606,7 +613,11 @@ export default function AiTutorPanel({
             </div>
             <div className="flex flex-wrap items-center gap-x-[8px] gap-y-[2px]">
               <p className="text-[12px] whitespace-nowrap font-semibold leading-[15px] text-[#081425]">
-                {quotaText} <span className="text-[#6d5b16]">(เหลือโควตา {quota ? quota.remaining : 5} ครั้ง)</span>
+                {quotaText}{' '}
+                <span className="text-[#6d5b16]">
+                  (เหลือ {quota ? quota.remaining : 50} ครั้ง/วัน
+                  {questionQuota ? ` · ข้อนี้เหลือ ${questionQuota.remaining}/${questionQuota.limit} ครั้ง` : ''})
+                </span>
               </p>
             </div>
           </div>

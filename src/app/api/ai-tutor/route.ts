@@ -19,6 +19,7 @@ import {
 import {
   countSystemDailyQuestions,
   getDailyQuotaSnapshot,
+  getQuotaSnapshot,
   reserveQuestion,
 } from '@/lib/ai-tutor/quota';
 import { getAiTutorConfig } from '@/lib/ai-tutor/config';
@@ -107,10 +108,13 @@ export async function GET(request: Request) {
   const config = await getAiTutorConfig();
 
   try {
-    const [thread, quota, feedback] = await Promise.all([
+    const [thread, quota, questionQuota, feedback] = await Promise.all([
       getThreadMessages({ userId: session.user.id, questionId, attemptKey }),
       // ตัวเลขที่แสดงฝั่งผู้เรียน = เพดานรายวันของผู้เรียน (userDailyLimit)
       getDailyQuotaSnapshot({ userId: session.user.id, limit: config.userDailyLimit }),
+      // เพดานต่อข้อ — ตัวที่บังคับจริงตอนถาม (questionQuota) ต้องแสดงให้ผู้เรียนเห็นด้วย
+      // ไม่งั้นตัวเลขบนหัวแผง (รายวัน) ดูขัดกับข้อความ "โควตาข้อนี้หมด"
+      getQuotaSnapshot({ userId: session.user.id, questionId, limit: config.questionQuota }),
       getThreadFeedback({ userId: session.user.id, questionId }),
     ]);
 
@@ -125,6 +129,7 @@ export async function GET(request: Request) {
         feedback: feedback[message.id] ?? null,
       })),
       quota,
+      questionQuota,
     });
   } catch (error) {
     // ฐานข้อมูลล่ม/ยังไม่ได้รัน migration → บอกผู้เรียนว่าชั่วคราวใช้ไม่ได้ (ไม่ใช่ 500)
@@ -233,8 +238,15 @@ export async function POST(request: Request) {
     context = buildQuestionContext(row);
 
     // ผู้เรียนตอบถูกไหม — เทียบคำตอบใน proof กับเฉลยที่ดึงจาก DB (ฝั่ง server ทั้งหมด)
-    isCorrect = context.correctAnswerText
-      ? selectedAnswer.trim().toLocaleLowerCase() === context.correctAnswerText.trim().toLocaleLowerCase()
+    //
+    // ⚠️ ต้องเทียบกับ `row.correctAnswer` (ค่าดิบใน DB) ไม่ใช่ `context.correctAnswerText`:
+    // - ข้อเลือกตอบ: proof เก็บ "ป้าย" (A/B/C/D) และ DB เก็บป้ายเดียวกัน → เทียบกันได้
+    // - เดิมเทียบป้ายกับ "ข้อความตัวเลือก" (เช่น "A" กับ "want") → isCorrect เป็น false
+    //   ทุกครั้ง ข้อมูลตอบถูก/ผิดในหน้า admin และ CSV จึงใช้ไม่ได้
+    // - ข้อเติมคำในบทความ (form-meaning) ไม่มีเฉลยในคอลัมน์นี้ → null = ไม่ทราบผล
+    const correctAnswerRaw = row.correctAnswer?.trim() ?? '';
+    isCorrect = correctAnswerRaw
+      ? selectedAnswer.trim().toLocaleLowerCase() === correctAnswerRaw.toLocaleLowerCase()
       : null;
 
     // ─── เพดานต้นทุนรวมทั้งระบบ/วัน: เช็คด้วย SQL ก่อนจองโควตา ───
@@ -295,6 +307,8 @@ export async function POST(request: Request) {
       }
       return jsonError(429, `โควตาคำถามของข้อนี้หมดแล้ว (${reservation.quota.used}/${reservation.quota.limit} ครั้งต่อวัน)`, {
         quota: dailyQuota,
+        // ตัวเลขของข้อนี้ (ผู้เรียนเห็นว่าหมดแล้วกี่จากกี่)
+        questionQuota: reservation.quota,
       });
     }
   } catch (error) {
@@ -398,6 +412,8 @@ export async function POST(request: Request) {
           type: 'done',
           messageId: assistantId,
           quota,
+          // เพดานต่อข้อที่ใช้ไปแล้ว (รวมคำถามนี้) — ให้หัวแผงอัปเดตตรงกัน
+          questionQuota: reservation.quota,
           /** ข้อความฉบับสุดท้าย (อาจถูกตัด) — client ต้องแสดงฉบับนี้ให้ตรงกับ DB */
           text: finalText,
           usage: {

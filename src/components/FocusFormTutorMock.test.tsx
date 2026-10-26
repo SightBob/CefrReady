@@ -35,7 +35,7 @@ describe('FocusFormTutorMock — เรนเดอร์โครงหน้�
   it('มีกรอบ AI Tutor: หัวข้อ, โควตา, ชุดไอคอน asset จาก Figma, แชทและช่องพิมพ์', () => {
     expect(markup).toContain('โหมด AI');
     expect(markup).toContain('ถามแล้ว 0 คำถาม');
-    expect(markup).toContain('เหลือโควตา 5 ครั้ง');
+    expect(markup).toContain('เหลือ 50 ครั้ง/วัน');
     // asset ไอคอนดาวน์โหลดจาก Figma MCP — ห้ามวาดซ้ำ
     for (const asset of ['sparkle.svg', 'rotate-cw.svg', 'maximize-2.svg', 'arrow-up.svg']) {
       expect(markup).toContain(`/tests/tutor-mock/${asset}`);

@@ -18,11 +18,19 @@ describe('หน้าข้อสอบคืนคำตอบหลัง ref
   it('ดึง state ที่บันทึกไว้ (ไม่ใช่แค่ตำแหน่งข้อ) มาตอนโหลดชุด', () => {
     expect(pageSrc).toContain('loadTestProgressState');
     expect(pageSrc).toContain('const restoredProgress = previewMode ? null : loadTestProgressState(sectionId, setId);');
-    expect(pageSrc).toContain('setCheckedSlots(restoredProgress?.checked ?? {});');
+    expect(pageSrc).toContain('setCheckedSlots(restorable ? restoredProgress.checked : {});');
   });
 
   it('คืนคำตอบที่เลือกไว้ของข้อปัจจุบันด้วย', () => {
     expect(pageSrc).toContain('restoredProgress.answers[restoredProgress.index] ?? null');
+  });
+
+  it('ลำดับตัวเลือกคงเดิมตลอดรอบ — คำตอบที่จำไว้จึงยังชี้ตัวเดิมหลัง refresh', () => {
+    // seed ของการสลับตัวเลือกต้องมาจาก sessionStorage ต่อชุด ไม่ใช้อิงเวลาที่โหลดหน้า
+    expect(pageSrc).toContain('ensureChoiceSeed(sectionId, setId)');
+    expect(pageSrc).toContain('seedExisted');
+    expect(pageSrc).toContain('rotateChoiceSeed(sectionId, setId)');
+    expect(pageSrc).not.toContain('const choiceShuffleSeed = `${setId}-${testStartedAt}`;');
   });
 
   it('บันทึกคำตอบ + สถานะเฉลยทุกครั้งที่เปลี่ยน', () => {

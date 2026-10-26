@@ -43,6 +43,9 @@ import { topicsWithExplain } from '@/lib/set-intro';
 import {
   loadTestProgress,
   loadTestProgressState,
+  loadChoiceSeed,
+  ensureChoiceSeed,
+  rotateChoiceSeed,
   saveTestProgress,
   saveTestProgressState,
   clearBlankAnswers,
@@ -265,7 +268,13 @@ export default function SetQuizPage() {
     setCurrentQuestion(slotIndex);
   }, [previewTopic, setData, topicRuns, mainSlots.length]);
 
-  const choiceShuffleSeed = `${setId}-${testStartedAt}`;
+  // ลำดับตัวเลือกสลับด้วย seed ที่คงเดิมตลอดรอบ (เก็บใน sessionStorage ต่อชุด)
+  // — เดิม seed อิงเวลาที่โหลดหน้า ทำให้ refresh แล้วลำดับเปลี่ยน คำตอบที่จำไว้
+  // (เก็บเป็นป้ายบนจอ เช่น "C") ชี้ไปคนละตัวเลือก → ตอบถูกกลับขึ้นว่าผิด
+  const [choiceShuffleSeed, setChoiceShuffleSeed] = useState('');
+  useEffect(() => {
+    setChoiceShuffleSeed(ensureChoiceSeed(sectionId, setId));
+  }, [sectionId, setId]);
   const mainSlot = mainSlots[currentQuestion];
   const explainQuestionIndex = (mainSlot?.questionIndex ?? currentQuestion);
   const explainTopic = setData?.questions[explainQuestionIndex]?.grammarTopic?.trim() ?? '';
@@ -440,18 +449,24 @@ export default function SetQuizPage() {
         setSetData({ ...data.data, questions: finalQuestions });
         // คืนคำตอบ/สถานะเฉลยที่ค้างไว้ของชุดนี้ (refresh แล้วต้องไม่กลับไปเริ่มใหม่ทั้งชุด)
         // โหมดพรีวิวของแอดมินไม่ใช้ค่าที่จำไว้ — เนื้อหาอาจต่างจากรอบของผู้เรียน
+        // ลำดับตัวเลือกของรอบที่บันทึกไว้ — ต้องรู้ก่อนคืนคำตอบ (ดู loadChoiceSeed)
+        const seedExisted = loadChoiceSeed(sectionId, setId) !== null;
+        setChoiceShuffleSeed(ensureChoiceSeed(sectionId, setId));
         const totalItems = countTestSetItems(finalQuestions);
         const restoredProgress = previewMode ? null : loadTestProgressState(sectionId, setId);
+        // คำตอบ/เฉลยที่จำไว้ผูกกับลำดับตัวเลือกของรอบนั้น — ถ้าไม่มี seed ของรอบนั้น
+        // (ข้อมูลจากโค้ดรุ่นก่อน) ลำดับที่เห็นตอนนี้เป็นคนละชุด จึงคืนแค่ตำแหน่งข้อ
+        const restorable = restoredProgress !== null && seedExisted;
         const restoredAnswers: (string | null)[] = Array(totalItems).fill(null);
-        if (restoredProgress) {
+        if (restorable) {
           restoredProgress.answers.forEach((value, index) => {
             if (index < restoredAnswers.length && value !== null) restoredAnswers[index] = value;
           });
         }
         setAnswers(restoredAnswers);
-        setCheckedSlots(restoredProgress?.checked ?? {});
+        setCheckedSlots(restorable ? restoredProgress.checked : {});
         setSelectedAnswer(
-          restoredProgress ? restoredProgress.answers[restoredProgress.index] ?? null : null,
+          restorable ? restoredProgress.answers[restoredProgress.index] ?? null : null,
         );
       } else {
         setNotFound(true);
@@ -881,6 +896,8 @@ export default function SetQuizPage() {
   const handleRestartTest = () => {
     const restartedAt = new Date().toISOString();
     setTestStartedAt(restartedAt);
+    // รอบใหม่ = ลำดับตัวเลือกชุดใหม่ (คำตอบที่จำไว้ของรอบก่อนใช้ไม่ได้แล้ว)
+    setChoiceShuffleSeed(rotateChoiceSeed(sectionId, setId));
     setScore(0);
     setScoredTotal(null);
     setAnswers(Array(mainSlots.length).fill(null));

@@ -228,7 +228,8 @@ export default function FocusFormQuestionCard({
           <span className="shrink-0 block text-[#334155]">
             <Image src="/icon_svg/question.svg" alt="" width={15} height={15} className="qc-prompt-icon block h-[15px] w-[15px]" aria-hidden="true" />
           </span>
-          <div className="qc-prompt-text text-base font-semibold capitalize leading-[1.125rem] text-[#334155] tracking-[0.0219em]">
+          {/* ไม่ใช้ capitalize: ประโยคโจทย์อังกฤษจะถูกทำเป็น Title Case ทุกคำ */}
+          <div className="qc-prompt-text text-base font-semibold leading-[1.125rem] text-[#334155] tracking-[0.0219em]">
             {/* inline: ปล่อยให้ SelectableText ไม่ใส่ leading-relaxed ของตัวเอง (Figma 60:3973 = 18px) */}
             <SelectableText text={questionText} contextSentence={questionText} inline />
           </div>

@@ -13,7 +13,8 @@ describe('AiTutorPanel — โครงคงแบบ Figma 580:27960', () => {
   it('หัวกรอบข้อความเหมือนตั้งต้วตามแบบ', () => {
     expect(markup).toContain('โหมด AI');
     expect(markup).toContain('ถามแล้ว 0 คำถาม');
-    expect(markup).toContain('(เหลือโควตา 5 ครั้ง)');
+    // ตัวเลขบนหัวแผงเป็นเพดานรายวัน (เพดานที่บังคับจริงคือต่อข้อ — แสดงแยกเมื่อมีข้อมูล)
+    expect(markup).toContain('(เหลือ 50 ครั้ง/วัน');
   });
 
   it('โหมด mock: เนื้อหา demo ตามแบบ Figma เท่าเดิม', () => {
@@ -95,7 +96,7 @@ describe('AiTutorPanel — ป้าย Beta + ข้อความกันเ
     expect(live).not.toContain('AI อาจตอบผิดได้');
     // หัวข้อ/โควตาเดิมยังอยู่และไม่ถูกแทนที่
     expect(live).toContain('โหมด AI');
-    expect(live).toContain('(เหลือโควตา 5 ครั้ง)');
+    expect(live).toContain('(เหลือ 50 ครั้ง/วัน');
   });
 });
 

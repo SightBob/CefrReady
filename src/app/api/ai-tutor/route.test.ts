@@ -31,6 +31,7 @@ vi.mock('@/lib/rate-limit', () => ({ rateLimit: mocks.rateLimit }));
 vi.mock('@/lib/api-security', () => ({ validateOrigin: () => null, checkUserRateLimit: mocks.minuteLimit }));
 vi.mock('@/lib/ai-tutor/quota', () => ({
   reserveQuestion: mocks.reserveQuestion,
+  getQuotaSnapshot: mocks.getQuotaSnapshot,
   getDailyQuotaSnapshot: mocks.getDailyQuotaSnapshot,
   countSystemDailyQuestions: mocks.countSystemDailyQuestions,
   questionQuotaLimit: () => 5,
@@ -94,7 +95,12 @@ function post(body: unknown) {
   }));
 }
 
-const validProof = () => issueAnswerProof({ userId: 'u1', questionId: 7, selectedAnswer: 'do' })!;
+/**
+ * proof เก็บ "ค่าที่ผู้เรียนส่งไปตรวจคำตอบ" — ข้อเลือกตอบคือป้ายต้นฉบับ (A–D)
+ * เพราะ client แปลงป้ายบนจอกลับเป็นป้ายใน DB ก่อนส่ง (toStoredAnswer)
+ * → เฉลยของข้อนี้ใน DB คือ option B (ข้อความ 'do') proof ที่ถูกจึงเป็น 'B'
+ */
+const validProof = () => issueAnswerProof({ userId: 'u1', questionId: 7, selectedAnswer: 'B' })!;
 
 /** รหัสรอบการทำข้อสอบ (UUID-like) — ใช้แยกบทสนทนาต่อรอบ */
 const ATTEMPT_KEY = 'attempt-key-0001';
@@ -697,7 +703,8 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
   });
 
   it('บันทึก selected_answer + is_correct ที่แถวผู้เรียน (คำนวณจากเฉลยใน DB และคำตอบใน proof)', async () => {
-    // คำตอบใน proof = 'do' และเฉลยใน DB (option B) = 'do' → ถูก
+    // คำตอบใน proof = 'B' และเฉลยใน DB = 'B' → ถูก
+    // (ก่อนแก้: เทียบป้าย 'B' กับ "ข้อความตัวเลือก" 'do' → false ทุกข้อ)
     mocks.stream.mockResolvedValue({
       text: 'คำตอบ',
       finishReason: 'stop',
@@ -710,8 +717,26 @@ describe('POST /api/ai-tutor — stream + บันทึก', () => {
     const res = await post({ questionId: 7, message: 'ทำไม', proof: validProof(), attemptKey: ATTEMPT_KEY });
     await res.text(); // รอให้ stream ของ route ทำงานจนจบ
     const saved = mocks.markUserMessageOk.mock.calls[0][0] as { selectedAnswer: string; isCorrect: boolean };
-    expect(saved.selectedAnswer).toBe('do');
+    expect(saved.selectedAnswer).toBe('B');
     expect(saved.isCorrect).toBe(true);
+  });
+
+  it('ตอบผิด (proof เป็นป้ายอื่น) → is_correct = false', async () => {
+    mocks.stream.mockResolvedValue({
+      text: 'คำตอบ',
+      finishReason: 'stop',
+      ttftMs: 50,
+      fallbackUsed: false,
+      fallbackReason: null,
+      usage: { inputTokens: 1, outputTokens: 2, reasoningTokens: 0, model: 'm', latencyMs: 10 },
+    });
+
+    const wrongProof = issueAnswerProof({ userId: 'u1', questionId: 7, selectedAnswer: 'A' })!;
+    const res = await post({ questionId: 7, message: 'ทำไม', proof: wrongProof, attemptKey: ATTEMPT_KEY });
+    await res.text();
+    const saved = mocks.markUserMessageOk.mock.calls[0][0] as { selectedAnswer: string; isCorrect: boolean };
+    expect(saved.selectedAnswer).toBe('A');
+    expect(saved.isCorrect).toBe(false);
   });
 
   it('บันทึก fallback_used + finish_reason ที่แถว assistant', async () => {

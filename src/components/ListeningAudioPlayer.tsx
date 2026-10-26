@@ -272,7 +272,9 @@ export default function ListeningAudioPlayer({
                 aria-hidden="true"
               />
             </span>
-            <div className="text-base font-semibold capitalize leading-[1.125rem] text-[#334155] tracking-[0.0219em]">
+            {/* ห้ามใช้ capitalize: โจทย์เป็นประโยคอังกฤษเต็ม ๆ → CSS จะทำ Title Case
+                ทุกคำ ("A Man And A Woman Are Talking About A Museum") ซึ่งผิด */}
+            <div className="text-base font-semibold leading-[1.125rem] text-[#334155] tracking-[0.0219em]">
               <SelectableText text={questionText || 'What did you hear?'} contextSentence={questionText} inline />
             </div>
           </div>

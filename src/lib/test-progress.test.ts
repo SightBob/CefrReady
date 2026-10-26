@@ -3,9 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   clearBlankAnswers,
+  ensureChoiceSeed,
   loadBlankAnswers,
+  loadChoiceSeed,
   loadTestProgress,
   loadTestProgressState,
+  rotateChoiceSeed,
   saveBlankAnswers,
   saveTestProgress,
   saveTestProgressState,
@@ -134,6 +137,37 @@ describe('test-progress', () => {
 
     window.sessionStorage.setItem('cefr_set_progress_focus-form-16', '{"index":"2"}');
     expect(loadTestProgressState('focus-form', 16)).toBeNull();
+  });
+
+  // ─── seed ลำดับตัวเลือก (คำตอบเก็บเป็นป้ายบนจอ ต้องมีลำดับเดิมเสมอ) ─────
+
+  it('seed ตัวเลือก: สร้างครั้งแรกแล้วคงเดิมแม้เรียกซ้ำ (refresh ได้ลำดับเดิม)', () => {
+    expect(loadChoiceSeed('focus-form', 15)).toBeNull();
+    const first = ensureChoiceSeed('focus-form', 15);
+    expect(first).toBeTruthy();
+    expect(loadChoiceSeed('focus-form', 15)).toBe(first);
+    expect(ensureChoiceSeed('focus-form', 15)).toBe(first);
+    // คนละชุด = คนละ seed
+    expect(ensureChoiceSeed('focus-form', 16)).not.toBe(first);
+    expect(ensureChoiceSeed('listening', 15)).not.toBe(first);
+  });
+
+  it('seed ตัวเลือก: ทำชุดใหม่ = รอบใหม่ ได้ seed ใหม่', () => {
+    const first = ensureChoiceSeed('focus-form', 17);
+    const rotated = rotateChoiceSeed('focus-form', 17);
+    expect(rotated).not.toBe(first);
+    expect(loadChoiceSeed('focus-form', 17)).toBe(rotated);
+    // seed ใหม่แล้ว การเรียก ensure ต้องไม่สร้างซ้ำ
+    expect(ensureChoiceSeed('focus-form', 17)).toBe(rotated);
+  });
+
+  it('seed ตัวเลือก: sessionStorage ใช้ไม่ได้ → ยังคืน seed ไว้ใช้ในรอบนี้ ไม่ throw', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(() => ensureChoiceSeed('focus-form', 18)).not.toThrow();
+    expect(ensureChoiceSeed('focus-form', 18)).toBeTruthy();
+    expect(loadChoiceSeed('focus-form', 18)).toBeNull();
   });
 
   it('คำตอบของชุดเติมคำในบทความ (แยกคีย์จากตำแหน่งข้อ)', () => {
