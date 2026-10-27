@@ -7,9 +7,6 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import SectionCard, { type SectionData } from '@/components/SectionCard';
 
-// FeedbackDiscoveryModal intentionally not rendered — feature disabled until
-// the feedback survey launches.
-
 const ANNOUNCEMENT =
   'เนื่องจาก CEFR Ready กำลังพัฒนาข้อสอบให้แม่นยำขึ้น เราจึงขอเริ่มเก็บค่าบริการตั้งแต่วันที่ 1 พฤศจิกายน 2569 เป็นต้นไป เพื่อนๆสามารถใช้งานได้ “ ฟรี ” จนกว่าจะถึงกำหนดสิ้นสุด';
 
