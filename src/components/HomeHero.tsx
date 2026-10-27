@@ -47,22 +47,23 @@ export default function HomeHero() {
       {/* Background pattern — เดสก์ท็อป ≥768px ใช้ bg-main1.png (6144×2044)
           มือถือ ≤767px ใช้ bg-mobile.png (1560×1504) สลับที่ระดับ CSS ไม่แตะ layout เดสก์ท็อป */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+        {/* ⚠️ ห้ามใส่ priority/preload กับภาพพื้นหลังทั้งสองใบนี้
+            ภาพคู่นี้สลับกันด้วย CSS (ใบหนึ่ง display:none เสมอ) แต่ priority/preload
+            จะสั่งให้เบราว์เซอร์โหลดทั้งสองใบทุกขนาดจอ → โหลดภาพที่ไม่เคยถูกใช้
+            และ Chrome ฟ้อง "preloaded but not used" จาก <link rel="preload"> ที่ Next ฝังมา
+            ใช้ lazy (ค่าเริ่มต้น) แทน: ภาพที่อยู่ในจอโหลดทันทีตอน layout ส่วนใบที่ซ่อนไม่ถูกโหลดเลย */}
         <Image
           src="/bg/bg-main1.png"
           alt=""
           fill
-          priority
           sizes="100vw"
           className="object-cover object-center max-md:hidden"
         />
-        {/* มือถือ: ภาพนี้คือ LCP ของหน้าแรก → โหลดทันที ไม่ปล่อยให้ browser เลื่อนไป lazy
-            (เดสก์ท็อปซ่อนภาพนี้ด้วย max-md → ไฟล์ AVIF เล็ก 3-14 KB จึงโหลดเผื่อได้ไม่คุ้มเสีย) */}
         <Image
           src="/bg/bg-mobile.png"
           alt=""
           fill
           sizes="100vw"
-          loading="eager"
           className="hidden object-cover object-center max-md:block"
         />
       </div>
