@@ -313,7 +313,7 @@ export default function TestResults({
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') void handleCommentSubmit();
                   }}
-                  placeholder="ช่วยเขียนความคิดเห็น หรือประสบการณ์ใช้งานสั้นๆก็ได้ครับ"
+                  placeholder="เขียนข้อความ"
                   aria-label="ช่วยเขียนความคิดเห็น หรือประสบการณ์ใช้งานสั้นๆ"
                   className="flex h-[56px] min-w-0 flex-1 items-center rounded-[10px] border border-[#dcdcdc] bg-white py-0.5 pl-3 pr-[11px] text-[14px] font-medium text-[#000000] outline-none placeholder:text-[#9e9e9e]"
                 />
