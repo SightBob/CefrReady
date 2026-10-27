@@ -27,6 +27,13 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      // /guide ถูกลบออกจากเว็บ (ไม่มีคู่มือให้แสดง) — ลิงก์เก่า/บุ๊กมาร์กไปที่หน้าแรก
+      { source: '/guide', destination: '/', permanent: true },
+      { source: '/guide/:slug', destination: '/', permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

@@ -99,7 +99,6 @@ describe('metadata titles', () => {
       expect.arrayContaining([
         'layout.tsx',
         'tests/layout.tsx',
-        'guide/[slug]/page.tsx',
         'review/layout.tsx',
         'demo/listening/layout.tsx',
       ]),
