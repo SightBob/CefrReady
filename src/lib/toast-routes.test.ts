@@ -35,7 +35,6 @@ describe('toast routes', () => {
   it('masks the toaster on for routes that fire toasts', () => {
     expect(canShowToast('/admin')).toBe(true);
     expect(canShowToast('/admin/users')).toBe(true);
-    expect(canShowToast('/contact')).toBe(true);
     expect(canShowToast('/tests')).toBe(true);
     expect(canShowToast('/tests/focus-form/1')).toBe(true);
     expect(canShowToast('/tests/full/results')).toBe(true);
@@ -44,6 +43,7 @@ describe('toast routes', () => {
 
   it('keeps the toaster off content pages (no toast can fire there)', () => {
     expect(canShowToast('/')).toBe(false);
+    expect(canShowToast('/contact')).toBe(false);
     expect(canShowToast('/cefr')).toBe(false);
     expect(canShowToast('/progress')).toBe(false);
     expect(canShowToast('/packages')).toBe(false);
