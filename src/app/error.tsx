@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
 
@@ -13,7 +12,15 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    // Sentry client (~4 KB) ไม่ต้องอยู่ใน JS ที่โหลดทุกหน้า: error boundary
+    // ทำงานเฉพาะตอนพังจริง จึงค่อยโหลด SDK ตอนนั้น — รายงาน error เหมือนเดิม
+    let cancelled = false;
+    void import('@sentry/nextjs').then((Sentry) => {
+      if (!cancelled) Sentry.captureException(error);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [error]);
 
   return (
