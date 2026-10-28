@@ -36,8 +36,9 @@ jobs:
       # No DATABASE_URL on purpose: src/app/api/verb-banks/schema-live.test.ts is a
       # live-DB integration test that self-skips when the variable is absent.
       # Setting a dummy URL makes those 6 tests fail instead (they try to connect).
-      # next build needs no database either — every page is dynamic (ƒ) and
-      # sitemap.ts wraps its DB import in try/catch.
+      # ส่วน next build ต้องมี DATABASE_URL ตอนประเมิน module (layout → src/lib/auth
+      # → src/db throw เมื่อไม่มีค่า) จึงใส่ค่าปลอมเฉพาะ step Build ข้างล่าง — build
+      # ไม่ต่อฐานข้อมูลจริง และ step Unit tests ยังไม่ได้ env นี้ตามเดิม
 
       - name: Lint
         run: npm run lint
@@ -49,4 +50,10 @@ jobs:
         run: npx vitest run
 
       - name: Build
+        # next build ประเมิน module ของ layout → src/lib/auth → src/db ซึ่ง throw
+        # เมื่อไม่มี DATABASE_URL (CI ไม่มี DB โดยตั้งใจ) ค่าปลอมนี้ใช้ให้ module
+        # evaluation ผ่านเท่านั้น — ยืนยันแล้วว่า build ไม่ต่อฐานข้อมูลจริง
+        # (ไม่ตั้งที่ขั้น Unit tests เพื่อให้เทสต์ที่ต้องใช้ DB ยัง skip ตามเดิม)
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5499/ci_placeholder
         run: npx next build
