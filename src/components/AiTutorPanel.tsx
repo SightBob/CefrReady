@@ -282,8 +282,12 @@ export default function AiTutorPanel({
 
   // mirror ของ entries สำหรับอ่านใน callback โดยไม่ทำให้ callback ถูกสร้างใหม่ทุกข้อความ
   // (ตัวนับ index ของ AI Tutor ใช้อ่านจากที่นี่ — สถานะจริงยังอยู่ใน useState เหมือนเดิม)
-  const entriesRef = useRef<ChatEntry[]>([]);
-  if (entriesRef.current !== entries) entriesRef.current = entries;
+  const entriesRef = useRef<ChatEntry[]>(entries);
+  // อัปเดต mirror หลัง commit เท่านั้น — ห้ามเขียน ref ระหว่าง render
+  // (callback ที่อ่านค่านี้ถูกเรียกจาก event หลัง effect ทำงานแล้ว)
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   // สถานะแยกต่อข้อ: เปลี่ยนข้อ → ล้างช่องพิมพ์/เธรดของข้อเดิม (ตัวนับคำถามจะผูกกับ
   // threadKey เดียวกันตอนต่อ AI จริง) ไม่ให้สถานะข้อก่อนหน้าปนกับข้อใหม่
