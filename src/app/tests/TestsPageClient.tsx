@@ -30,7 +30,9 @@ export default function TestsPageClient({ sections, user, maintenanceSections = 
       return;
     }
     if (!isAuthenticated) {
-      void signIn(undefined, { callbackUrl: '/tests' });
+      // เก็บปลายทางที่ผู้ใช้ตั้งใจจะไป (พาร์ทที่กด) ไม่ใช่ '/tests' ลอย ๆ
+      // ไม่อย่างนั้นหลังล็อกอินแล้วต้องเริ่มเลือกใหม่ทั้งหมด
+      void signIn(undefined, { callbackUrl: `/tests/${section.id}` });
       return;
     }
     router.push(`/tests/${section.id}`);

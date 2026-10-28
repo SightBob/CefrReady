@@ -51,7 +51,10 @@ export const authConfig: NextAuthConfig = {
     }),
   ],
   pages: {
-    signIn: '/',
+    // ต้องชี้ '/login' ไม่ใช่ '/' — signIn() ที่ไม่ระบุ provider จะพาไปหน้านี้พร้อม
+    // ?callbackUrl= แล้วผู้ใช้เห็นปุ่มล็อกอินจริง (เดิมชี้ '/' ทำให้กดการ์ดแล้วได้หน้าแรก
+    // ที่ไม่มีอะไรให้กดต่อ)
+    signIn: '/login',
   },
   callbacks: {
     // Map JWT fields onto the session. REQUIRED here (not just in auth.ts):

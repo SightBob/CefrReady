@@ -35,4 +35,23 @@ describe('safeCallbackUrl', () => {
   it('กำหนดค่าเริ่มต้นเองได้ (เช่นหน้าแอดมิน)', () => {
     expect(safeCallbackUrl(undefined, '/admin')).toBe('/admin');
   });
+
+  describe('URL เต็มที่ next-auth แปลงให้', () => {
+    const origin = 'https://cefr-ready.site';
+
+    it('origin ตรงกัน → ตัดเหลือ path (คง query เดิม)', () => {
+      expect(safeCallbackUrl('https://cefr-ready.site/tests/focus-form/16', DEFAULT_LOGIN_CALLBACK, origin)).toBe(
+        '/tests/focus-form/16',
+      );
+      expect(safeCallbackUrl('https://cefr-ready.site/progress?tab=week', DEFAULT_LOGIN_CALLBACK, origin)).toBe(
+        '/progress?tab=week',
+      );
+    });
+
+    it('origin ต่างกัน หรือไม่ได้ส่ง origin → ใช้ค่าเริ่มต้น', () => {
+      expect(safeCallbackUrl('https://evil.example/tests', DEFAULT_LOGIN_CALLBACK, origin)).toBe(DEFAULT_LOGIN_CALLBACK);
+      expect(safeCallbackUrl('http://cefr-ready.site/tests', DEFAULT_LOGIN_CALLBACK, origin)).toBe(DEFAULT_LOGIN_CALLBACK);
+      expect(safeCallbackUrl('https://cefr-ready.site/tests')).toBe(DEFAULT_LOGIN_CALLBACK);
+    });
+  });
 });

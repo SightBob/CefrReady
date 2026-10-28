@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams, usePathname, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { BookOpen, Headphones, Layers, PenTool } from 'lucide-react';
@@ -174,6 +174,7 @@ export default function SetQuizPage() {
   // โหมดพรีวิวของแอดมิน (?preview=1): ดูหน้าสอบจริงพร้อมเนื้อหา explain ที่ยังไม่เผยแพร่
   // — ตัว API เป็นคนตรวจสิทธิ์ผู้ดูแลจริง ๆ ฝั่งนี้เป็นแค่การส่งธงกับแบนเนอร์
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const previewMode = searchParams.get('preview') === '1';
   const previewNotice = previewMode
     ? 'โหมดพรีวิวสำหรับแอดมิน — เห็นเนื้อหาที่ยังไม่เผยแพร่ (ฉบับร่าง/รอตรวจสอบ/ปิดชั่วคราว) ทั้งหน้าอธิบายและกิจกรรม Tap & Select แต่ผู้เรียนยังไม่เห็น'
@@ -489,13 +490,15 @@ export default function SetQuizPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/tests');
+      // ไม่เตะออกเงียบ ๆ ไปหน้า /tests — ไปหน้า /login พร้อม callbackUrl
+      // กลับมาที่ชุดข้อสอบที่ตั้งใจเข้าหลังล็อกอินเสร็จ
+      router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
       return;
     }
     if (status === 'authenticated' && !isNaN(setId)) {
       fetchSet();
     }
-  }, [status, setId, sectionId, router, fetchSet]);
+  }, [status, setId, sectionId, pathname, router, fetchSet]);
 
   // AI Tutor flag — ถามเซิร์ฟเวอร์หลังล็อกอิน (fail-closed: ผิดพลาด = ไม่เห็น panel)
   useEffect(() => {
