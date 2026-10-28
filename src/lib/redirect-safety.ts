@@ -47,3 +47,25 @@ export function safeCallbackUrl(
 
   return trimmed;
 }
+
+/**
+ * แปลง path ที่ผ่าน safeCallbackUrl แล้วให้เป็น URL เต็มของ origin ปัจจุบัน
+ *
+ * ทำไมต้องเป็น URL เต็ม: next-auth เก็บปลายทางหลังล็อกอินจากค่า callbackUrl
+ * ที่ส่งเข้า signIn() ตรง ๆ — ค่าที่เป็น path อย่างเดียว ("/tests/...") จะถูก
+ * ทิ้งแล้วกลับไปใช้ origin ต้นทาง ผลคือผู้ใช้ล็อกอินเสร็จแล้วไปโผล่หน้าแรก
+ * ไม่ใช่หน้าที่ตั้งใจไว้ (วัดจริงกับ POST /api/auth/signin/google แล้ว)
+ *
+ * ความปลอดภัย: path ต้องมาจาก safeCallbackUrl เท่านั้น — origin ที่ไม่ตรงกับ
+ * ค่าที่ส่งมาให้ใช้ค่าเริ่มต้นเสมอ
+ */
+export function absoluteCallbackUrl(path: string, origin: string): string {
+  try {
+    const base = new URL(origin).origin;
+    const url = new URL(path, base);
+    if (url.origin !== base) return `${base}${DEFAULT_LOGIN_CALLBACK}`;
+    return url.toString();
+  } catch {
+    return DEFAULT_LOGIN_CALLBACK;
+  }
+}

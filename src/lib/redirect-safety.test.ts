@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_LOGIN_CALLBACK, safeCallbackUrl } from './redirect-safety';
+import { DEFAULT_LOGIN_CALLBACK, absoluteCallbackUrl, safeCallbackUrl } from './redirect-safety';
 
 describe('safeCallbackUrl', () => {
   it('ปล่อย path ภายในเว็บผ่านไปตามเดิม', () => {
@@ -53,5 +53,29 @@ describe('safeCallbackUrl', () => {
       expect(safeCallbackUrl('http://cefr-ready.site/tests', DEFAULT_LOGIN_CALLBACK, origin)).toBe(DEFAULT_LOGIN_CALLBACK);
       expect(safeCallbackUrl('https://cefr-ready.site/tests')).toBe(DEFAULT_LOGIN_CALLBACK);
     });
+  });
+});
+
+describe('absoluteCallbackUrl', () => {
+  it('path ภายใน → URL เต็มของ origin ที่ส่งมา', () => {
+    expect(absoluteCallbackUrl('/tests/focus-form/16', 'http://localhost:3000')).toBe(
+      'http://localhost:3000/tests/focus-form/16',
+    );
+    expect(absoluteCallbackUrl('/progress?tab=week', 'https://cefr-ready.site')).toBe(
+      'https://cefr-ready.site/progress?tab=week',
+    );
+  });
+
+  it('path ที่ชี้ host อื่น → ใช้ค่าเริ่มต้นบน origin เดิม (กัน open redirect)', () => {
+    expect(absoluteCallbackUrl('//evil.example', 'http://localhost:3000')).toBe(
+      'http://localhost:3000/tests',
+    );
+    expect(absoluteCallbackUrl('https://evil.example/pwn', 'http://localhost:3000')).toBe(
+      'http://localhost:3000/tests',
+    );
+  });
+
+  it('origin ที่ไม่ใช่ URL → ใช้ค่าเริ่มต้น', () => {
+    expect(absoluteCallbackUrl('/tests', 'not-a-url')).toBe(DEFAULT_LOGIN_CALLBACK);
   });
 });

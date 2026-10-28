@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
+import { absoluteCallbackUrl } from '@/lib/redirect-safety';
 
 /**
  * ปุ่มเริ่มเข้าสู่ระบบด้วย Google — ใช้วิธีเดียวกับปุ่มใน header (HeaderClient)
@@ -15,8 +16,11 @@ export default function LoginPanel({ callbackUrl }: { callbackUrl: string }) {
   const handleLogin = () => {
     setBusy(true);
     setFailed(false);
+    // ต้องส่ง URL เต็ม (ไม่ใช่ path) — next-auth เก็บ path อย่างเดียวไม่ได้
+    // แล้วจะพากลับหน้าแรกแทนหน้าปลายทาง (ดู absoluteCallbackUrl)
+    const target = absoluteCallbackUrl(callbackUrl, window.location.origin);
     // signIn จะพาออกไปหน้า Google เอง — ถ้าหลุดกลับมาเป็น error ค่อยคืนสถานะปุ่ม
-    Promise.resolve(signIn('google', { callbackUrl }))
+    Promise.resolve(signIn('google', { callbackUrl: target }))
       .catch(() => {
         setBusy(false);
         setFailed(true);

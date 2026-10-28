@@ -5,6 +5,7 @@ import { ChevronDown, LogOut, UserRound } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
+import { absoluteCallbackUrl } from '@/lib/redirect-safety';
 
 // Figma 249:3559-249:3566 — 4 ช่อง 114×46; ช่องที่ 3-4 ในดีไซน์เป็น "ข้อสอบ" ซ้ำกัน
 // จึงแก้ช่องที่ 4 เป็น "ติวต่อเรา" เพื่อไม่ให้เมนูซ้ำ
@@ -66,7 +67,9 @@ export default function HeaderClient() {
   };
 
   const handleLogin = () => {
-    Promise.resolve(signIn('google', { callbackUrl: '/tests' })).catch(() => {});
+    Promise.resolve(
+      signIn('google', { callbackUrl: absoluteCallbackUrl('/tests', window.location.origin) }),
+    ).catch(() => {});
   };
 
   const userName = session?.user?.name ?? session?.user?.email?.split('@')[0] ?? 'User';

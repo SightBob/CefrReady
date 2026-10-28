@@ -2,6 +2,7 @@
 
 import { LogIn, Lock } from 'lucide-react';
 import { signIn } from 'next-auth/react';
+import { absoluteCallbackUrl } from '@/lib/redirect-safety';
 
 export default function TestsLoginPrompt() {
   return (
@@ -14,7 +15,13 @@ export default function TestsLoginPrompt() {
         Please login to access full tests with 20-30 questions each, save your progress, and track your improvement over time.
       </p>
       <button
-        onClick={() => Promise.resolve(signIn('google', { callbackUrl: '/tests' })).catch(() => {})}
+        onClick={() =>
+          Promise.resolve(
+            signIn('google', {
+              callbackUrl: absoluteCallbackUrl('/tests', window.location.origin),
+            }),
+          ).catch(() => {})
+        }
         className="bg-white text-primary-600 px-6 py-2 rounded-lg font-medium hover:bg-primary-50 transition-colors inline-flex items-center gap-2"
       >
         <LogIn className="w-5 h-5" />
