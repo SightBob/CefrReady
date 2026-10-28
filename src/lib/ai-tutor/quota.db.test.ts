@@ -25,10 +25,7 @@ try {
   // ignore — จะ skip ถ้าไม่มี DATABASE_URL
 }
 
-const { aiTutorMessages, questions, users } = await import('@/db/schema');
-const { reserveQuestion, countUsedQuestions, getDailyQuotaSnapshot, bangkokDayStartUtc } = await import('./quota');
-const { markUserMessageFailed } = await import('./messages');
-const { createTestDbUserId, evaluateTestDbGuard, testDbUserEmail } = await import('@/lib/test-db-guard');
+const { createTestDbUserId, evaluateTestDbGuard, importIfAllowed, testDbUserEmail } = await import('@/lib/test-db-guard');
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -44,6 +41,12 @@ const guard = evaluateTestDbGuard({
 if (!guard.allowed) {
   console.warn(`[quota.db.test] ข้ามเทสที่ต่อ DB จริง: ${guard.reason}`);
 }
+
+// import หลังผ่าน guard เท่านั้น — src/db/index.ts throw เมื่อไม่มี DATABASE_URL
+// และ ./quota / ./messages ก็ดึง @/db ต่อกันเป็นทอด ๆ
+const { aiTutorMessages, questions, users } = await importIfAllowed(guard.allowed, () => import('@/db/schema'));
+const { reserveQuestion, countUsedQuestions, getDailyQuotaSnapshot, bangkokDayStartUtc } = await importIfAllowed(guard.allowed, () => import('./quota'));
+const { markUserMessageFailed } = await importIfAllowed(guard.allowed, () => import('./messages'));
 
 /** คอลัมน์ที่เทสชุดนี้ต้องใช้ (0046/0047/0049) */
 const REQUIRED_COLUMNS = [
@@ -286,7 +289,7 @@ describeLive('quota AI Tutor ↔ DB จริง', () => {
   });
 });
 
-describe('quota AI Tutor ↔ DB จริง — เพดานรายวันของผู้เรียน (SQL)', () => {
+describeLive('quota AI Tutor ↔ DB จริง — เพดานรายวันของผู้เรียน (SQL)', () => {
   let pool: pg.Pool;
   let db: NodePgDatabase<Record<string, never>>;
   let userId = '';

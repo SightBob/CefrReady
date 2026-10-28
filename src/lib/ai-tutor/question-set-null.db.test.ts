@@ -24,10 +24,7 @@ try {
   // ignore — จะ skip ถ้าไม่มี DATABASE_URL
 }
 
-const { db } = await import('@/db');
-const { aiTutorMessages, questions, users } = await import('@/db/schema');
-const { countSystemDailyQuestions, countUserDailyQuestions } = await import('./quota');
-const { createTestDbUserId, evaluateTestDbGuard, testDbUserEmail } = await import('@/lib/test-db-guard');
+const { createTestDbUserId, evaluateTestDbGuard, importIfAllowed, testDbUserEmail } = await import('@/lib/test-db-guard');
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -39,6 +36,11 @@ const guard = evaluateTestDbGuard({
 if (!guard.allowed) {
   console.warn(`[question-set-null.db.test] ข้ามเทสที่ต่อ DB จริง: ${guard.reason}`);
 }
+
+// import หลังผ่าน guard เท่านั้น — ไม่มี DATABASE_URL เมื่อไร src/db/index.ts throw ทันที
+const { db } = await importIfAllowed(guard.allowed, () => import('@/db'));
+const { aiTutorMessages, questions, users } = await importIfAllowed(guard.allowed, () => import('@/db/schema'));
+const { countSystemDailyQuestions, countUserDailyQuestions } = await importIfAllowed(guard.allowed, () => import('./quota'));
 
 /** ตรวจว่า FK ของ question_id เป็น ON DELETE SET NULL แล้วหรือยัง (migration 0050) */
 async function isSetNullApplied(): Promise<boolean> {

@@ -91,6 +91,22 @@ export function evaluateTestDbGuard(params: {
 }
 
 /**
+ * import โมดูลที่พึ่งฐานข้อมูล แบบ "ข้ามได้" เมื่อ guard ยังไม่อนุญาต
+ *
+ * ทำไมต้องมี: src/db/index.ts throw ทันทีตอน import ถ้าไม่มี DATABASE_URL
+ * เทสที่เขียนว่า "ข้ามอัตโนมัติเมื่อไม่มี DATABASE_URL" จึงล้มตั้งแต่บรรทัด
+ * import ก่อนถึง logic skip — และโมดูลอย่าง ./quota หรือ ./messages ก็ดึง @/db
+ * ต่อกันเป็นทอด ๆ การ import ตรง ๆ จึงพังทั้งไฟล์
+ *
+ * วิธีใช้: เรียกหลังคำนวณ evaluateTestDbGuard() แล้วเท่านั้น
+ * เมื่อไม่อนุญาตจะคืน object ว่าง (ไม่มีใครอ่าน เพราะ describe ถูก skip)
+ */
+export async function importIfAllowed<T>(allowed: boolean, loader: () => Promise<T>): Promise<T> {
+  if (allowed) return loader();
+  return {} as unknown as T;
+}
+
+/**
  * id ของผู้ใช้ทดสอบที่สร้างเฉพาะเทสนี้ (ไม่ใช้ผู้ใช้จริงในฐานข้อมูล)
  * → cleanup จึงลบได้เฉพาะแถวของผู้ใช้ที่เทสสร้างเอง
  */

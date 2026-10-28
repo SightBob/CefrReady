@@ -30,10 +30,7 @@ try {
   // ignore — จะ skip ถ้าไม่มี DATABASE_URL
 }
 
-const { db } = await import('@/db');
-const { aiTutorAdminAudit, users } = await import('@/db/schema');
-const { createTestDbUserId, evaluateTestDbGuard, testDbUserEmail } = await import('@/lib/test-db-guard');
-const { POST } = await import('./route');
+const { createTestDbUserId, evaluateTestDbGuard, importIfAllowed, testDbUserEmail } = await import('@/lib/test-db-guard');
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -45,6 +42,12 @@ const guard = evaluateTestDbGuard({
 if (!guard.allowed) {
   console.warn(`[testers.route.db.test] ข้ามเทสที่ต่อ DB จริง: ${guard.reason}`);
 }
+
+// import หลังผ่าน guard เท่านั้น — src/db/index.ts throw เมื่อไม่มี DATABASE_URL
+// และ ./route ก็ดึง @/db ต่อเป็นทอด ๆ
+const { db } = await importIfAllowed(guard.allowed, () => import('@/db'));
+const { aiTutorAdminAudit, users } = await importIfAllowed(guard.allowed, () => import('@/db/schema'));
+const { POST } = await importIfAllowed(guard.allowed, () => import('./route'));
 
 const describeLive = connectionString && guard.allowed ? describe : describe.skip;
 
