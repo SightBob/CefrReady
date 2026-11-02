@@ -14,6 +14,7 @@ import ListeningAudioPlayer from '@/components/ListeningAudioPlayer';
 import TestTapSelectCard from '@/components/TestTapSelectCard';
 import type { TapExerciseData } from '@/lib/test-set-slots';
 import { buildReviewRailCells, sortReviewItemsByOrder } from '@/lib/review-rail';
+import ReviewQuestionChangedNotice from '@/components/ReviewQuestionChangedNotice';
 import { usePostHog } from '@/lib/posthog';
 import type { TestTypeId, ConversationLine, Article } from '@/types/test';
 
@@ -375,17 +376,7 @@ function ReviewQuestionCard({
   // attempt เก่าไม่มีสำเนาโจทย์ (__review) — ถ้าข้อถูกแก้ทีหลัง ตัวเลือก/เฉลยที่ดึงมา
   // จะไม่ใช่ของที่ผู้เรียนเห็นตอนนั้น จึงแสดงคำอธิบายแทนการ์ดโจทย์
   if (item.questionChanged) {
-    return (
-      <div className="rounded-[20px] bg-white px-[26px] py-6">
-        <p className="text-[15px] font-semibold text-slate-800">
-          ข้อนี้ถูกปรับปรุงหลังคุณทำข้อสอบ
-        </p>
-        <p className="mt-2 text-sm text-slate-600">
-          ทีมงานแก้โจทย์ข้อนี้หลังจากคุณส่งคำตอบแล้ว จึงไม่แสดงตัวเลือกและเฉลยเดิม
-          ผลที่บันทึกไว้ตอนนั้น: {item.isCorrect ? 'ตอบถูก' : 'ตอบผิด'}
-        </p>
-      </div>
-    );
+    return <ReviewQuestionChangedNotice isCorrect={item.isCorrect} />;
   }
 
   if (!q) {
