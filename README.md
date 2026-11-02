@@ -51,7 +51,7 @@ npm run dev     # Next.js dev server on http://localhost:3000
 - `npm run lint` - ESLint on `src/`
 - `npm run test:unit` - Vitest unit tests
 - `npm run test:watch` - Vitest in watch mode
-- `npm test` - Runs `next build` (not the unit tests)
+- `npm test` - Vitest unit tests (same as `test:unit`); production build is `npm run build`
 
 ## Database Management
 

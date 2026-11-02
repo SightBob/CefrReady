@@ -32,6 +32,11 @@
 
 ### C1 — ฟอนต์ Caveat + Momo เป็น TTF (ควรเป็น woff2)
 
+> ✅ **สถานะ 2 พ.ย. 2026: แก้แล้ว** — `public/fonts/` มี `Caveat-VariableFont_wght.woff2` (173KB),
+> `Caveat-latin.woff2` (76.6KB), `MomoTrustDisplay-Regular.woff2` (37.8KB) และ `src/app/fonts.css`
+> ตั้ง `src:` เป็น woff2 ก่อน ttf แล้ว เบราว์เซอร์ที่รองรับ woff2 จึงไม่โหลด TTF อีก
+> (ตัวเลข 258KB ด้านล่างเป็นผลวัดก่อนแก้) เหลือเพียงลบ `.ttf` ออกจาก repo ถ้าต้องการลดขนาด checkout
+
 **Before (วัดจริงจาก network trace ของหน้าแรก)**
 ```
 211.2 KB  font/ttf  /fonts/Caveat-VariableFont_wght.ttf
