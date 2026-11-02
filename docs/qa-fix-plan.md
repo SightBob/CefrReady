@@ -224,3 +224,40 @@ Backup ก่อนเขียนรอบนี้: `docs/qa-backup-2026-11-02
 - หน้า explain ของ Set 10 / Set 17 และหน้าสอบ: เปิดได้ 200 ไม่มี error
 - ไม่ได้กดทำข้อสอบเพื่อไปให้ถึงข้อ 1679 (ลำดับที่ 11 ของ Set 10) หรือ 2153 (ลำดับที่ 6 ของ Set 17) เพราะการตอบในหน้าเว็บจะ**เขียน `test_attempts`/`user_answers` แถวใหม่** ซึ่งอยู่นอกขอบเขตที่อนุมัติ → สิ่งที่ยืนยันได้คือ "DB ตรงร่าง + หน้าโหลดได้" ไม่ใช่ "เห็นข้อเรนเดอร์บนจอ"
 - `npx vitest run src/app/api/admin/test-explains src/app/api/test-sets src/app/tests` = 12 ไฟล์ / **72 passed** · `typecheck` exit 0 · `eslint` 0 error / 16 warning
+
+## 11. สถิติรายข้อหลังแก้โจทย์ — migration 0051 apply แล้ว (2 พ.ย. 2026)
+
+### 11.1 สิ่งที่ apply
+
+| ขั้น | คำสั่ง | ผล |
+|---|---|---|
+| dry-run | `npx tsx scripts/apply-migration.ts drizzle/0051_question_stats_cutoff.sql` | เป้าหมาย `ep-lingering-dust-a1ibr0x7-pooler.ap-southeast-1.aws.neon.tech` · รอรัน 1 ไฟล์ (`d4893595ab77`) |
+| apply | เดิม + `--apply --confirm-host <host>` | ✅ 1 statement: `ALTER TABLE "questions" ADD COLUMN IF NOT EXISTS "stats_cutoff_at" timestamp` |
+| ตรวจ | `information_schema` + `count(*)` | คอลัมน์มีจริง · `questions` = **411 แถวเท่าเดิม** · cutoff NULL 411 แถวก่อนตั้งค่า |
+
+### 11.2 ค่า cutoff ที่ตั้ง (ค่าคงที่ ไม่ผูกกับ updated_at)
+
+| id | `stats_cutoff_at` | ที่มา |
+|---|---|---|
+| 1679 | `2026-11-02 11:19:14.023908` | เวลาแก้ครั้งสุดท้าย (รอบ 2: เติม option_d) — ตรงกับ `updated_at` |
+| 2153 | `2026-11-02 11:19:13.868681` | เวลาเขียนใหม่ (รอบ 2) — ตรงกับ `updated_at` |
+
+ยืนยันว่าเป็นเวลาจริง ไม่ได้เดา: DB timezone = **GMT** · `docs/qa-backup-2026-11-02-round2.json` มี `createdAt = 2026-11-02T11:19:13.058Z` (snapshot ก่อนเขียนรอบเดียวกัน) · commit `6945cc8` = `2026-11-02T18:21:15+07:00` (= 11:21 GMT) → ลำดับ snapshot → เขียน → commit ตรงกัน
+
+### 11.3 ผลหลังตั้งค่า (SQL เดียวกับที่ route ใช้)
+
+| id | คำตอบทั้งหมด | นับในสถิติ (`created_at >= coalesce(cutoff, '-infinity')`) | ถูก |
+|---|---:|---:|---:|
+| 1679 | 34 | **0** | 0 |
+| 2153 | 44 | **1** (ตอบ D เมื่อ 11:51:08, `is_correct = false`) | 0 |
+
+→ 1679 หายจาก "ข้อยากสุด/อัตราถูก" จนกว่าจะมีคนตอบเวอร์ชันใหม่ · 2153 นับเฉพาะคำตอบหลังแก้ 1 แถว
+· ยังไม่ได้ตรวจหน้า `/admin/reports` และ `/admin` บนเบราว์เซอร์: ไม่มี dev server และไม่มี admin session (ห้ามสร้าง session/user) — ตรวจได้แค่ SQL ที่ route ใช้
+
+### 11.4 วิธี rollback (ยังไม่รัน)
+
+`docs/qa-rollback-stats-cutoff-2026-11-02.mjs`
+
+1. `node --env-file=.env docs/qa-rollback-stats-cutoff-2026-11-02.mjs` → dry-run แสดงค่าปัจจุบัน
+2. `... --apply` → `SET stats_cutoff_at = NULL` เฉพาะ 1679/2153 (transaction, `rowCount = 1` ต่อแถว, ต้องเหลือค่าไม่ใช่ NULL = 0)
+3. `... --apply --drop-column --confirm-drop 0051` → `DROP COLUMN IF EXISTS` (ได้เฉพาะเมื่อไม่มีค่า cutoff ค้าง) + ต้อง rollback โค้ด commit `e30e8a6` ด้วย
