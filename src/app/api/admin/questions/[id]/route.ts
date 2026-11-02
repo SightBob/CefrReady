@@ -4,6 +4,7 @@ import { questions, testSetQuestions, testSets } from '@/db/schema';
 import { eq, sql, asc } from 'drizzle-orm';
 import { withAdmin } from '@/lib/admin-route';
 import { revalidateQuestionPool } from '@/lib/full-test/question-pool';
+import { hasGradingContentChanged } from '@/lib/question-stats';
 import { resolveTapExerciseStatus } from '@/lib/tap-visibility';
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -129,6 +130,22 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
 
     if (isMcq && !updateData.correctAnswer && !updateData.tapExercise) {
       return NextResponse.json({ error: 'Missing required field: correctAnswer is required for MCQ questions' }, { status: 400 });
+    }
+
+    // อ่านค่าเดิมเพื่อเทียบว่าเนื้อหาที่กระทบการตรวจคำตอบเปลี่ยนจริงไหม
+    const [currentQuestion] = await db
+      .select()
+      .from(questions)
+      .where(eq(questions.id, questionId))
+      .limit(1);
+
+    if (!currentQuestion) {
+      return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+    }
+
+    // แก้โจทย์/ตัวเลือก/เฉลย = คำตอบที่บันทึกไว้ก่อนหน้านี้ไม่ควรถูกนับด้วยความหมายใหม่
+    if (hasGradingContentChanged(currentQuestion, updateData)) {
+      updateData.statsCutoffAt = new Date();
     }
 
     const [updatedQuestion] = await db

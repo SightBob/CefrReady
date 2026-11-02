@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   revalidateTag: vi.fn(),
   update: vi.fn(),
+  select: vi.fn(),
   checkUserRateLimit: vi.fn(),
   /** payload ที่ route ส่งให้ db.update().set() — ใช้ยืนยันว่าสถานะถูกบันทึกจริง */
   setPayload: null as unknown,
@@ -16,7 +17,12 @@ vi.mock('next/cache', async importOriginal => ({
   revalidateTag: mocks.revalidateTag,
 }));
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin: mocks.requireAdmin }));
-vi.mock('@/db', () => ({ db: { update: (...args: unknown[]) => mocks.update(...args) } }));
+vi.mock('@/db', () => ({
+  db: {
+    update: (...args: unknown[]) => mocks.update(...args),
+    select: (...args: unknown[]) => mocks.select(...args),
+  },
+}));
 
 function builder(result: unknown) {
   const b: Record<string, unknown> = {};
@@ -48,10 +54,36 @@ const request = (body: unknown) =>
 
 const params = { params: Promise.resolve({ id: '7' }) };
 
+function selectBuilder(result: unknown) {
+  const b: Record<string, unknown> = {};
+  for (const method of ['from', 'where', 'limit']) b[method] = vi.fn(() => b);
+  b.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve);
+  return b;
+}
+
+/** แถวเดิมใน DB ก่อนถูกแก้ — ใช้เทียบว่ามีเนื้อหาที่กระทบการตรวจเปลี่ยนไหม */
+const storedQuestion = {
+  id: 7,
+  testTypeId: 'focus-form',
+  questionText: 'Present Simple',
+  optionA: null,
+  optionB: null,
+  optionC: null,
+  optionD: null,
+  correctAnswer: 'B',
+  explanation: null,
+  conversation: null,
+  article: null,
+  tapExercise: tapExercise('review'),
+  active: 'true',
+  statsCutoffAt: null,
+};
+
 beforeEach(() => {
   mocks.setPayload = null;
   mocks.requireAdmin.mockReset().mockResolvedValue({ error: null });
   mocks.update.mockReset().mockReturnValue(builder([{ id: 7 }]));
+  mocks.select.mockReset().mockReturnValue(selectBuilder([storedQuestion]));
   mocks.checkUserRateLimit.mockReset().mockResolvedValue(null);
 });
 
@@ -120,6 +152,37 @@ describe('PUT /api/admin/questions/[id] — Tap & Select status', () => {
     mocks.requireAdmin.mockResolvedValue({ error });
 
     expect(await PUT(request({ tapExercise: tapExercise('review') }), params)).toBe(error);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/admin/questions/[id] — stats cutoff', () => {
+  it('เลื่อน stats_cutoff_at เมื่อเฉลยเปลี่ยน', async () => {
+    const response = await PUT(request({ testTypeId: 'focus-form', questionText: 'Present Simple', correctAnswer: 'A' }), params);
+
+    expect(response.status).toBe(200);
+    expect((mocks.setPayload as { statsCutoffAt?: unknown }).statsCutoffAt).toBeInstanceOf(Date);
+  });
+
+  it('ไม่แตะ stats_cutoff_at เมื่อกดบันทึกโดยเนื้อหาเดิม', async () => {
+    await PUT(request({ testTypeId: 'focus-form', questionText: 'Present Simple', correctAnswer: 'B' }), params);
+
+    expect('statsCutoffAt' in (mocks.setPayload as object)).toBe(false);
+  });
+
+  it('ไม่แตะ stats_cutoff_at เมื่อแก้เฉพาะ active', async () => {
+    await PUT(request({ testTypeId: 'focus-form', questionText: 'Present Simple', correctAnswer: 'B', active: 'false' }), params);
+
+    expect('statsCutoffAt' in (mocks.setPayload as object)).toBe(false);
+    expect(mocks.setPayload).toMatchObject({ active: 'false' });
+  });
+
+  it('ตอบ 404 และไม่เขียนอะไรเมื่อไม่พบข้อ', async () => {
+    mocks.select.mockReturnValue(selectBuilder([]));
+
+    const response = await PUT(request({ testTypeId: 'focus-form', questionText: 'X', correctAnswer: 'A' }), params);
+
+    expect(response.status).toBe(404);
     expect(mocks.update).not.toHaveBeenCalled();
   });
 });
