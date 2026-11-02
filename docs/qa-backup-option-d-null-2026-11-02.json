@@ -1,0 +1,216 @@
+{
+  "createdAt": "2026-11-02T13:54:42.767Z",
+  "applied": true,
+  "scope": "focus-meaning ที่ option_d เป็น NULL/ว่าง (23 ข้อ)",
+  "note": "ไม่แตะ correct_answer / stats_cutoff_at (การเพิ่มตัวเลือกที่ 4 ไม่เปลี่ยนเฉลย)",
+  "rows": [
+    {
+      "id": 1452,
+      "question_text": "Why does the man think he's tired?",
+      "correct_answer": "B",
+      "option_d_before": null,
+      "option_d_after": "He has been ill all week.",
+      "answers": 265,
+      "updated_at": "2026-06-16 12:45:59.738964"
+    },
+    {
+      "id": 1577,
+      "question_text": "What is the boy asking for?",
+      "correct_answer": "C",
+      "option_d_before": null,
+      "option_d_after": "He does not like apples.",
+      "answers": 27,
+      "updated_at": "2026-08-06 08:25:42.765497"
+    },
+    {
+      "id": 1615,
+      "question_text": "Where are the speakers probably?",
+      "correct_answer": "C",
+      "option_d_before": null,
+      "option_d_after": "At an airport.",
+      "answers": 336,
+      "updated_at": "2026-08-06 08:34:41.831959"
+    },
+    {
+      "id": 1616,
+      "question_text": "What is the girl asking for?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "A new school bag.",
+      "answers": 312,
+      "updated_at": "2026-08-06 08:34:41.831959"
+    },
+    {
+      "id": 1617,
+      "question_text": "What is the woman doing tomorrow?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "Meeting her teacher.",
+      "answers": 291,
+      "updated_at": "2026-08-06 08:34:41.831959"
+    },
+    {
+      "id": 1618,
+      "question_text": "What does the woman mean by her LAST statement?",
+      "correct_answer": "B",
+      "option_d_before": null,
+      "option_d_after": "Steve should shorten his vacation.",
+      "answers": 140,
+      "updated_at": "2026-08-06 08:34:41.831959"
+    },
+    {
+      "id": 1641,
+      "question_text": "What is the boy planning to do?",
+      "correct_answer": "B",
+      "option_d_before": null,
+      "option_d_after": "Do his homework.",
+      "answers": 142,
+      "updated_at": "2026-08-06 09:16:38.341458"
+    },
+    {
+      "id": 1642,
+      "question_text": "What is the woman doing right now?",
+      "correct_answer": "B",
+      "option_d_before": null,
+      "option_d_after": "Cleaning the kitchen.",
+      "answers": 130,
+      "updated_at": "2026-08-06 09:16:38.341458"
+    },
+    {
+      "id": 1643,
+      "question_text": "What does the man express in his SECOND statement?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "Surprise that Mr. Lee is in the office.",
+      "answers": 105,
+      "updated_at": "2026-08-06 09:16:38.341458"
+    },
+    {
+      "id": 1665,
+      "question_text": "What did the man buy?",
+      "correct_answer": "C",
+      "option_d_before": null,
+      "option_d_after": "A pair of trousers.",
+      "answers": 84,
+      "updated_at": "2026-08-06 09:18:11.83059"
+    },
+    {
+      "id": 1666,
+      "question_text": "What does the woman imply about her plans?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "She thinks Greenwood is too far from her work.",
+      "answers": 43,
+      "updated_at": "2026-08-06 09:18:11.83059"
+    },
+    {
+      "id": 1667,
+      "question_text": "What does the man imply about Margaret?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "She has worked there longer than the man.",
+      "answers": 43,
+      "updated_at": "2026-08-06 09:18:11.83059"
+    },
+    {
+      "id": 1689,
+      "question_text": "How does the man feel about the meal?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "Surprised.",
+      "answers": 43,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1690,
+      "question_text": "Why is the boy happy?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "He won a competition.",
+      "answers": 41,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1711,
+      "question_text": "What is the man looking for?",
+      "correct_answer": "B",
+      "option_d_before": null,
+      "option_d_after": "A post office.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1712,
+      "question_text": "What does the woman want the man to do?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "Turn off the heater.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1731,
+      "question_text": "What has the woman lost?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "Her bag.",
+      "answers": 36,
+      "updated_at": "2026-08-06 09:26:58.831346"
+    },
+    {
+      "id": 1732,
+      "question_text": "What is the weather like?",
+      "correct_answer": "B",
+      "option_d_before": null,
+      "option_d_after": "Windy.",
+      "answers": 36,
+      "updated_at": "2026-08-06 09:26:58.831346"
+    },
+    {
+      "id": 1997,
+      "question_text": "What does the man mean?",
+      "correct_answer": "B",
+      "option_d_before": null,
+      "option_d_after": "Do you work with your sister?",
+      "answers": 69,
+      "updated_at": "2026-08-20 15:24:19.195984"
+    },
+    {
+      "id": 1998,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "C",
+      "option_d_before": null,
+      "option_d_after": "You should take a taxi.",
+      "answers": 71,
+      "updated_at": "2026-08-20 15:24:19.195984"
+    },
+    {
+      "id": 1999,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "C",
+      "option_d_before": null,
+      "option_d_after": "The chair belongs to her.",
+      "answers": 107,
+      "updated_at": "2026-08-20 15:24:19.195984"
+    },
+    {
+      "id": 2000,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "B",
+      "option_d_before": null,
+      "option_d_after": "The park is far from her house.",
+      "answers": 33,
+      "updated_at": "2026-08-20 15:24:19.195984"
+    },
+    {
+      "id": 2001,
+      "question_text": "What does the waiter mean by her SECOND comment?",
+      "correct_answer": "A",
+      "option_d_before": null,
+      "option_d_after": "The soup is finished today.",
+      "answers": 26,
+      "updated_at": "2026-08-20 15:24:19.195984"
+    }
+  ],
+  "appliedAt": "2026-11-02T13:54:43.759Z"
+}
