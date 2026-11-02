@@ -47,6 +47,24 @@ describe('TestLayout primary teaching action', () => {
     const html = renderToStaticMarkup(<TestLayout totalQuestions={1} currentQuestion={0} answers={['A']} primaryAction={{ label: 'ส่งคำตอบ', onClick: () => undefined }}><p>Question</p></TestLayout>);
     expect(html).toContain('>ส่งคำตอบ</span>');
   });
+
+  it('hints why the next question is still locked while the check is pending', () => {
+    // ผู้เรียนใหม่เห็นปุ่มเดียวที่เปลี่ยนชื่อเป็น "ข้อต่อไป" แต่กดไม่ได้จนกว่าจะตรวจ
+    const picked = renderToStaticMarkup(
+      <TestLayout totalQuestions={3} currentQuestion={0} answers={['A', null, null]} primaryAction={{ label: 'ตรวจคำตอบ', onClick: () => undefined }}><p>Question</p></TestLayout>
+    );
+    expect(picked).toContain('กด “ตรวจคำตอบ” เพื่อดูเฉลย แล้วไปข้อถัดไป');
+
+    const empty = renderToStaticMarkup(
+      <TestLayout totalQuestions={3} currentQuestion={0} answers={[null, null, null]} primaryAction={{ label: 'ตรวจคำตอบ', onClick: () => undefined, disabled: true }}><p>Question</p></TestLayout>
+    );
+    expect(empty).toContain('เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”');
+
+    const after = renderToStaticMarkup(
+      <TestLayout totalQuestions={3} currentQuestion={1} answers={['A', null, null]} primaryAction={{ label: 'ข้อต่อไป', onClick: () => undefined }}><p>Question</p></TestLayout>
+    );
+    expect(after).not.toContain('เพื่อดูเฉลย แล้วไปข้อถัดไป');
+  });
 });
 
 describe('TestLayout progress bar', () => {

@@ -904,11 +904,12 @@ export default function TestLayout({
                     </button>
                   )}
                   {currentQuestion < totalQuestions - 1 || primaryAction ? (
+                    <div className="flex w-full min-[890px]:w-auto flex-col items-center gap-1">
                     <button
                       type="button"
                       onClick={primaryAction?.onClick ?? onNext}
                       disabled={primaryAction?.disabled}
-                      className={`flex-1 min-[890px]:flex-none min-[890px]:w-[13.5rem] h-14 min-[890px]:h-[3.0625rem] rounded-[14px] flex items-center justify-center text-[1rem] text-[#524924] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`w-full min-[890px]:w-[13.5rem] h-14 min-[890px]:h-[3.0625rem] rounded-[14px] flex items-center justify-center text-[1rem] text-[#524924] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                         isAnswered
                           ? "bg-[#FFF0AE] border-b-4 border-r-[3px] border-[#FFDB40] hover:bg-[#FFEA8F]"
                           : "bg-[#FFF0AE]/60 border-b-4 border-r-[3px] border-[#FFDB40]/50 hover:bg-[#FFF0AE]"
@@ -918,6 +919,16 @@ export default function TestLayout({
                         {primaryAction?.label ?? "ข้อต่อไป"}
                       </span>
                     </button>
+                    {/* ปุ่มเดียวเปลี่ยนชื่อตามสถานะ (ตรวจคำตอบ → ข้อต่อไป) ผู้เรียนใหม่
+                        จึงมักกด "ข้อต่อไป" ที่ยังล็อกอยู่ — ใบ้สั้น ๆ เฉพาะตอนยังไม่ตรวจ */}
+                    {primaryAction?.label === "ตรวจคำตอบ" && (
+                      <p className="text-[11px] leading-tight text-slate-600 text-center max-w-[13.5rem]">
+                        {isAnswered
+                          ? "กด “ตรวจคำตอบ” เพื่อดูเฉลย แล้วไปข้อถัดไป"
+                          : "เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”"}
+                      </p>
+                    )}
+                    </div>
                   ) : (
                     <button
                       onClick={onSubmit}
