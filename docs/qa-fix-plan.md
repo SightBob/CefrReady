@@ -124,9 +124,9 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 
 | ID | วลีที่ลอง (normalized: ตัดเครื่องหมาย/ช่องว่าง, lower) |
 |---|---|
-| 1085 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import (ยืนยันจาก git log ของ csv_data/seed/migration) — **ไม่ต้องแก้** |
-| 1181 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import — **ไม่ต้องแก้** |
-| 1151 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import — **ไม่ต้องแก้** |
+| 1085 | `atoytrachocolate` · `toytrachocolate` · `toytr` · `chocolate` · `a toy train` → ไม่พบ; ใกล้สุด 1586/2198 เป็นคนละข้อ |
+| 1181 | `excitingthatway` · `s more exciting` · `moreexciting` · `exciting` → ไม่พบ (คำว่า exciting มีแค่ 1281 listening / 1688 focus-meaning) |
+| 1151 | `soundslikeyoumightbe` · `mightbeacold` · `gettingacold` · `acold` · `could` → ไม่พบ (คำว่า cold มีแค่บทความ 1979 "bad cold" คนละบริบท) |
 
 ค้นทั้งตาราง `questions` ในทุกคอลัมน์ข้อความ (`question_text, option_a..d, explanation, conversation, transcript, article, tap_exercise, sub_topic_grammar`) + `test_explains(intro, sections, tip)`
 
