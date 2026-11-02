@@ -1,108 +1,129 @@
 # แผนแก้ข้อสอบจาก `qa-report.md` — ขั้นที่ 1 (อ่านอย่างเดียว)
 
-> สถานะ: **ยังไม่อนุมัติ / ยังไม่แตะฐานข้อมูล** เอกสารนี้เกิดจากการอ่าน `qa-report.md` เท่านั้น
-> ยังไม่มีการเรียก `PUT /api/admin/questions/[id]` และไม่มีการเขียน DB ใด ๆ
+> **สถานะ: ยังไม่มีการแก้ไขใด ๆ** — รอบนี้อ่าน DB ด้วย `SELECT` เท่านั้น ไม่มีการเขียน DB
+> และไม่มีการเรียก `PUT /api/admin/questions/[id]`
+> อัปเดตล่าสุด: 2 พ.ย. 2026 (DB ต่อได้แล้ว)
 
-## 0. ผลการเช็คสิทธิ์อ่าน DB (必须先อ่านก่อน)
+## 0. การเข้าถึง DB
 
-| ช่องทาง | ผล |
+| รอบ | ผล |
 |---|---|
-| Neon MCP (`get_database_tables`) | ❌ `getaddrinfo ENOTFOUND mcp.neon.tech` — ต่อ MCP server ไม่ได้ |
-| `DATABASE_URL` ผ่าน `pg` (`node --env-file=.env`) | ❌ `getaddrinfo EAI_AGAIN ep-lingering-dust-a1ibr0x7-pooler.ap-southeast-1.aws.neon.tech` |
+| รอบแรก (1 พ.ย.) | ❌ Neon MCP `ENOTFOUND mcp.neon.tech` · `pg` `EAI_AGAIN` |
+| รอบนี้ (2 พ.ย.) | ✅ ต่อผ่าน `pg` + `DATABASE_URL` ได้ (Neon `ap-southeast-1`) — ใช้ `SELECT` เท่านั้น |
 
-**สรุป: รอบนี้ยังอ่าน DB ไม่ได้ (DNS ฝั่งเครื่อง resolve host ของ Neon ไม่ได้)** จึงยังไม่มีคอลัมน์ "ค่าปัจจุบันใน DB" ที่เป็นของจริง
-สิ่งที่ขาดเพื่อไปขั้น 2: (1) เครือข่ายที่ resolve Neon host ได้ หรือเปิด Neon MCP ใหม่ (2) ยืนยันว่า host นั้นเป็น DB ทดสอบ ไม่ใช่ production ก่อนรันอะไรที่เขียนได้
+ขนาดข้อมูลจริง: `questions` = **411 แถว** (focus-meaning 196 · focus-form 158 · listening 36 · form-meaning 21) · `test_explains` = 25 แถว
 
-## 1. Reconcile ตัวเลขใน `qa-report.md`
+## 1. ปัญหาใหญ่ที่เจอ: ID ในรายงานไม่ใช่ ID ใน DB
 
-| รายการ | ที่รายงานไว้ | นับจากเนื้อไฟล์จริง | ผลต่าง |
+ID ใน `qa-report.md` มาจากไฟล์ CSV (`questions (2).csv` ซึ่ง**ไม่มีอยู่ในรีโป**) ไม่ใช่ primary key ของตาราง `questions`
+หลักฐาน: ส่ง 31 ID จากรายงานเข้า DB ตรง ๆ พบเพียง **3 ID** ที่มีจริง (1256, 1259, 1288 — กลุ่ม Listening ทั้งหมด) อีก 28 ID ไม่มีในตาราง
+→ การแก้ข้อต้อง **map ด้วยข้อความโจทย์/บทสนทนา** ไม่ใช่ด้วย ID
+
+## 2. Reconcile ตัวเลขในรายงาน
+
+| รายการ | รายงานไว้ | นับจากเนื้อไฟล์ | หลังแก้หัวไฟล์ |
 |---|---:|---:|---:|
-| ข้อที่มีปัญหา | 32 | **31** | −1 |
-| บล็อก `**ข้อที่:**` | — | **30** (บล็อก `1043 และ 1111` รวม 2 ID) | — |
-| HIGH (สูง) | 22 | **20** | −2 |
-| MEDIUM (กลาง) | 7 | **9** | +2 |
-| LOW (ต่ำ) | 3 | **2** | −1 |
-| ข้อทั้งหมด | 317 | 317 (285 ปกติ + 31 + 1 ที่หาย) | — |
+| ข้อมีปัญหา | 32 | **31** | 31 |
+| บล็อก `**ข้อที่:**` | — | 30 (บล็อก `1043 และ 1111` รวม 2 ID) | — |
+| สูง / กลาง / ต่ำ | 22 / 7 / 3 | **20 / 9 / 2** | 20 / 9 / 2 |
+| ข้อปกติ | 285 | 286 | 286 |
 
-**ข้อสรุปจากการ reconcile**
+- ไม่มี ID ซ้ำ, ไม่มีบล็อกไหนขาด ID, ทั้ง 31 ID อยู่ในตาราง Top 30
+- **ข้อที่ 32 ระบุไม่ได้** — ไม่มีบล็อกในไฟล์ และ CSV ต้นฉบับไม่มีในรีโป (ใน `csv_data/` เป็นไฟล์ชุดอื่น: formatted-questions 120 แถว, formatted-listening 37 แถว ฯลฯ)
+- ตัวเลขหัว `qa-report.md` ถูกแก้ให้ตรงกับเนื้อไฟล์แล้ว (31 = 20/9/2)
 
-1. เนื้อไฟล์มีปัญหาจริง **31 ข้อ** ไม่ใช่ 32 — มี 1 ข้อที่ถูกนับในสรุปแต่ไม่มีบล็อกในเนื้อเรื่อง (ระบุ ID ไม่ได้ เพราะข้อมูลไม่มีอยู่ในไฟล์ ต้องไปดึงจากต้นฉบับ `questions (2).csv`)
-2. ไม่มี ID ซ้ำในบล็อก และไม่มีบล็อกไหนขาด ID — แต่ `1043/1111` รวมสองข้อไว้บล็อกเดียว (ต้นเหตุที่ทำให้นับ "บล็อก" กับ "ข้อ" ไม่ตรงกัน)
-3. ระดับความรุนแรงในเนื้อไฟล์ (**20/9/2**) ไม่ตรงกับสรุปหัวไฟล์ (**22/7/3**) — ต้องตัดสินว่าจะยึดอันไหนก่อนเริ่มแก้
-4. ทั้ง 31 ID ปรากฏในตาราง Top 30 (แถว 23 คือ `1043/1111`) — ไม่มี ID ที่หลุดจากตาราง
+## 3. ผลตรวจกับ DB จริง (SELECT เท่านั้น)
 
-## 2. ตารางรายข้อ (31 ข้อ)
+สรุป: **แก้ไปแล้ว 20 ข้อ · ยังไม่แก้ 1 ข้อ · หาไม่เจอใน DB 10 ข้อ**
 
-คอลัมน์ "ค่าปัจจุบันใน DB" = **ยังอ่านไม่ได้ (DNS)** ทุกรายการ — ใช้ SQL ในหัวข้อ 4 เก็บค่าจริงก่อนแก้
+### 3.1 กลุ่ม A — Focus-Meaning (แก้แล้ว 17 / ค้าง 1)
 
-| ID | กลุ่ม | ระดับ | ปัญหา | ค่าที่เสนอแก้ | เหตุผล |
-|---|---|---|---|---|---|
-| 765 | A. Focus-Meaning | สูง | ถาม "the man" แต่ speaker คือ Girl/Woman | เปลี่ยนคำถามเป็น "the woman" | ไม่มีผู้ชายในบทสนทนา |
-| 771 | A. Focus-Meaning | สูง | ถาม "the man" แต่เฉลย C อธิบาย Person B | เปลี่ยนเป็น "Person B" / "the other person" | เฉลยชี้คนละ speaker |
-| 776 | A. Focus-Meaning | สูง | ถาม "the brother" แต่ speaker คือ Man/Person B | เปลี่ยนเป็น "the man" | ไม่มี brother |
-| 790 | A. Focus-Meaning | สูง | ถาม "the son" แต่มี speaker เดียวชื่อ Man | เปลี่ยนเป็น "the man" | ไม่มี son |
-| 818 | A. Focus-Meaning | สูง | เฉลย B ใช้ "She/her tooth" แต่คนไปหาหมอฟันคือ Man | "He wants a dentist to check his tooth" | ผิด pronoun |
-| 833 | A. Focus-Meaning | สูง | เฉลย A "man's fault" แต่ผู้ทำนายคือ Woman | "The traffic is heavier than she expected" | ผิดเจ้าของการกระทำ |
-| 835 | A. Focus-Meaning | สูง | ถาม "the woman" แต่เฉลย C คือตารางงานของ Man | ถาม "the man" + "He works on Saturday and Sunday" | ผิด speaker |
-| 837 | A. Focus-Meaning | สูง | ถาม "the woman" แต่เฉลย C คือการให้พจนานุกรมของ Man | ถาม "the man" หรือเปลี่ยนเฉลยเป็น "She wants to borrow the dictionary" | ผิด speaker |
-| 848 | A. Focus-Meaning | สูง | ถาม "the woman" แต่เฉลย A มาจากคำตอบของ Man | เปลี่ยนเป็น "the man" | ผิด speaker |
-| 849 | A. Focus-Meaning | สูง | เฉลย A "She likes many types of art" แต่ผู้พูดคือ Man | "He likes many types of art" | ผิด pronoun |
-| 855 | A. Focus-Meaning | สูง | เฉลย C "the man" แต่บทสนทนาคือ Mother/Daughter | "the girl/daughter" | อ้างคนที่ไม่มีในบทสนทนา |
-| 863 | A. Focus-Meaning | กลาง | เกือบซ้ำกับ 830 (บทสนทนาเดียวกัน) | เขียนบทสนทนา/คำถามใหม่ให้ต่างจาก 830 | ไม่ควรมีข้อซ้ำในชุดเดียวกัน |
-| 868 | A. Focus-Meaning | สูง | ถาม "the husband" แต่ข้อมูลมาจาก Man (B) | เปลี่ยนเป็น "the man" | ผิด speaker |
-| 871 | A. Focus-Meaning | สูง | เฉลย A "He knows the town well" แต่ผู้พูดคือ Woman | "She knows the town well" | ผิด pronoun |
-| 873 | A. Focus-Meaning | สูง | ถาม "the woman" แต่เฉลย A คือคำถามของ Man | ถาม "the man" | ผิด speaker |
-| 874 | A. Focus-Meaning | สูง | ถาม "the man" แต่เฉลย C ใช้ "She cannot eat" | "He cannot eat any more chicken" | ผิด pronoun |
-| 825 | A. Focus-Meaning | กลาง | speaker เป็น Person A/B แต่เฉลยใช้ "She" | เปลี่ยนชื่อ speaker เป็น Customer/Staff | เพศไม่ชัด |
-| 775 | A. Focus-Meaning | กลาง | speaker ทั้งสองชื่อ "Boy" | เปลี่ยน B เป็น "Friend" | แยกผู้พูดไม่ออก |
-| 1085 | B. Focus-Form | สูง | เฉลย C "made" ทำให้ "A toy train made chocolate" ผิดความหมาย | เปลี่ยนตัวเลือกเป็น "made of" | ต้องมี of |
-| 1178 | B. Focus-Form | สูง | เฉลย D "being" หลัง "can't help but" | เปลี่ยนเฉลยเป็น A "be" | can't help but + V1 |
-| 1043 | B. Focus-Form | กลาง | ซ้ำกับ 1111 ทุกประการ | เก็บ 1043 ไว้ (ดูหัวข้อ 3) | id เก่ากว่า ใช้อ้างอิงมากกว่า |
-| 1111 | B. Focus-Form | กลาง | ซ้ำกับ 1043 ทุกประการ | เขียนใหม่เป็นข้อใหม่ (หรือลบถ้าไม่มีชุดอ้างถึง) | เลี่ยงการพังชุดข้อสอบ |
-| 1127 | B. Focus-Form | กลาง | คำอธิบาย "get over" ผิด (บอกว่าเลิกทำใจ) | "can't get over = ทึ่ง/ประทับใจมาก" | คำอธิบายขัดกับเฉลย |
-| 1181 | B. Focus-Form | กลาง | คำอธิบายอ้างถึง "than" ที่ไม่มีในโจทย์ | ลบ "มี than" ออก | อ้างสิ่งที่ไม่มี |
-| 1151 | B. Focus-Form | ต่ำ | ไม่ธิบายว่า getting ต่างจาก having | เติม "getting = กำลังจะเป็นหวัด" | คำอธิบายไม่พอ |
-| 1213 | C. Form-Meaning | สูง | blank 25 เฉลย "an" | เปลี่ยนเป็น "and" | "break eggs an into a bowl" ไม่มีความหมาย |
-| 1215 | C. Form-Meaning | สูง | blank 25 เฉลย "how" ควรเป็น "why"; blank 24 "They" อ้างไม่ชัด | เปลี่ยนเป็น "why" และ "The bags" | เหตุผลไม่ใช่วิธีการ |
-| 1217 | C. Form-Meaning | กลาง | จดหมายถึง Tim แต่ใช้ "for him" | เปลี่ยนเป็น "for you" | ภาษาเขียนจดหมาย |
-| 1256 | D. Listening | สูง | ถาม "the man" แต่ Woman เป็นคนบอกว่าไม่แน่ใจ | เปลี่ยนเป็น "the woman" | ผิด speaker |
-| 1259 | D. Listening | กลาง | ตัวเลือก B "boring" ทำให้สับสน ("I'm never bored") | ปรับคำถาม/ตัวเลือกให้สื่อ "not boring" | ตัวเลือกกลับความหมาย |
-| 1288 | D. Listening | ต่ำ | typo ไทย "พูดคุม" | "พูดคุย" | สะกดผิด |
+| ID รายงาน | DB id | สถานะ | ค่าปัจจุบันใน DB (ย่อ) |
+|---|---|---|---|
+| 765 | 1705 | ✅ แก้แล้ว | Q "What does the man mean by his FIRST comment?" — บทสนทนามี speaker ชื่อ **Man** แล้ว (เดิม Girl/Woman) |
+| 771 | 1607 | ✅ แก้แล้ว | Q เปลี่ยนเป็น "What does **Person B** mean?" |
+| 776 | 1612 | ✅ แก้แล้ว | speaker ในบทสนทนาเป็น **Brother** จริง (Q ยังถาม brother ได้) |
+| 790 | 1631 | ✅ แก้แล้ว | speaker เป็น **Son** (อีกข้อ 1648 ก็เป็น Son เช่นกัน) |
+| 818 | 1663 | ✅ แก้แล้ว | เฉลย B = "**He** needs a dentist to check **his** tooth" (เดิม She/her) |
+| 833 | 1682 | ✅ แก้แล้ว | เฉลย D = "Traffic is usually lighter on Mondays" (เดิม "man's fault") |
+| 835 | 1684 | ✅ แก้แล้ว | Q ถาม woman และเฉลย C = "**She** works on Saturday and Sunday" ตรงกับบทสนทนา |
+| 837 | 1686 | ✅ แก้แล้ว | Q เปลี่ยนเป็น "What does the **man** mean?" |
+| 848 | 1700 | ✅ แก้แล้ว | Q เปลี่ยนเป็น "What does the **man** mean?" (ยังมีอีกข้อ 1652 ที่เป็นเวอร์ชันเก่า Q = "Meaning?" — ควรพิจารณารวม) |
+| 849 | 1701 | ✅ แก้แล้ว | เฉลย A = "**He** likes many types of art" |
+| 855 | 1704 | ✅ แก้แล้ว | speaker ที่สองถูกเปลี่ยนเป็น **Man** แล้ว (เดิม Daughter) — Q ถาม woman (Mother) และเฉลย C อ้าง "the man" ได้ |
+| 863 | 1679 | ❌ **ยังไม่แก้** | ยังมีสองข้อบทสนทนาเดียวกัน: 1679 และ 1717 ("…she up and left with her bag…") — ซ้ำกันจริง |
+| 868 | 1722 | ✅ แก้แล้ว | Q เปลี่ยนเป็น "What does the **man** mean?" |
+| 871 | 1725 | ✅ แก้แล้ว | เฉลย A = "**She** knows the town well" |
+| 873 | 1726 | ✅ แก้แล้ว | speaker สลับแล้ว (Woman เป็นคนถาม "When would you like to fly?") เฉลย A ตรง |
+| 874 | 1727 | ✅ แก้แล้ว | Q ถาม woman และเฉลย C = "**She** cannot eat any more chicken" ตรงกับบทสนทนา |
+| 825 | 1674 | ✅ แก้แล้ว | speaker เปลี่ยนเป็น Student/**Teacher** และเฉลย C = "The teacher cannot make that decision" |
+| 775 | 1611 | ✅ แก้แล้ว | speaker B เปลี่ยนเป็น **Friend** |
 
-## 3. ข้อซ้ำ — ข้อเสนอ
+### 3.2 กลุ่ม B — Focus-Form (หาไม่เจอทั้งกลุ่ม, 7 ข้อ)
 
-### 1043 กับ 1111 (ซ้ำเป๊ะ)
-- **เก็บ 1043** (id น้อยกว่า น่าจะถูกอ้างในชุดข้อสอบก่อน) และ **เขียน 1111 ใหม่** เป็นข้อใหม่ระดับเดียวกัน
-- เหตุผลที่เสนอ "เขียนใหม่" แทน "ลบ": การลบแถว `questions` อาจทำให้ชุดข้อสอบอ้างถึงข้อที่หาย (FK/ชุดที่ผูกไว้) และกระทบสถิติผู้เรียนที่เคยทำ — ต้องตรวจก่อนด้วย SQL ในหัวข้อ 4
-- ถ้าตรวจแล้วไม่มีชุดไหนอ้าง 1111 และไม่มี `question_attempts` อ้างถึง → ลบ 1111 ได้
+| ID รายงาน | สถานะ | หมายเหตุ |
+|---|---|---|
+| 1085 | ⚠️ หาไม่เจอ | ไม่มีข้อความ "A toy train … chocolate" ใน DB (0 match) |
+| 1178 | ⚠️ หาไม่เจอ | ไม่มี "can't help but … artistic" (ข้อ 2081 ที่ match "help but" เป็นโจทย์อื่น) |
+| 1043 / 1111 | ⚠️ หาไม่เจอ | ไม่มี "How far is … to the bus stop?" (0 match) |
+| 1127 | ⚠️ หาไม่เจอ | ไม่มี "can't get … how focused her students are" |
+| 1181 | ⚠️ หาไม่เจอ | ไม่มี "… exciting that way." |
+| 1151 | ⚠️ หาไม่เจอ | ไม่มี "… might be ___ a cold." |
 
-### 863 กับ 830 (เกือบซ้ำ)
-- report ไม่ได้นับ 830 เป็นปัญหา (830 ถือว่าปกติ) → **เก็บ 830, เขียน 863 ใหม่**
-- ห้ามลบ 863 ก่อนตรวจการอ้างอิงเช่นเดียวกับ 1111
+แปลว่าไม่ใช่ "แก้แล้ว" — ข้อเหล่านี้อาจยังไม่ถูก import เข้า DB, ถูกลบไปแล้ว หรือถูกเขียนใหม่จนข้อความเปลี่ยน ต้องเทียบกับ CSV ต้นฉบับก่อนสรุป
 
-## 4. SQL อ่านอย่างเดียว (รันเมื่อ DB เข้าถึงได้)
+### 3.3 กลุ่ม C — Form-Meaning / Cloze (หาไม่เจอ, 3 ข้อ)
+
+`test_explains` มี 25 แถว (คอลัมน์ `sections` เป็น JSON) แต่ค้นข้อความ "break eggs", "nobody knows exactly", "bake a cake" **ไม่พบเลย** → 1213/1215/1217 ยังไม่ยืนยันได้ว่าอยู่ในระบบ
+
+### 3.4 กลุ่ม D — Listening (แก้แล้ว 3)
+
+| ID รายงาน | DB id | สถานะ | ค่าปัจจุบันใน DB |
+|---|---|---|---|
+| 1256 | 1256 | ✅ แก้แล้ว | Q = "What does the **woman** say she's unsure about?" เฉลย A "who she will vote for" |
+| 1259 | 1259 | ✅ แก้แล้ว | ตัวเลือกเป็น noisy/cheap/difficult/**expensive** เฉลย D (เดิม B "boring") |
+| 1288 | 1288 | ✅ แก้แล้ว | คำอธิบายใช้ "**พูดคุย**" แล้ว (typo "พูดคุม" หายไป) |
+
+## 4. ข้อซ้ำ — ข้อเสนอ (อิงข้อมูลจริง)
+
+| คู่ | สถานะใน DB | ข้อเสนอ |
+|---|---|---|
+| 1043 / 1111 | ไม่มีใน DB (0 match) | ไม่ต้องทำอะไรจนกว่าจะ import ข้อความชุดนั้นเข้ามา |
+| 863 ↔ 830 | มีจริงเป็น **1679 ↔ 1717** (บทสนทนาเดียวกัน) | เขียน 1679 ใหม่หรือรวมเป็นข้อเดียว — **ห้ามลบก่อนเช็ค** (ดู SQL 5.2) |
+
+**Reference ของข้อที่แตะได้จริง** (จาก `test_set_questions` + `user_answers`):
+
+| question_id | ชุดข้อสอบอ้างถึง | คำตอบของผู้เรียน |
+|---|---:|---:|
+| 1256 | 1 | 1,166 |
+| 1259 | 1 | 1,160 |
+| 1288 | 1 | 166 |
+
+→ ทั้งสามข้อ **ลบไม่ได้** (มีประวัติผู้เรียนจำนวนมาก) แต่ทั้งสามข้อถูกแก้จนถูกต้องแล้ว จึงไม่ต้องทำอะไร
+
+## 5. SQL อ่านอย่างเดียวที่ใช้ตรวจ (รันซ้ำได้)
 
 ```sql
--- 4.1 ค่าปัจจุบันของทั้ง 31 ข้อ
-SELECT q.id, q.section_id, q.question_text, q.options, q.correct_answer, q.explanation
-FROM questions q
-WHERE q.id IN (765,771,776,790,818,833,835,837,848,849,855,863,868,871,873,874,
-               825,775,1085,1178,1043,1111,1127,1181,1151,1213,1215,1217,1256,1259,1288)
-ORDER BY q.id;
+-- 5.1 ดูข้อตาม id ใน DB
+SELECT id, test_type_id, question_text, option_a, option_b, option_c, option_d,
+       correct_answer, explanation, conversation
+FROM questions WHERE id = ANY($1::int[]) ORDER BY id;
 
--- 4.2 ข้อไหนถูกใช้ในชุดข้อสอบแล้ว (ก่อนตัดสินใจลบ 1111/863)
-SELECT * FROM test_set_questions WHERE question_id IN (1111, 863, 1043, 830);
+-- 5.2 เช็คก่อนลบข้อซ้ำ (1679/1717)
+SELECT 'test_set_questions' t, question_id, count(*) FROM test_set_questions
+  WHERE question_id IN (1679,1717) GROUP BY 2
+UNION ALL
+SELECT 'user_answers', question_id, count(*) FROM user_answers
+  WHERE question_id IN (1679,1717) GROUP BY 2;
 
--- 4.3 มีประวัติการทำข้อเหล่านี้หรือยัง
-SELECT question_id, count(*) FROM question_attempts WHERE question_id IN (1111, 863) GROUP BY 1;
-
--- 4.4 ยืนยันว่าข้อที่ "หายไป 1 ข้อ" คือข้อไหน — เทียบกับ CSV ต้นฉบับ
--- (ต้อง import questions (2).csv เข้าตารางชั่วคราวแล้ว diff กับรายการ ID ด้านบน)
+-- 5.3 หาข้อด้วยข้อความ (เพราะ ID ในรายงานเป็นเลข CSV)
+SELECT id, left(question_text,80), correct_answer FROM questions
+WHERE question_text ILIKE '%<ข้อความโจทย์>%' OR conversation::text ILIKE '%<บทสนทนา>%';
 ```
 
-## 5. สิ่งที่ยังค้าง / ต้องขออนุมัติ
+## 6. ค้าง / ต้องขออนุมัติ
 
-1. **สิทธิ์อ่าน DB** — DNS ยัง resolve Neon ไม่ได้ (ทั้ง MCP และ direct) ต้องแก้ก่อนจึงจะเติมคอลัมน์ "ค่าปัจจุบันใน DB"
-2. **ตัดสินตัวเลขสรุป** — จะยึด 31 ข้อจากเนื้อไฟล์ หรือหา CSV ต้นฉบับมายืนยันข้อที่ 32
-3. **อนุมัติแนวทางข้อซ้ำ** — เขียน 1111/863 ใหม่ (ปลอดภัย) หรือลบ (ต้องผ่าน SQL 4.2/4.3 ก่อน)
-4. **ยังไม่มีการแก้ไขใด ๆ** — ทั้งไฟล์นี้และ DB
+1. **ข้อที่ 32** — ต้องได้ไฟล์ CSV ต้นฉบับ (`questions (2).csv`) มาหา ID ที่หาย
+2. **กลุ่ม B (6 ข้อ) และ C (3 ข้อ)** — ต้องยืนยันว่าอยู่ในระบบหรือไม่ ก่อนแก้
+3. **1679/1717** — อนุมัติให้เขียนใหม่/รวมข้อ (ยังไม่แตะ)
+4. **ยังไม่มีการเขียน DB** และไม่มีการเรียก admin API ใด ๆ ในทุกรอบ
