@@ -1,7 +1,7 @@
 # แผนแก้ข้อสอบจาก `qa-report.md` — ขั้นที่ 1 (อ่านอย่างเดียว)
 
 > **สถานะ: ยังไม่มีการแก้ไขใด ๆ** — รอบนี้ใช้ `SELECT` เท่านั้น ไม่มีการเขียน DB และไม่เรียก `PUT /api/admin/questions/[id]`
-> อัปเดตล่าสุด: 2 พ.ย. 2026 — เขียน DB แล้ว **1 แถว (id 1679)** ตามที่อนุมัติ · id 2153 รออนุมัติร่าง
+> อัปเดตล่าสุด: 2 พ.ย. 2026 — เขียน DB แล้ว **2 แถว (id 1679, 2153)** ตามที่อนุมัติ (รอบ 2: เติม option_d ของ 1679 + เขียน 2153 ใหม่)
 
 ## 0. การเข้าถึง DB
 
@@ -34,7 +34,7 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 
 ## 3. สถานะรายข้อ ครบ 31 ข้อ (จาก DB จริง)
 
-สรุป: ✅ **แก้แล้ว 26** · ⚠️ **ยังซ้ำ 1 คู่ (2148 ↔ 2153, 2153 รออนุมัติ)** · ❌ **ไม่มีใน DB 3 (1085/1181/1151 — ไม่เคยถูก import)**
+สรุป: ✅ **แก้แล้ว 28 ข้อ** · ❌ **ไม่มีใน DB 3 ข้อ (1085/1181/1151 — ไม่เคยถูก import)** · ข้อที่ 32 = ระบุไม่ได้ · คู่ซ้ำเดิม 1679↔1717 และ 2148↔2153 = **แก้แล้วทั้งคู่**
 
 > **1679 เขียนใหม่แล้ว** 2 พ.ย. 2026 04:11 UTC (transaction เดียว, rowCount = 1) · backup: `docs/qa-backup-2026-11-02.json` · rollback: `docs/qa-rollback-2026-11-02.mjs`
 
@@ -53,7 +53,7 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 | 848 | 1700 | ✅ | Q "What does the **man** mean?" (ยังมี 1652 เวอร์ชันเก่า Q="Meaning?" — เสี่ยงซ้ำ) |
 | 849 | 1701 | ✅ | เฉลย A "**He** likes many types of art" |
 | 855 | 1704 | ✅ | speaker ที่สองเป็น **Man** (เดิม Daughter) · เฉลย C อ้าง "the man" ได้ |
-| 863 | **1679 ↔ 1717** | ✅ แก้แล้ว (1679) | 1679 เขียนใหม่เป็นเรื่อง "เพื่อนไม่มาตามนัด" เฉลย A · 1717 คงเดิม (36 คำตอบ) → ไม่ซ้ำกันแล้ว |
+| 863 | **1679 ↔ 1717** | ✅ แก้แล้ว | 1679 เขียนใหม่ (เรื่องเพื่อนไม่มาตามนัด, เฉลย A, option_d เป็นตัวเลือกจริง) · 1717 คงเดิม → ไม่ซ้ำกันแล้ว |
 | 868 | 1722 | ✅ | Q "What does the **man** mean?" · เฉลย A |
 | 871 | 1725 | ✅ | เฉลย A "**She** knows the town well" |
 | 873 | 1726 | ✅ | speaker สลับแล้ว (Woman ถาม "When would you like to fly?") · เฉลย A |
@@ -67,8 +67,8 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 |---|---|---|---|
 | 1085 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import (ยืนยันจาก git log ของ csv_data/seed/migration) — **ไม่ต้องแก้** |
 | 1178 | 2081 | ✅ | "she **can't help but** ___ creative." เฉลย A **be** (เดิม artistic→creative แต่สำนวน/เฉลยถูกแล้ว) |
-| 1043 | 2148 | ⚠️ ยังซ้ำ (รอ 2153) | "how far is ___ **from the train station**?" เฉลย A it — จะแยกคู่เมื่อ 2153 ถูกเขียนใหม่ |
-| 1111 | 2153 | ⏳ รออนุมัติร่าง | "How far is ___ **from my hotel to the museum**?" เฉลย A it · 43 คำตอบ/ถูก 38 |
+| 1043 | 2148 | ✅ | "how far is ___ **from the train station**?" เฉลย A it — คงไว้เป็นข้อสอบระยะทาง |
+| 1111 | 2153 | ✅ แก้แล้ว (รอบ 2) | เขียนใหม่เป็นประธานสมมติเรื่องอากาศ: "Is ___ usually this cold in April?" เฉลย A it · 43 คำตอบ/ถูก 38 |
 | 1127 | 2106 | ✅ | "I **can't get** ___ how well she sings!" เฉลย C **over** |
 | 1181 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import — **ไม่ต้องแก้** |
 | 1151 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import — **ไม่ต้องแก้** |
@@ -115,7 +115,7 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 | `option_a` | The friend has a habit of being late. |
 | `option_b` | The friend no longer wants to meet her. |
 | `option_c` | He forgot about his own birthday dinner. |
-| `option_d` | **—** (คงรูปแบบเดิมของกลุ่ม; ถ้าจะใช้ตัวเลือกจริงต้องอนุมัติเพราะเพื่อนข้ออื่นก็ใช้ "—") |
+| `option_d` | ~~—~~ → **"The friend lost her phone on the way."** (เติมในรอบ 2) |
 | `correct_answer` | A |
 | `explanation` | ผู้ชายบอกว่าเพื่อนก็มาสายงานเลี้ยงวันเกิดของเขาเหมือนกัน จึงหมายความว่าเพื่อนคนนี้เป็นคนมาสายเป็นนิสัย ไม่ใช่เพราะเธอไม่อยากเจอ |
 | `cefr_level` / `difficulty` | B1 / medium (คงเดิม) |
@@ -169,9 +169,9 @@ git ls-files | seed/mig  → scripts/seed-full-test-type.ts, seed-test-types.ts,
 - shape ของแถวที่แก้: `conversation` = array 2 เทิร์น, key = `name,speaker,text` (เหมือนเพื่อนร่วมชุด 1669/1670/1674/1675), ไม่มีคอลัมน์ว่างผิดรูป, ข้อความใหม่ไม่ซ้ำกับข้อใดใน DB
 - `npx vitest run src/app/api/admin/test-explains src/app/api/test-sets src/app/tests` = 12 ไฟล์ / **72 passed**
 
-## 9. ร่างใหม่ id 2153 (รออนุมัติ — ยังไม่เขียน)
+## 9. ร่างใหม่ id 2153 — **อนุมัติและเขียนแล้ว (รอบ 2)**
 
-ทดสอบ dummy `it` เป็นประธานสมมติ (อากาศ) คนละบริบทกับ 2148 (ระยะทาง):
+ทดสอบ dummy `it` เป็นประธานสมมติ (อากาศ) คนละบริบทกับ 2148 (ระยะทาง) — เขียนลง DB แล้วตามร่างนี้:
 
 | ฟิลด์ | ค่าเสนอ |
 |---|---|
@@ -180,3 +180,47 @@ git ls-files | seed/mig  → scripts/seed-full-test-type.ts, seed-test-types.ts,
 | correct_answer | A |
 | explanation | จากโจทย์: Is **it** usually this cold in April? ให้สังเกตว่า ประโยคถามเรื่องอากาศใช้ประธานสมมติ จึงต้องใช้ it — that/this/there ไม่ได้ในโครงสร้างนี้ |
 | cefr_level / difficulty | A2 / medium (คงเดิม) |
+
+## 10. รอบ 2 (2 พ.ย. 2026) — 2153 เขียนใหม่ + 1679 เติม option_d
+
+Backup ก่อนเขียนรอบนี้: `docs/qa-backup-2026-11-02-round2.json` (ไฟล์ใหม่ ไม่ทับของรอบแรก)
+
+### 10.1 id 2153 before / after
+
+| ฟิลด์ | ก่อน | หลัง |
+|---|---|---|
+| question_text | Woman: How far is ___ from my hotel to the museum? Man: About fifteen minutes on foot. | Woman: Is ___ usually this cold in April? Man: No, it is unusually cold this week. |
+| option_a | it | it |
+| option_b | that | that |
+| option_c | **there** | **this** |
+| option_d | **this** | **there** |
+| correct_answer | A | A (ไม่เปลี่ยน) |
+| explanation | อธิบาย how far + it | อธิบายประธานสมมติ (อากาศ) + it |
+
+⚠️ **ผลจากการสลับ C/D**: `user_answers` เดิมของ 2153 มี C = 2 แถว, D = 1 แถว (ทั้งสาม `is_correct = false`) → ค่าความถูกต้องไม่เปลี่ยน แต่ "คำตอบที่เคยเก็บว่า C/D" ตอนนี้ชี้ไปคนละตัวเลือก อ่านย้อนหลังต้องตีความตามเวอร์ชันโจทย์
+
+### 10.2 id 1679 — เติม option_d
+
+| ฟิลด์ | ก่อน | หลัง |
+|---|---|---|
+| option_d | "—" | "The friend lost her phone on the way." |
+| correct_answer | A | A (ไม่เปลี่ยน) |
+
+เหตุผล: เพื่อนร่วมชุด 1669–1677 ใช้ตัวเลือกจริงครบ 4 ข้อ (1678/1680 ยังเป็น "—" อยู่นอกขอบเขตที่อนุมัติ) และความยาว 39 ตัวอักษรใกล้เคียง A–C (40/45/42)
+
+### 10.3 ผลต่อสถิติเดิม (รายงาน ไม่แก้)
+
+| id | user_answers | ถูก (snapshot เดิม) | สถานะหลังแก้ |
+|---|---:|---:|---|
+| 1679 | 34 (A=16, B=3, C=14, D=1) | 14 | `is_correct` ยังเป็น snapshot ของโจทย์เก่า → 14 แถวที่ตอบ C ถูกนับว่า "ถูก" แม้เฉลยใหม่เป็น A และ 16 แถวที่ตอบ A ถูกนับว่า "ผิด" |
+| 2153 | 43 (A=38, B=2, C=2, D=1) | 38 | เฉลยยัง A จึงไม่มีอะไรเปลี่ยน |
+
+`/admin/reports` คำนวณ `correctAnswers / totalQuestions` จาก `user_answers.is_correct` ที่บันทึกไว้ตอนตอบ (ไม่ได้คำนวณสดจากเฉลยปัจจุบัน) → ตัวเลขของ 1679 จะยังแสดง 14/34 จนกว่าจะมีคำตอบใหม่ **ไม่ได้แก้ตามสั่ง**
+
+### 10.4 ตรวจซ้ำรอบ 2
+- SELECT เทียบร่าง: 1679 (A/B/C/D + ans A) และ 2153 (it/that/this/there + ans A) ตรงทุกฟิลด์
+- `2148` ไม่ถูกแตะ (ข้อความ/เฉลยเดิม) · `questions` = **411 แถวเท่าเดิม** (ไม่มีการลบ)
+- ข้อความ 2153 ใหม่ไม่ซ้ำกับข้อใดใน DB
+- หน้า explain ของ Set 10 / Set 17 และหน้าสอบ: เปิดได้ 200 ไม่มี error
+- ไม่ได้กดทำข้อสอบเพื่อไปให้ถึงข้อ 1679 (ลำดับที่ 11 ของ Set 10) หรือ 2153 (ลำดับที่ 6 ของ Set 17) เพราะการตอบในหน้าเว็บจะ**เขียน `test_attempts`/`user_answers` แถวใหม่** ซึ่งอยู่นอกขอบเขตที่อนุมัติ → สิ่งที่ยืนยันได้คือ "DB ตรงร่าง + หน้าโหลดได้" ไม่ใช่ "เห็นข้อเรนเดอร์บนจอ"
+- `npx vitest run src/app/api/admin/test-explains src/app/api/test-sets src/app/tests` = 12 ไฟล์ / **72 passed** · `typecheck` exit 0 · `eslint` 0 error / 16 warning
