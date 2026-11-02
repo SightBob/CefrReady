@@ -145,7 +145,7 @@ git ls-files | seed/mig  → scripts/seed-full-test-type.ts, seed-test-types.ts,
 2. คู่ซ้ำ 2148 ↔ 2153 (อดีต 1043/1111) — เขียนใหม่ข้อหนึ่งหรือรวม
 3. 1085 / 1181 / 1151 — ยืนยันกับ CSV ต้นฉบับว่าควรมีในระบบหรือไม่
 4. เลข blank ของ 1982 ขาด 4 และ 6 — ตรวจกับต้นฉบับก่อนแก้
-5. ข้อที่ 32 ของรายงาน — ยังไม่มีหลักฐาน
+5. ข้อที่ 32 ของรายงาน — **ปิดเป็น "ตรวจไม่ได้" (2 พ.ย. 2026)**: ไม่มี `questions (2).csv` ต้นฉบับในโปรเจกต์ จึงยืนยันไม่ได้ว่าข้อนี้คือข้อใด (ไม่เดา)
 
 ## 8. ผลการเขียน DB รอบนี้ (id 1679) — before / after
 
@@ -280,3 +280,30 @@ Backup ก่อนเขียนรอบนี้: `docs/qa-backup-2026-11-02
 **ลบ dead code**: `src/components/HomeProgressClient.tsx` (untracked, ไม่ถูก import ที่ไหนใน repo — อ้างถึงเฉพาะใน `docs/superpowers/plans/2026-07-06-web-performance.md`) ถูกลบตามการตัดสินใจ; ไม่กระทบหน้าใดเพราะไม่เคยถูกใช้งาน
 
 **ตรวจ**: typecheck exit 0 · eslint 0 error / 16 warning (เท่าเดิม) · vitest 1504 passed / 38 skipped (เพิ่ม 6 จาก `review-legacy.test.ts`) · build exit 0 — ยังไม่ได้ตรวจด้วยเบราว์เซอร์เพราะไม่มี dev server และไม่มี session ผู้ใช้/admin ให้ทดสอบ
+
+## 13. รอบที่ 3 (2 พ.ย. 2026) — cutoff อัตโนมัติ + journal + ร่าง option_d
+
+### 13.1 `stats_cutoff_at` ตั้งอัตโนมัติเมื่อแอดมินแก้เนื้อหาที่กระทบการตรวจ
+
+| ไฟล์ | สิ่งที่ทำ |
+|---|---|
+| `src/lib/question-stats.ts` | เพิ่ม `GRADING_CONTENT_FIELDS` + `hasGradingContentChanged(before, patch)` — เทียบ JSON แบบเรียงคีย์, ไม่นับการเปลี่ยนแค่ `status` ของ tapExercise |
+| `src/app/api/admin/questions/[id]/route.ts` | อ่านแถวเดิมก่อนอัปเดต (404 ถ้าไม่พบ) แล้วถ้าเนื้อหา/เฉลยเปลี่ยนจริง → `statsCutoffAt = new Date()` |
+| `src/lib/question-stats.test.ts` | เพิ่ม 6 เคสของ helper (เฉลยเปลี่ยน/ตัวเลือกเปลี่ยน/ค่าเดิม/ฟิลด์ที่ไม่กระทบ/status tapExercise/ลำดับคีย์) |
+| `src/app/api/admin/questions/[id]/route.test.ts` | mock `select` + 4 เคส: เฉลยเปลี่ยน → ตั้ง cutoff, บันทึกซ้ำ → ไม่ตั้ง, แก้แค่ active → ไม่ตั้ง, ไม่พบข้อ → 404 |
+
+ผล: ต่อจากนี้ไม่ต้องตั้ง cutoff มืออีก — แต่ **กดบันทึกซ้ำโดยไม่เปลี่ยนเนื้อหาจะไม่รีเซ็ตสถิติ** (กันตัวเลขหายโดยไม่ตั้งใจ)
+
+### 13.2 journal ของ drizzle ถูก track แล้ว
+
+`.gitignore` เปลี่ยนจาก `drizzle/meta/` เป็น `drizzle/meta/*` + `!drizzle/meta/_journal.json` → เครื่องอื่น/pipeline เห็น`_journal.json` และใช้ `db:migrate` ได้ตามปกติ (ยังไม่ commit snapshot ของ drizzle-kit)
+
+### 13.3 ร่าง `option_d` 25 ข้อ — รออนุมัติ
+
+`docs/qa-option-d-drafts.md` มีข้อเสนอตัวเลือกที่ 4 ครบทั้ง 25 ข้อ (focus-meaning B1 ที่ยังเป็น "—") พร้อมเหตุผลที่ลวงได้และเงื่อนไขก่อนเขียน DB · **ยังไม่มีการเขียน DB ในรอบนี้**
+
+### 13.4 เรื่องที่ยังปิดไม่ได้
+
+- **ตรวจหน้าจอ `/admin/reports`, `/admin`, `/review`**: ล็อกอินมีทางเดียวคือ Google OAuth (ทดสอบด้วย agent-browser แล้ว: `/admin/reports` → `/login?callbackUrl=...`, `/review/11557` → `/`, API คืน 401/403) และบัญชีแอดมินไม่มี attempt ของ 1679/2153 (40 แถว legacy เป็นของผู้ใช้ 14 คน) → ต้องมี session ของเจ้าของ attempt หรือเขียน component test แทน
+- **C2 (performance audit)**: สถานะใน `docs/PERFORMANCE-AUDIT-2026-10-04.md` คือ "ตัดสินใจไม่ทำ" (ไม่แตะ CSP nonce) — ไม่มีอะไรต้องทำต่อ นอกจาก การคงสถานะไว้
+- **P2 (performance รอบ 2: H3 Header เลิก fetch session + M4 รวม cache key)**: กระทบ поведение การแสดงสถานะล็อกอินทั้งเว็บ ไม่ใช่ขอบเขต QA รอบนี้ → ต้องอนุมัติแยก
