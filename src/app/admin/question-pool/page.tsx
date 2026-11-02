@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { ArrowLeft, Loader2, RefreshCw, Database } from 'lucide-react';
 import { QuestionPoolCoverageMatrix } from '@/components/admin/QuestionPoolCoverageMatrix';
 import LoadError from '@/components/admin/LoadError';
 import { fetchAdminJson } from '@/lib/admin-fetch';
-import { SelectionModeChart } from '@/components/admin/SelectionModeChart';
-import { ReachedLevelChart } from '@/components/admin/ReachedLevelChart';
+const SelectionModeChart = dynamic(
+  () => import('@/components/admin/SelectionModeChart').then((m) => m.SelectionModeChart),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
+const ReachedLevelChart = dynamic(
+  () => import('@/components/admin/ReachedLevelChart').then((m) => m.ReachedLevelChart),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 import type { CefrLevel } from '@/lib/full-test/constants';
 
 interface QuestionPoolData {
@@ -182,5 +189,15 @@ function StatCard({
         {value.toLocaleString()}
       </p>
     </div>
+  );
+}
+
+/** การ์ดเปล่าระหว่างรอ chunk ของกราฟ — สูงใกล้เคียงการ์ดจริงเพื่อลด layout shift */
+function ChartSkeleton({ className = 'h-80' }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-2xl border border-slate-100 bg-white shadow-sm ${className}`}
+      aria-hidden
+    />
   );
 }

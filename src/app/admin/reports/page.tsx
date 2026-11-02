@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import {
   ArrowLeft, BarChart3, Users, Target, TrendingUp,
@@ -10,7 +11,10 @@ import {
   Activity, ClipboardCheck, Timer, XCircle,
   PlayCircle,
 } from 'lucide-react';
-import { QuestionAnalytics } from '@/components/admin/QuestionAnalytics';
+const QuestionAnalytics = dynamic(
+  () => import('@/components/admin/QuestionAnalytics').then((m) => m.QuestionAnalytics),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[21.5rem]" /> },
+);
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import LoadError from '@/components/admin/LoadError';
 import { fetchAdminJson } from '@/lib/admin-fetch';
@@ -827,5 +831,15 @@ function ReportBadge({
       <span className="text-lg font-bold">{count}</span>
       <span className="text-[10px] font-medium text-center leading-tight">{label}</span>
     </div>
+  );
+}
+
+/** การ์ดเปล่าระหว่างรอ chunk ของกราฟ — สูงใกล้เคียงการ์ดจริงเพื่อลด layout shift */
+function ChartSkeleton({ className = 'h-80' }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-2xl border border-slate-100 bg-white shadow-sm ${className}`}
+      aria-hidden
+    />
   );
 }
