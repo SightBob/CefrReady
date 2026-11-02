@@ -51,6 +51,8 @@ interface ReviewItem {
   } | null;
   userAnswer: string;
   isCorrect: boolean;
+  /** true = โจทย์ถูกแก้หลังทำข้อสอบ (attempt เก่าที่ไม่มี __review) → ห้ามแสดงโจทย์/เฉลยใหม่ */
+  questionChanged?: boolean;
 }
 
 interface ReviewResponse {
@@ -369,6 +371,23 @@ function ReviewQuestionCard({
   onAnswerSelect: (answer: string) => void;
 }) {
   const q = item.question;
+
+  // attempt เก่าไม่มีสำเนาโจทย์ (__review) — ถ้าข้อถูกแก้ทีหลัง ตัวเลือก/เฉลยที่ดึงมา
+  // จะไม่ใช่ของที่ผู้เรียนเห็นตอนนั้น จึงแสดงคำอธิบายแทนการ์ดโจทย์
+  if (item.questionChanged) {
+    return (
+      <div className="rounded-[20px] bg-white px-[26px] py-6">
+        <p className="text-[15px] font-semibold text-slate-800">
+          ข้อนี้ถูกปรับปรุงหลังคุณทำข้อสอบ
+        </p>
+        <p className="mt-2 text-sm text-slate-600">
+          ทีมงานแก้โจทย์ข้อนี้หลังจากคุณส่งคำตอบแล้ว จึงไม่แสดงตัวเลือกและเฉลยเดิม
+          ผลที่บันทึกไว้ตอนนั้น: {item.isCorrect ? 'ตอบถูก' : 'ตอบผิด'}
+        </p>
+      </div>
+    );
+  }
+
   if (!q) {
     return (
       <div className="rounded-[20px] bg-white px-[26px] py-6 text-slate-500">

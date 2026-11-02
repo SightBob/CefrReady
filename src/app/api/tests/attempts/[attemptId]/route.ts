@@ -5,6 +5,7 @@ import { eq, and, inArray, asc } from 'drizzle-orm';
 import type { AttemptPathEntry } from '@/lib/full-test/state';
 import type { DbQuestion } from '@/db/schema';
 import { getCurrentUser } from '@/lib/auth-utils';
+import { isQuestionChangedSinceAttempt } from '@/lib/review-legacy';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +78,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
     // Build review items: question + user answer merged
     const path = (attempt.adaptivePath ?? []) as AttemptPathEntry[];
     const legacyReviewItems = answers.map((answer, index) => {
-      const question = path[index]?.questionSnapshot ?? dbQuestions.find(q => q.id === answer.questionId);
+      const snapshotQuestion = path[index]?.questionSnapshot;
+      const question = snapshotQuestion ?? dbQuestions.find(q => q.id === answer.questionId);
       return {
         questionId: answer.questionId,
         question: question ? {
@@ -101,6 +103,11 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
         } : null,
         userAnswer: answer.selectedAnswer,
         isCorrect: answer.isCorrect,
+        // attempt เก่า: ถ้าโจทย์ถูกแก้หลังส่งคำตอบ ตัวเลือก/เฉลยที่เพิ่งดึงมาไม่ใช่ของเดิม
+        questionChanged: isQuestionChangedSinceAttempt(
+          snapshotQuestion ? null : dbQuestions.find(q => q.id === answer.questionId)?.updatedAt,
+          attempt.completedAt,
+        ),
       };
     });
 

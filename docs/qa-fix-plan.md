@@ -261,3 +261,22 @@ Backup ก่อนเขียนรอบนี้: `docs/qa-backup-2026-11-02
 1. `node --env-file=.env docs/qa-rollback-stats-cutoff-2026-11-02.mjs` → dry-run แสดงค่าปัจจุบัน
 2. `... --apply` → `SET stats_cutoff_at = NULL` เฉพาะ 1679/2153 (transaction, `rowCount = 1` ต่อแถว, ต้องเหลือค่าไม่ใช่ NULL = 0)
 3. `... --apply --drop-column --confirm-drop 0051` → `DROP COLUMN IF EXISTS` (ได้เฉพาะเมื่อไม่มีค่า cutoff ค้าง) + ต้อง rollback โค้ด commit `e30e8a6` ด้วย
+
+## 12. รีวิวของ attempt เก่า (legacy) — ซ่อนข้อที่ถูกแก้หลังทำข้อสอบ (2 พ.ย. 2026)
+
+**ปัญหา**: attempt ที่ทำก่อนมี `__review` (1679: 27/34, 2153: 13/44) ไม่มีสำเนาข้อความโจทย์ในตัว attempt → `/api/tests/attempts/[id]` จึงดึงโจทย์ปัจจุบันมาแสดงคู่กับ `user_answers.is_correct` ของเดิม ทำให้เห็น "ตอบ A + ✗ Incorrect + Correct: A" ในข้อเดียวกัน
+
+**ที่แก้ (ไม่แตะ DB / `user_answers` / หน้าสอบ)**
+
+| ไฟล์ | สิ่งที่ทำ |
+|---|---|
+| `src/lib/review-legacy.ts` (ใหม่) | `isQuestionChangedSinceAttempt(questionUpdatedAt, attemptCompletedAt)` — คืน true เมื่อ `questions.updated_at` ใหม่กว่าเวลาที่ผู้เรียนส่งคำตอบ |
+| `src/lib/review-legacy.test.ts` (ใหม่) | 6 เคส: แก้ทีหลัง / แก้ก่อน / เวลาเท่ากัน / ค่า null / parse ไม่ได้ / Date object |
+| `src/app/api/tests/attempts/[attemptId]/route.ts` | legacy item เพิ่มฟิลด์ `questionChanged` (attempt ที่มี `__review` เป็น false เสมอ) |
+| `src/app/review/[attemptId]/page.tsx` | ถ้า `questionChanged` → การ์ดแจ้ง "ข้อนี้ถูกปรับปรุงหลังคุณทำข้อสอบ" + ผลที่บันทึกไว้ แทนการ์ดโจทย์ (ไม่แสดงตัวเลือก/เฉลยใหม่) |
+
+**ผล**: attempt ใหม่ (มี `__review`) ไม่เปลี่ยนจุดใดเลย · attempt เก่าที่ข้อไม่ถูกแก้ยังแสดงรีวิวเต็มรูปแบบเหมือนเดิม · เฉพาะข้อที่ถูกแก้หลังทำข้อสอบเท่านั้นที่เห็นการ์ดแจ้ง โดยผลถูก/ผิดยังตรงกับที่บันทึกไว้ตอนนั้น
+
+**ลบ dead code**: `src/components/HomeProgressClient.tsx` (untracked, ไม่ถูก import ที่ไหนใน repo — อ้างถึงเฉพาะใน `docs/superpowers/plans/2026-07-06-web-performance.md`) ถูกลบตามการตัดสินใจ; ไม่กระทบหน้าใดเพราะไม่เคยถูกใช้งาน
+
+**ตรวจ**: typecheck exit 0 · eslint 0 error / 16 warning (เท่าเดิม) · vitest 1504 passed / 38 skipped (เพิ่ม 6 จาก `review-legacy.test.ts`) · build exit 0 — ยังไม่ได้ตรวจด้วยเบราว์เซอร์เพราะไม่มี dev server และไม่มี session ผู้ใช้/admin ให้ทดสอบ
