@@ -63,6 +63,7 @@ unlighthouse.config.ts
 public/unlighthouse-urls-*.txt
 
 # Internal tools
+.cloud-attachments/
 .omc/
 .opencode/
 .claude/
