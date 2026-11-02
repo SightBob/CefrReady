@@ -1,7 +1,7 @@
 # แผนแก้ข้อสอบจาก `qa-report.md` — ขั้นที่ 1 (อ่านอย่างเดียว)
 
 > **สถานะ: ยังไม่มีการแก้ไขใด ๆ** — รอบนี้ใช้ `SELECT` เท่านั้น ไม่มีการเขียน DB และไม่เรียก `PUT /api/admin/questions/[id]`
-> อัปเดตล่าสุด: 2 พ.ย. 2026 (DB ต่อได้ · ค้นครบ 31 ข้อแล้ว)
+> อัปเดตล่าสุด: 2 พ.ย. 2026 — เขียน DB แล้ว **1 แถว (id 1679)** ตามที่อนุมัติ · id 2153 รออนุมัติร่าง
 
 ## 0. การเข้าถึง DB
 
@@ -34,7 +34,9 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 
 ## 3. สถานะรายข้อ ครบ 31 ข้อ (จาก DB จริง)
 
-สรุป: ✅ **แก้แล้ว 25** · ⚠️ **แก้ข้อความแล้วแต่ยังซ้ำ 2** · ❌ **ยังซ้ำ 1** · ❌ **ไม่เจอจริง 3**
+สรุป: ✅ **แก้แล้ว 26** · ⚠️ **ยังซ้ำ 1 คู่ (2148 ↔ 2153, 2153 รออนุมัติ)** · ❌ **ไม่มีใน DB 3 (1085/1181/1151 — ไม่เคยถูก import)**
+
+> **1679 เขียนใหม่แล้ว** 2 พ.ย. 2026 04:11 UTC (transaction เดียว, rowCount = 1) · backup: `docs/qa-backup-2026-11-02.json` · rollback: `docs/qa-rollback-2026-11-02.mjs`
 
 ### 3.1 Focus-Meaning (18)
 
@@ -51,7 +53,7 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 | 848 | 1700 | ✅ | Q "What does the **man** mean?" (ยังมี 1652 เวอร์ชันเก่า Q="Meaning?" — เสี่ยงซ้ำ) |
 | 849 | 1701 | ✅ | เฉลย A "**He** likes many types of art" |
 | 855 | 1704 | ✅ | speaker ที่สองเป็น **Man** (เดิม Daughter) · เฉลย C อ้าง "the man" ได้ |
-| 863 | **1679 ↔ 1717** | ❌ ยังซ้ำ | บทสนทนาเดียวกัน ("…she up and left with her bag…") — ดูข้อ 4 |
+| 863 | **1679 ↔ 1717** | ✅ แก้แล้ว (1679) | 1679 เขียนใหม่เป็นเรื่อง "เพื่อนไม่มาตามนัด" เฉลย A · 1717 คงเดิม (36 คำตอบ) → ไม่ซ้ำกันแล้ว |
 | 868 | 1722 | ✅ | Q "What does the **man** mean?" · เฉลย A |
 | 871 | 1725 | ✅ | เฉลย A "**She** knows the town well" |
 | 873 | 1726 | ✅ | speaker สลับแล้ว (Woman ถาม "When would you like to fly?") · เฉลย A |
@@ -63,13 +65,13 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 
 | ID รายงาน | DB id | สถานะ | ค่าปัจจุบันใน DB |
 |---|---|---|---|
-| 1085 | — | ❌ **ไม่เจอจริง** | ไม่มีข้อความ "A toy train ___ chocolate" (ใกล้สุดคือ 2198 "A box of chocolates ___ with shiny paper" = คนละข้อ) |
+| 1085 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import (ยืนยันจาก git log ของ csv_data/seed/migration) — **ไม่ต้องแก้** |
 | 1178 | 2081 | ✅ | "she **can't help but** ___ creative." เฉลย A **be** (เดิม artistic→creative แต่สำนวน/เฉลยถูกแล้ว) |
-| 1043 | 2148 | ⚠️ แก้ข้อความแล้ว แต่ยังซ้ำ | "how far is ___ **from the train station**?" เฉลย A it |
-| 1111 | 2153 | ⚠️ แก้ข้อความแล้ว แต่ยังซ้ำ | "How far is ___ **from my hotel to the museum**?" เฉลย A it — **2148/2153 ยังเป็นคู่ซ้ำเชิงโครงสร้าง** |
+| 1043 | 2148 | ⚠️ ยังซ้ำ (รอ 2153) | "how far is ___ **from the train station**?" เฉลย A it — จะแยกคู่เมื่อ 2153 ถูกเขียนใหม่ |
+| 1111 | 2153 | ⏳ รออนุมัติร่าง | "How far is ___ **from my hotel to the museum**?" เฉลย A it · 43 คำตอบ/ถูก 38 |
 | 1127 | 2106 | ✅ | "I **can't get** ___ how well she sings!" เฉลย C **over** |
-| 1181 | — | ❌ **ไม่เจอจริง** | ไม่มี "It's ___ exciting that way." (คำว่า exciting มีแค่ 1281 listening / 1688 focus-meaning คนละบริบท) |
-| 1151 | — | ❌ **ไม่เจอจริง** | ไม่มี "might be ___ a cold" (คำว่า cold มีแค่บทความ 1979 "bad cold" คนละบริบท) |
+| 1181 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import — **ไม่ต้องแก้** |
+| 1151 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import — **ไม่ต้องแก้** |
 
 ### 3.3 Form-Meaning / Cloze (3) — เฉลยอยู่ใน `article.blanks`
 
@@ -122,9 +124,9 @@ ID ใน `qa-report.md` มาจาก CSV `questions (2).csv` (ไม่ม�
 
 | ID | วลีที่ลอง (normalized: ตัดเครื่องหมาย/ช่องว่าง, lower) |
 |---|---|
-| 1085 | `atoytrachocolate` · `toytrachocolate` · `toytr` · `chocolate` · `a toy train` → เจอแต่ 1586 (focus-meaning) และ 2198 (box of chocolates) |
-| 1181 | `excitingthatway` · `s more exciting` · `moreexciting` · `exciting` → เจอ 1281/1688 คนละบริบท |
-| 1151 | `soundslikeyoumightbe` · `mightbeacold` · `gettingacold` · `acold` · `could` → 0 / เป็น listening คนละเรื่อง |
+| 1085 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import (ยืนยันจาก git log ของ csv_data/seed/migration) — **ไม่ต้องแก้** |
+| 1181 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import — **ไม่ต้องแก้** |
+| 1151 | — | ❌ **ไม่มีใน DB** | ไม่เคยถูก import — **ไม่ต้องแก้** |
 
 ค้นทั้งตาราง `questions` ในทุกคอลัมน์ข้อความ (`question_text, option_a..d, explanation, conversation, transcript, article, tap_exercise, sub_topic_grammar`) + `test_explains(intro, sections, tip)`
 
@@ -144,3 +146,37 @@ git ls-files | seed/mig  → scripts/seed-full-test-type.ts, seed-test-types.ts,
 3. 1085 / 1181 / 1151 — ยืนยันกับ CSV ต้นฉบับว่าควรมีในระบบหรือไม่
 4. เลข blank ของ 1982 ขาด 4 และ 6 — ตรวจกับต้นฉบับก่อนแก้
 5. ข้อที่ 32 ของรายงาน — ยังไม่มีหลักฐาน
+
+## 8. ผลการเขียน DB รอบนี้ (id 1679) — before / after
+
+| ฟิลด์ | ก่อน | หลัง |
+|---|---|---|
+| question_text | What does the woman mean? | What does the man mean? |
+| conversation | Woman: "...she up and left with her bag." / Man: "Don't worry..." | Woman: "My friend said she'd meet me at the café, but she never turned up." / Man: "She's probably just lost track of time — she was late for my birthday dinner too." |
+| option_a | She doesn't know what to do with her friend's bag. | The friend has a habit of being late. |
+| option_b | She won't go out with her friend anymore. | The friend no longer wants to meet her. |
+| option_c | She can't explain her friend's behavior. | He forgot about his own birthday dinner. |
+| option_d | — | — (คงเดิมตามที่อนุมัติ) |
+| correct_answer | **C** | **A** |
+| explanation | อธิบาย "I'm not sure what to make of it" | อธิบายว่าเพื่อนมาสายเป็นนิสัย |
+
+**ผลต่อสถิติเดิม**: 1679 มี `user_answers` 34 แถว (ถูก 14) ซึ่งตอบตามโจทย์/เฉลยชุดเดิม — **ไม่ได้แก้ `user_answers`** ตามที่สั่ง ตัวเลขเหล่านั้นจึงยังนับเป็นการตอบของโจทย์เวอร์ชันเก่า
+**ข้อสังเกต**: ใน Set 10 เพื่อนร่วมชุด (1669–1676) ใช้ `option_d` เป็นตัวเลือกจริงทุกข้อ ไม่ใช่ "—" → 1679 จึงยังไม่ตรง convention ของชุด ควรพิจารณาเติมตัวเลือกที่ 4 (รออนุมัติ)
+
+### ตรวจซ้ำ (เฉพาะข้อที่แก้)
+- `/tests/focus-meaning/10/explain` → **redirect ไปหน้าสอบ** เพราะ Set 10 ไม่มีเนื้อหา explain (`usesSetLevelExplain` = false) → หน้านี้ไม่แสดง question เลย
+- `/tests/focus-meaning/10` → 200, render ได้ ไม่มี console error (หน้าแสดงข้อ 1 ของชุด)
+- shape ของแถวที่แก้: `conversation` = array 2 เทิร์น, key = `name,speaker,text` (เหมือนเพื่อนร่วมชุด 1669/1670/1674/1675), ไม่มีคอลัมน์ว่างผิดรูป, ข้อความใหม่ไม่ซ้ำกับข้อใดใน DB
+- `npx vitest run src/app/api/admin/test-explains src/app/api/test-sets src/app/tests` = 12 ไฟล์ / **72 passed**
+
+## 9. ร่างใหม่ id 2153 (รออนุมัติ — ยังไม่เขียน)
+
+ทดสอบ dummy `it` เป็นประธานสมมติ (อากาศ) คนละบริบทกับ 2148 (ระยะทาง):
+
+| ฟิลด์ | ค่าเสนอ |
+|---|---|
+| question_text | Woman: Is ___ usually this cold in April? Man: No, it's unusually cold this week. |
+| option_a / b / c / d | it / that / this / there |
+| correct_answer | A |
+| explanation | จากโจทย์: Is **it** usually this cold in April? ให้สังเกตว่า ประโยคถามเรื่องอากาศใช้ประธานสมมติ จึงต้องใช้ it — that/this/there ไม่ได้ในโครงสร้างนี้ |
+| cefr_level / difficulty | A2 / medium (คงเดิม) |
