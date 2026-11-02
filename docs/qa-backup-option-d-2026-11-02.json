@@ -1,0 +1,233 @@
+{
+  "createdAt": "2026-11-02T13:50:26.866Z",
+  "applied": true,
+  "note": "option_d before/after สำหรับ 25 ข้อ focus-meaning B1 (ไม่แตะ correct_answer / stats_cutoff_at)",
+  "rows": [
+    {
+      "id": 1678,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "The senator is too young to run for president.",
+      "answers": 34,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1680,
+      "question_text": "What does the man mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "Where are you planning to live in the future?",
+      "answers": 34,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1681,
+      "question_text": "What does the wife mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "Her brother is not interested in spending time with the family.",
+      "answers": 34,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1683,
+      "question_text": "What does the mother mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "I don't know where your jeans are.",
+      "answers": 34,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1684,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "She does not work at all.",
+      "answers": 34,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1685,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "She works ten hours a day.",
+      "answers": 34,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1686,
+      "question_text": "What does the man mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "I need it for a moment first.",
+      "answers": 34,
+      "updated_at": "2026-08-06 09:25:15.660862"
+    },
+    {
+      "id": 1691,
+      "question_text": "What does the man mean?",
+      "correct_answer": "B",
+      "option_d_before": "—",
+      "option_d_after": "He has never seen the painting.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1692,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "She would go back to the same hotel.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1693,
+      "question_text": "What does the man mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "He is planning a trip to New York with her.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1694,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "B",
+      "option_d_before": "—",
+      "option_d_after": "She thinks Jack should stop complaining.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1696,
+      "question_text": "What does the man mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "His mother is still in hospital.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1697,
+      "question_text": "What does the man mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "He forgot to wash the dishes too.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1698,
+      "question_text": "What does the man mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "He is staying home this summer.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1699,
+      "question_text": "What does the father mean?",
+      "correct_answer": "B",
+      "option_d_before": "—",
+      "option_d_after": "He wants to drive his son to the bus stop.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1700,
+      "question_text": "What does the man mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "The dinner will be held in the classroom.",
+      "answers": 33,
+      "updated_at": "2026-10-28 14:08:00.249947"
+    },
+    {
+      "id": 1704,
+      "question_text": "What does the woman mean by her FIRST statement?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "She is surprised that he writes so few letters.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1705,
+      "question_text": "What does the man mean by his FIRST comment?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "He no longer sees his cousins.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1706,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "B",
+      "option_d_before": "—",
+      "option_d_after": "The professor cancels many classes.",
+      "answers": 33,
+      "updated_at": "2026-08-06 09:25:50.678139"
+    },
+    {
+      "id": 1714,
+      "question_text": "What does the man mean?",
+      "correct_answer": "C",
+      "option_d_before": "—",
+      "option_d_after": "He is not allowed to wear a watch.",
+      "answers": 36,
+      "updated_at": "2026-08-06 09:26:58.831346"
+    },
+    {
+      "id": 1716,
+      "question_text": "What does the woman mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "She is angry that the meeting was cancelled.",
+      "answers": 36,
+      "updated_at": "2026-08-06 09:26:58.831346"
+    },
+    {
+      "id": 1718,
+      "question_text": "What does the man mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "He is going to appear on the news again.",
+      "answers": 36,
+      "updated_at": "2026-08-06 09:26:58.831346"
+    },
+    {
+      "id": 1719,
+      "question_text": "What does the man mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "He bought the bushes from a garden centre.",
+      "answers": 36,
+      "updated_at": "2026-08-06 09:26:58.831346"
+    },
+    {
+      "id": 1721,
+      "question_text": "What does the man mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "He has already taken the class himself.",
+      "answers": 36,
+      "updated_at": "2026-08-06 09:26:58.831346"
+    },
+    {
+      "id": 1722,
+      "question_text": "What does the man mean?",
+      "correct_answer": "A",
+      "option_d_before": "—",
+      "option_d_after": "His sister has already booked her ticket.",
+      "answers": 36,
+      "updated_at": "2026-10-28 14:08:00.249947"
+    }
+  ],
+  "appliedAt": "2026-11-02T13:50:27.974Z"
+}
