@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions, testTypes, users, userAnswers } from '@/db/schema';
-import { eq, count, desc, sql } from 'drizzle-orm';
+import { and, eq, count, desc, sql } from 'drizzle-orm';
 import { withAdmin } from '@/lib/admin-route';
+import { countableAnswerFilter } from '@/lib/question-stats';
 import { unstable_cache } from 'next/cache';
 
 const getCachedStats = unstable_cache(
@@ -28,7 +29,8 @@ const getCachedStats = unstable_cache(
         })
         .from(userAnswers)
         .innerJoin(questions, eq(userAnswers.questionId, questions.id))
-        .where(eq(userAnswers.isCorrect, false))
+        // ข้ามคำตอบที่ส่งก่อนโจทย์ถูกแก้ — ไม่งั้นข้อที่เพิ่งแก้เฉลยจะติดอันดับ "ตอบผิดบ่อย"
+        .where(and(eq(userAnswers.isCorrect, false), countableAnswerFilter()))
         .groupBy(userAnswers.questionId, questions.questionText)
         .orderBy(desc(count(userAnswers.id)))
         .limit(5);

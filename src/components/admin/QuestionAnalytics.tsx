@@ -133,6 +133,10 @@ export function QuestionAnalytics({
         </div>
       </div>
 
+      <p className="text-xs text-slate-400 mb-3">
+        สถิติด้านล่างนับเฉพาะคำตอบที่ส่งหลังโจทย์ถูกแก้ — คำตอบก่อนแก้ไม่ถูกนับ เพราะคำนวณด้วยเฉลยเวอร์ชันเก่า
+      </p>
+
       {!hasData ? (
         <p className="text-slate-500 text-sm py-8 text-center">ยังไม่มีข้อมูลคำตอบ</p>
       ) : (

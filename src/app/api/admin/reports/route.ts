@@ -6,6 +6,7 @@ import {
 } from '@/db/schema';
 import { count, sql } from 'drizzle-orm';
 import { withAdmin } from '@/lib/admin-route';
+import { countableAnswerFilter } from '@/lib/question-stats';
 import { estimateCefrLevel } from '@/lib/cefr-estimator';
 
 export const dynamic = 'force-dynamic';
@@ -125,6 +126,8 @@ export async function GET(request: NextRequest) {
       })
       .from(userAnswers)
       .innerJoin(questions, sql`${userAnswers.questionId} = ${questions.id}`)
+      // ข้ามคำตอบที่ส่งก่อนโจทย์ถูกแก้ — is_correct ของแถวนั้นอิงเฉลยเวอร์ชันเก่า
+      .where(countableAnswerFilter())
       .groupBy(questions.testTypeId),
 
     // 2. Hardest questions — top 5 questions with most wrong answers
@@ -138,6 +141,8 @@ export async function GET(request: NextRequest) {
       })
       .from(userAnswers)
       .innerJoin(questions, sql`${userAnswers.questionId} = ${questions.id}`)
+      // ข้ามคำตอบที่ส่งก่อนโจทย์ถูกแก้ — is_correct ของแถวนั้นอิงเฉลยเวอร์ชันเก่า
+      .where(countableAnswerFilter())
       .groupBy(userAnswers.questionId, questions.questionText, questions.testTypeId)
       .orderBy(sql`SUM(CASE WHEN NOT ${userAnswers.isCorrect} THEN 1 ELSE 0 END) DESC`)
       .limit(5),

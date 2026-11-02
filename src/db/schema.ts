@@ -114,6 +114,10 @@ export const questions = pgTable('questions', {
   demoOrder: integer('demo_order'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  // เวลาที่โจทย์/เฉลยถูกแก้จนคำตอบเก่าตัดสินความถูกผิดด้วยเฉลยปัจจุบันไม่ได้
+  // สถิติของแอดมินจึงนับเฉพาะคำตอบที่ส่งหลังเวลานี้ (NULL = ยังไม่เคยรีเซ็ต → นับทุกคำตอบ)
+  // ใช้ผ่าน countableAnswerFilter() ใน src/lib/question-stats.ts — ไม่กระทบหน้าผู้เรียน
+  statsCutoffAt: timestamp('stats_cutoff_at'),
 }, (table) => ({
   testTypeIdx: index('questions_test_type_idx').on(table.testTypeId),
   demoIdx: index('questions_demo_idx').on(table.testTypeId, table.isDemo),
