@@ -28,6 +28,8 @@ interface ResultData {
   cefrLevel: string | null;
   correctAnswers: number | null;
   totalQuestions: number;
+  /** คะแนนถ่วงน้ำหนักตามความยาก สเกล 0–120 (จาก normalizeScore ฝั่ง server) */
+  normalizedScore: number | null;
   perPart: Record<string, { total: number; correct: number }>;
 }
 
@@ -118,6 +120,15 @@ export default function FullTestResultsPage() {
       cefrLevel={result.cefrLevel}
       extraContent={
         <>
+          {result.normalizedScore != null && (
+            <div className="flex w-full items-center justify-between rounded-[30px] bg-white px-6 py-[18px]">
+              <h2 className="text-[18px] font-semibold leading-7 text-[#4a4a4a]">คะแนนรวม</h2>
+              <span className="text-[18px] font-bold text-[#2b6c00]">
+                {result.normalizedScore}
+                <span className="text-[14px] font-semibold text-[#64748b]"> / 120</span>
+              </span>
+            </div>
+          )}
           {perPartEntries.length > 0 && (
             <div className="w-full rounded-[30px] bg-white pb-6 pl-6 pr-[23px] pt-[18px]">
               <h2 className="text-center text-[18px] font-semibold leading-7 text-[#4a4a4a]">

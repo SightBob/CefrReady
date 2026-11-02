@@ -65,7 +65,7 @@ async function submitRequest(request: NextRequest) {
 
   // Demo mode: IP-based rate limit only (no auth required)
   // Parse body first to check isDemo before deciding on rate limit strategy
-  let parsedBody: z.SafeParseReturnType<typeof submitBodySchema._type, typeof submitBodySchema._type>;
+  let parsedBody: ReturnType<typeof submitBodySchema.safeParse>;
   try {
     const body = await request.json();
     parsedBody = submitBodySchema.safeParse(body);
