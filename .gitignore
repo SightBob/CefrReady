@@ -31,7 +31,8 @@ npm-debug.log*
 next-env.d.ts
 
 # Drizzle
-drizzle/meta/
+drizzle/meta/*
+!drizzle/meta/_journal.json
 .drizzle/
 local_db_dump.sql
 
