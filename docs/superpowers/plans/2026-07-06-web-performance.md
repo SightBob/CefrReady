@@ -62,7 +62,7 @@ Install exact development tools:
 npm install --save-dev @next/bundle-analyzer lighthouse cross-env
 ```
 
-- [ ] **Step 2: Enable bundle analysis only when requested**
+- [x] **Step 2: Enable bundle analysis only when requested**
 
 Wrap `next.config.mjs`:
 

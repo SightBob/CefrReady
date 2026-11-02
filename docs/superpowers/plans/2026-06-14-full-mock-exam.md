@@ -85,7 +85,7 @@ git commit -m "feat(db): add adaptive state columns to test_attempts"
 **Files:**
 - Create: `drizzle/0009_*.sql` (auto-generated)
 
-- [ ] **Step 1: Generate migration**
+- [x] **Step 1: Generate migration**
 
 ```bash
 npm run db:generate
@@ -115,7 +115,7 @@ git commit -m "chore(db): generate migration for full mock exam columns"
 **Files:**
 - Create: `src/lib/full-test/constants.ts`
 
-- [ ] **Step 1: Write constants file**
+- [x] **Step 1: Write constants file**
 
 ```typescript
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
