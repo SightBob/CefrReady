@@ -1,0 +1,106 @@
+{
+  "appliedAt": "2026-11-02T14:21:43.213Z",
+  "rows": [
+    {
+      "id": 1718,
+      "before": {
+        "id": 1718,
+        "question_text": "What does the man mean?",
+        "correct_answer": "A",
+        "conversation": [
+          {
+            "name": "Man",
+            "text": "Hey, did you catch my interview on News Tonight?",
+            "speaker": "A"
+          },
+          {
+            "name": "Person B",
+            "text": "No. If I had known it was on, I would have been sure to watch.",
+            "speaker": "B"
+          }
+        ],
+        "option_a": "He wishes he had seen the interview.",
+        "option_b": "He decided not to watch the interview.",
+        "option_c": "He plans to watch the news more often.",
+        "option_d": "He is going to appear on the news again."
+      }
+    },
+    {
+      "id": 1714,
+      "before": {
+        "id": 1714,
+        "question_text": "What does the man mean?",
+        "correct_answer": "C",
+        "conversation": [
+          {
+            "name": "Man",
+            "text": "What time is it? I think I'm late.",
+            "speaker": "A"
+          },
+          {
+            "name": "Person B",
+            "text": "Sorry. I don't have a watch.",
+            "speaker": "B"
+          }
+        ],
+        "option_a": "I can't see the clock from here.",
+        "option_b": "I don't understand you.",
+        "option_c": "I don't know the time.",
+        "option_d": "He is not allowed to wear a watch."
+      }
+    },
+    {
+      "id": 1719,
+      "before": {
+        "id": 1719,
+        "question_text": "What does the man mean?",
+        "correct_answer": "A",
+        "conversation": [
+          {
+            "name": "Man",
+            "text": "I love what you've done with your backyard. How long did it take you to plant all those bushes?",
+            "speaker": "A"
+          },
+          {
+            "name": "Person B",
+            "text": "No time at all. I had it done professionally.",
+            "speaker": "B"
+          }
+        ],
+        "option_a": "He paid someone to plant the bushes.",
+        "option_b": "He planted the bushes very quickly.",
+        "option_c": "He is a professional gardener.",
+        "option_d": "He bought the bushes from a garden centre."
+      }
+    },
+    {
+      "id": 1705,
+      "before": {
+        "id": 1705,
+        "question_text": "What does the man mean by his FIRST comment?",
+        "correct_answer": "A",
+        "conversation": [
+          {
+            "name": "Man",
+            "text": "When I was growing up, my cousin's family would always come over to our place for the holidays.",
+            "speaker": "A"
+          },
+          {
+            "name": "Person B",
+            "text": "I wish I could say the same. Mine lived so far away.",
+            "speaker": "B"
+          },
+          {
+            "name": "Man",
+            "text": "Yes, we were pretty fortunate.",
+            "speaker": "A"
+          }
+        ],
+        "option_a": "He regularly saw his cousins during the holidays.",
+        "option_b": "He often traveled to his cousin's house for holidays.",
+        "option_c": "He wishes he could see his cousins during holidays.",
+        "option_d": "He no longer sees his cousins."
+      }
+    }
+  ]
+}
