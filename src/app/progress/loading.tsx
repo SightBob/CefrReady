@@ -11,8 +11,8 @@
 export default function Loading() {
   return (
     <div className="bg-[#f7f7f7] min-h-full">
-      <div className="max-w-[1157px] mx-auto px-[17px] min-[992px]:px-0 py-[11px]">
-        <div className="flex flex-col gap-[11px] min-[992px]:grid min-[992px]:grid-cols-[447px_699px] min-[992px]:grid-rows-[164px_419px] min-[992px]:items-start">
+      <div className="max-w-[1157px] mx-auto px-[17px] min-[992px]:px-4 min-[1157px]:px-0 py-[11px]">
+        <div className="flex flex-col gap-[11px] min-[1157px]:grid min-[1157px]:grid-cols-[minmax(0,447px)_minmax(0,1fr)] min-[1157px]:grid-rows-[164px_419px] min-[1157px]:items-start">
           {/* Profile card */}
           <div className="bg-white rounded-[16px] min-[992px]:rounded-[20px] pl-[16px] pr-[16px] pt-[14px] pb-[17px] min-[992px]:pl-[24px] min-[992px]:pr-[25px] min-[992px]:pt-[21px] flex items-center gap-[16px] min-[992px]:gap-[14px] h-[130px] min-[992px]:h-[164px] shrink-0">
             <div className="w-[101px] h-[100px] min-[992px]:w-[122px] min-[992px]:h-[122px] shrink-0 bg-[#f3f5f7] animate-pulse" />
@@ -26,7 +26,7 @@ export default function Loading() {
           </div>
 
           {/* Results panel */}
-          <div className="bg-white rounded-[16px] min-[992px]:rounded-[20px] pb-[16px] pl-[17px] pr-[16px] pt-[15px] min-[992px]:pb-[14px] min-[992px]:pl-[19px] min-[992px]:pr-[22px] min-[992px]:pt-[16px] flex flex-col w-full shrink-0 min-[992px]:col-start-2 min-[992px]:row-start-1 min-[992px]:row-span-2 min-[992px]:h-full">
+          <div className="bg-white rounded-[16px] min-[992px]:rounded-[20px] pb-[16px] pl-[17px] pr-[16px] pt-[15px] min-[992px]:pb-[14px] min-[992px]:pl-[19px] min-[992px]:pr-[22px] min-[992px]:pt-[16px] flex flex-col w-full shrink-0 min-[1157px]:col-start-2 min-[1157px]:row-start-1 min-[1157px]:row-span-2 min-[1157px]:h-full">
             <div className="flex flex-col gap-[10px] min-[992px]:gap-[12px] items-start w-full max-w-[658px] mx-auto">
               <div className="flex items-center justify-between w-full min-[992px]:justify-start">
                 <div className="h-4 w-44 bg-[#f3f5f7] rounded animate-pulse" />
@@ -34,7 +34,7 @@ export default function Loading() {
               </div>
 
               {/* One card on mobile — 172:7280 */}
-              <div className="lg:hidden w-full">
+              <div className="min-[992px]:hidden w-full">
                 <div className="border border-[#ededed] rounded-[14px] px-[12px] pt-[8px] pb-[13px] pr-[14px] h-[166px] flex flex-col gap-[20px] animate-pulse">
                   <div className="flex flex-col gap-[16px]">
                     <div className="flex items-center justify-between">
@@ -57,7 +57,7 @@ export default function Loading() {
               </div>
 
               {/* 2-column grid on desktop — 172:566 */}
-              <div className="hidden lg:grid lg:grid-cols-2 gap-x-[14px] gap-y-[14px] w-full">
+              <div className="hidden min-[992px]:grid min-[992px]:grid-cols-2 gap-x-[14px] gap-y-[14px] w-full">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}

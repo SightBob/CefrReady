@@ -197,7 +197,7 @@ export default function ProgressContent({
   if (!hasData) {
     return (
       <div className="bg-[#f7f7f7] min-h-full">
-        <div className="max-w-[1157px] mx-auto px-[17px] min-[992px]:px-0 py-[11px]">
+        <div className="max-w-[1157px] mx-auto px-[17px] min-[992px]:px-4 min-[1157px]:px-0 py-[11px]">
           <div className="bg-white border border-[#ededed] rounded-[16px] min-[992px]:rounded-[20px] p-10 sm:p-14 flex flex-col items-center text-center gap-5 stagger-animate">
             <div className="w-16 h-16 bg-[#e6f0f8] rounded-[7px] flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -235,7 +235,7 @@ export default function ProgressContent({
 
   return (
     <div className="bg-[#f7f7f7] min-h-full">
-      <div className="max-w-[1157px] mx-auto px-[17px] min-[992px]:px-0 py-[11px]">
+      <div className="max-w-[1157px] mx-auto px-[17px] min-[992px]:px-4 min-[1157px]:px-0 py-[11px]">
         {/* DOM order follows the mobile reading order (profile → results →
             history). From lg up, an explicit 2×2 grid restores the desktop
             frame: profile (r1c1), results (r1c2), history (r2c1) — matching
@@ -243,7 +243,10 @@ export default function ProgressContent({
             The results panel spans both rows so a 5th category card grows it
             rather than overflowing; row 1 stays 164px because the profile card
             is fixed at that height. */}
-        <div className="flex flex-col gap-[11px] min-[992px]:grid min-[992px]:grid-cols-[447px_699px] min-[992px]:grid-rows-[164px_419px] min-[992px]:items-start">
+        {/* คอลัมน์ขวาใช้ 1fr (ไม่ใช่ 699px ตายตัว) และเริ่ม grid ที่ 1157px (ความกว้างเต็มของ container)
+            — เดิมเริ่มที่ 992px ทำให้ช่วง 992–1156px (tablet) คอลัมน์ขวาแคบ เนื้อหาล้นหรือเหลือช่องว่าง
+            ที่ ≥1157px ค่าที่คำนวณได้กลับเป็น 447/699px เท่า Figma เดิม */}
+        <div className="flex flex-col gap-[11px] min-[1157px]:grid min-[1157px]:grid-cols-[minmax(0,447px)_minmax(0,1fr)] min-[1157px]:grid-rows-[164px_419px] min-[1157px]:items-start">
           {/* ── Profile card ── Figma 172:479 (desktop) / 172:7256 (mobile) */}
           <section className="bg-white rounded-[16px] min-[992px]:rounded-[20px] pl-[16px] pr-[16px] pt-[14px] pb-[17px] min-[992px]:pl-[24px] min-[992px]:pr-[25px] min-[992px]:pt-[21px] min-[992px]:h-[164px] flex flex-col shrink-0">
               <div className="flex gap-[16px] min-[992px]:gap-[14px] items-center">
@@ -259,8 +262,8 @@ export default function ProgressContent({
                   className="w-[101px] h-[100px] min-[992px]:w-[122px] min-[992px]:h-[122px] shrink-0 object-cover bg-[#e6f0f8]"
                 />
 
-                <div className="flex flex-col gap-[17px] min-[992px]:gap-[14px] items-start w-full min-[992px]:w-[260px] min-w-0">
-                  <div className="flex flex-col items-start w-full min-[992px]:w-[243px] min-w-0">
+                <div className="flex flex-col gap-[17px] min-[992px]:gap-[14px] items-start w-full min-[1157px]:w-[260px] min-w-0">
+                  <div className="flex flex-col items-start w-full min-[1157px]:w-[243px] min-w-0">
                     <p className="font-bold text-[16px] min-[992px]:text-[20px] text-[#334155] leading-[normal] w-full truncate">
                       {user.name}
                     </p>
@@ -291,16 +294,18 @@ export default function ProgressContent({
             </section>
 
           {/* ── Results panel — Figma 172:566 (desktop) / 172:7270 (mobile) ── */}
-          <section className="bg-white rounded-[16px] min-[992px]:rounded-[20px] pb-[16px] pl-[17px] pr-[16px] pt-[15px] min-[992px]:pb-[14px] min-[992px]:pl-[19px] min-[992px]:pr-[22px] min-[992px]:pt-[16px] flex flex-col w-full shrink-0 min-[992px]:col-start-2 min-[992px]:row-start-1 min-[992px]:row-span-2 min-[992px]:h-full">
-            <div className="flex flex-col gap-[10px] min-[992px]:gap-[12px] items-start w-full max-w-[658px] mx-auto">
+          <section className="bg-white rounded-[16px] min-[992px]:rounded-[20px] pb-[16px] pl-[17px] pr-[16px] pt-[15px] min-[992px]:pb-[14px] min-[992px]:pl-[19px] min-[992px]:pr-[22px] min-[992px]:pt-[16px] flex flex-col w-full shrink-0 min-[1157px]:col-start-2 min-[1157px]:row-start-1 min-[1157px]:row-span-2 min-[1157px]:h-full">
+            {/* tablet (992–1156px): กล่องอยู่เต็มความกว้างการ์ด ไม่จำกัด 658px (ไม่งั้นเหลือที่ว่างด้านขวา);
+                ≥1157px กลับมา 658px เท่า Figma เดิม */}
+            <div className="flex flex-col gap-[10px] min-[992px]:gap-[12px] items-start w-full max-w-[658px] mx-auto min-[992px]:max-w-none min-[1157px]:max-w-[658px]">
               {/* Header row: 172:7272 adds the test-type pill next to the title */}
               <div className="flex items-center justify-between w-full min-[992px]:justify-start min-[992px]:gap-[12px]">
                 {/* 172:7273 → "ผลลัพธ์ตามประเภทข้อสอบ" semibold 14px (mobile)
                     172:567 → "ผลลัพธ์แบ่งตามประเภทข้อสอบ" bold 16px (desktop) */}
-                <h2 className="font-semibold text-[14px] text-[#334155] leading-[normal] min-w-0 lg:hidden">
+                <h2 className="font-semibold text-[14px] text-[#334155] leading-[normal] min-w-0 min-[992px]:hidden">
                   ผลลัพธ์ตามประเภทข้อสอบ
                 </h2>
-                <h2 className="hidden lg:block font-bold text-[16px] text-[#334155] leading-[normal] whitespace-nowrap">
+                <h2 className="hidden min-[992px]:block font-bold text-[16px] text-[#334155] leading-[normal] whitespace-nowrap">
                   ผลลัพธ์แบ่งตามประเภทข้อสอบ
                 </h2>
 
@@ -314,7 +319,7 @@ export default function ProgressContent({
               {categories.length > 0 ? (
                 <>
                   {/* Mobile: the single card the pill selects — 172:7280 */}
-                  <div className="lg:hidden w-full">
+                  <div className="min-[992px]:hidden w-full">
                     {activeCategory && (
                       <ProgressCategoryCard
                         testTypeId={activeCategory.testTypeId}
@@ -325,8 +330,10 @@ export default function ProgressContent({
                     )}
                   </div>
 
-                  {/* Desktop: 2-column grid, 322px cells — 172:566 */}
-                  <div className="hidden lg:grid lg:grid-cols-2 gap-x-[14px] gap-y-[14px] w-full">
+                  {/* Desktop: 2-column grid, 322px cells — 172:566
+                      tablet (992–1156px): คอลัมน์ขวาแคบกว่า 658px จึงเรียง 1 คอลัมน์เต็มความกว้าง
+                      (เดิมใช้ breakpoint lg = 1024 ทำให้ช่วง 992–1023 แสดงการ์ดเดียวจนกล่องว่างครึ่งจอ) */}
+                  <div className="hidden min-[992px]:grid min-[992px]:grid-cols-2 gap-x-[14px] gap-y-[14px] w-full">
                     {categories.map((category) => (
                       <ProgressCategoryCard
                         key={category.testTypeId}
@@ -353,7 +360,7 @@ export default function ProgressContent({
           </section>
 
           {/* History panel — Figma 172:492 (desktop) / 172:7315 (mobile) */}
-          <section className="min-h-0 min-[992px]:h-[419px] shrink-0 min-[992px]:col-start-1 min-[992px]:row-start-2">
+          <section className="min-h-0 min-[1157px]:h-[419px] shrink-0 min-[1157px]:col-start-1 min-[1157px]:row-start-2">
             <ProgressHistoryList attempts={attempts} />
           </section>
         </div>
