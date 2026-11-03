@@ -387,6 +387,17 @@ export default function SetQuizPage() {
     router.replace(`/tests/${sectionId}/${setId}/explain`);
   }, [explainsLoaded, setData, topicExplains, topicRuns, sectionId, setId, router, previewMode]);
 
+  // หน้าผลสอบยังอยู่ route เดียวกับหน้าทำข้อสอบ → metadata ของ layout ยังบอก "(กำลังสอบ)"
+  // เปลี่ยน title เองเมื่อผู้เรียนส่งคำตอบแล้ว และคืนค่าเดิมเมื่อออกจากหน้า
+  useEffect(() => {
+    if (!isFinished) return;
+    const previousTitle = document.title;
+    document.title = setData?.name ? `${setData.name} — ผลการสอบ` : 'ผลการสอบ';
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [isFinished, setData?.name]);
+
   useEffect(() => {
     if (!showTestExplain) return;
     const onKeyDown = (event: KeyboardEvent) => {
