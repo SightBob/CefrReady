@@ -16,6 +16,15 @@ export async function submitAttempt(attemptId: number, userId: string) {
     const legacyQuestions = legacyIds.length ? await tx.select().from(questions).where(inArray(questions.id, legacyIds)) : [];
     const result = calculateFullTestResult(path, legacyQuestions);
     if (attempt.status === 'completed') return { ...result, attemptId, adaptivePath: attempt.adaptivePath ?? [] };
+
+    // ส่งข้อสอบทั้งที่ยังไม่ได้ตอบข้อใดเลย = ทิ้งรอบ ไม่ใช่ทำเสร็จ
+    // (เดิมบันทึกเป็น completed ด้วย total_questions=0 ทำให้สถิติ "ทำ full-test"
+    //  บวม และหน้า review แสดง "ถูก 0/0" อยู่ในประวัติผู้เรียน)
+    if (result.totalQuestions === 0) {
+      await tx.update(testAttempts).set({ status: 'cancelled' })
+        .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.status, 'in_progress')));
+      return { ...result, attemptId, adaptivePath: attempt.adaptivePath ?? [] };
+    }
     const now = new Date();
     if (path.length) await tx.insert(userAnswers).values(path.map((entry) => ({
       attemptId, questionId: entry.questionId, selectedAnswer: entry.selectedAnswer, isCorrect: entry.wasCorrect, createdAt: now,

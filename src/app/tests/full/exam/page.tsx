@@ -252,6 +252,12 @@ export default function FullTestExamPage() {
         setSubmitting(false);
         return;
       }
+      // ไม่ได้ตอบข้อใดเลย → เซิร์ฟเวอร์ไม่บันทึกผล (mark ยกเลิก) บอกผู้เรียนกลับไปหน้าเริ่ม
+      if (submitData.data?.totalQuestions === 0) {
+        toast.error("คุณยังไม่ได้ตอบข้อใดเลย จึงยังไม่บันทึกผลรอบนี้");
+        router.push("/tests/full");
+        return;
+      }
       router.push(`/tests/full/results?attemptId=${id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -400,6 +406,12 @@ export default function FullTestExamPage() {
         const submitData = await submitRes.json();
         if (!submitData.success)
           throw new Error(submitData.error || "Submit failed");
+        // ไม่ได้ตอบข้อใดเลย → เซิร์ฟเวอร์ไม่บันทึกผล (mark ยกเลิก)
+        if (submitData.data?.totalQuestions === 0) {
+          toast.error("คุณยังไม่ได้ตอบข้อใดเลย จึงยังไม่บันทึกผลรอบนี้");
+          router.push("/tests/full");
+          return;
+        }
         router.push(`/tests/full/results?attemptId=${attemptIdRef.current}`);
         return;
       }
@@ -444,11 +456,19 @@ export default function FullTestExamPage() {
   // TestLayout's exit confirm calls this — cancels the attempt server-side.
   const handleExit = async () => {
     if (!attemptIdRef.current) return;
-    await apiFetch("/api/tests/full/cancel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attemptId: attemptIdRef.current }),
-    });
+    try {
+      await apiFetch("/api/tests/full/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attemptId: attemptIdRef.current }),
+      });
+    } catch {
+      // ยกเลิกข้าง server ไม่สำเร็จ (429 rate-limit/network วูบ) — พาผู้เรียนออกตามที่ตั้งใจ
+      // ปล่อย attempt เป็น in_progress: กลับเข้ามาสอบใหม่ได้ หรือหมดเวลาแล้วระบบส่งยอดเอง
+      toast.error(
+        "ยกเลิกการสอบไม่สำเร็จ — กลับมาทำรอบนี้ต่อได้จากหน้าข้อสอบอีกครั้ง",
+      );
+    }
     router.push("/tests");
   };
 
