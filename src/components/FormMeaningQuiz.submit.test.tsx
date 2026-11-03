@@ -15,6 +15,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  *
  * เทสต์นี้ล็อกพฤติกรรมที่ถูก: payload ที่ไม่มีเฉลย (ตามที่เซิร์ฟเวอร์ส่งจริง)
  * → ต้องยิง /api/tests/submit ได้ และไม่มี toast error
+ *
+ * เพิ่มเติม (2026-11-02): ปุ่ม "ตรวจคำตอบ" ของ Form & Meaning คือการ "ส่งข้อสอบ"
+ * ทั้งชุด — เดิมกดได้ทั้งที่ยังไม่ได้กรอกสักช่อง ทำให้เกิด attempt 0 คะแนนเปล่า ๆ
+ * (พบ attempt จริง 12463 ตอน QA) → ปุ่มต้องถูกปิดจนกว่าจะกรอกอย่างน้อย 1 ช่อง
+ * และ handleSubmit ต้องกันไว้อีกชั้น
  */
 
 const toastError = vi.fn();
@@ -41,11 +46,30 @@ vi.mock('@/lib/api-fetch', () => ({
   apiFetch: (...args: unknown[]) => apiFetchMock(...args),
 }));
 
-// ตัด TestLayout / ConfirmModal / FormMeaningFillCard ออก — ให้เทสโฟกัสที่ logic
-// ของ FormMeaningQuiz (นับคะแนนฝั่ง client + การยิง submit)
+// ตัด TestLayout / ConfirmModal ออก — ให้เทสโฟกัสที่ logic ของ FormMeaningQuiz
+// (ปุ่มหลัก disabled/ใบ้ + การยิง submit) แต่ยังคง semantics ของปุ่มจริง
 vi.mock('@/components/TestLayout', () => ({
-  default: ({ onSubmit }: { onSubmit: () => void }) => (
-    <button type="button" onClick={onSubmit}>ส่งข้อสอบ</button>
+  default: ({
+    onSubmit,
+    primaryAction,
+  }: {
+    onSubmit: () => void;
+    primaryAction?: { label: string; onClick: () => void; disabled?: boolean; hint?: string };
+  }) => (
+    <>
+      <button
+        type="button"
+        disabled={primaryAction?.disabled}
+        onClick={primaryAction?.onClick ?? onSubmit}
+      >
+        {primaryAction?.label ?? 'ส่งข้อสอบ'}
+      </button>
+      {/* ทางลัดสำหรับยิง action เดิมโดยไม่สน disabled — ใช้ทดสอบ guard ใน handleSubmit */}
+      <button type="button" onClick={primaryAction?.onClick ?? onSubmit}>
+        ส่งข้อสอบ
+      </button>
+      {primaryAction?.hint && <p>{primaryAction.hint}</p>}
+    </>
   ),
 }));
 
@@ -54,10 +78,6 @@ vi.mock('@/components/ConfirmModal', () => ({
     isOpen ? (
       <button type="button" onClick={onConfirm}>ยืนยันส่ง</button>
     ) : null,
-}));
-
-vi.mock('@/components/FormMeaningFillCard', () => ({
-  default: () => <div data-testid="fill-card" />,
 }));
 
 import FormMeaningQuiz from './FormMeaningQuiz';
@@ -103,7 +123,7 @@ const sanitizedQuestions = [
   },
 ];
 
-async function submitOnce() {
+async function renderQuiz() {
   await act(async () => {
     root.render(
       <FormMeaningQuiz
@@ -115,17 +135,32 @@ async function submitOnce() {
       />,
     );
   });
+}
 
-  const clickButton = async (label: string) => {
-    const button = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes(label),
-    );
-    expect(button, `ไม่เจอปุ่ม "${label}"`).toBeTruthy();
-    await act(async () => {
-      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-  };
+async function clickButton(label: string) {
+  const button = Array.from(container.querySelectorAll('button')).find((b) =>
+    b.textContent?.includes(label),
+  );
+  expect(button, `ไม่เจอปุ่ม "${label}"`).toBeTruthy();
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
 
+/**
+ * เตรียมคำตอบที่กรอกไว้ล่วงหน้า — quiz อ่าน sessionStorage ตอน mount
+ * (คีย์เดียวกับ lib/test-progress: cefr_set_blanks_<section>-<set>)
+ */
+function seedBlankAnswer(value = 'was') {
+  window.sessionStorage.setItem(
+    'cefr_set_blanks_form-meaning-29',
+    JSON.stringify({ 1: value }),
+  );
+}
+
+async function submitOnce() {
+  seedBlankAnswer();
+  await renderQuiz();
   await clickButton('ส่งข้อสอบ');
   // ยังไม่ได้ตอบครบ → ขึ้น modal ยืนยัน → กดยืนยันเพื่อให้ executeSubmit ทำงาน
   await clickButton('ยืนยันส่ง');
@@ -148,7 +183,40 @@ describe('FormMeaningQuiz — ส่งข้อสอบได้แม้ payl
     expect(body.testSetId).toBe(29);
     expect(body.answers).toHaveLength(1);
     expect(body.answers[0].questionId).toBe(1984);
-    // ยังไม่ได้ตอบ → ค่าว่าง (ไม่ใช่ undefined ที่จะทำให้ JSON.stringify พัง)
-    expect(body.answers[0].selectedAnswer).toBe('');
+    // กรอกช่อง 1 แล้ว → ส่งเฉพาะช่องที่กรอก (ช่อง 2 ยังว่าง)
+    expect(body.answers[0].selectedAnswer).toBe('{"1":"was"}');
+  });
+});
+
+describe('FormMeaningQuiz — กันการส่งข้อสอบว่าง', () => {
+  it('ยังไม่กรอกสักช่อง → ปุ่มตรวจคำตอบถูกปิด พร้อมใบ้ให้กรอกก่อน', async () => {
+    await renderQuiz();
+
+    const primary = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('ตรวจคำตอบ'),
+    );
+    expect(primary, 'ต้องมีปุ่มตรวจคำตอบ').toBeTruthy();
+    expect(primary!.disabled).toBe(true);
+    expect(container.textContent).toContain('กรอกคำตอบอย่างน้อย 1 ช่อง');
+  });
+
+  it('เรียก submit ตอนยังว่าง → บล็อกที่ handleSubmit ไม่ยิง API และบอกเหตุผล', async () => {
+    await renderQuiz();
+
+    await clickButton('ส่งข้อสอบ');
+
+    expect(apiFetchMock).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(String(toastError.mock.calls[0]?.[0])).toContain('อย่างน้อย 1 ช่อง');
+  });
+
+  it('กรอกแล้ว → ปุ่มกลับมากดได้', async () => {
+    seedBlankAnswer();
+    await renderQuiz();
+
+    const primary = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('ตรวจคำตอบ'),
+    );
+    expect(primary!.disabled).toBe(false);
   });
 });

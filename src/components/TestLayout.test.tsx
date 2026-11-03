@@ -65,6 +65,28 @@ describe('TestLayout primary teaching action', () => {
     );
     expect(after).not.toContain('เพื่อดูเฉลย แล้วไปข้อถัดไป');
   });
+
+  it('lets the page phrase its own hint for fill-in-the-blank quizzes', () => {
+    // Form & Meaning ไม่ใช่ข้อสอบเลือกตอบ — ใบ้ "เลือกคำตอบก่อน" จึงผิดความหมาย
+    // หน้าส่ง hint ของตัวเองมาได้ และต้องแทนข้อความมาตรฐาน
+    const html = renderToStaticMarkup(
+      <TestLayout
+        totalQuestions={4}
+        currentQuestion={3}
+        answers={[null, null, null, null]}
+        primaryAction={{
+          label: 'ตรวจคำตอบ',
+          onClick: () => undefined,
+          disabled: true,
+          hint: 'กรอกคำตอบอย่างน้อย 1 ช่องก่อนกด “ตรวจคำตอบ”',
+        }}
+      >
+        <p>Question</p>
+      </TestLayout>,
+    );
+    expect(html).toContain('กรอกคำตอบอย่างน้อย 1 ช่องก่อนกด “ตรวจคำตอบ”');
+    expect(html).not.toContain('เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”');
+  });
 });
 
 describe('TestLayout progress bar', () => {

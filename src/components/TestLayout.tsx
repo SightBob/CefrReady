@@ -66,7 +66,16 @@ interface TestLayoutProps {
   /** Open the current question's linked explain content. */
   reviewAction?: { label: string; onClick: () => void };
   /** Optional teaching action; ordinary question navigation remains unchanged. */
-  primaryAction?: { label: string; onClick: () => void; disabled?: boolean };
+  primaryAction?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    /**
+     * ข้อความใบ้ใต้ปุ่ม — ใช้เมื่อหน้าปั้นข้อความเอง (เช่น เติมคำในช่องว่าง
+     * ที่ไม่ใช่การเลือกคำตอบ) ไม่ส่ง = ใช้ใบ้มาตรฐานของข้อสอบเลือกตอบ
+     */
+    hint?: string;
+  };
   /** แบนเนอร์เหนือข้อสอบ — ใช้เฉพาะโหมดพรีวิวของแอดมิน (ไม่ส่ง = หน้าสอบปกติ) */
   notice?: React.ReactNode;
 }
@@ -923,9 +932,10 @@ export default function TestLayout({
                         จึงมักกด "ข้อต่อไป" ที่ยังล็อกอยู่ — ใบ้สั้น ๆ เฉพาะตอนยังไม่ตรวจ */}
                     {primaryAction?.label === "ตรวจคำตอบ" && (
                       <p className="text-[11px] leading-tight text-slate-600 text-center max-w-[13.5rem]">
-                        {isAnswered
-                          ? "กด “ตรวจคำตอบ” เพื่อดูเฉลย แล้วไปข้อถัดไป"
-                          : "เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”"}
+                        {primaryAction.hint ??
+                          (isAnswered
+                            ? "กด “ตรวจคำตอบ” เพื่อดูเฉลย แล้วไปข้อถัดไป"
+                            : "เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”")}
                       </p>
                     )}
                     </div>

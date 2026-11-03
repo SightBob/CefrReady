@@ -231,6 +231,12 @@ export default function FormMeaningQuiz({
 
   const handleSubmit = () => {
     if (submitting) return; // Guard: prevent double submit
+    // ยังไม่กรอกเลยสักช่อง = ยังไม่เริ่มทำ — ห้ามส่ง เพราะจะได้ 0 คะแนนเปล่า ๆ
+    // (เดิมปุ่ม "ตรวจคำตอบ" เปิดกล่องยืนยันให้ส่งได้ทั้งที่ว่างทุกช่อง)
+    if (answeredCount === 0) {
+      toast.error('กรอกคำตอบอย่างน้อย 1 ช่องก่อนกดตรวจคำตอบ');
+      return;
+    }
     const unanswered = totalBlanks - answeredCount;
 
     if (unanswered > 0) {
@@ -267,7 +273,16 @@ export default function FormMeaningQuiz({
       // (primaryAction แทนปุ่ม submit ของ TestLayout — แบบเดียวกับที่หน้าชุดจริงใช้)
       primaryAction={isSubmitted
         ? { label: 'ดูผลการสอบ', onClick: () => onFinish(correctCount, totalBlanks) }
-        : undefined}
+        : {
+            label: 'ตรวจคำตอบ',
+            onClick: handleSubmit,
+            // ยังไม่ได้กรอกสักช่อง = กดไม่ได้ (กันการส่งข้อสอบว่าง)
+            disabled: submitting || answeredCount === 0,
+            hint:
+              answeredCount === 0
+                ? 'กรอกคำตอบอย่างน้อย 1 ช่องก่อนกด “ตรวจคำตอบ”'
+                : 'กด “ตรวจคำตอบ” เพื่อส่งคำตอบและดูเฉลย',
+          }}
     >
       <FormMeaningFillCard
         article={combinedArticle}
