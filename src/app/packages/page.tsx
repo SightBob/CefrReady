@@ -44,12 +44,13 @@ export default function PackagesPage() {
               </span>
             </div>
 
-            {/* 504:622 — ข้อความประกาศ. Figma ให้กล่องสูง 87px (3 บรรทัด × 29px) จึงล็อก leading เป็น 29px */}
-            <p className="mt-4 w-full text-center font-itim text-[17px] leading-[1.6] text-[#6d5b16] min-[992px]:mt-0 min-[992px]:text-[24px] min-[992px]:leading-[29px]">
+            {/* 504:622 — ข้อความประกาศ. Figma ให้กล่องสูง 87px (3 บรรทัด × 29px) จึงล็อก leading เป็น 29px
+                ใช้ <h1> เพื่อให้หน้ามีหัวข้อหลัก (เดิมมีแต่ <p> ทำให้ SEO เห็นหน้าไร้ heading) — class คงเดิมทุกค่า */}
+            <h1 className="mt-4 w-full text-center font-itim text-[17px] leading-[1.6] text-[#6d5b16] min-[992px]:mt-0 min-[992px]:text-[24px] min-[992px]:leading-[29px]">
               CEFR Ready ยังเปิดให้ใช้งาน{' '}
               <span style={{ color: ACCENT }}>“ ฟรี ”</span>{' '}
               ทุกพาร์ทข้อสอบ ระหว่างที่เรากำลังพัฒนาข้อสอบให้แม่นยำขึ้น หากมีกำหนดเก็บค่าบริการ เราจะแจ้งล่วงหน้าอย่างชัดเจนบนหน้านี้ก่อนเริ่มเรียกเก็บครับ
-            </p>
+            </h1>
           </div>
 
           {/* 504:623 — เส้นคั่นลายเส้นโค้ง */}

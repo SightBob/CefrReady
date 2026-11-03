@@ -8,7 +8,7 @@ import { signIn } from 'next-auth/react';
 import SectionCard, { type SectionData } from '@/components/SectionCard';
 
 const ANNOUNCEMENT =
-  'เนื่องจาก CEFR Ready กำลังพัฒนาข้อสอบให้แม่นยำขึ้น เราจึงขอเริ่มเก็บค่าบริการตั้งแต่วันที่ 1 พฤศจิกายน 2569 เป็นต้นไป เพื่อนๆสามารถใช้งานได้ “ ฟรี ” จนกว่าจะถึงกำหนดสิ้นสุด';
+  'เนื่องจาก CEFR Ready กำลังพัฒนาข้อสอบให้แม่นยำขึ้น เราจะเริ่มเก็บค่าบริการภายในสิ้นเดือนนี้ (30 พฤศจิกายน 2569) ระหว่างนี้เพื่อนๆ ยังใช้งานได้ “ ฟรี ” จนถึงกำหนดสิ้นสุด';
 
 interface TestsPageClientProps {
   sections: SectionData[];
