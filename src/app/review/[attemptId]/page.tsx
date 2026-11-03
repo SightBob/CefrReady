@@ -102,7 +102,8 @@ export default function ReviewPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/');
+      // ไปหน้าเฉลยต้องล็อกอิน — ส่ง callbackUrl ให้ล็อกอินเสร็จแล้วกลับมา attempt นี้ต่อ
+      router.push(`/login?callbackUrl=${encodeURIComponent(`/review/${params.attemptId}`)}`);
       return;
     }
     if (status === 'authenticated' && params.attemptId) {

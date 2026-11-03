@@ -1,26 +1,55 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
+import { getCachedSections } from '@/lib/sections';
+
 /**
  * Section "ข้อสอบ CEFR ทั้งหมด 4 ทักษะ" — Figma 249:3395 (เดสก์ท็อป) / 249:4518 → 249:4802 (มือถือ)
  * พื้น #F7F1DC มุมล่าง 34px / การ์ดขาว ขอบ #DEEBF6 1.4px เงา 3px 4px มุม 20px
  * padding 21/20 · ชื่อทักษะ #334155 18px semibold · คำอธิบาย #53657F 14px
- * + แถว "30 นาที / 9 เซ็ต" #555 13px + ปุ่มลูกศร #8EBEE6 39×30 · การ์ดกว้าง 265 gap 32
+ * + แถว "30 นาที / n เซ็ต" #555 13px + ปุ่มลูกศร #8EBEE6 39×30 · การ์ดกว้าง 265 gap 32
  * ≤767px เลื่อนแนวนอนแบบ snap พร้อมจุดบอกสไลด์ / >767px เรียงกริด 2–4 คอลัมน์
+ *
+ * จำนวนเซ็ตต่อพาร์ทดึงจาก getCachedSections (แคชเดียวกับ /tests และรายการเซ็ตอื่น)
+ * เพื่อไม่ให้ข้อความธงประชาสัมพันธ์ต่างจากพาร์ทจริงเมื่อเพิ่ม/ลดชุดข้อสอบในอนาคต
  */
-const PARTS = [
+type Part = {
+  sectionId: string;
+  title: string;
+  desc: (setCount: number) => string;
+};
+
+const FALLBACK_SET_COUNT = 9; // เผื่อ DB ล้มเหลว — ค่าเดิมเชิงกราฟิกจาก Figma
+
+const PARTS: Part[] = [
   {
+    sectionId: 'focus-form',
     title: 'Focus on Form',
-    desc: 'หมวดนี้จะครอบคลุมเนื้อหาการสอบทั้ง 4 หมวดหมู่',
+    desc: () => 'หมวดนี้จะครอบคลุมเนื้อหาการสอบทั้ง 4 หมวดหมู่',
   },
-  { title: 'Focus on Meaning', desc: 'เติมคำในช่องว่าง มีทั้งหมด 10 ชุด ให้ลองทำ' },
-  { title: 'Form & Meaning', desc: 'ระดับ A2 - B1 เป็นข้อสอบเกี่ยวกับบทสนทนา' },
-  { title: 'Listening', desc: 'ระดับ A1 - A2 เนื้อหาจะมาจาก focus on from' },
+  {
+    sectionId: 'focus-meaning',
+    title: 'Focus on Meaning',
+    desc: (n) => `เติมคำในช่องว่าง มีทั้งหมด ${n} เซ็ต ให้ลองทำ`,
+  },
+  {
+    sectionId: 'form-meaning',
+    title: 'Form & Meaning',
+    desc: () => 'ระดับ A2 - B1 เป็นข้อสอบเกี่ยวกับบทสนทนา',
+  },
+  {
+    sectionId: 'listening',
+    title: 'Listening',
+    desc: () => 'ระดับ A1 - A2 เนื้อหาจะมาจาก focus on form',
+  },
 ];
 
-type Part = (typeof PARTS)[number];
-
-function PartCard({ title, desc, className = '' }: Part & { className?: string }) {
+function PartCard({
+  title,
+  desc,
+  setCount,
+  className = '',
+}: { title: string; desc: string; setCount: number } & { className?: string }) {
   return (
     <Link
       href="/tests"
@@ -36,7 +65,7 @@ function PartCard({ title, desc, className = '' }: Part & { className?: string }
           </span>
           <span className="flex items-center gap-[4px]">
             <Image src="/home/meta-sets.svg" alt="" width={14} height={14} />
-            <span className="text-[13px] font-medium text-[#555]">9 เซ็ต</span>
+            <span className="text-[13px] font-medium text-[#555]">{setCount} เซ็ต</span>
           </span>
         </div>
         <span className="flex h-[30px] w-[39px] shrink-0 items-center justify-center rounded-[12px] bg-[#8EBEE6]">
@@ -47,7 +76,16 @@ function PartCard({ title, desc, className = '' }: Part & { className?: string }
   );
 }
 
-export default function HomeTestParts() {
+export default async function HomeTestParts() {
+  let counts: Map<string, number> | null = null;
+  try {
+    const sections = await getCachedSections();
+    counts = new Map(sections.map((s) => [s.id, s.testSets.length]));
+  } catch (err) {
+    console.error('[HomeTestParts] Failed to fetch sections:', err);
+  }
+  const setCountOf = (sectionId: string) => counts?.get(sectionId) ?? FALLBACK_SET_COUNT;
+
   return (
     <section className="px-4 max-md:px-0 pt-1 bg-[#F7F1DC] pb-[44px] max-md:pb-[13px] max-w-[1251px] mx-auto md:rounded-bl-[34px] md:rounded-br-[34px] max-md:rounded-bl-0 max-md:rounded-br-0" id="test-parts">
       <h2 className="mt-[33px] max-md:mt-[20px] max-md:px-[17px] text-center text-[26px] max-md:text-[18px] font-bold text-[#524924]">
@@ -59,7 +97,9 @@ export default function HomeTestParts() {
   {PARTS.map((part) => (
     <PartCard
       key={part.title}
-      {...part}
+      title={part.title}
+      desc={part.desc(setCountOf(part.sectionId))}
+      setCount={setCountOf(part.sectionId)}
       className="w-[298px] shrink-0 snap-center"
     />
   ))}
@@ -76,7 +116,12 @@ export default function HomeTestParts() {
       {/* แท็บเล็ต/เดสก์ท็อป: การ์ดชุดเดียวกัน เรียงกริด */}
       <div className="mx-auto mt-[34px] max-md:hidden grid max-w-[1156px] grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-[32px]">
         {PARTS.map((part) => (
-          <PartCard key={part.title} {...part} />
+          <PartCard
+            key={part.title}
+            title={part.title}
+            desc={part.desc(setCountOf(part.sectionId))}
+            setCount={setCountOf(part.sectionId)}
+          />
         ))}
       </div>
     </section>
