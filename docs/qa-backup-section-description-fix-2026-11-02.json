@@ -1,0 +1,21 @@
+{
+  "appliedAt": "2026-11-02T15:00:42.633Z",
+  "rows": [
+    {
+      "id": "form-meaning",
+      "before": {
+        "id": "form-meaning",
+        "name": "Form & Meaning",
+        "description": "Focus on Meaning - เน้นจำคำศัพท์และความหมายตามสถานการณ์จริง\n"
+      }
+    },
+    {
+      "id": "listening",
+      "before": {
+        "id": "listening",
+        "name": "Listening",
+        "description": "Listening - ฝึกสกิลฟังจากบทสนทนาและเสียงพูดต่างๆ"
+      }
+    }
+  ]
+}
