@@ -5,12 +5,18 @@ const TESTS_DESCRIPTION =
 
 /**
  * metadata ระดับ subtree ของ /tests — เป็นค่าตั้งต้นของหน้าลูกที่ไม่ได้ประกาศเอง
- * title ต้องเป็น "ชื่อหน้าเปล่า ๆ" เพราะ root layout เติม " | CEFR Ready" ให้แล้ว
- * (ดู src/app/layout.tsx → title.template) ส่วน openGraph/twitter ไม่ผ่าน template จึงใส่ชื่อเว็บเอง
+ * openGraph/twitter ไม่ผ่าน template จึงใส่ชื่อเว็บเอง
  * ห้ามใส่ alternates ที่นี่ เพราะจะ cascade ไปทุกหน้าลูก
+ *
+ * ต้องใช้ title { default, template } — การประกาศ `title: '...'` (string) อย่างเดียวจะทับ
+ * title object ของ root layout ทั้งก้อน (ทั้ง default และ template) ทำให้หน้าลูก /tests/*
+ * (เช่น /tests/focus-form → "Focus on Form") ไม่มี suffix " | CEFR Ready" ต่อท้าย
  */
 export const metadata: Metadata = {
-  title: 'ข้อสอบ CEFR',
+  title: {
+    default: 'ข้อสอบ CEFR | CEFR Ready',
+    template: '%s | CEFR Ready', // ต้องตรงกับ title.template ใน src/app/layout.tsx (SITE_NAME)
+  },
   description: TESTS_DESCRIPTION,
   openGraph: {
     title: 'ข้อสอบ CEFR | CEFR Ready',
