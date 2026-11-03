@@ -94,10 +94,10 @@ export default function Loading() {
                 {/* Mobile shows 4 rows (291px); desktop fills the 280px rail. */}
                 <div className="bg-[#f3f5f7] rounded-[10px] min-[992px]:rounded-[14px] px-[10px] py-[14px] flex flex-col gap-[14px] min-[992px]:gap-[10px] max-h-[291px] min-[992px]:max-h-none min-[992px]:flex-1 min-h-0 overflow-hidden">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex gap-[11px] h-[44px] items-center w-full">
-                      <div className="bg-white h-full w-[116px] min-[992px]:w-[174px] shrink-0 rounded-[7px] animate-pulse" />
-                      <div className="bg-white h-full w-[61px] min-[992px]:w-[88px] shrink-0 rounded-[7px] animate-pulse" />
-                      <div className="bg-white h-full w-[61px] shrink-0 rounded-[7px] animate-pulse" />
+                    <div key={i} className="flex gap-[11px] max-[379px]:gap-[5px] h-[44px] items-center w-full">
+                      <div className="bg-white h-full w-[116px] max-[379px]:w-[70px] min-[992px]:w-[174px] shrink-0 rounded-[7px] animate-pulse" />
+                      <div className="bg-white h-full w-[61px] max-[379px]:w-[52px] min-[992px]:w-[88px] shrink-0 rounded-[7px] animate-pulse" />
+                      <div className="bg-white h-full w-[61px] max-[379px]:w-[52px] shrink-0 rounded-[7px] animate-pulse" />
                       <div className="size-[26px] shrink-0 rounded-[7px] bg-[#dbe9f4] animate-pulse" />
                     </div>
                   ))}

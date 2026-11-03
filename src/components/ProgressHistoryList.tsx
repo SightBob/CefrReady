@@ -155,21 +155,24 @@ export default function ProgressHistoryList({ attempts }: { attempts: HistoryAtt
                     <Fragment key={a.id}>
                       <Link
                         href={`/review/${a.id}`}
-                        className="flex gap-[11px] h-[44px] items-center w-full group shrink-0"
+                        className="flex gap-[11px] max-[379px]:gap-[5px] h-[44px] items-center w-full group shrink-0"
                       >
                         {/* 172:505 → 174px desktop, 172:7326 → 116px mobile */}
-                        <div className="bg-white h-full w-[116px] min-[992px]:w-[174px] shrink-0 rounded-[7px] px-[8px] py-[8px] flex items-center justify-center">
+                        {/* < 380px: the 390px mock sums to 297px of chips, which overflows the
+                            rail on a 320-360px phone (arrow tile clipped) → shrink the
+                            chips only there; 390px and up keep the exact mock values. */}
+                        <div className="bg-white h-full w-[116px] max-[379px]:w-[70px] min-[992px]:w-[174px] shrink-0 rounded-[7px] px-[8px] max-[379px]:px-[6px] py-[8px] flex items-center justify-center">
                           <span className="text-[#525c6c] text-[13px] font-semibold leading-[24px] truncate">
                             {a.testTypeName}
                           </span>
                         </div>
-                        <div className="bg-white h-full w-[61px] min-[992px]:w-[88px] shrink-0 rounded-[7px] px-[8px] py-[8px] flex items-center justify-center">
+                        <div className="bg-white h-full w-[61px] max-[379px]:w-[52px] min-[992px]:w-[88px] shrink-0 rounded-[7px] px-[8px] max-[379px]:px-[4px] py-[8px] flex items-center justify-center">
                           <span className="text-[#525c6c] text-[12px] font-semibold leading-[22px] tracking-[0.16px]">
                             {a.score.toFixed(2)}%
                           </span>
                         </div>
-                        <div className="bg-white h-full w-[61px] shrink-0 rounded-[7px] pl-[7px] pr-[6px] pt-[6px] pb-[5px] flex items-center">
-                          <div className={`${chip.bg} h-[33px] w-[48px] rounded-[3px] flex items-center justify-center`}>
+                        <div className="bg-white h-full w-[61px] max-[379px]:w-[52px] shrink-0 rounded-[7px] pl-[7px] max-[379px]:pl-[5px] pr-[6px] max-[379px]:pr-[4px] pt-[6px] pb-[5px] flex items-center">
+                          <div className={`${chip.bg} h-[33px] w-[48px] max-[379px]:w-[40px] rounded-[3px] flex items-center justify-center`}>
                             <span className={`${chip.text} font-bold text-[13px] leading-[32px]`}>
                               {chip.level}
                             </span>
