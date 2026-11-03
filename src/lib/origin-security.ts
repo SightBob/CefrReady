@@ -23,12 +23,33 @@ const ALLOWED_ORIGINS = [
 
 const ALLOWED_ORIGIN_SET = new Set(ALLOWED_ORIGINS);
 
-function isAllowedOrigin(origin: string | null): boolean {
-  if (!origin) return false;
+function toBaseUrl(origin: string | null): string | null {
+  if (!origin) return null;
   try {
     const u = new URL(origin);
-    const base = `${u.protocol}//${u.host}`;
-    return ALLOWED_ORIGIN_SET.has(base);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Same-origin แบบอิง request เอง — จำเป็นเมื่อเซิร์ฟเวอร์ไม่ได้ฟังที่พอร์ต/โดเมน
+ * ใน allow-list (เช่น `next dev` เลือกพอร์ตอื่นเมื่อ 3000 ไม่ว่าง หรือ preview
+ * deployment ของ Vercel ที่มีโดเมนสุ่ม). ปลอดภัยเพราะเบราว์เซอร์กำหนดค่า
+ * `Host` header เองไม่ได้ (forbidden header) — ผู้โจมตีจึงปลอม Host ให้ตรงกับ
+ * Origin ของตนไม่ได้
+ */
+function isSameOriginAsRequest(base: string, headers: Headers): boolean {
+  // หลัง reverse proxy (Vercel/Cloudflare) host ที่แอปเห็นอาจเป็น internal —
+  // ใช้ x-forwarded-host / x-forwarded-proto ที่ proxy ใส่มาก่อนเมื่อมี
+  const forwardedHost = headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const forwardedProto = headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  const host = forwardedHost || headers.get('host');
+  if (!host) return false;
+  if (forwardedProto) return base === `${forwardedProto}://${host}`;
+  try {
+    return new URL(base).host === host;
   } catch {
     return false;
   }
@@ -44,12 +65,11 @@ function isAllowedOrigin(origin: string | null): boolean {
  * check (the previous behavior let curl/server-to-server callers bypass CSRF).
  */
 export function requireAllowedOrigin(requestOrHeaders: Request | Headers): Response | null {
-  const origin =
-    requestOrHeaders instanceof Headers
-      ? requestOrHeaders.get('origin') || requestOrHeaders.get('referer')
-      : requestOrHeaders.headers.get('origin') || requestOrHeaders.headers.get('referer');
+  const headers = requestOrHeaders instanceof Headers ? requestOrHeaders : requestOrHeaders.headers;
+  const base = toBaseUrl(headers.get('origin') || headers.get('referer'));
 
-  if (!isAllowedOrigin(origin)) {
+  const allowed = base !== null && (ALLOWED_ORIGIN_SET.has(base) || isSameOriginAsRequest(base, headers));
+  if (!allowed) {
     return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
   }
 
