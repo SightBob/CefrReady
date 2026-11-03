@@ -14,7 +14,6 @@ const PRIMARY_LINKS = [
   { href: '/tests', label: 'ข้อสอบ' },
   { href: '/progress', label: 'พัฒนาการ' },
   { href: '/contact', label: 'ติดต่อเรา' },
-  { href: '/support', label: 'เลี้ยงค่ากาแฟ' },
 ];
 
 const EXAM_TYPES = [

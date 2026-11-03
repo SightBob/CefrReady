@@ -8,7 +8,7 @@ const BASE_URL = 'https://cefr-ready.site';
 const BUILD_DATE = new Date('2026-05-24');
 
 // หน้าที่ไม่ใส่ sitemap: /admin, /api, /maintenance (noindex), /review (noindex),
-// หน้าสอบ (/tests/.../[setId], /tests/full/exam — noindex), /support (noindex), /demo/intro
+// หน้าสอบ (/tests/.../[setId], /tests/full/exam — noindex), /demo/intro
 const STATIC_PAGES: { path: string; priority: number; changeFrequency: 'daily' | 'weekly' | 'monthly' }[] = [
   { path: '', priority: 1, changeFrequency: 'daily' },
   { path: '/tests', priority: 0.9, changeFrequency: 'weekly' },
