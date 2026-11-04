@@ -30,7 +30,8 @@ interface ResultData {
   totalQuestions: number;
   /** คะแนนถ่วงน้ำหนักตามความยาก สเกล 0–120 (จาก normalizeScore ฝั่ง server) */
   normalizedScore: number | null;
-  perPart: Record<string, { total: number; correct: number }>;
+  /** total/correct นับเป็น "ข้อ" — ช่องของบทความ Cloze แยกเก็บใน blanksTotal/blanksCorrect */
+  perPart: Record<string, { total: number; correct: number; blanksTotal?: number; blanksCorrect?: number }>;
 }
 
 /**
@@ -146,6 +147,7 @@ export default function FullTestResultsPage() {
                       </p>
                       <span className="shrink-0 rounded-[8px] bg-[#F3F3F3] px-[10px] py-1 text-[12px] font-bold text-[#585E5F]">
                         {stats.correct}/{stats.total} ข้อ
+                        {stats.blanksTotal ? ` (${stats.blanksCorrect ?? 0}/${stats.blanksTotal} ช่อง)` : ''}
                       </span>
                     </div>
                   ))}
