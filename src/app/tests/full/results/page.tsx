@@ -122,12 +122,24 @@ export default function FullTestResultsPage() {
       extraContent={
         <>
           {result.normalizedScore != null && (
-            <div className="flex w-full items-center justify-between rounded-[30px] bg-white px-6 py-[18px]">
-              <h2 className="text-[18px] font-semibold leading-7 text-[#4a4a4a]">คะแนนรวม</h2>
-              <span className="text-[18px] font-bold text-[#2b6c00]">
-                {result.normalizedScore}
-                <span className="text-[14px] font-semibold text-[#64748b]"> / 120</span>
-              </span>
+            <div className="flex w-full items-start justify-between gap-3 rounded-[30px] bg-white px-6 py-[18px]">
+              <div className="min-w-0">
+                <h2 className="text-[18px] font-semibold leading-7 text-[#4a4a4a]">คะแนนรวม</h2>
+                {/* อธิบายว่าสเกล 120 ไม่ใช่เปอร์เซ็นต์ข้อ — เดิมผู้เรียนเห็น 11/45 (24%)
+                    คู่กับ 36/120 แล้วเข้าใจผิดว่าคำนวณผิด */}
+                <p className="text-[12px] leading-5 text-[#64748b]">
+                  ถ่วงน้ำหนักตามระดับความยากของข้อสอบ ไม่ใช่สัดส่วนข้อที่ถูก
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <span className="text-[18px] font-bold text-[#2b6c00]">
+                  {result.normalizedScore}
+                  <span className="text-[14px] font-semibold text-[#64748b]"> / 120</span>
+                </span>
+                <p className="whitespace-nowrap text-[12px] leading-5 text-[#64748b]">
+                  ตอบถูก {result.correctAnswers ?? 0}/{result.totalQuestions} ข้อ ({result.score}%)
+                </p>
+              </div>
             </div>
           )}
           {perPartEntries.length > 0 && (
@@ -135,6 +147,10 @@ export default function FullTestResultsPage() {
               <h2 className="text-center text-[18px] font-semibold leading-7 text-[#4a4a4a]">
                 สัดส่วนตามพาร์ท
               </h2>
+              <p className="mt-1 text-center text-[12px] leading-5 text-[#64748b]">
+                นับเป็นข้อ (บทความ Cloze ทั้งเรื่อง = 1 ข้อ) รวม {result.correctAnswers ?? 0}/
+                {result.totalQuestions} ข้อ
+              </p>
               <div className="mt-4 w-full rounded-[18px] bg-[#F8F6EF] pb-[14px] pl-[14px] pr-[14px] pt-[14px]">
                 <div className="flex w-full flex-col gap-[10px]">
                   {perPartEntries.map(([testTypeId, stats]) => (
