@@ -37,7 +37,7 @@ export async function submitAttempt(attemptId: number, userId: string) {
         average_score = ((COALESCE(user_progress.average_score, 0) * COALESCE(user_progress.tests_taken, 0)) + ${result.score}) / (COALESCE(user_progress.tests_taken, 0) + 1),
         last_attempt_at = now(), updated_at = now()
     `);
-    await tx.update(testAttempts).set({ status: 'completed', score: result.score.toString(), totalQuestions: result.totalQuestions, correctAnswers: result.correctAnswers, completedAt: now })
+    await tx.update(testAttempts).set({ status: 'completed', score: result.score.toString(), totalQuestions: result.totalQuestions, correctAnswers: result.correctAnswers, normalizedScore: result.normalizedScore, cefrLevel: result.cefrLevel, completedAt: now })
       .where(and(eq(testAttempts.id, attemptId), eq(testAttempts.status, 'in_progress')));
     return { ...result, attemptId, adaptivePath: attempt.adaptivePath ?? [] };
   });

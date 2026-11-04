@@ -11,7 +11,7 @@
  */
 import { Fragment, useMemo, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { estimateCefrLevel } from '@/lib/cefr-estimator';
+import { resolveCefrLevel } from '@/lib/cefr-estimator';
 
 export interface HistoryAttempt {
   id: number;
@@ -20,6 +20,8 @@ export interface HistoryAttempt {
   score: number;
   totalQuestions: number;
   correctAnswers: number;
+  /** Full Test: ระดับจาก server (ตรงกับหน้าผลสอบ) · null = ประมาณจากเปอร์เซ็นต์ */
+  cefrLevel?: string | null;
   completedAt: string;
 }
 
@@ -33,11 +35,11 @@ const RANGE_OPTIONS = [
 type RangeDays = (typeof RANGE_OPTIONS)[number]['days'];
 
 /** Grey chip when below the pass mark, green when the attempt passed. */
-function cefrChip(score: number) {
-  const level = estimateCefrLevel(score);
+function cefrChip(score: number, level?: string | null) {
+  const resolved = resolveCefrLevel(level, score);
   return score >= 52
-    ? { level, bg: 'bg-[#edfce5]', text: 'text-[#5b9530]' }
-    : { level, bg: 'bg-[#f2f2f2]', text: 'text-[#878f9b]' };
+    ? { level: resolved, bg: 'bg-[#edfce5]', text: 'text-[#5b9530]' }
+    : { level: resolved, bg: 'bg-[#f2f2f2]', text: 'text-[#878f9b]' };
 }
 
 export default function ProgressHistoryList({ attempts }: { attempts: HistoryAttempt[] }) {
@@ -149,7 +151,7 @@ export default function ProgressHistoryList({ attempts }: { attempts: HistoryAtt
               // above and below each divider comes from the gap itself.
               <div className="flex flex-col gap-[14px] min-[992px]:gap-[10px] w-full shrink-0">
                 {visible.map((a, i) => {
-                  const chip = cefrChip(a.score);
+                  const chip = cefrChip(a.score, a.cefrLevel);
                   const isLast = i === visible.length - 1;
                   return (
                     <Fragment key={a.id}>

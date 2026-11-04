@@ -60,6 +60,7 @@ export default async function ProgressPage() {
         score: testAttempts.score,
         totalQuestions: testAttempts.totalQuestions,
         correctAnswers: testAttempts.correctAnswers,
+        cefrLevel: testAttempts.cefrLevel,
         completedAt: testAttempts.completedAt,
       })
       .from(testAttempts)
@@ -137,6 +138,8 @@ export default async function ProgressPage() {
         : attempt.score || 0,
     totalQuestions: attempt.totalQuestions || 0,
     correctAnswers: attempt.correctAnswers || 0,
+    // Full Test: ระดับที่คำนวณตอนส่ง (ตรงกับหน้าผลสอบ) · พาร์ทอื่น = null → ประมาณจากเปอร์เซ็นต์
+    cefrLevel: attempt.cefrLevel ?? null,
     completedAt: attempt.completedAt ? String(attempt.completedAt) : '',
   }));
 

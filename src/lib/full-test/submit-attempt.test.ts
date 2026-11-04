@@ -37,4 +37,13 @@ describe('atomic full submit', () => {
     await expect(submitAttempt(5, 'learner')).resolves.toMatchObject({ score: 50 });
     expect(attempt.status).toBe('completed');
   });
+  it('stores normalized score and level so /progress matches the result page', async () => {
+    const result = await submitAttempt(5, 'learner');
+    expect(attempt).toMatchObject({
+      normalizedScore: result.normalizedScore,
+      cefrLevel: result.cefrLevel,
+      correctAnswers: result.correctAnswers,
+      totalQuestions: result.totalQuestions,
+    });
+  });
 });

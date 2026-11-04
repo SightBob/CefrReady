@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
           score: testAttempts.score,
           totalQuestions: testAttempts.totalQuestions,
           correctAnswers: testAttempts.correctAnswers,
+          cefrLevel: testAttempts.cefrLevel,
           completedAt: testAttempts.completedAt,
         })
         .from(testAttempts)
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
       score: typeof attempt.score === 'string' ? parseFloat(attempt.score) : (attempt.score || 0),
       totalQuestions: attempt.totalQuestions || 0,
       correctAnswers: attempt.correctAnswers || 0,
+      cefrLevel: attempt.cefrLevel ?? null,
       completedAt: attempt.completedAt,
     }));
 

@@ -49,6 +49,8 @@ interface ProgressData {
     score: number;
     totalQuestions: number;
     correctAnswers: number;
+    /** Full Test: ระดับจาก server (ตรงกับหน้าผลสอบ) · null = ประมาณจากเปอร์เซ็นต์ */
+    cefrLevel?: string | null;
     completedAt: string;
   }>;
   /** Every test type in the catalogue (id + name), whether attempted or not. */

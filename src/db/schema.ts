@@ -235,6 +235,10 @@ export const testAttempts = pgTable('test_attempts', {
   score: varchar('score', { length: 10 }),
   totalQuestions: integer('total_questions'),
   correctAnswers: integer('correct_answers'),
+  // ผลลัพธ์ Full Test ที่คำนวณตอนส่ง — ให้หน้าสถิติ (/progress) แสดงระดับ
+  // เดียวกับหน้าผลสอบ (เดิมประมาณจากเปอร์เซ็นต์คำตอบคนละตาราง)
+  normalizedScore: integer('normalized_score'),
+  cefrLevel: varchar('cefr_level', { length: 8 }),
   startedAt: timestamp('started_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
   status: varchar('status', { length: 20 }).default('in_progress').notNull(),

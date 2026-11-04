@@ -78,6 +78,17 @@ export function skillOutcomeMessage(level: string | null | undefined, percentage
   return SKILL_OUTCOME_MESSAGES[resolved];
 }
 
+/**
+ * ระดับที่ควรแสดง: ใช้ค่าที่ server คำนวณไว้ (Full Test) ถ้ารู้จัก
+ * ไม่งั้นประมาณจากเปอร์เซ็นต์แบบเดิม — ทำให้ /progress กับหน้าผลสอบพูดตรงกัน
+ */
+export function resolveCefrLevel(
+  level: string | null | undefined,
+  percentage: number,
+): CefrLevel {
+  return asCefrLevel(level) ?? estimateCefrLevel(percentage);
+}
+
 export const CEFR_DESCRIPTIONS: Record<CefrLevel, string> = {
   A1: 'ผู้เริ่มต้น — เข้าใจประโยคพื้นฐานง่ายๆ',
   A2: 'ระดับพื้นฐาน — สื่อสารเรื่องใกล้ตัวได้',
