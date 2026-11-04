@@ -9,6 +9,7 @@ import { isAdminRequest } from '@/lib/admin-auth';
 import { MAX_TAP_REASON_LENGTH, collectTapReasonRows, computeTapReasonRewardPoints } from '@/lib/tap-reason-rewards';
 import { getTapReasonRewardSettingsSafe } from '@/lib/tap-reason-settings';
 import { checkIpThrottle, checkUserRateLimit, validateOrigin } from '@/lib/api-security';
+import { closeDraftAfterSubmit } from '@/lib/test-draft';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
 import { z } from 'zod';
 
@@ -291,6 +292,13 @@ async function submitRequest(request: NextRequest) {
   }
   return newAttempt;
   });
+  // ปิด draft ที่ค้างของชุดนี้ (ถ้ามี) — draft ถูกสร้างตอนเริ่มทำ จึงต้องปิดหลังบันทึกผลสำเร็จ
+  // best-effort: ถ้าพลาดก็แค่มีแถว in_progress ค้าง ซึ่งไม่โผล่ในหน้าสถิติ (กรอง completed)
+  if (!preview && testSetId !== undefined) {
+    await closeDraftAfterSubmit(user.id, testTypeId, testSetId).catch((error) => {
+      console.warn('[submit] Failed to close draft:', error);
+    });
+  }
   return NextResponse.json({
       success: true,
       data: {

@@ -50,6 +50,7 @@ import {
   saveTestProgressState,
   clearBlankAnswers,
 } from '@/lib/test-progress';
+import { fetchTestDraft, createTestDraftPusher, clearTestDraft } from '@/lib/test-draft-sync';
 import {
   attemptKeyStorageKey,
   getOrCreateAttemptKey,
@@ -358,6 +359,76 @@ export default function SetQuizPage() {
     });
   }, [answers, checkedSlots, currentQuestion, previewMode, setId, sectionId, setData, progressKey]);
 
+  // ─── Draft ในฐานข้อมูล ────────────────────────────────────────────────
+  // sessionStorage ผูกกับแท็บ → เปิดแท็บใหม่/เปลี่ยนเครื่องแล้วความคืบหน้าหาย
+  // จึง sync ขึ้น DB ด้วย: อ่านกลับเมื่อแท็บนี้ว่าง และ push แบบ debounce ขณะทำ
+  const draftPusher = useRef<ReturnType<typeof createTestDraftPusher> | null>(null);
+  const draftRequested = useRef(false);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+
+  useEffect(() => {
+    if (previewMode || isNaN(setId)) return;
+    draftPusher.current = createTestDraftPusher(sectionId, setId);
+    return () => {
+      draftPusher.current?.dispose();
+      draftPusher.current = null;
+    };
+  }, [previewMode, sectionId, setId]);
+
+  useEffect(() => {
+    if (previewMode || isNaN(setId) || !setData || draftRequested.current) return;
+    if (progressScope.current !== progressKey) return;
+    draftRequested.current = true;
+    // แท็บนี้มีคำตอบค้างจริงอยู่แล้ว → ใช้ของแท็บนี้ ไม่ต้องรอเซิร์ฟเวอร์ (กันของเก่าทับ)
+    // หมายเหตุ: index 0 + ไม่มีคำตอบ = แค่ marker จากการเข้าชุดครั้งแรก (เด้งผ่าน /explain)
+    // ไม่ถือว่าเป็นความคืบหน้า จึงยังต้องดึง draft จากฐานข้อมูล
+    const localState = loadTestProgressState(sectionId, setId);
+    const hasLocalWork = localState !== null
+      && (localState.index > 0 || localState.answers.some((value) => value !== null));
+    if (hasLocalWork) {
+      setDraftHydrated(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const draft = await fetchTestDraft(sectionId, setId);
+        if (cancelled || !draft) return;
+        const totalItems = countTestSetItems(setData.questions);
+        if (draft.index === 0 && draft.answers.every((value) => value === null)) return;
+        const restoredAnswers: (string | null)[] = Array(totalItems).fill(null);
+        draft.answers.forEach((value, arrayIndex) => {
+          if (arrayIndex < restoredAnswers.length && value !== null) restoredAnswers[arrayIndex] = value;
+        });
+        setAnswers(restoredAnswers);
+        setCheckedSlots(draft.checked);
+        setSelectedAnswer(restoredAnswers[draft.index] ?? null);
+        setCurrentQuestion(draft.index < totalItems ? draft.index : Math.max(0, totalItems - 1));
+        hasProgress.current = true;
+        toast.success('ทำต่อจากครั้งก่อนแล้ว');
+      } finally {
+        if (!cancelled) setDraftHydrated(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [previewMode, setId, setData, sectionId, progressKey]);
+
+  // push ขึ้นเซิร์ฟเวอร์หลังบันทึกในเครื่อง (debounce 2 วิ)
+  useEffect(() => {
+    if (!draftHydrated) return;
+    if (previewMode || isNaN(setId) || !setData || answers.length === 0) return;
+    if (progressScope.current !== progressKey) return;
+    // สถานะว่าง (ข้อ 0 ไม่มีคำตอบ ไม่มีเฉลย) ไม่ต้อง push — กันแท็บใหม่ลบ draft เดิมทิ้ง
+    if (currentQuestion === 0 && Object.keys(checkedSlots).length === 0
+      && answers.every((value) => value === null)) return;
+    draftPusher.current?.push(
+      { index: currentQuestion, answers, checked: checkedSlots },
+      loadChoiceSeed(sectionId, setId),
+    );
+  }, [draftHydrated, answers, checkedSlots, currentQuestion, previewMode, setId, sectionId, setData, progressKey]);
+
   // ข้อที่จำไว้ยาวเกินจำนวนข้อจริง (เนื้อหาชุดถูกแก้) → ถอยมาข้อสุดท้าย
   useEffect(() => {
     if (!setData || mainSlots.length === 0) return;
@@ -373,6 +444,8 @@ export default function SetQuizPage() {
     if (!setData || !explainsLoaded) return;
     // โหมดพรีวิวของแอดมินต้องเห็นหน้าสอบจริง — ห้ามเด้งออก
     if (previewMode) return;
+    // รอให้รู้ก่อนว่ามี draft ในฐานข้อมูลไหม — ถ้ามีคือ "ทำค้างไว้" ไม่ต้องเด้งไป /explain
+    if (!draftHydrated) return;
     if (hasProgress.current) return;
     const topics = topicsWithExplain(topicRuns, topicExplains);
     if (topics.length === 0) return;
@@ -385,7 +458,7 @@ export default function SetQuizPage() {
     // เก็บตำแหน่งไม่ได้ = กลับมาจาก /explain จะเด้งซ้ำไม่จบ → ไม่เด้ง (กันลูป)
     if (!saveTestProgress(sectionId, setId, 0)) return;
     router.replace(`/tests/${sectionId}/${setId}/explain`);
-  }, [explainsLoaded, setData, topicExplains, topicRuns, sectionId, setId, router, previewMode]);
+  }, [explainsLoaded, setData, topicExplains, topicRuns, sectionId, setId, router, previewMode, draftHydrated]);
 
   // หน้าผลสอบยังอยู่ route เดียวกับหน้าทำข้อสอบ → metadata ของ layout ยังบอก "(กำลังสอบ)"
   // เปลี่ยน title เองเมื่อผู้เรียนส่งคำตอบแล้ว และคืนค่าเดิมเมื่อออกจากหน้า

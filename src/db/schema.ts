@@ -251,6 +251,22 @@ export const testAttempts = pgTable('test_attempts', {
     orderIndex: number;
     reused?: boolean;
   }>>().default([]),
+  // Draft ของชุดที่ยังไม่ส่ง (ดู src/lib/test-draft.ts) — NULL = ไม่มีรอบค้าง
+  // เก็บ { index, answers[], checked{}, choiceSeed } ของ "รอบที่กำลังทำ"
+  // ทำให้เปิดแท็บใหม่/เปลี่ยนเครื่องแล้วทำต่อได้ (เดิมอยู่แค่ sessionStorage)
+  draftState: jsonb('draft_state').$type<{
+    index: number;
+    answers: (string | null)[];
+    checked: Record<number, {
+      isCorrect: boolean;
+      correctKey: string | null;
+      correctText: string | null;
+      explanation: string | null;
+      answerProof: string | null;
+      aiTutorReady: boolean | null;
+    }>;
+    choiceSeed: string | null;
+  }>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
