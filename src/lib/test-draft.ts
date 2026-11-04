@@ -50,6 +50,23 @@ export async function readDraft(scope: TestDraftScope): Promise<TestDraft | null
  */
 export async function writeDraft(scope: TestDraftScope, draft: TestDraft): Promise<boolean> {
   return db.transaction(async (tx) => {
+    // กัน draft ผี: PUT ที่ค้างอยู่ในคิวอาจมาถึงหลังส่งข้อสอบแล้ว (DELETE วิ่งไปก่อน)
+    // ถ้าเพิ่งส่งชุดนี้สำเร็จภายใน 60 วินาที → ไม่สร้าง/อัปเดต draft (แถวผลสอบมีอยู่แล้ว)
+    // ผลข้างเคียงที่ยอมรับได้: เริ่มชุดใหม่ทันทีหลังส่งภายใน 60 วิ จะยังไม่ sync ลง DB
+    // (sessionStorage ในแท็บยังทำงานปกติ)
+    const [justSubmitted] = await tx
+      .select({ id: testAttempts.id })
+      .from(testAttempts)
+      .where(and(
+        eq(testAttempts.userId, scope.userId),
+        eq(testAttempts.testTypeId, scope.sectionId),
+        eq(testAttempts.testSetId, scope.setId),
+        eq(testAttempts.status, 'completed'),
+        sql`${testAttempts.completedAt} >= now() - interval '60 seconds'`,
+      ))
+      .limit(1);
+    if (justSubmitted) return true;
+
     const [existing] = await tx
       .select({ id: testAttempts.id })
       .from(testAttempts)

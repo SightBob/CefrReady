@@ -25,7 +25,8 @@ describe('draft หลังส่งข้อสอบ', () => {
     const clearIndex = pageSrc.indexOf('void clearTestDraft(sectionId, setId);');
     expect(finishedIndex).toBeGreaterThan(-1);
     expect(clearIndex).toBeGreaterThan(finishedIndex);
-    expect(pageSrc).toContain('draftPusher.current?.dispose();');
+    // ต้องใช้ cancel() ไม่ใช่ dispose() — dispose ยิง flush ท้ายค้างแล้วสร้าง draft ผีกลับมา
+    expect(pageSrc).toContain('draftPusher.current?.cancel();');
   });
 
   it('effect ที่ push draft ต้องหยุดเมื่อจบรอบ', () => {

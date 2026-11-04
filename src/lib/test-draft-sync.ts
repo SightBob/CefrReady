@@ -106,6 +106,17 @@ export function createTestDraftPusher(sectionId: string, setId: number | string)
       flush();
       disposed = true;
     },
+    /**
+     * ยกเลิกงานที่ค้างโดย "ไม่ส่ง" — ใช้หลังส่งข้อสอบสำเร็จ
+     * (dispose() ยิง flush ก่อนปิด ทำให้ PUT ท้ายค้างไปถึงเซิร์ฟเวอร์หลัง DELETE
+     *  แล้วสร้าง draft ผีของชุดที่ส่งไปแล้วกลับมา)
+     */
+    cancel() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      pending = null;
+      disposed = true;
+    },
   };
 }
 

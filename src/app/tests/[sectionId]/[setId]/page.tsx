@@ -873,7 +873,7 @@ export default function SetQuizPage() {
         // ปิด draft ทุกทางหลังส่งสำเร็จ: หยุด pusher + ล้างแถว draft ในฐานข้อมูล
         // ไม่งั้น timer debounce ที่ค้างอยู่จะเขียนสถานะ "ส่งแล้ว" กลับขึ้นไปเป็น draft ใหม่
         // → เปิดแท็บใหม่ทีหลังจะเจอชุดที่ส่งไปแล้วและกู้คืนกลับมาทำซ้ำ
-        draftPusher.current?.dispose();
+        draftPusher.current?.cancel();
         draftPusher.current = null;
         void clearTestDraft(sectionId, setId);
         // ส่งข้อสอบแล้ว = จบรอบการทำข้อสอบ → รีเซ็ตประวัติการคุยกับ AI
