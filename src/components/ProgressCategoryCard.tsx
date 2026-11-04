@@ -11,7 +11,7 @@
  *
  * All colours/sizes are read from the Figma node, not invented.
  */
-import { estimateCefrLevel } from '@/lib/cefr-estimator';
+import { resolveCefrLevel } from '@/lib/cefr-estimator';
 import type { CefrLevel } from '@/lib/cefr-estimator';
 
 interface ProgressCategoryCardProps {
@@ -19,6 +19,8 @@ interface ProgressCategoryCardProps {
   testTypeName: string;
   averageScore: number;
   testsTaken: number;
+  /** Full Test: ระดับจากผลล่าสุด (ตรงกับหน้าผลสอบ) · null = ประมาณจากเปอร์เซ็นต์ */
+  cefrLevel?: string | null;
 }
 
 /** Pass mark = B1 (CEFR B2 cutoff in src/lib/cefr-estimator). */
@@ -50,8 +52,9 @@ export default function ProgressCategoryCard({
   testTypeName,
   averageScore,
   testsTaken,
+  cefrLevel,
 }: ProgressCategoryCardProps) {
-  const level: CefrLevel = estimateCefrLevel(averageScore);
+  const level: CefrLevel = resolveCefrLevel(cefrLevel, averageScore);
   const passed = averageScore >= PASS_SCORE;
   const badge = passed ? BADGE_PASSED : BADGE_PLAIN;
 

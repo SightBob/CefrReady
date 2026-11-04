@@ -37,6 +37,8 @@ interface CategoryRow {
   testTypeId: string;
   averageScore: number;
   testsTaken: number;
+  /** Full Test: ระดับจากผลล่าสุด (ตรงกับหน้าผลสอบ) · null = ประมาณจากเปอร์เซ็นต์ */
+  cefrLevel?: string | null;
 }
 
 interface ProgressData {
@@ -183,6 +185,7 @@ export default function ProgressContent({
           testTypeId: tt.id,
           averageScore: row?.averageScore ?? 0,
           testsTaken: row?.testsTaken ?? 0,
+          cefrLevel: row?.cefrLevel ?? null,
         };
       })
     : progress.byCategory;
@@ -328,6 +331,7 @@ export default function ProgressContent({
                         testTypeName={displayName(activeCategory.testTypeId)}
                         averageScore={activeCategory.averageScore}
                         testsTaken={activeCategory.testsTaken}
+                        cefrLevel={activeCategory.cefrLevel}
                       />
                     )}
                   </div>
@@ -343,6 +347,7 @@ export default function ProgressContent({
                         testTypeName={displayName(category.testTypeId)}
                         averageScore={category.averageScore}
                         testsTaken={category.testsTaken}
+                        cefrLevel={category.cefrLevel}
                       />
                     ))}
                   </div>

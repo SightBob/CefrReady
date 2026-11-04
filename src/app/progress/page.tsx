@@ -51,7 +51,7 @@ export default async function ProgressPage() {
   }
 
   // Fetch progress data server-side
-  const [progressByType, recentAttempts, allTestTypes, overallAgg, profileRow, rewardAgg] = await Promise.all([
+  const [progressByType, recentAttempts, allTestTypes, overallAgg, profileRow, rewardAgg, levelByType] = await Promise.all([
     db.select().from(userProgress).where(eq(userProgress.userId, session.user.id)),
     db
       .select({
@@ -105,6 +105,17 @@ export default async function ProgressPage() {
           isNotNull(tapReasonSubmissions.rewardPoints)
         )
       ),
+    // ระดับของผลล่าสุดต่อพาร์ท — Full Test เก็บระดับที่คำนวณตอนส่งไว้แล้ว
+    // การ์ดสรุปจึงใช้ค่านี้ ไม่ใช่ประมาณจากคะแนนเฉลี่ย (เดิมการ์ดขึ้น A1
+    // ขณะที่แถวประวัติของผลเดียวกันขึ้น A2)
+    db.execute(sql`
+      SELECT DISTINCT ON (test_type_id) test_type_id, cefr_level
+      FROM test_attempts
+      WHERE user_id = ${session.user.id}
+        AND status = 'completed'
+        AND cefr_level IS NOT NULL
+      ORDER BY test_type_id, completed_at DESC NULLS LAST
+    `),
   ]);
 
   // Build test type name map
@@ -113,6 +124,11 @@ export default async function ProgressPage() {
     testTypeMap.set(tt.id, { name: tt.name, icon: tt.icon || '' });
   });
 
+  const latestLevelByType = new Map<string, string>();
+  for (const row of levelByType.rows as Array<{ test_type_id: string; cefr_level: string }>) {
+    latestLevelByType.set(row.test_type_id, row.cefr_level);
+  }
+
   // Build per-category breakdown (still needs rows; overall is computed by SQL)
   const byCategory = progressByType.map((p) => {
     const testsTaken = p.testsTaken || 0;
@@ -120,7 +136,12 @@ export default async function ProgressPage() {
       typeof p.averageScore === 'string'
         ? parseFloat(p.averageScore)
         : p.averageScore || 0;
-    return { testTypeId: p.testTypeId, averageScore: avgScore, testsTaken };
+    return {
+      testTypeId: p.testTypeId,
+      averageScore: avgScore,
+      testsTaken,
+      cefrLevel: latestLevelByType.get(p.testTypeId) ?? null,
+    };
   });
 
   const totalTests = Number(overallAgg?.[0]?.totalTests ?? 0);
