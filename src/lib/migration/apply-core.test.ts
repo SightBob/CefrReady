@@ -169,4 +169,29 @@ describe('resolveWhen', () => {
     expect(Number.isFinite(when)).toBe(true);
     expect(when).toBeGreaterThan(0);
   });
+
+  /**
+   * กันณ์ bug จริง: mtimeMs เป็นทศนิยม แต่ drizzle.__drizzle_migrations.created_at เป็น bigint
+   * → INSERT ประวัติล้ม (Failed query: INSERT INTO drizzle.__drizzle_migrations)
+   * → rollback ทั้งไฟล์ migration โดยไม่มีใครรู้ (0052 ล้มมาแล้ว)
+   */
+  it('ไม่มี journal → ค่าที่ได้ต้องเป็นจำนวนเต็ม (bigint รับทศนิยมไม่ได้)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'journal-'));
+    const file = join(dir, '0052_z.sql');
+    writeFileSync(file, 'select 1;');
+
+    const when = resolveWhen(file, join(dir, 'ไม่มี.json'));
+    expect(Number.isInteger(when)).toBe(true);
+    expect(when).toBe(Math.floor(when));
+  });
+
+  it('journal.when เป็นทศนิยม → ปัดลงเป็นจำนวนเต็ม', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'journal-'));
+    const journal = join(dir, '_journal.json');
+    writeFileSync(journal, JSON.stringify({ entries: [{ tag: '0053_f', when: 1793795176377.6438 }] }));
+    const file = join(dir, '0053_f.sql');
+    writeFileSync(file, 'select 1;');
+
+    expect(resolveWhen(file, journal)).toBe(1793795176377);
+  });
 });

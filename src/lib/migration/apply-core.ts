@@ -146,10 +146,14 @@ export function resolveWhen(filePath: string, journalPath: string): number {
       };
       const tag = filePath.replace(/\\/g, '/').split('/').pop()?.replace(/\.sql$/, '');
       const entry = journal.entries?.find((item) => item.tag === tag);
-      if (entry && Number.isFinite(entry.when)) return entry.when;
+      if (entry && Number.isFinite(entry.when)) return Math.floor(entry.when);
     } catch {
       // journal อ่านไม่ได้ → ใช้เวลาแก้ไฟล์แทน
     }
   }
-  return statSync(filePath).mtimeMs;
+  // ⚠️ mtimeMs เป็นทศนิยม (เช่น 1793795176377.6438) แต่ drizzle.__drizzle_migrations.created_at
+  // เป็น bigint → Postgres ปฏิเสธค่าที่มีจุดทศนิยม ทำให้ INSERT ประวัติล้ม แล้ว rollback
+  // ทั้งไฟล์ migration (อาการจริง: 0052 ล้มที่ "Failed query: INSERT INTO drizzle.__drizzle_migrations")
+  // จึงปัดลงเป็นจำนวนเต็มเสมอ — ยังเรียงลำดับถูกเพราะใช้มิลลิวินาทีอยู่ดี
+  return Math.floor(statSync(filePath).mtimeMs);
 }
