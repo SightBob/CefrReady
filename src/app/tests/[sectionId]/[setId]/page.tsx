@@ -418,6 +418,8 @@ export default function SetQuizPage() {
   // push ขึ้นเซิร์ฟเวอร์หลังบันทึกในเครื่อง (debounce 2 วิ)
   useEffect(() => {
     if (!draftHydrated) return;
+    // ส่งข้อสอบแล้ว = จบรอบ ห้าม push draft ใหม่กลับไป
+    if (isFinished) return;
     if (previewMode || isNaN(setId) || !setData || answers.length === 0) return;
     if (progressScope.current !== progressKey) return;
     // สถานะว่าง (ข้อ 0 ไม่มีคำตอบ ไม่มีเฉลย) ไม่ต้อง push — กันแท็บใหม่ลบ draft เดิมทิ้ง
@@ -427,7 +429,7 @@ export default function SetQuizPage() {
       { index: currentQuestion, answers, checked: checkedSlots },
       loadChoiceSeed(sectionId, setId),
     );
-  }, [draftHydrated, answers, checkedSlots, currentQuestion, previewMode, setId, sectionId, setData, progressKey]);
+  }, [draftHydrated, isFinished, answers, checkedSlots, currentQuestion, previewMode, setId, sectionId, setData, progressKey]);
 
   // ข้อที่จำไว้ยาวเกินจำนวนข้อจริง (เนื้อหาชุดถูกแก้) → ถอยมาข้อสุดท้าย
   useEffect(() => {
@@ -868,6 +870,12 @@ export default function SetQuizPage() {
         setResults(data.data.results ?? []);
         setAttemptId(data.data.attemptId ?? null);
         setIsFinished(true);
+        // ปิด draft ทุกทางหลังส่งสำเร็จ: หยุด pusher + ล้างแถว draft ในฐานข้อมูล
+        // ไม่งั้น timer debounce ที่ค้างอยู่จะเขียนสถานะ "ส่งแล้ว" กลับขึ้นไปเป็น draft ใหม่
+        // → เปิดแท็บใหม่ทีหลังจะเจอชุดที่ส่งไปแล้วและกู้คืนกลับมาทำซ้ำ
+        draftPusher.current?.dispose();
+        draftPusher.current = null;
+        void clearTestDraft(sectionId, setId);
         // ส่งข้อสอบแล้ว = จบรอบการทำข้อสอบ → รีเซ็ตประวัติการคุยกับ AI
         // (หมุนรหัสรอบใหม่ → ครั้งหน้าที่กลับมาทำชุดนี้อีกครั้งจะได้แชทใหม่
         //  ข้อความเก่ายังอยู่ใน DB เพื่อวิเคราะห์ แต่ถูกเก็บถังเป็นรอบที่จบแล้ว)
