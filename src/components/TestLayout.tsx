@@ -912,7 +912,8 @@ export default function TestLayout({
                         <span className="text-sm min-[890px]:text-base text-center font-bold whitespace-nowrap">
                           {reviewAction.label}
                         </span>
-                      </button>
+                      </button>
+
                     </div>
                   )}
                   {currentQuestion < totalQuestions - 1 || primaryAction ? (
