@@ -912,11 +912,7 @@ export default function TestLayout({
                         <span className="text-sm min-[890px]:text-base text-center font-bold whitespace-nowrap">
                           {reviewAction.label}
                         </span>
-                      </button>
-                      {/* ผู้เรียนใหม่ไม่กล้ากด เพราะไม่รู้ว่าปุ่มนี้ทำอะไร */}
-                      <p className="max-w-[13.875rem] text-[11px] leading-tight text-slate-600 text-center">
-                        อ่านเนื้อหาอธิบายซ้ำได้ ไม่กระทบคำตอบ
-                      </p>
+                      </button>
                     </div>
                   )}
                   {currentQuestion < totalQuestions - 1 || primaryAction ? (
