@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import HomeHero from "@/components/HomeHero";
 import HomeLevels from "@/components/HomeLevels";
 import HomeHelp from "@/components/HomeHelp";
+import HomePricing from "@/components/HomePricing";
 import HomeTestParts from "@/components/HomeTestParts";
 import FaqAccordion from "@/components/FaqAccordion";
 
@@ -94,45 +95,10 @@ export default async function Home() {
       {/* ระดับคะแนน A1 - C2 — design Figma 42:1657 */}
       <HomeLevels />
 
-      {/* FAQ Section — visible on page for SEO */}
-      <section className="px-4 sm:px-6 lg:px-8 bg-[#F8F8F8] py-20 max-md:py-[40px] mt-[70px] max-md:mt-[24px]">
-        <div className="max-w-[1251px] mx-auto rounded-t-[30px] px-6 pt-10 pb-14 max-md:px-[14px] max-md:pt-8 max-md:pb-10">
-          <div className="mx-auto flex max-[899px]:flex-col max-[899px]:items-start max-[899px]:justify-center">
-            <div className="w-[35%] max-[899px]:w-[100%] text-start flex flex-col justify-between">
-              <div className="">
-                <h2 className="text-[2.5rem] max-md:text-[20px] font-bold text-[#557895] mb-2">
-                  คำถามที่พบบ่อย
-                </h2>
-                <p className="text-[#557895] text-[1.25rem] max-md:text-[14px]">
-                  <span className="font-semibold">เกี่ยวกับ CEFR Ready</span>
-                  <span className="block max-md:inline font-semibold">
-                    {" "}
-                    และการสอบ CEFR
-                  </span>
-                </p>
-              </div>
-              <div className="">
-                <p className="text-[1rem] max-md:text-[14px] font-medium text-[#797979]">
-                  หากท่านพบปัญหาการใช้งาน
-                  <span className="block ">
-                    สามารถติดต่อขอความช่วยเหลือได้ที่นี่
-                  </span>
-                </p>
+      {/* ราคาและสิทธิประโยชน์ — design Figma 649:2335 / 649:2336 */}
+      <HomePricing />
 
-                <Link
-                  href="/contact"
-                  className="text-center text-[18px] max-md:text-[15px] font-semibold leading-normal text-[#524924] rounded-[14px] mt-[15px] border border-[#EAEAEA] bg-white shadow-[3px_3px_0_0_#D5D3D3] flex w-[229px] max-md:w-full h-[60px] max-md:h-[44px] items-center justify-center gap-2 px-5 py-3">
-                  ติดต่อเรา
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </div>
-            <FaqAccordion />
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section — SEO target section */}
+      {/* CTA Section — SEO target section (Figma 649:2328 อยู่ก่อน FAQ) */}
        <section className="relative h-[523px] max-md:h-[306px] overflow-visible bg-[#FFFEFA]">
   {/* Background pattern — เดสก์ท็อป ≥768px ใช้ bg-main1.png, มือถือ ≤767px ใช้ bg-mobile.png */}
   <div className="absolute inset-0 -z-0 overflow-hidden" aria-hidden="true">
@@ -193,6 +159,45 @@ export default async function Home() {
     </Link>
   </div>
 </section>
+
+      {/* FAQ Section — visible on page for SEO (อยู่หลัง CTA ตาม Figma 649:2058) */}
+      <section className="px-4 sm:px-6 lg:px-8 bg-[#F8F8F8] py-20 max-md:py-[40px] mt-[70px] max-md:mt-[24px]">
+        <div className="max-w-[1251px] mx-auto rounded-t-[30px] px-6 pt-10 pb-14 max-md:px-[14px] max-md:pt-8 max-md:pb-10">
+          <div className="mx-auto flex max-[899px]:flex-col max-[899px]:items-start max-[899px]:justify-center">
+            <div className="w-[35%] max-[899px]:w-[100%] text-start flex flex-col justify-between">
+              <div className="">
+                <h2 className="text-[2.5rem] max-md:text-[20px] font-bold text-[#557895] mb-2">
+                  คำถามที่พบบ่อย
+                </h2>
+                <p className="text-[#557895] text-[1.25rem] max-md:text-[14px]">
+                  <span className="font-semibold">เกี่ยวกับ CEFR Ready</span>
+                  <span className="block max-md:inline font-semibold">
+                    {" "}
+                    และการสอบ CEFR
+                  </span>
+                </p>
+              </div>
+              <div className="">
+                <p className="text-[1rem] max-md:text-[14px] font-medium text-[#797979]">
+                  หากท่านพบปัญหาการใช้งาน
+                  <span className="block ">
+                    สามารถติดต่อขอความช่วยเหลือได้ที่นี่
+                  </span>
+                </p>
+
+                <Link
+                  href="/contact"
+                  className="text-center text-[18px] max-md:text-[15px] font-semibold leading-normal text-[#524924] rounded-[14px] mt-[15px] border border-[#EAEAEA] bg-white shadow-[3px_3px_0_0_#D5D3D3] flex w-[229px] max-md:w-full h-[60px] max-md:h-[44px] items-center justify-center gap-2 px-5 py-3"
+                >
+                  ติดต่อเรา
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+            <FaqAccordion />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
