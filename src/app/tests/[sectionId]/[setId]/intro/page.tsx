@@ -123,7 +123,7 @@ export default async function TestSetIntroPage({ params }: { params: IntroParams
             </div>
             <div className="flex h-[52px] w-[193px] items-center justify-center rounded-[14px] bg-[#F8F6EF]">
               <p className="text-center text-[length:var(--intro-bubble-size)] font-semibold leading-[24px] text-[#6C5F2D]">
-                จับเวลา {section.duration ?? 0} นาที
+                ใช้เวลาประมาณ {section.duration ?? 0} นาที
               </p>
             </div>
           </div>
@@ -135,7 +135,11 @@ export default async function TestSetIntroPage({ params }: { params: IntroParams
           ทำให้ปุ่มต้องเลื่อนถึงจะเห็น — sticky ยังตรึงปุ่มไว้ขอบจอเสมอ
           (เมื่อจอสูงพอไม่มีการเลื่อน ตำแหน่งเดิมจึงไม่เปลี่ยน) */}
      <div className="sticky bottom-0 mt-auto flex w-full shrink-0 justify-center bg-white shadow-[0_0_3.3px_rgba(172,172,172,0.25)]">
-  <div className="flex w-full max-w-[1061px] items-center justify-center px-4 py-4 md:justify-end md:pr-[var(--intro-bar-pr)] xl:px-0">
+  <div className="flex w-full max-w-[1061px] flex-col items-center gap-2 px-4 py-4 md:flex-row md:justify-end md:gap-6 md:pr-[var(--intro-bar-pr)] xl:px-0">
+    {/* ผู้เรียนใหม่ไม่รู้ว่าหลังกด "ต่อไป" ต้องทำอะไร — บอกลำดับสั้น ๆ ตรงแถบเดียวกับปุ่มเริ่ม */}
+    <p className="max-w-[420px] text-center text-[12px] leading-[18px] text-slate-600 md:mr-auto md:max-w-none md:text-left md:text-[13px]">
+      อ่านเนื้อหาสั้น ๆ ก่อน → ทำทีละข้อ กด “ตรวจคำตอบ” ทุกข้อ → ดูระดับ CEFR ของคุณตอนจบ
+    </p>
     <Link
       href={nextHref}
       className="

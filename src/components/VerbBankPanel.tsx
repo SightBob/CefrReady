@@ -109,6 +109,11 @@ export default function VerbBankPanel({ variant = 'sidebar' }: { variant?: 'side
         className={`w-full h-[2.5rem] bg-transparent border border-[#D3DEE7] rounded-[11px] pl-4 pr-[30px] text-[0.8125rem] font-medium text-slate-700 placeholder:text-[#868686] focus:outline-none focus:border-[#6387A5] ${isModal ? 'mt-2' : 'mt-[15px]'}`}
       />
 
+      {/* ผู้เรียนใหม่ไม่รู้ว่า V.1/V.2/V.3 คืออะไร — อธิบายสั้น ๆ ใต้หัวข้อ */}
+      <p className="mt-[6px] pl-[2px] text-[0.6875rem] font-medium leading-[15px] text-[#868686]">
+        V.1 = ช่อง 1 (ปัจจุบัน) · V.2 = ช่อง 2 (อดีต) · V.3 = ช่อง 3 (ใช้กับ have/has/had)
+      </p>
+
       {/* V.1 / V.2 / V.3 filter chips — bg #F7F1DC, text #2A4246 SemiBold 11 */}
       {/* Figma 60:3928 — แถว 37px, gap 15px, chip 34px */}
       <div className="mt-[19px] h-[37px] grid grid-cols-3 gap-[15px] items-center">

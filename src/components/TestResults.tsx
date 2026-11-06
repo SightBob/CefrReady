@@ -237,7 +237,9 @@ export default function TestResults({
             className="relative mt-[2px] size-24 shrink-0 object-cover"
           />
           <p className="relative mt-[-7px] text-center text-[20px] font-semibold leading-9 tracking-[-0.75px] text-[#5b833e]">
-            {`ยินดีด้วย! คุณทำแบบทดสอบครบ ${totalQuestions} ข้อแล้ว  🎉`}
+            {percentage >= 60
+              ? `ยินดีด้วย! คุณทำแบบทดสอบครบ ${totalQuestions} ข้อแล้ว  🎉`
+              : `คุณทำแบบทดสอบครบ ${totalQuestions} ข้อแล้ว`}
           </p>
           <div className="relative mt-3 flex h-[87px] w-[294px] items-center justify-center rounded-[12px] bg-[#edfce5] px-3 py-1">
             <span className="text-[20px] font-bold leading-4 text-[#2b6c00]">

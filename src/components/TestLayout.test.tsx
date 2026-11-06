@@ -58,7 +58,7 @@ describe('TestLayout primary teaching action', () => {
     const empty = renderToStaticMarkup(
       <TestLayout totalQuestions={3} currentQuestion={0} answers={[null, null, null]} primaryAction={{ label: 'ตรวจคำตอบ', onClick: () => undefined, disabled: true }}><p>Question</p></TestLayout>
     );
-    expect(empty).toContain('เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”');
+    expect(empty).not.toContain('เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”');
 
     const after = renderToStaticMarkup(
       <TestLayout totalQuestions={3} currentQuestion={1} answers={['A', null, null]} primaryAction={{ label: 'ข้อต่อไป', onClick: () => undefined }}><p>Question</p></TestLayout>

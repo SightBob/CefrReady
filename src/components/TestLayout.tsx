@@ -902,15 +902,22 @@ export default function TestLayout({
                 // Figma 60:3848 — ปุ่ม 216×49 ชิดขวาของเนื้อหา 1144px เว้นขวา 53px
                 <div className="flex-1 flex items-center justify-center sm:justify-end gap-2 lg:gap-[15px]">
                   {reviewAction && (
-                    <button
-                      type="button"
-                      onClick={reviewAction.onClick}
-                      className="flex-1 min-[890px]:flex-none min-[890px]:w-[13.875rem] h-14 min-[890px]:h-[3.375rem] rounded-[7px] flex items-center justify-center gap-2 border-2 text-[1rem] font-semibold text-[#524924] shadow-[3px_3px_0_0_#D5D3D3] hover:bg-blue-50 transition-colors"
-                    >
-                      <span className="text-sm min-[890px]:text-base text-center font-bold whitespace-nowrap">
-                        {reviewAction.label}
-                      </span>
-                    </button>
+                    <div className="flex-1 min-[890px]:flex-none flex flex-col items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={reviewAction.onClick}
+                        title="อ่านเนื้อหาอธิบายของเรื่องนี้ซ้ำได้ ไม่กระทบคำตอบ"
+                        className="w-full min-[890px]:w-[13.875rem] h-14 min-[890px]:h-[3.375rem] rounded-[7px] flex items-center justify-center gap-2 border-2 text-[1rem] font-semibold text-[#524924] shadow-[3px_3px_0_0_#D5D3D3] hover:bg-blue-50 transition-colors"
+                      >
+                        <span className="text-sm min-[890px]:text-base text-center font-bold whitespace-nowrap">
+                          {reviewAction.label}
+                        </span>
+                      </button>
+                      {/* ผู้เรียนใหม่ไม่กล้ากด เพราะไม่รู้ว่าปุ่มนี้ทำอะไร */}
+                      <p className="max-w-[13.875rem] text-[11px] leading-tight text-slate-600 text-center">
+                        อ่านเนื้อหาอธิบายซ้ำได้ ไม่กระทบคำตอบ
+                      </p>
+                    </div>
                   )}
                   {currentQuestion < totalQuestions - 1 || primaryAction ? (
                     <div className="flex w-full min-[890px]:w-auto flex-col items-center gap-1">
@@ -929,15 +936,15 @@ export default function TestLayout({
                       </span>
                     </button>
                     {/* ปุ่มเดียวเปลี่ยนชื่อตามสถานะ (ตรวจคำตอบ → ข้อต่อไป) ผู้เรียนใหม่
-                        จึงมักกด "ข้อต่อไป" ที่ยังล็อกอยู่ — ใบ้สั้น ๆ เฉพาะตอนยังไม่ตรวจ */}
-                    {primaryAction?.label === "ตรวจคำตอบ" && (
-                      <p className="text-[11px] leading-tight text-slate-600 text-center max-w-[13.5rem]">
-                        {primaryAction.hint ??
-                          (isAnswered
-                            ? "กด “ตรวจคำตอบ” เพื่อดูเฉลย แล้วไปข้อถัดไป"
-                            : "เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”")}
-                      </p>
-                    )}
+                        จึงมักกด "ข้อต่อไป" ที่ยังล็อกอยู่ — ใบ้สั้น ๆ เฉพาะตอนยังไม่ตรวจ
+                        (ยังไม่เลือกคำตอบ = ไม่ต้องมีข้อความใบ้) */}
+                    {primaryAction?.label === "ตรวจคำตอบ" &&
+                      (primaryAction.hint || isAnswered) && (
+                        <p className="text-[11px] leading-tight text-slate-600 text-center max-w-[13.5rem]">
+                          {primaryAction.hint ??
+                            "กด “ตรวจคำตอบ” เพื่อดูเฉลย แล้วไปข้อถัดไป"}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <button
