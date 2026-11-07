@@ -282,3 +282,14 @@ export function clearBlankAnswers(sectionId: string, setId: number | string): vo
     // ไม่มีอะไรต้องทำ
   }
 }
+
+/** ยกเลิกชุดนี้ — ลืมตำแหน่ง/คำตอบ/เฉลยทั้งหมด (กลับมาอีกครั้งเริ่มข้อ 1 ใหม่) */
+export function clearTestProgress(sectionId: string, setId: number | string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(key(sectionId, setId));
+    window.sessionStorage.removeItem(blanksKey(sectionId, setId));
+  } catch {
+    // ไม่มีอะไรต้องทำ
+  }
+}

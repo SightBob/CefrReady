@@ -223,7 +223,7 @@ export default function TestLayout({
   const exitTriggerRef = useRef<HTMLButtonElement>(null);
   const exitDialogRef = useRef<HTMLDivElement>(null);
 
-  // ปิดกล่องยืนยันโดยคืน focus กลับไปที่ปุ่ม "จบการสอบ" ที่เปิดมันขึ้นมา
+  // ปิดกล่องยืนยันโดยคืน focus กลับไปที่ปุ่ม "ยกเลิกข้อสอบ" ที่เปิดมันขึ้นมา
   const closeExitConfirm = () => {
     setShowExitConfirm(false);
     exitTriggerRef.current?.focus();
@@ -617,7 +617,7 @@ export default function TestLayout({
             type="button"
             onClick={() => setShowExitConfirm(true)}
             className="shrink-0 bg-white border-b-2 border-r-2 border-[#C0BFB7] rounded-lg shadow-[0_0_0.3px_0_rgba(0,0,0,0.25)] w-[2.7rem] h-[2.4rem] grid place-items-center hover:bg-slate-50 transition-colors"
-            aria-label="จบการสอบ"
+            aria-label="ยกเลิกข้อสอบ"
           >
             <Image
               src="/icon_svg/close.svg"
@@ -778,7 +778,7 @@ export default function TestLayout({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="exit-confirm-title" className="text-lg font-bold text-slate-900 mb-2">
-              ออกจากข้อสอบ?
+              ยกเลิกข้อสอบ?
             </h3>
             <p className="text-sm text-slate-600 mb-1">
               คุณตอบไปแล้ว{" "}
@@ -810,7 +810,7 @@ export default function TestLayout({
                 }}
                 className="flex-1 py-2.5 px-4 rounded-xl bg-red-500 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
               >
-                ออกจากข้อสอบ
+                ยกเลิกข้อสอบ
               </button>
             </div>
           </div>
@@ -932,14 +932,10 @@ export default function TestLayout({
                         {primaryAction?.label ?? "ข้อต่อไป"}
                       </span>
                     </button>
-                    {/* ปุ่มเดียวเปลี่ยนชื่อตามสถานะ (ตรวจคำตอบ → ข้อต่อไป) ผู้เรียนใหม่
-                        จึงมักกด "ข้อต่อไป" ที่ยังล็อกอยู่ — ใบ้สั้น ๆ เฉพาะตอนยังไม่ตรวจ
-                        (ยังไม่เลือกคำตอบ = ไม่ต้องมีข้อความใบ้) */}
-                    {primaryAction?.label === "ตรวจคำตอบ" &&
-                      (primaryAction.hint || isAnswered) && (
+                    {/* ปุ่มเดียวเปลี่ยนชื่อตามสถานะ (ตรวจคำตอบ → ข้อต่อไป) — หน้าที่มีคำใบ้เฉพาะตัว (fill-in-the-blank) ส่ง hint มาเอง */}
+                    {primaryAction?.label === "ตรวจคำตอบ" && primaryAction.hint && (
                         <p className="text-[11px] leading-tight text-slate-600 text-center max-w-[13.5rem]">
-                          {primaryAction.hint ??
-                            "กด “ตรวจคำตอบ” เพื่อดูเฉลย แล้วไปข้อถัดไป"}
+                          {primaryAction.hint}
                         </p>
                       )}
                     </div>

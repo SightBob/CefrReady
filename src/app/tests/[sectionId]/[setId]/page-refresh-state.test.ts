@@ -22,7 +22,14 @@ describe('หน้าข้อสอบคืนคำตอบหลัง ref
   });
 
   it('คืนคำตอบที่เลือกไว้ของข้อปัจจุบันด้วย', () => {
-    expect(pageSrc).toContain('restoredProgress.answers[restoredProgress.index] ?? null');
+    expect(pageSrc).toContain('restoredProgress.answers[resumeIndex] ?? null');
+  });
+
+  it('กลับมาเจอข้อที่ตรวจไปแล้ว → เด้งไปข้อแรกที่ยังไม่ได้ตรวจ', () => {
+    // helper ตรวจข้อที่จำไว้; ถ้าตรวจแล้วจับข้อแรกที่ยังไม่ผ่าน (ทั้งเส้น localStorage และ draft DB)
+    expect(pageSrc).toContain('const firstUncheckedIndex =');
+    expect(pageSrc).toContain('firstUncheckedIndex(');
+    expect(pageSrc).toContain('firstUncheckedIndex(draft.index, draft.checked, totalItems)');
   });
 
   it('ลำดับตัวเลือกคงเดิมตลอดรอบ — คำตอบที่จำไว้จึงยังชี้ตัวเดิมหลัง refresh', () => {

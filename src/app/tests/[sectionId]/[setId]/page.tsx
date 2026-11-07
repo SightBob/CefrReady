@@ -49,6 +49,7 @@ import {
   saveTestProgress,
   saveTestProgressState,
   clearBlankAnswers,
+  clearTestProgress,
 } from '@/lib/test-progress';
 import { fetchTestDraft, createTestDraftPusher, clearTestDraft } from '@/lib/test-draft-sync';
 import {
@@ -321,6 +322,15 @@ export default function SetQuizPage() {
   // "รีเฟรชหน้าไหนก็ให้อยู่ตรงหน้านั้น" — จำข้อล่าสุดไว้ใน sessionStorage แล้ว
   // กลับมาเริ่มที่ข้อเดิม (เช่น ทำข้อ 2 อยู่ → refresh → ข้อ 2)
   const progressKey = `${sectionId}-${setId}`;
+  /** ข้อที่ควรกลับมาเริ่มทำ: ถ้าข้อที่จำไว้ตรวจไปแล้ว เลื่อนไปข้อแรกที่ยังไม่ได้ตรวจ
+      (กันจบชุดแล้วกลับมาเจอข้อเก่าที่เฉลยอยู่) — ตรวจครบทั้งชุดให้อยู่ข้อเดิมเพื่อรีวิว/กดส่ง */
+  const firstUncheckedIndex = (index: number, checked: Record<number, unknown>, totalItems: number): number => {
+    if (index >= totalItems || !(index in checked)) return index;
+    for (let i = 0; i < totalItems; i += 1) {
+      if (!(i in checked)) return i;
+    }
+    return index;
+  };
   /** ชุดที่ state ปัจจุบันเป็นของ — กันค่าของชุดเก่าไปเขียนทับคีย์ของชุดใหม่ */
   const progressScope = useRef<string | null>(null);
   /** มีความคืบหน้าอยู่แล้วหรือยัง — true = เคยเริ่มชุดนี้ (รวมการ refresh) */
@@ -402,10 +412,10 @@ export default function SetQuizPage() {
         });
         setAnswers(restoredAnswers);
         setCheckedSlots(draft.checked);
-        setSelectedAnswer(restoredAnswers[draft.index] ?? null);
-        setCurrentQuestion(draft.index < totalItems ? draft.index : Math.max(0, totalItems - 1));
+        const resumeIndex = firstUncheckedIndex(draft.index, draft.checked, totalItems);
+        setSelectedAnswer(restoredAnswers[resumeIndex] ?? null);
+        setCurrentQuestion(resumeIndex < totalItems ? resumeIndex : Math.max(0, totalItems - 1));
         hasProgress.current = true;
-        toast.success('ทำต่อจากครั้งก่อนแล้ว');
       } finally {
         if (!cancelled) setDraftHydrated(true);
       }
@@ -552,9 +562,15 @@ export default function SetQuizPage() {
         }
         setAnswers(restoredAnswers);
         setCheckedSlots(restorable ? restoredProgress.checked : {});
-        setSelectedAnswer(
-          restorable ? restoredProgress.answers[restoredProgress.index] ?? null : null,
+        const resumeIndex = firstUncheckedIndex(
+          restoredProgress?.index ?? 0,
+          restorable ? restoredProgress.checked : {},
+          totalItems,
         );
+        setSelectedAnswer(restorable && restoredProgress ? restoredProgress.answers[resumeIndex] ?? null : null);
+        if (restorable && restoredProgress && resumeIndex !== restoredProgress.index) {
+          setCurrentQuestion(resumeIndex);
+        }
       } else {
         setNotFound(true);
       }
@@ -988,6 +1004,15 @@ export default function SetQuizPage() {
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
 
+  // ยกเลิกข้อสอบกลางทาง = ทิ้งความคืบหน้ารอบนี้ (dialog บอกผู้เรียนไว้แล้วว่าจะไม่บันทึก)
+  // ล้างทั้งในเครื่องและใน DB กันกลับมาเจอข้อเก่า — ครั้งหน้าเริ่มข้อ 1 ใหม่
+  const handleExit = () => {
+    draftPusher.current?.cancel();
+    void clearTestDraft(sectionId, setId);
+    clearTestProgress(sectionId, setId);
+    router.push('/tests');
+  };
+
   const handleRestartTest = () => {
     const restartedAt = new Date().toISOString();
     setTestStartedAt(restartedAt);
@@ -1183,6 +1208,7 @@ export default function SetQuizPage() {
         onTimeUp={handleTimeUp}
         currentQuestionId={question.id}
         onResetAnswer={handleResetAnswer}
+        onExit={handleExit}
         primaryAction={primaryAction}
       >
         <div className="space-y-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm md:p-8">
@@ -1241,6 +1267,7 @@ export default function SetQuizPage() {
           onTimeUp={handleTimeUp}
           currentQuestionId={question.id}
           onResetAnswer={handleResetAnswer}
+          onExit={handleExit}
           primaryAction={{
             ...primaryAction,
             label: checking && primaryAction.label === 'ตรวจคำตอบ' ? 'กำลังตรวจ…' : primaryAction.label,
@@ -1295,6 +1322,7 @@ export default function SetQuizPage() {
         sectionColor="from-orange-500 to-amber-500"
         sectionLabel="Listening"
         onResetAnswer={handleResetAnswer}
+        onExit={handleExit}
         primaryAction={primaryAction}
         reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
       >
@@ -1349,6 +1377,7 @@ export default function SetQuizPage() {
         sectionIcon={BookOpen}
         sectionColor="from-emerald-500 to-teal-500"
         onResetAnswer={handleResetAnswer}
+        onExit={handleExit}
         primaryAction={primaryAction}
         reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
       >
@@ -1399,6 +1428,7 @@ export default function SetQuizPage() {
       onTimeUp={handleTimeUp}
       currentQuestionId={question.id}
       onResetAnswer={handleResetAnswer}
+      onExit={handleExit}
       primaryAction={primaryAction}
       reviewAction={testExplain ? { label: 'โหมดทบทวน', onClick: openReviewMode } : undefined}
     >

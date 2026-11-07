@@ -48,17 +48,12 @@ describe('TestLayout primary teaching action', () => {
     expect(html).toContain('>ส่งคำตอบ</span>');
   });
 
-  it('hints why the next question is still locked while the check is pending', () => {
-    // ผู้เรียนใหม่เห็นปุ่มเดียวที่เปลี่ยนชื่อเป็น "ข้อต่อไป" แต่กดไม่ได้จนกว่าจะตรวจ
+  it('does not show the default check-answer caption, only page-supplied hints', () => {
+    // ลบคำใบ้มาตรฐาน "กด ตรวจคำตอบ เพื่อดูเฉลย แล้วไปข้อถัดไป" แล้ว
     const picked = renderToStaticMarkup(
       <TestLayout totalQuestions={3} currentQuestion={0} answers={['A', null, null]} primaryAction={{ label: 'ตรวจคำตอบ', onClick: () => undefined }}><p>Question</p></TestLayout>
     );
-    expect(picked).toContain('กด “ตรวจคำตอบ” เพื่อดูเฉลย แล้วไปข้อถัดไป');
-
-    const empty = renderToStaticMarkup(
-      <TestLayout totalQuestions={3} currentQuestion={0} answers={[null, null, null]} primaryAction={{ label: 'ตรวจคำตอบ', onClick: () => undefined, disabled: true }}><p>Question</p></TestLayout>
-    );
-    expect(empty).not.toContain('เลือกคำตอบก่อน แล้วกด “ตรวจคำตอบ”');
+    expect(picked).not.toContain('เพื่อดูเฉลย แล้วไปข้อถัดไป');
 
     const after = renderToStaticMarkup(
       <TestLayout totalQuestions={3} currentQuestion={1} answers={['A', null, null]} primaryAction={{ label: 'ข้อต่อไป', onClick: () => undefined }}><p>Question</p></TestLayout>
