@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import HomeHero from "@/components/HomeHero";
 import HomeLevels from "@/components/HomeLevels";
 import HomeHelp from "@/components/HomeHelp";
-import HomePricing from "@/components/HomePricing";
 import HomeTestParts from "@/components/HomeTestParts";
 import FaqAccordion from "@/components/FaqAccordion";
 
@@ -95,9 +94,6 @@ export default async function Home() {
       {/* ระดับคะแนน A1 - C2 — design Figma 42:1657 */}
       <HomeLevels />
 
-      {/* ราคาและสิทธิประโยชน์ — design Figma 649:2335 / 649:2336 */}
-      <HomePricing />
-
       {/* CTA Section — SEO target section (Figma 649:2328 อยู่ก่อน FAQ) */}
        <section className="relative h-[523px] max-md:h-[306px] overflow-visible bg-[#FFFEFA]">
   {/* Background pattern — เดสก์ท็อป ≥768px ใช้ bg-main1.png, มือถือ ≤767px ใช้ bg-mobile.png */}
@@ -137,25 +133,6 @@ export default async function Home() {
       className="mt-[51px] max-md:mt-[30px] flex h-[65px] w-[331px] max-md:h-[50px] max-md:w-[227px] max-md:max-w-full items-center justify-center rounded-[14px] border-b-[5px] max-md:border-b-[3px] border-r-4 max-md:border-r-[2px] border-[#FFDB40] bg-[#FFF0AE] px-[11px] py-[10px] text-[20px] max-md:text-[15px] font-bold text-[#6D5E1C] "
     >
       เริ่มสอบเลย
-    </Link>
-
-<Link
-      href="/packages"
-      className="text-center
-        text-[18px]
-        max-md:text-[15px]
-        font-semibold
-        leading-normal
-        text-[#4C5F79]
-        underline
-        decoration-solid
-        decoration-auto
-        underline-offset-auto
-        mt-[34px]
-        max-md:mt-[18px]
-        "
-    >
-      ดูราคา
     </Link>
   </div>
 </section>
