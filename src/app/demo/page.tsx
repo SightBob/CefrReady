@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import DemoTestsSection, { DemoInfoNote } from '@/components/DemoTestsSection';
 import TestsLandingShell from '@/components/TestsLandingShell';
+import { fetchDemoQuestionCounts } from '@/lib/demo-set';
 
 export const metadata: Metadata = {
   title: 'ทดลองทำข้อสอบ CEFR ฟรี',
@@ -22,14 +23,18 @@ export const metadata: Metadata = {
  * หน้า /demo ใช้โครงหน้าเดียวกับ /tests (ประกาศ + hero + เส้นคลื่น + หัวข้อหมวดหมู่)
  * แต่ flow เดิมของ demo ไว้ครบ: ไม่ต้อง login, ลิงก์ไป 4 หน้าเดิม, 5 ข้อต่อชุด
  */
-export default function DemoTestsPage() {
+export default async function DemoTestsPage() {
+  const counts = await fetchDemoQuestionCounts().catch((error) => {
+    console.error('[demo/page] Failed to count demo questions:', error);
+    return {} as Record<string, number>;
+  });
   return (
     <TestsLandingShell
       hero={{
         title: 'ทดลองทำข้อสอบฟรี “ ไม่ต้องสมัครสมาชิก ”',
         subtitle: (
           <>
-            ลองทำข้อสอบตัวอย่างจริง ชุดละ 5 ข้อ
+            ลองทำข้อสอบตัวอย่างจริง ชุดสั้น ๆ
             <br className="lg:hidden" />
             ครบทุกทักษะ ตั้งแต่ระดับ A1 ถึง C2
           </>
@@ -40,7 +45,7 @@ export default function DemoTestsPage() {
     >
       {/* 200:9242 — การ์ดแรกขยับลง 8px ระยะห่างการ์ด 14px (ค่าเดียวกับหน้า /tests) */}
       <div className="mt-[4px] grid grid-cols-1 gap-[14px] py-2 sm:grid-cols-2 lg:mt-[14px] lg:grid-cols-4 lg:gap-5 lg:py-0">
-        <DemoTestsSection />
+        <DemoTestsSection counts={counts} />
       </div>
 
       <DemoInfoNote />

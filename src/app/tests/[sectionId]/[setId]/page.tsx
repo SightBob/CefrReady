@@ -50,6 +50,9 @@ import {
   saveTestProgressState,
   clearBlankAnswers,
   clearTestProgress,
+  loadFinishedTest,
+  saveFinishedTest,
+  clearFinishedTest,
 } from '@/lib/test-progress';
 import { fetchTestDraft, createTestDraftPusher, clearTestDraft } from '@/lib/test-draft-sync';
 import {
@@ -368,6 +371,31 @@ export default function SetQuizPage() {
       checked: checkedSlots,
     });
   }, [answers, checkedSlots, currentQuestion, previewMode, setId, sectionId, setData, progressKey]);
+
+  // ─── ผลสอบที่ส่งแล้ว (2026-11-19) ────────────────────────────────────
+  // หน้าผลอยู่แค่ในหน่วยความจำ → refresh หลังส่งแล้วได้หน้า "กำลังสอบ" ที่ตอบครบ
+  // และกด "ส่งคำตอบ" ซ้ำได้ (สร้าง attempt ใหม่) จึงจำผลไว้ในแท็บเดียวกับความคืบหน้า
+  useEffect(() => {
+    if (previewMode || isNaN(setId)) return;
+    const saved = loadFinishedTest(sectionId, setId);
+    if (!saved) return;
+    setScore(saved.score);
+    setScoredTotal(saved.total);
+    setFormMeaningTotalBlanks(saved.total);
+    setResults(saved.results);
+    setAttemptId(saved.attemptId);
+    setIsFinished(true);
+  }, [sectionId, setId, previewMode]);
+
+  useEffect(() => {
+    if (!isFinished || previewMode || isNaN(setId)) return;
+    saveFinishedTest(sectionId, setId, {
+      score,
+      total: scoredTotal ?? formMeaningTotalBlanks,
+      attemptId,
+      results,
+    });
+  }, [isFinished, score, scoredTotal, formMeaningTotalBlanks, attemptId, results, sectionId, setId, previewMode]);
 
   // ─── Draft ในฐานข้อมูล ────────────────────────────────────────────────
   // sessionStorage ผูกกับแท็บ → เปิดแท็บใหม่/เปลี่ยนเครื่องแล้วความคืบหน้าหาย
@@ -1010,11 +1038,13 @@ export default function SetQuizPage() {
     draftPusher.current?.cancel();
     void clearTestDraft(sectionId, setId);
     clearTestProgress(sectionId, setId);
+    clearFinishedTest(sectionId, setId);
     router.push('/tests');
   };
 
   const handleRestartTest = () => {
     const restartedAt = new Date().toISOString();
+    clearFinishedTest(sectionId, setId);
     setTestStartedAt(restartedAt);
     // รอบใหม่ = ลำดับตัวเลือกชุดใหม่ (คำตอบที่จำไว้ของรอบก่อนใช้ไม่ได้แล้ว)
     setChoiceShuffleSeed(rotateChoiceSeed(sectionId, setId));

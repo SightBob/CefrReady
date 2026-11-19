@@ -14,6 +14,8 @@
  * เช่นเดิม (ตอบ/เฉลยว่าง) จึงไม่ต้องย้ายข้อมูลเก่าของใคร
  */
 
+import type { QuestionResult } from '@/types/test';
+
 const KEY_PREFIX = 'cefr_set_progress_';
 const BLANKS_KEY_PREFIX = 'cefr_set_blanks_';
 const CHOICE_SEED_KEY_PREFIX = 'cefr_set_choice_seed_';
@@ -289,6 +291,100 @@ export function clearTestProgress(sectionId: string, setId: number | string): vo
   try {
     window.sessionStorage.removeItem(key(sectionId, setId));
     window.sessionStorage.removeItem(blanksKey(sectionId, setId));
+  } catch {
+    // ไม่มีอะไรต้องทำ
+  }
+}
+
+// ─── ผลสอบที่ส่งแล้ว ─────────────────────────────────────────────────────
+// หลัง "ส่งคำตอบ" สำเร็จ หน้าผลอยู่ใน state ของ React เท่านั้น → refresh แล้วกลับ
+// ไปหน้า "กำลังสอบ" ที่ตอบครบแล้ว และกดส่งซ้ำได้ (สร้าง attempt ใหม่)
+// เก็บผลไว้ในแท็บเดียวกับความคืบหน้า → refresh/กลับเข้าชุดเดิมเห็นหน้าผลทันที
+
+const FINISHED_KEY_PREFIX = 'cefr_set_finished_';
+
+export type FinishedTestSnapshot = {
+  score: number;
+  total: number;
+  attemptId: number | null;
+  results: QuestionResult[];
+};
+
+function finishedKey(sectionId: string, setId: number | string): string {
+  return `${FINISHED_KEY_PREFIX}${sectionId}-${setId}`;
+}
+
+function normalizeResults(raw: unknown): QuestionResult[] {
+  if (!Array.isArray(raw)) return [];
+  const text = (value: unknown): string | null =>
+    typeof value === 'string' ? value.slice(0, MAX_ANSWER_LENGTH) : null;
+  const results: QuestionResult[] = [];
+  for (const value of raw.slice(0, MAX_ANSWERS)) {
+    if (!value || typeof value !== 'object') continue;
+    const entry = value as Record<string, unknown>;
+    if (typeof entry.questionId !== 'number' || typeof entry.isCorrect !== 'boolean') continue;
+    if (typeof entry.userAnswer !== 'string') continue;
+    results.push({
+      questionId: entry.questionId,
+      isCorrect: entry.isCorrect,
+      userAnswer: entry.userAnswer.slice(0, MAX_ANSWER_LENGTH),
+      correctAnswer: text(entry.correctAnswer),
+      explanation: text(entry.explanation),
+    });
+  }
+  return results;
+}
+
+/** ผลสอบที่ส่งแล้วของชุดนี้ — null = ยังไม่เคยส่ง (หรือค่าที่เก็บไว้เสียรูป) */
+export function loadFinishedTest(
+  sectionId: string,
+  setId: number | string,
+): FinishedTestSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(finishedKey(sectionId, setId));
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const candidate = parsed as Record<string, unknown>;
+    if (typeof candidate.score !== 'number' || typeof candidate.total !== 'number') return null;
+    if (!Number.isFinite(candidate.score) || !Number.isFinite(candidate.total)) return null;
+    return {
+      score: candidate.score,
+      total: candidate.total,
+      attemptId: typeof candidate.attemptId === 'number' ? candidate.attemptId : null,
+      results: normalizeResults(candidate.results),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** บันทึกผลสอบของชุดนี้ — เก็บไม่ได้ก็ไม่เป็นไร (แค่ refresh แล้วไม่เห็นหน้าผล) */
+export function saveFinishedTest(
+  sectionId: string,
+  setId: number | string,
+  snapshot: FinishedTestSnapshot,
+): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    window.sessionStorage.setItem(finishedKey(sectionId, setId), JSON.stringify({
+      score: snapshot.score,
+      total: snapshot.total,
+      attemptId: snapshot.attemptId,
+      results: normalizeResults(snapshot.results),
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** ล้างผลสอบที่จำไว้ (เริ่มทำชุดใหม่ / ยกเลิกกลางทาง) */
+export function clearFinishedTest(sectionId: string, setId: number | string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(finishedKey(sectionId, setId));
   } catch {
     // ไม่มีอะไรต้องทำ
   }

@@ -82,3 +82,16 @@ export async function fetchMixedDemoQuestions(): Promise<DemoQuestionRow[]> {
 export function countTestSetSlots(rows: TestSetQuestionLike[]): number {
   return expandTestSetSlots(rows).length;
 }
+
+/**
+ * จำนวนข้อ demo จริงต่อทักษะ — การ์ดหน้า /demo ใช้ค่านี้ ไม่ฮาร์ดโค้ดเลขข้อ
+ * (เดิมเขียน 5 ข้อทุกใบ แต่ของจริงมี 4/4/0/1)
+ */
+export async function fetchDemoQuestionCounts(): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ type: questions.testTypeId, count: sql<number>`count(*)::int` })
+    .from(questions)
+    .where(eq(questions.isDemo, true))
+    .groupBy(questions.testTypeId);
+  return Object.fromEntries(rows.map((row) => [row.type, Number(row.count) ?? 0]));
+}
