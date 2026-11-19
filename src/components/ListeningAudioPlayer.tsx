@@ -312,6 +312,7 @@ export default function ListeningAudioPlayer({
                 <button
                   key={opt.key}
                   type="button"
+                  disabled={disabled || showExplanation}
                   onClick={(e) => {
                     if (!showExplanation && !disabled) {
                       onAnswerSelect(opt.key);

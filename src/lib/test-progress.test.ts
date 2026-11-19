@@ -3,13 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   clearBlankAnswers,
+  clearFinishedTest,
   ensureChoiceSeed,
   loadBlankAnswers,
   loadChoiceSeed,
+  loadFinishedTest,
   loadTestProgress,
   loadTestProgressState,
   rotateChoiceSeed,
   saveBlankAnswers,
+  saveFinishedTest,
   saveTestProgress,
   saveTestProgressState,
 } from './test-progress';
@@ -179,5 +182,25 @@ describe('test-progress', () => {
 
     clearBlankAnswers('form-meaning', 31);
     expect(loadBlankAnswers('form-meaning', 31)).toEqual({});
+  });
+
+  it('จำผลสอบที่ส่งแล้ว → refresh กลับมาเห็นหน้าผล ไม่ใช่หน้าสอบ', () => {
+    const snapshot = {
+      score: 3,
+      total: 5,
+      attemptId: 12,
+      results: [{ questionId: 1, isCorrect: true, userAnswer: 'A', correctAnswer: 'A', explanation: null }],
+    };
+    expect(loadFinishedTest('listening', 35)).toBeNull();
+    expect(saveFinishedTest('listening', 35, snapshot)).toBe(true);
+    expect(loadFinishedTest('listening', 35)).toEqual(snapshot);
+
+    clearFinishedTest('listening', 35);
+    expect(loadFinishedTest('listening', 35)).toBeNull();
+  });
+
+  it('ผลสอบที่เก็บไว้เสียรูป = null (ไม่ทำให้หน้าพัง)', () => {
+    window.sessionStorage.setItem('cefr_set_finished_listening-35', '{"score":"x"}');
+    expect(loadFinishedTest('listening', 35)).toBeNull();
   });
 });
