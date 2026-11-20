@@ -732,7 +732,7 @@ export default function SetQuizPage() {
   // ไม่มี event นี้ = มองไม่เห็นว่าคนหลุดตอนข้อไหน (เดิมรู้แค่ starts vs submits)
   useEffect(() => {
     if (!posthog) return;
-    const fireAbandoned = () => {
+    const fireAbandoned = (unload: boolean) => {
       if (submittedRef.current || abandonSentRef.current) return;
       if (testStartedAtRef.current === 0) return;
       abandonSentRef.current = true;
@@ -745,7 +745,7 @@ export default function SetQuizPage() {
         ).length;
       }
       const total = mainSlots.length;
-      posthog.capture('test_abandoned', {
+      const properties = {
         section_id: sectionId,
         test_set_id: setId,
         attempt_key: attemptKeyForAnalytics(),
@@ -753,12 +753,26 @@ export default function SetQuizPage() {
         total_questions: total,
         time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
         last_question_position: currentQuestionRef.current + 1,
-      });
+      };
+      // ตอนหน้าเพจถูกทิ้ง: PostHog ลงทะเบียน pagehide ไว้ตั้งแต่ init → flush
+      // ของมันทำงาน "ก่อน" listener นี้ event ที่เพิ่งเข้าคิวจึงค้างและหายไป
+      // บังคับส่งทันทีด้วย sendBeacon ซึ่งเบราว์เซอร์ยังส่งต่อให้แม้หน้าปิดแล้ว
+      if (unload) {
+        posthog.capture('test_abandoned', properties, {
+          send_instantly: true,
+          transport: 'sendBeacon',
+        });
+      } else {
+        posthog.capture('test_abandoned', properties);
+      }
     };
-    window.addEventListener('pagehide', fireAbandoned);
+    // pagehide = ปิดแท็บ/ออกจากหน้า/เข้า bfcache (ส่งแบบ unload)
+    const onPageHide = () => fireAbandoned(true);
+    window.addEventListener('pagehide', onPageHide);
+    // unmount ตอนเปลี่ยนหน้าในแอป (SPA) — หน้ายังไม่ถูกทิ้ง ส่งแบบปกติได้
     return () => {
-      window.removeEventListener('pagehide', fireAbandoned);
-      fireAbandoned();
+      window.removeEventListener('pagehide', onPageHide);
+      fireAbandoned(false);
     };
   }, [posthog, sectionId, setId, mainSlots.length, attemptKeyForAnalytics]);
 
