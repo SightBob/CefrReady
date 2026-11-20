@@ -306,7 +306,9 @@ async function submitRequest(request: NextRequest) {
     const answeredCount = results.filter(
       (result) => typeof result.userAnswer === 'string' && result.userAnswer.trim() !== '',
     ).length;
-    captureServerEvent(user.id, 'test_scored', {
+    // ต้อง await — serverless จะ freeze ฟังก์ชันทันทีที่คืน response
+    // ถ้าปล่อยเป็น fire-and-forget request จะถูกตัดทิ้งก่อนถึง PostHog
+    await captureServerEvent(user.id, 'test_scored', {
       section_id: testTypeId,
       test_set_id: testSetId ?? null,
       attempt_id: newAttempt.id,

@@ -45,4 +45,15 @@ describe('captureServerEvent', () => {
 
     expect(fetchSpy.mock.calls[0]![0]).toBe('https://us.i.posthog.com/capture/');
   });
+
+  it('คืน Promise ที่รอได้ และไม่โยน error แม้ network ล้มเหลว', async () => {
+    // serverless freeze ฟังก์ชันทันทีที่คืน response — ผู้เรียกต้อง await
+    // ถ้าไม่คืน Promise จะ await ไม่ได้ และ event จะหาย
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
+
+    const pending = captureServerEvent('user-1', 'test_scored');
+    expect(pending).toBeInstanceOf(Promise);
+    await expect(pending).resolves.toBeUndefined();
+  });
 });

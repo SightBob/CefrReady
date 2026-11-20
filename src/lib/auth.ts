@@ -68,7 +68,7 @@ export const {
      */
     async createUser({ user }) {
       if (user.id) {
-        captureServerEvent(user.id, 'signup_completed', { method: 'google' });
+        await captureServerEvent(user.id, 'signup_completed', { method: 'google' });
       }
     },
   },
