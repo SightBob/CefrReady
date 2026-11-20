@@ -18,17 +18,22 @@ const PostHogContext = createContext<PostHogContextValue>({ posthog: null });
 const REPLAY_PATHS = ['/tests', '/demo'];
 const isReplayPath = (path: string) => REPLAY_PATHS.some((p) => path.startsWith(p));
 
-// จำว่า "ผู้ใช้คนนี้เข้าเว็บครั้งนี้แล้ว" ต่อแท็บ — เดิม user_signed_in ยิงทุกครั้ง
-// ที่โหลดหน้าเต็ม (วัดจริง 1,334 events / 632 sessions = ~2.1 ครั้ง/เซสชัน)
-const SIGNED_IN_MARKER_PREFIX = 'cefr:posthog:signed-in:';
-const signedInMarker = (userId: string) => `${SIGNED_IN_MARKER_PREFIX}${userId}`;
+// จำว่า "ผู้ใช้คนนี้เข้าเว็บรอบนี้แล้ว" ต่อ PostHog session — เดิม user_signed_in
+// ยิงทุกครั้งที่โหลดหน้าเต็ม (วัดจริง 1,334 events / 632 sessions = ~2.1 ครั้ง/เซสชัน)
+//
+// ทำไมไม่ใช้ sessionStorage ต่อแท็บเหมือนเดิม: sessionStorage แยกกันทุกแท็บ →
+// เปิด 3 แท็บพร้อมกันก็นับ 3 ครั้ง ทั้งที่ผู้ใช้ล็อกอินรอบเดียว. session id ของ
+// PostHog ใช้ร่วมกันทุกแท็บ (เก็บใน cookie/localStorage) และเปลี่ยนเองเมื่อ idle
+// 30 นาที จึงเป็นตัวแบ่ง "รอบการใช้งาน" ที่ตรงกับความหมายของ sign-in มากกว่า
+// โดยไม่ต้องคำนวณเวลาเอง
+const SIGNED_IN_MARKER_KEY = 'cefr:posthog:signed-in';
+const signedInMarker = (userId: string, sessionId: string) => `${userId}:${sessionId}`;
 
 // ─── Provider ──────────────────────────────────────────────────────────────────
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const [posthogInstance, setPosthogInstance] = useState<PostHog | null>(null);
   const previousSessionRef = useRef<boolean | null>(null);
-  const signedInUserIdRef = useRef<string | null>(null);
 
   // Initialize PostHog after page load + idle, so it never competes with
   // critical rendering or early user interaction (INP).
@@ -133,35 +138,38 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           isAdmin: session!.user.isAdmin,
         });
         // identify ทุกครั้งที่โหลดหน้าเต็มเป็นเรื่องปกติ แต่ "sign in" ควรนับครั้งเดียว
-        // → ใช้ marker ใน sessionStorage ต่อแท็บ (ล้างตอน sign out)
+        // ต่อรอบการใช้งาน → marker ใน localStorage ผูกกับ session id ของ PostHog
+        // (ใช้ร่วมทุกแท็บ, เปลี่ยนเองเมื่อ idle 30 นาที)
         let tracked = false;
+        let marker = '';
         try {
-          tracked = window.sessionStorage.getItem(signedInMarker(userId)) === '1';
+          const sessionId = posthogInstance.get_session_id() || '';
+          marker = sessionId ? signedInMarker(userId, sessionId) : '';
+          // ยังไม่มี session id (เพิ่ง init) → ไม่ mark ไว้ ยอมนับซ้ำดีกว่าปล่อย event หาย
+          tracked = marker !== '' && window.localStorage.getItem(SIGNED_IN_MARKER_KEY) === marker;
         } catch {
-          // sessionStorage ใช้ไม่ได้ (private mode) — ยอมนับซ้ำดีกว่าหายทั้ง event
+          // localStorage ใช้ไม่ได้ (private mode) — ยอมนับซ้ำดีกว่าหายทั้ง event
         }
         if (!tracked) {
           posthogInstance.capture('user_signed_in', { provider: 'google' });
-          try {
-            window.sessionStorage.setItem(signedInMarker(userId), '1');
-          } catch {
-            // เก็บไม่ได้ก็ไม่เป็นไร
+          if (marker) {
+            try {
+              window.localStorage.setItem(SIGNED_IN_MARKER_KEY, marker);
+            } catch {
+              // เก็บไม่ได้ก็ไม่เป็นไร
+            }
           }
         }
-        signedInUserIdRef.current = userId;
       }
     } else if (previousSessionRef.current === true && session === null) {
-      const previousUserId = signedInUserIdRef.current;
       posthogInstance.reset();
       posthogInstance.capture('user_signed_out');
-      if (previousUserId) {
-        try {
-          window.sessionStorage.removeItem(signedInMarker(previousUserId));
-        } catch {
-          // ไม่มีอะไรต้องทำ
-        }
+      // ล้าง marker ของ session นี้ เพื่อให้ล็อกอินรอบถัดไปนับใหม่
+      try {
+        window.localStorage.removeItem(SIGNED_IN_MARKER_KEY);
+      } catch {
+        // ไม่มีอะไรต้องทำ
       }
-      signedInUserIdRef.current = null;
     }
 
     previousSessionRef.current = isCurrentlyLoggedIn;
