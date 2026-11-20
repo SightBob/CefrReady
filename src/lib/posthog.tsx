@@ -71,9 +71,13 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         // load+idle to protect INP; the web-vitals observer reads buffered
         // entries, so earlier paint/interaction timings are still recovered.
         capture_performance: { web_vitals: true },
-        // Replay starts via startSessionRecording() on replay paths only.
-        disable_session_recording: true,
+        // Replay: เปิด recorder ไว้ตั้งแต่ init แล้วให้ PHCapture สั่งหยุดทันที
+        // บนหน้าที่ไม่ใช่ replay path (ดูด้านล่าง) — เดิมตั้ง disable_session_recording:
+        // true แล้วเรียก startSessionRecording() ภายหลัง แต่ recorder ไม่ถูกโหลด
+        // ผลคือ 30 วันมี recording แค่ 1 session ทั้งที่ /tests ควรมีทุกครั้ง
+        disable_session_recording: false,
         session_recording: {
+          // ผู้เรียนพิมพ์คำตอบลงช่องว่าง — mask ไว้ไม่ให้เนื้อหาคำตอบหลุดเข้า replay
           maskAllInputs: true,
         },
         before_send: (event) => {
@@ -248,7 +252,9 @@ export function PHCapture() {
 
       if (isReplayPath(pathname)) {
         posthog.startSessionRecording();
-      } else if (posthog.sessionRecordingStarted()) {
+      } else {
+        // เรียกทุกครั้ง (ไม่ใช่เฉพาะเมื่อ started) — บนหน้าแรก recorder อาจยังไม่
+        // เริ่มตอน effect รัน ถ้าเช็ก started ก่อนจะหลุดและบันทึกทั้งเว็บ
         posthog.stopSessionRecording();
       }
     }

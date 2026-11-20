@@ -4,6 +4,7 @@ import { getCachedSections } from '@/lib/sections';
 import { getCachedExplainsForSet, getCachedSetTopicRuns } from '@/lib/test-explains';
 import { usesSetLevelExplain } from '@/lib/test-set-topics';
 import TestSetExplainView from '@/components/TestSetExplainView';
+import { ExplainViewTracker } from '@/components/AnalyticsTrackers';
 
 
 async function getSections() {
@@ -66,7 +67,9 @@ export default async function TestSetExplainPage({ params }: { params: ExplainPa
   if (!usesSetLevelExplain(explains.length, topicRuns.length)) redirect(quizHref);
 
   return (
-    <TestSetExplainView
+    <>
+      <ExplainViewTracker sectionId={section.id} testSetId={testSet.id} topicCount={explains.length} />
+      <TestSetExplainView
       title={testSet.name}
       entries={explains.map((explain) => ({
         title: explain.title,
@@ -79,5 +82,6 @@ export default async function TestSetExplainPage({ params }: { params: ExplainPa
       quizHref={quizHref}
       backHref={`/tests/${section.id}/${testSet.id}/intro`}
     />
+    </>
   );
 }

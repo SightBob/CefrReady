@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { absoluteCallbackUrl } from '@/lib/redirect-safety';
+import { usePostHog } from '@/lib/posthog';
 
 // Figma 249:3559-249:3566 — 4 ช่อง 114×46; ช่องที่ 3-4 ในดีไซน์เป็น "ข้อสอบ" ซ้ำกัน
 // จึงแก้ช่องที่ 4 เป็น "ติวต่อเรา" เพื่อไม่ให้เมนูซ้ำ
@@ -21,6 +22,7 @@ export default function HeaderClient() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { data: session, status } = useSession();
   const pathname = usePathname();
+  const posthog = usePostHog();
   const profileRef = useRef<HTMLDivElement>(null);
   // hash ของ section ที่กำลังอ่านอยู่ ใช้ไฮไลต์เมนูแบบ /#xxx
   const [activeHash, setActiveHash] = useState('');
@@ -67,6 +69,8 @@ export default function HeaderClient() {
   };
 
   const handleLogin = () => {
+    // นับ "เริ่มล็อกอิน" จาก header ด้วย — เทียบกับ /login ว่าจุดไหนพาคนไปต่อได้มากกว่า
+    posthog?.capture('signup_started', { from: 'header', callback_url: '/tests' });
     Promise.resolve(
       signIn('google', { callbackUrl: absoluteCallbackUrl('/tests', window.location.origin) }),
     ).catch(() => {});

@@ -9,6 +9,7 @@ import TestLayout from '@/components/TestLayout';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
 import { usePostHog } from '@/lib/posthog';
+import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import { clearBlankAnswers, loadBlankAnswers, saveBlankAnswers } from '@/lib/test-progress';
 import type { Blank } from '@/types/test';
 
@@ -223,12 +224,15 @@ export default function FormMeaningQuiz({
         posthog?.capture('test_submitted', {
           section_id: sectionId,
           test_set_id: setId,
+          attempt_id: data.data.attemptId ?? null,
           score: serverCorrect,
           total_questions: total,
           answered_count: answeredCount,
           unanswered_count: Math.max(0, total - answeredCount),
           score_percentage: total > 0 ? Math.round((serverCorrect / total) * 100) : 0,
           time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
+          cefr_level:
+            total > 0 ? estimateCefrLevel(Math.round((serverCorrect / total) * 100)) : null,
         });
         // Question-level analytics — form-meaning ตรวจทั้งชุดทีเดียว จึงยิงรายช่อง
         // ตอนส่ง เพื่อให้รู้ว่าช่อง/ข้อไหนที่ผู้เรียนพลาดบ่อย
@@ -256,6 +260,21 @@ export default function FormMeaningQuiz({
       // ส่งสำเร็จแล้ว = ไม่เก็บคำตอบค้างไว้อีก (กันการส่งซ้ำเงียบ ๆ หลัง refresh)
       if (data.success) clearBlankAnswers(sectionId, setId);
     } catch (err) {
+      if (posthog) {
+        posthog.capture('test_submit_failed', {
+          section_id: sectionId,
+          test_set_id: setId,
+          http_status: err instanceof ApiError ? err.status : null,
+          error_kind:
+            err instanceof ApiError
+              ? err.status === 401
+                ? 'unauthorized'
+                : err.status === 429
+                  ? 'rate_limit'
+                  : 'api_error'
+              : 'network',
+        });
+      }
       if (err instanceof ApiError && err.status === 401) {
         toast.error('กรุณาเข้าสู่ระบบใหม่');
         return;

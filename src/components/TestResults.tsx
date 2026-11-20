@@ -165,6 +165,10 @@ export default function TestResults({
       score_percentage: percentage,
       section_id: sectionId,
       test_set_id: setId ?? null,
+      attempt_id: attemptId ?? null,
+      score,
+      total_questions: totalQuestions,
+      cefr_level: cefrLevel,
     });
     if (!attemptId) return;
     try {

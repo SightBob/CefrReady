@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { absoluteCallbackUrl } from '@/lib/redirect-safety';
+import { usePostHog } from '@/lib/posthog';
 
 /**
  * ปุ่มเริ่มเข้าสู่ระบบด้วย Google — ใช้วิธีเดียวกับปุ่มใน header (HeaderClient)
@@ -12,10 +13,17 @@ import { absoluteCallbackUrl } from '@/lib/redirect-safety';
 export default function LoginPanel({ callbackUrl }: { callbackUrl: string }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const posthog = usePostHog();
 
   const handleLogin = () => {
     setBusy(true);
     setFailed(false);
+    // เติมขั้นที่หายไปของ funnel: หน้า login → กด Google → user_signed_in
+    // (เดิมเห็นแค่ "เข้าสู่ระบบสำเร็จ" จึงไม่รู้ว่าคนหลุดที่ปุ่มหรือที่ Google)
+    posthog?.capture('signup_started', {
+      from: 'login_page',
+      callback_url: callbackUrl,
+    });
     // ต้องส่ง URL เต็ม (ไม่ใช่ path) — next-auth เก็บ path อย่างเดียวไม่ได้
     // แล้วจะพากลับหน้าแรกแทนหน้าปลายทาง (ดู absoluteCallbackUrl)
     const target = absoluteCallbackUrl(callbackUrl, window.location.origin);

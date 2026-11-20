@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getCachedSections } from '@/lib/sections';
 import { getCachedExplainsForSet, getCachedSetTopicRuns } from '@/lib/test-explains';
 import { usesSetLevelExplain } from '@/lib/test-set-topics';
+import { SetViewTracker } from '@/components/AnalyticsTrackers';
 
 
 async function getSections() {
@@ -72,6 +73,7 @@ export default async function TestSetIntroPage({ params }: { params: IntroParams
 
   return (
     <div className="intro-fluid flex min-h-svh flex-col bg-[#F7F7F7]">
+      <SetViewTracker sectionId={section.id} testSetId={testSet.id} questionCount={testSet.questionCount} />
       {/* Detail card — mobile 200:7664 (355×494, r30, ขอบ 18px) → desktop 75:68796
           (1061×546); ทุกขนาดไหลระหว่างสองเฟรมด้วย .intro-fluid */}
       <div className="relative mx-auto mt-[var(--intro-card-mt)] h-[var(--intro-card-h)] w-[var(--intro-card-w)] max-w-full shrink-0 rounded-[30px] bg-white">

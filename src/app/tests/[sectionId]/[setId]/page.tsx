@@ -51,6 +51,7 @@ import {
   saveTestProgressState,
   clearBlankAnswers,
   clearTestProgress,
+  loadBlankAnswers,
   loadFinishedTest,
   saveFinishedTest,
   clearFinishedTest,
@@ -553,6 +554,24 @@ export default function SetQuizPage() {
     questionEnteredAtRef.current = Date.now();
   }, [currentQuestion]);
 
+  // ── Analytics state ────────────────────────────────────────────────
+  // attempt_key = รหัสรอบของชุดนี้ (ตัวเดียวกับที่ AI Tutor ใช้) → ใช้เป็นกุญแจ
+  // ให้ event ของรอบเดียวกัน join กันได้ และ dedupe test_started ไม่ให้นับซ้ำ
+  // เมื่อผู้ใช้ refresh หน้าเดิม (เดิม 1,836 starts / 722 submits = เพี้ยน)
+  const attemptKeyForAnalytics = useCallback(
+    () => attemptKey || getOrCreateAttemptKey(attemptKeyStorageKey(sectionId, setId)),
+    [attemptKey, sectionId, setId],
+  );
+  // ส่งข้อสอบสำเร็จแล้วหรือยัง — ใช้ตัดสินว่า leaving = "ทำไม่จบ" หรือ "จบแล้ว"
+  const submittedRef = useRef(false);
+  // กันยิง test_abandoned ซ้ำ (pagehide + unmount เกิดพร้อมกันได้)
+  const abandonSentRef = useRef(false);
+  // ค่าล่าสุดสำหรับอ่านตอน unmount โดยไม่ต้องผูก dependency ใหม่ทุกข้อ
+  const answersRef = useRef<(string | null)[]>([]);
+  answersRef.current = answers;
+  const currentQuestionRef = useRef(0);
+  currentQuestionRef.current = currentQuestion;
+
   // ปุ่ม "โหมดทบทวน" — ใช้ร่วมกันทุก skill (Form & Meaning / Tap & Select /
   // Listening / Focus on Meaning / Focus on Form) แล้ว capture ก่อนเปิด overlay
   const openReviewMode = useCallback(() => {
@@ -562,10 +581,11 @@ export default function SetQuizPage() {
       posthog?.capture('review_mode_opened', {
         section_id: sectionId,
         test_set_id: setId,
+        attempt_key: attemptKeyForAnalytics(),
       });
     }
     setShowTestExplain(true);
-  }, [posthog, sectionId, setId, previewMode]);
+  }, [posthog, sectionId, setId, previewMode, attemptKeyForAnalytics]);
 
   const fetchSet = useCallback(async () => {
     // สลับชุดเร็ว ๆ response ของชุดเก่าจะกลับมาทีหลังแล้วทับของชุดใหม่
@@ -675,6 +695,18 @@ export default function SetQuizPage() {
   useEffect(() => {
     if (setData && posthog && testStartedAtRef.current === 0) {
       testStartedAtRef.current = Date.now();
+      const attemptKeyValue = attemptKeyForAnalytics();
+      // dedupe ต่อ "รอบการใช้งาน" ไม่ใช่ต่อแท็บ: sessionStorage แยกทุกแท็บ →
+      // เปิดชุดเดิม 3 แท็บก็นับ 3 ครั้ง. session id ของ PostHog ใช้ร่วมทุกแท็บ
+      // และเปลี่ยนเองเมื่อ idle 30 นาที จึงเป็นตัวแบ่งรอบที่ถูกต้อง
+      const sessionId = posthog.get_session_id() || '';
+      const markerKey = `cefr:posthog:test-started:${sectionId}-${setId}`;
+      try {
+        if (sessionId && window.localStorage.getItem(markerKey) === sessionId) return;
+        if (sessionId) window.localStorage.setItem(markerKey, sessionId);
+      } catch {
+        // localStorage ใช้ไม่ได้ — ยอมนับซ้ำดีกว่าปล่อย event หาย
+      }
       const levels = setData.questions.map(q => q.cefrLevel).filter(Boolean);
       const levelCounts: Record<string, number> = {};
       levels.forEach(l => { levelCounts[l] = (levelCounts[l] || 0) + 1; });
@@ -684,9 +716,45 @@ export default function SetQuizPage() {
         test_set_id: setId,
         test_type: sectionId,
         target_level: targetLevel,
+        attempt_key: attemptKeyValue,
+        total_questions: mainSlots.length || setData.questions.length,
       });
     }
-  }, [setData, posthog, sectionId, setId]);
+  }, [setData, posthog, sectionId, setId, attemptKeyForAnalytics, mainSlots.length]);
+
+  // test_abandoned — ออกจากหน้าโดยยังไม่ส่งข้อสอบ
+  // ไม่มี event นี้ = มองไม่เห็นว่าคนหลุดตอนข้อไหน (เดิมรู้แค่ starts vs submits)
+  useEffect(() => {
+    if (!posthog) return;
+    const fireAbandoned = () => {
+      if (submittedRef.current || abandonSentRef.current) return;
+      if (testStartedAtRef.current === 0) return;
+      abandonSentRef.current = true;
+      let answeredCount = answersRef.current.filter((a) => a !== null && a !== '').length;
+      // form-meaning เก็บคำตอบใน sessionStorage ของตัวเอง (ไม่ได้ผ่าน state ของหน้านี้)
+      // ถ้าไม่ดึงมาตรงนี้ event จะรายงานว่าตอบ 0 ช่องทั้งที่กรอกไปแล้ว
+      if (sectionId === 'form-meaning') {
+        answeredCount = Object.values(loadBlankAnswers(sectionId, setId)).filter(
+          (value) => value.trim().length > 0,
+        ).length;
+      }
+      const total = mainSlots.length;
+      posthog.capture('test_abandoned', {
+        section_id: sectionId,
+        test_set_id: setId,
+        attempt_key: attemptKeyForAnalytics(),
+        answered_count: answeredCount,
+        total_questions: total,
+        time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
+        last_question_position: currentQuestionRef.current + 1,
+      });
+    };
+    window.addEventListener('pagehide', fireAbandoned);
+    return () => {
+      window.removeEventListener('pagehide', fireAbandoned);
+      fireAbandoned();
+    };
+  }, [posthog, sectionId, setId, mainSlots.length, attemptKeyForAnalytics]);
 
   const getQuestionChoices = useCallback((question: RawQuestion, salt: string): ShuffledChoiceOption[] => createQuestionChoiceOptions(
     [
@@ -791,6 +859,7 @@ export default function SetQuizPage() {
           time_on_question_seconds: Math.round(
             (Date.now() - questionEnteredAtRef.current) / 1000
           ),
+          attempt_key: attemptKeyForAnalytics(),
           ...(slot.kind === 'article' ? { blank_id: slot.blankId } : {}),
         });
       }
@@ -799,7 +868,7 @@ export default function SetQuizPage() {
     } finally {
       setCheckingSlot(current => ({ ...current, [slotIndex]: false }));
     }
-  }, [checkingSlot, currentQuestion, mainSlots, selectedAnswer, setData, setId, submitting, toStoredAnswer, posthog, previewMode, sectionId]);
+  }, [checkingSlot, currentQuestion, mainSlots, selectedAnswer, setData, setId, submitting, toStoredAnswer, posthog, previewMode, sectionId, attemptKeyForAnalytics]);
 
   const handleAnswer = (answer: string) => {
     if (!setData) return;
@@ -874,6 +943,7 @@ export default function SetQuizPage() {
             time_on_question_seconds: Math.round(
               (Date.now() - questionEnteredAtRef.current) / 1000
             ),
+            attempt_key: attemptKeyForAnalytics(),
           });
         }
       }
@@ -970,6 +1040,8 @@ export default function SetQuizPage() {
         setResults(data.data.results ?? []);
         setAttemptId(data.data.attemptId ?? null);
         setIsFinished(true);
+        // ส่งสำเร็จ → ต่อไปไม่ใช่ "ทำไม่จบ" แล้ว (test_abandoned จะไม่ยิง)
+        submittedRef.current = true;
         // ปิด draft ทุกทางหลังส่งสำเร็จ: หยุด pusher + ล้างแถว draft ในฐานข้อมูล
         // ไม่งั้น timer debounce ที่ค้างอยู่จะเขียนสถานะ "ส่งแล้ว" กลับขึ้นไปเป็น draft ใหม่
         // → เปิดแท็บใหม่ทีหลังจะเจอชุดที่ส่งไปแล้วและกู้คืนกลับมาทำซ้ำ
@@ -994,6 +1066,8 @@ export default function SetQuizPage() {
           posthog.capture('test_submitted', {
             section_id: sectionId,
             test_set_id: setId,
+            attempt_id: data.data.attemptId ?? null,
+            attempt_key: attemptKeyForAnalytics(),
             score: data.data.correctAnswers,
             total_questions: totalQuestions,
             answered_count: answeredCount,
@@ -1001,6 +1075,7 @@ export default function SetQuizPage() {
             time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
             wrong_question_ids: wrongIds,
             score_percentage: scorePct,
+            cefr_level: estimateCefrLevel(scorePct),
           });
           apiFetch('/api/progress')
             .then(r => r.json())
@@ -1013,6 +1088,23 @@ export default function SetQuizPage() {
         }
       }
     } catch (err) {
+      // ความล้มเหลวตอนส่งที่ผู้ใช้เห็นเป็น toast — เก็บด้วยเพื่อให้เห็นว่ามีคนเจอบ่อยแค่ไหน
+      if (posthog) {
+        posthog.capture('test_submit_failed', {
+          section_id: sectionId,
+          test_set_id: setId,
+          attempt_key: attemptKeyForAnalytics(),
+          http_status: err instanceof ApiError ? err.status : null,
+          error_kind:
+            err instanceof ApiError
+              ? err.status === 401
+                ? 'unauthorized'
+                : err.status === 429
+                  ? 'rate_limit'
+                  : 'api_error'
+              : 'network',
+        });
+      }
       if (err instanceof ApiError && err.status === 401) {
         toast.error('กรุณาเข้าสู่ระบบใหม่');
         return;
@@ -1098,6 +1190,12 @@ export default function SetQuizPage() {
     void clearTestDraft(sectionId, setId);
     clearTestProgress(sectionId, setId);
     clearFinishedTest(sectionId, setId);
+    // ยกเลิก = จบรอบนี้ → ครั้งหน้าเข้าชุดเดิมต้องนับ start ใหม่
+    try {
+      window.localStorage.removeItem(`cefr:posthog:test-started:${sectionId}-${setId}`);
+    } catch {
+      // ไม่มีอะไรต้องทำ
+    }
     router.push('/tests');
   };
 
@@ -1116,10 +1214,29 @@ export default function SetQuizPage() {
     clearBlankAnswers(sectionId, setId);
     setAttemptId(null);
     // ทำชุดใหม่ = รอบใหม่ของ AI Tutor (บทสนทนาเก่าไม่โผล่ในรอบนี้ + เก็บถังรอบเดิม)
-    setAttemptKey(endAiTutorAttempt({
+    const nextAttemptKey = endAiTutorAttempt({
       storageKey: attemptKeyStorageKey(sectionId, setId),
       attemptKey,
-    }));
+    });
+    setAttemptKey(nextAttemptKey);
+    // รอบใหม่ = เริ่มนับ start ใหม่ (marker ต่อ session ต้องถูกเคลียร์ ไม่งั้น
+    // "ทำอีกครั้ง" จะไม่ถูกนับเป็นอีกรอบ) และให้ test_abandoned ทำงานได้อีก
+    submittedRef.current = false;
+    abandonSentRef.current = false;
+    testStartedAtRef.current = Date.now();
+    try {
+      window.localStorage.removeItem(`cefr:posthog:test-started:${sectionId}-${setId}`);
+    } catch {
+      // ไม่มีอะไรต้องทำ
+    }
+    posthog?.capture('test_started', {
+      section_id: sectionId,
+      test_set_id: setId,
+      test_type: sectionId,
+      attempt_key: nextAttemptKey,
+      total_questions: mainSlots.length,
+      retake: true,
+    });
     setFormMeaningTotalBlanks(0);
     setAudioPlayedMap({});
     setIsFinished(false);
