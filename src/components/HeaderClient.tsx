@@ -80,11 +80,13 @@ export default function HeaderClient() {
     ? [...NAV_ITEMS, { href: '/admin', label: 'แอดมิน' }]
     : NAV_ITEMS;
 
-  // ยังไม่ได้ login → ส่งไป flow ทดลองเล่นแทน เพราะการทำข้อสอบจริงต้องมีสมาชิก
-  // ระหว่างที่ session ยังโหลดไม่เสร็จ ใช้ลิงก์เดิมไว้ก่อน (พฤติกรรมเดิม ไม่ถอยหลัง)
+  // ยังไม่ได้ login → พาไปหน้าเข้าสู่ระบบก่อน (พร้อม callbackUrl=/tests) แล้วค่อย
+  // กลับมาที่หน้าข้อสอบหลังล็อกอินสำเร็จ. เดิมส่งไป /demo/intro ทำให้คนกด
+  // "ข้อสอบ CEFR" ไม่เห็นหน้าเข้าสู่ระบบเลย และต้องเดาเองว่าต้องล็อกอิน
+  // ระหว่างที่ session ยังโหลดไม่เสร็จ ใช้ลิงก์เดิมไว้ก่อน (กันกระพริบ)
   const menuItems = navItems.map((item) =>
     item.href === '/tests' && !isLoadingSession && !session?.user
-      ? { ...item, href: '/demo/intro' }
+      ? { ...item, href: '/login?callbackUrl=%2Ftests' }
       : item
   );
 
