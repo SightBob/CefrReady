@@ -211,6 +211,43 @@ describe('FormMeaningQuiz — ส่งข้อสอบได้แม้ payl
       score_percentage: 0,
     });
   });
+
+  it('ยิง question_answered รายช่อง พร้อมเฉลยจาก server (ใช้ปรับคุณภาพข้อสอบ)', async () => {
+    // เฉลยจริงมาจาก response ของ /api/tests/submit (payload ต้นทางถูกถอดเฉลยออก)
+    apiFetchMock.mockResolvedValue({
+      json: async () => ({
+        success: true,
+        data: {
+          correctAnswers: 1,
+          totalQuestions: 2,
+          results: [{ questionId: 1984, correctAnswer: '{"1":"was","2":"is"}' }],
+        },
+      }),
+    });
+
+    await submitOnce();
+
+    const answered = captures.filter((entry) => entry.event === 'question_answered');
+    expect(answered, 'ต้องยิง question_answered 1 ครั้งต่อ 1 ช่อง').toHaveLength(2);
+    expect(answered[0]?.props).toMatchObject({
+      section_id: 'form-meaning',
+      test_set_id: 29,
+      question_id: 1984,
+      slot_kind: 'article',
+      blank_id: 1,
+      question_position: 1,
+      total_questions: 2,
+      is_correct: true,
+      answered: true,
+    });
+    // ช่อง 2 ไม่ได้กรอก → answered=false และ is_correct=null (ไม่ใช่ "ตอบผิด")
+    expect(answered[1]?.props).toMatchObject({
+      blank_id: 2,
+      question_position: 2,
+      answered: false,
+      is_correct: null,
+    });
+  });
 });
 
 describe('FormMeaningQuiz — กันการส่งข้อสอบว่าง', () => {
