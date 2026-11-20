@@ -100,7 +100,7 @@ describe('metadata titles', () => {
         'layout.tsx',
         'tests/layout.tsx',
         'review/layout.tsx',
-        'demo/listening/layout.tsx',
+        'demo/exam/layout.tsx',
       ]),
     );
   });

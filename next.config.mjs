@@ -32,6 +32,11 @@ const nextConfig = {
       // /guide ถูกลบออกจากเว็บ (ไม่มีคู่มือให้แสดง) — ลิงก์เก่า/บุ๊กมาร์กไปที่หน้าแรก
       { source: '/guide', destination: '/', permanent: true },
       { source: '/guide/:slug', destination: '/', permanent: true },
+      // demo รายพาร์ทถูกลบ — เหลือชุดตัวอย่างแบบผสมทุกทักษะที่ /demo/intro
+      { source: '/demo/focus-form', destination: '/demo/intro', permanent: true },
+      { source: '/demo/focus-meaning', destination: '/demo/intro', permanent: true },
+      { source: '/demo/form-meaning', destination: '/demo/intro', permanent: true },
+      { source: '/demo/listening', destination: '/demo/intro', permanent: true },
     ];
   },
   async headers() {
