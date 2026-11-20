@@ -290,7 +290,7 @@ export default function ProgressContent({
                         className="w-[10.7px] h-[9.5px] min-[992px]:w-[13.4px] min-[992px]:h-[11.9px] shrink-0"
                       />
                       <span className="text-[#00608a] text-[12px] min-[992px]:text-[14px] font-bold leading-[22px] tracking-[0.16px] whitespace-nowrap">
-                        {rewardPoints} คะแนน
+                        {rewardPoints} แต้ม
                       </span>
                     </div>
                   </div>

@@ -92,14 +92,14 @@ export default function FormMeaningFillCard({
             {isWrong && hasCorrectAnswer && (
               <span className="flex items-center gap-1 mt-1">
                 <span className="text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                  <SelectableText text={correctRaw!} contextSentence={correctRaw!} />
+                  เฉลย: <SelectableText text={correctRaw!} contextSentence={correctRaw!} />
                 </span>
               </span>
             )}
             {isEmpty && hasCorrectAnswer && (
               <span className="flex items-center gap-1 mt-1">
                 <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
-                  Answer: <SelectableText text={correctRaw!} contextSentence={correctRaw!} />
+                  เฉลย: <SelectableText text={correctRaw!} contextSentence={correctRaw!} />
                 </span>
               </span>
             )}

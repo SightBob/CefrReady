@@ -65,10 +65,10 @@ describe('FormMeaningFillCard — สถานะเฉลย (หน้า revi
     expect(body).toContain('text-emerald-700');
   });
 
-  it('ไม่ได้ตอบ → ช่องเหลืองพร้อม chip "Answer:"', () => {
+  it('ไม่ได้ตอบ → ช่องเหลืองพร้อม chip "เฉลย:"', () => {
     const body = articleBodyOf(render({ 20: 'x1' }));
     expect(body).toContain('border-amber-400');
-    expect(body).toContain('Answer:');
+    expect(body).toContain('เฉลย:');
   });
 
   it('ทุกช่องถูกล็อกไม่ให้แก้ในโหมดทบทวน', () => {

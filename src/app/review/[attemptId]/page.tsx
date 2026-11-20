@@ -16,6 +16,7 @@ import type { TapExerciseData } from '@/lib/test-set-slots';
 import { buildReviewRailCells, sortReviewItemsByOrder } from '@/lib/review-rail';
 import ReviewQuestionChangedNotice from '@/components/ReviewQuestionChangedNotice';
 import { usePostHog } from '@/lib/posthog';
+import { estimateCefrLevel } from '@/lib/cefr-estimator';
 import type { TestTypeId, ConversationLine, Article } from '@/types/test';
 
 interface AttemptData {
@@ -233,7 +234,7 @@ export default function ReviewPage() {
                 {attempt.testTypeName}
               </span>
               <span className="text-center text-[11px] leading-4 text-[#8293a9]">
-                คะแนน {attempt.score}% · ถูก {attempt.correctAnswers}/{attempt.totalQuestions}
+                คะแนน {attempt.score}% · ถูก {attempt.correctAnswers}/{attempt.totalQuestions} · {estimateCefrLevel(attempt.score)}
               </span>
             </div>
 
