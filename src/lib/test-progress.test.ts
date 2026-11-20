@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  adoptChoiceSeed,
   clearBlankAnswers,
   clearFinishedTest,
   ensureChoiceSeed,
@@ -171,6 +172,25 @@ describe('test-progress', () => {
     expect(() => ensureChoiceSeed('focus-form', 18)).not.toThrow();
     expect(ensureChoiceSeed('focus-form', 18)).toBeTruthy();
     expect(loadChoiceSeed('focus-form', 18)).toBeNull();
+  });
+
+  it('seed ตัวเลือก: ใช้ seed ของ draft จากเซิร์ฟเวอร์ (แท็บใหม่/เครื่องอื่น)', () => {
+    // แท็บใหม่ = ยังไม่มี seed → ensure สร้างใหม่ (ลำดับคนละชุด)
+    const freshSeed = ensureChoiceSeed('listening', 34);
+    const draftSeed = '34-1700000000000-abcdef';
+    expect(draftSeed).not.toBe(freshSeed);
+
+    expect(adoptChoiceSeed('listening', 34, draftSeed)).toBe(draftSeed);
+    // ต้องเขียนทับลง sessionStorage จริง ไม่งั้น refresh แล้วลำดับจะเปลี่ยนกลับ
+    expect(loadChoiceSeed('listening', 34)).toBe(draftSeed);
+    // หลังยอมรับแล้ว ensure ต้องคืนค่าเดิม ไม่สร้างใหม่
+    expect(ensureChoiceSeed('listening', 34)).toBe(draftSeed);
+  });
+
+  it('seed ตัวเลือก: adopt ค่าเปล่า/ช่องว่าง → ไม่เขียนทับ seed เดิม', () => {
+    const current = ensureChoiceSeed('listening', 35);
+    expect(adoptChoiceSeed('listening', 35, '   ')).toBe('   ');
+    expect(loadChoiceSeed('listening', 35)).toBe(current);
   });
 
   it('คำตอบของชุดเติมคำในบทความ (แยกคีย์จากตำแหน่งข้อ)', () => {

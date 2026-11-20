@@ -18,11 +18,17 @@ const PostHogContext = createContext<PostHogContextValue>({ posthog: null });
 const REPLAY_PATHS = ['/tests', '/demo'];
 const isReplayPath = (path: string) => REPLAY_PATHS.some((p) => path.startsWith(p));
 
+// จำว่า "ผู้ใช้คนนี้เข้าเว็บครั้งนี้แล้ว" ต่อแท็บ — เดิม user_signed_in ยิงทุกครั้ง
+// ที่โหลดหน้าเต็ม (วัดจริง 1,334 events / 632 sessions = ~2.1 ครั้ง/เซสชัน)
+const SIGNED_IN_MARKER_PREFIX = 'cefr:posthog:signed-in:';
+const signedInMarker = (userId: string) => `${SIGNED_IN_MARKER_PREFIX}${userId}`;
+
 // ─── Provider ──────────────────────────────────────────────────────────────────
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const [posthogInstance, setPosthogInstance] = useState<PostHog | null>(null);
   const previousSessionRef = useRef<boolean | null>(null);
+  const signedInUserIdRef = useRef<string | null>(null);
 
   // Initialize PostHog after page load + idle, so it never competes with
   // critical rendering or early user interaction (INP).
@@ -110,15 +116,41 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
     if (isCurrentlyLoggedIn) {
       if (previousSessionRef.current !== true) {
-        posthogInstance.identify(session!.user.id!, {
+        const userId = session!.user.id!;
+        posthogInstance.identify(userId, {
           email: session!.user.email,
           isAdmin: session!.user.isAdmin,
         });
-        posthogInstance.capture('user_signed_in', { provider: 'google' });
+        // identify ทุกครั้งที่โหลดหน้าเต็มเป็นเรื่องปกติ แต่ "sign in" ควรนับครั้งเดียว
+        // → ใช้ marker ใน sessionStorage ต่อแท็บ (ล้างตอน sign out)
+        let tracked = false;
+        try {
+          tracked = window.sessionStorage.getItem(signedInMarker(userId)) === '1';
+        } catch {
+          // sessionStorage ใช้ไม่ได้ (private mode) — ยอมนับซ้ำดีกว่าหายทั้ง event
+        }
+        if (!tracked) {
+          posthogInstance.capture('user_signed_in', { provider: 'google' });
+          try {
+            window.sessionStorage.setItem(signedInMarker(userId), '1');
+          } catch {
+            // เก็บไม่ได้ก็ไม่เป็นไร
+          }
+        }
+        signedInUserIdRef.current = userId;
       }
     } else if (previousSessionRef.current === true && session === null) {
+      const previousUserId = signedInUserIdRef.current;
       posthogInstance.reset();
       posthogInstance.capture('user_signed_out');
+      if (previousUserId) {
+        try {
+          window.sessionStorage.removeItem(signedInMarker(previousUserId));
+        } catch {
+          // ไม่มีอะไรต้องทำ
+        }
+      }
+      signedInUserIdRef.current = null;
     }
 
     previousSessionRef.current = isCurrentlyLoggedIn;
@@ -147,9 +179,14 @@ export function PHCapture() {
   const posthog = usePostHog();
   const previousPathRef = useRef<string | null>(null);
   const pageEnterTimeRef = useRef<number>(Date.now());
+  // หน้าที่ส่ง $pageleave ไปแล้ว — กันยิงซ้ำเมื่อ visibilitychange + beforeunload
+  // + route change เกิดพร้อมกัน (วัดจริงซ้ำ ~18% ของ pageleave ทั้งหมด)
+  const pageLeaveSentForRef = useRef<string | null>(null);
 
   const firePageLeave = useCallback((url: string) => {
     if (!posthog) return;
+    if (pageLeaveSentForRef.current === url) return;
+    pageLeaveSentForRef.current = url;
     const duration = Math.round((Date.now() - pageEnterTimeRef.current) / 1000);
     posthog.capture('$pageleave', {
       $current_url: url,
@@ -184,6 +221,8 @@ export function PHCapture() {
       if (previousPathRef.current) {
         firePageLeave(previousPathRef.current);
       }
+      // หน้าใหม่ = เริ่มนับ pageleave ของหน้านี้ได้อีกครั้ง
+      pageLeaveSentForRef.current = null;
       posthog.capture('$pageview', { $current_url: pathname });
       previousPathRef.current = pathname;
       pageEnterTimeRef.current = Date.now();

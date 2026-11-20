@@ -47,6 +47,7 @@ export default function TestResultsDemo({
     posthog?.capture('test_result_viewed', {
       score_percentage: percentage,
       passed: percentage >= 70,
+      is_demo: true,
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

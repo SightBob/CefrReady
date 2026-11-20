@@ -46,6 +46,16 @@ vi.mock('@/lib/api-fetch', () => ({
   apiFetch: (...args: unknown[]) => apiFetchMock(...args),
 }));
 
+// PostHog — เก็บ event ที่ยิงเพื่อยืนยันว่า form-meaning ไม่หายจาก funnel
+const captures = vi.hoisted(() => [] as Array<{ event: string; props?: Record<string, unknown> }>);
+vi.mock('@/lib/posthog', () => ({
+  usePostHog: () => ({
+    capture: (event: string, props?: Record<string, unknown>) => {
+      captures.push({ event, props });
+    },
+  }),
+}));
+
 // ตัด TestLayout / ConfirmModal ออก — ให้เทสโฟกัสที่ logic ของ FormMeaningQuiz
 // (ปุ่มหลัก disabled/ใบ้ + การยิง submit) แต่ยังคง semantics ของปุ่มจริง
 vi.mock('@/components/TestLayout', () => ({
@@ -93,6 +103,7 @@ let root: Root;
 
 beforeEach(() => {
   toastError.mockClear();
+  captures.length = 0;
   apiFetchMock.mockReset();
   apiFetchMock.mockResolvedValue({
     json: async () => ({ success: true, data: { correctAnswers: 0, totalQuestions: 2 } }),
@@ -185,6 +196,20 @@ describe('FormMeaningQuiz — ส่งข้อสอบได้แม้ payl
     expect(body.answers[0].questionId).toBe(1984);
     // กรอกช่อง 1 แล้ว → ส่งเฉพาะช่องที่กรอก (ช่อง 2 ยังว่าง)
     expect(body.answers[0].selectedAnswer).toBe('{"1":"was"}');
+  });
+
+  it('ยิง test_submitted หลังส่งสำเร็จ (พาร์ทนี้ต้องไม่หายจาก funnel)', async () => {
+    await submitOnce();
+
+    const submitted = captures.find((entry) => entry.event === 'test_submitted');
+    expect(submitted, 'ต้องมี test_submitted').toBeTruthy();
+    expect(submitted?.props).toMatchObject({
+      section_id: 'form-meaning',
+      test_set_id: 29,
+      score: 0,
+      total_questions: 2,
+      score_percentage: 0,
+    });
   });
 });
 

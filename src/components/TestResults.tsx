@@ -56,6 +56,8 @@ interface TestResultsProps {
   setNumber?: number;
   /** ใช้เลือกคำอธิบายทักษะในการ์ดคะแนน */
   sectionId?: string;
+  /** รหัสชุดข้อสอบ — ผูก event ผลสอบกับชุด (ไม่ส่งใน Full Test ที่ไม่มีชุด) */
+  setId?: number | string | null;
   /** รายการเฉลยรายข้อ — การ์ดเฉลยจะไม่แสดงเมื่อไม่มีข้อมูล */
   reviewItems?: ReviewItem[];
   /** ระดับ CEFR จาก server (Full Test คำนวณแบบถ่วงน้ำหนัก) — ถ้าไม่ส่งจะประมาณจาก percentage เหมือนเดิม */
@@ -86,6 +88,7 @@ export default function TestResults({
   durationMinutes,
   setNumber,
   sectionId,
+  setId,
   reviewItems,
   cefrLevel: cefrLevelOverride,
   extraContent,
@@ -126,6 +129,11 @@ export default function TestResults({
 
   useEffect(() => {
     posthog?.capture('test_result_viewed', {
+      section_id: sectionId,
+      test_set_id: setId ?? null,
+      attempt_id: attemptId ?? null,
+      score,
+      total_questions: totalQuestions,
       score_percentage: percentage,
       passed: percentage >= 70,
     });
@@ -152,7 +160,12 @@ export default function TestResults({
   const handleRating = async (value: number) => {
     const previous = rating;
     setRating(value);
-    posthog?.capture('test_result_rated', { rating: value, score_percentage: percentage });
+    posthog?.capture('test_result_rated', {
+      rating: value,
+      score_percentage: percentage,
+      section_id: sectionId,
+      test_set_id: setId ?? null,
+    });
     if (!attemptId) return;
     try {
       const res = await apiFetch('/api/tests/feedback', {

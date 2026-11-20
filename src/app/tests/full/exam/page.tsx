@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import ConfirmModal from "@/components/ConfirmModal";
 import TestLayout from "@/components/TestLayout";
 import { ApiError, apiFetch } from "@/lib/api-fetch";
+import { usePostHog } from "@/lib/posthog";
 import {
   FULL_TEST_TOTAL_QUESTIONS,
   FULL_TEST_TOTAL_SECONDS,
@@ -58,6 +59,7 @@ const answerStorageKey = (attemptId: number, questionId: number) =>
 export default function FullTestExamPage() {
   const { status } = useSession();
   const router = useRouter();
+  const posthog = usePostHog();
   const [maintenanceBlocked, setMaintenanceBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [attemptId, setAttemptId] = useState<number | null>(null);
@@ -81,6 +83,8 @@ export default function FullTestExamPage() {
   const submittingRef = useRef(false);
   const initializedRef = useRef(false);
   const selectedAnswerRef = useRef<string | null>(null);
+  /** เวลาเริ่มรอบ Full Test (ไว้คำนวณ time_spent_seconds) — null = รอบที่กู้มา ไม่ใช่เริ่มใหม่ */
+  const attemptStartedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     attemptIdRef.current = attemptId;
@@ -206,6 +210,14 @@ export default function FullTestExamPage() {
         loadState(resumeData2.data as ExamState);
       } else {
         loadState(startData.data as ExamState);
+        // รอบใหม่จริง (ไม่ใช่การกู้) → เริ่มนับเวลาและยิง event เปิดรอบ
+        attemptStartedAtRef.current = Date.now();
+        posthog?.capture("test_started", {
+          section_id: "full-test",
+          test_set_id: null,
+          test_type: "full-test",
+          total_questions: FULL_TEST_TOTAL_QUESTIONS,
+        });
       }
     } catch (err) {
       initializedRef.current = false;
@@ -224,7 +236,31 @@ export default function FullTestExamPage() {
     } finally {
       setLoading(false);
     }
-  }, [loadState, router]);
+  }, [loadState, router, posthog]);
+
+  /** event สรุปผล Full Test — ใช้ร่วมกันทั้งเส้นหมดเวลาและเส้นกดส่งข้อสุดท้าย */
+  const captureFullTestSubmitted = useCallback((data: unknown) => {
+    const result = data as {
+      correctAnswers?: number;
+      totalQuestions?: number;
+      score?: number;
+      normalizedScore?: number;
+      cefrLevel?: string;
+    } | null;
+    if (!posthog || !result) return;
+    posthog.capture("test_submitted", {
+      section_id: "full-test",
+      test_set_id: null,
+      score: result.correctAnswers ?? 0,
+      total_questions: result.totalQuestions ?? 0,
+      score_percentage: Math.round(result.score ?? 0),
+      normalized_score: result.normalizedScore ?? null,
+      cefr_level: result.cefrLevel ?? null,
+      time_spent_seconds: attemptStartedAtRef.current
+        ? Math.floor((Date.now() - attemptStartedAtRef.current) / 1000)
+        : null,
+    });
+  }, [posthog]);
 
   const handleTimeUp = useCallback(async () => {
     const id = attemptIdRef.current;
@@ -258,6 +294,7 @@ export default function FullTestExamPage() {
         router.push("/tests/full");
         return;
       }
+      captureFullTestSubmitted(submitData.data);
       router.push(`/tests/full/results?attemptId=${id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -276,7 +313,7 @@ export default function FullTestExamPage() {
       submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [router]);
+  }, [router, captureFullTestSubmitted]);
 
   // นาฬิกาถอยหลังอยู่ใน CountdownTimerBox (TestLayout) — นับในตัวเองจาก
   // เวลาเริ่มที่ได้รับตอน mount และเรียก onTimeUp เองเมื่อครบ หน้านี้จึงไม่
@@ -412,6 +449,7 @@ export default function FullTestExamPage() {
           router.push("/tests/full");
           return;
         }
+        captureFullTestSubmitted(submitData.data);
         router.push(`/tests/full/results?attemptId=${attemptIdRef.current}`);
         return;
       }

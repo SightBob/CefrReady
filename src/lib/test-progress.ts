@@ -275,6 +275,22 @@ export function rotateChoiceSeed(sectionId: string, setId: number | string): str
   return seed;
 }
 
+/**
+ * ใช้ seed ที่บันทึกไว้กับ draft ของเซิร์ฟเวอร์ — จำเป็นเมื่อเปิดแท็บใหม่/เครื่องอื่น
+ * เพราะ sessionStorage ว่างและ `ensureChoiceSeed` จะสร้างลำดับใหม่ ถ้าไม่ยอมรับ
+ * seed ของ draft คำตอบที่กู้มาจะชี้ไปคนละตัวเลือกแล้วตรวจ/ส่งได้คะแนนผิด
+ */
+export function adoptChoiceSeed(sectionId: string, setId: number | string, seed: string): string {
+  const normalized = seed.trim();
+  if (!normalized || typeof window === 'undefined') return normalized || seed;
+  try {
+    window.sessionStorage.setItem(choiceSeedKey(sectionId, setId), normalized);
+  } catch {
+    // เก็บไม่ได้ — อย่างน้อยรอบนี้ยังใช้ seed ที่ตรงกับคำตอบที่กู้มา
+  }
+  return normalized;
+}
+
 /** ล้างคำตอบที่กรอกไว้ (เช่น เริ่มทำชุดใหม่) */
 export function clearBlankAnswers(sectionId: string, setId: number | string): void {
   if (typeof window === 'undefined') return;

@@ -46,6 +46,7 @@ import {
   loadChoiceSeed,
   ensureChoiceSeed,
   rotateChoiceSeed,
+  adoptChoiceSeed,
   saveTestProgress,
   saveTestProgressState,
   clearBlankAnswers,
@@ -434,13 +435,25 @@ export default function SetQuizPage() {
         if (cancelled || !draft) return;
         const totalItems = countTestSetItems(setData.questions);
         if (draft.index === 0 && draft.answers.every((value) => value === null)) return;
+        // คำตอบถูกเก็บเป็น "ป้ายบนจอ" (A/B/C/D หลังสลับ) จึงต้องยอมรับ seed ที่ draft
+        // บันทึกไว้ "ก่อน" คืนคำตอบ ไม่งั้นแท็บใหม่/เครื่องอื่น (sessionStorage ว่าง)
+        // จะสร้างลำดับตัวเลือกใหม่แล้วคำตอบเดิมชี้ไปคนละข้อ → ตรวจ/ส่งได้คะแนนผิด
+        const draftSeed = typeof draft.choiceSeed === 'string' && draft.choiceSeed.trim()
+          ? draft.choiceSeed
+          : null;
+        if (draftSeed) {
+          setChoiceShuffleSeed(adoptChoiceSeed(sectionId, setId, draftSeed));
+        }
         const restoredAnswers: (string | null)[] = Array(totalItems).fill(null);
-        draft.answers.forEach((value, arrayIndex) => {
-          if (arrayIndex < restoredAnswers.length && value !== null) restoredAnswers[arrayIndex] = value;
-        });
+        // draft รุ่นเก่าที่ไม่มี seed = ลำดับตัวเลือกคนละชุด → คืนแค่ตำแหน่งข้อ
+        if (draftSeed) {
+          draft.answers.forEach((value, arrayIndex) => {
+            if (arrayIndex < restoredAnswers.length && value !== null) restoredAnswers[arrayIndex] = value;
+          });
+        }
         setAnswers(restoredAnswers);
-        setCheckedSlots(draft.checked);
-        const resumeIndex = firstUncheckedIndex(draft.index, draft.checked, totalItems);
+        setCheckedSlots(draftSeed ? draft.checked : {});
+        const resumeIndex = firstUncheckedIndex(draft.index, draftSeed ? draft.checked : {}, totalItems);
         setSelectedAnswer(restoredAnswers[resumeIndex] ?? null);
         setCurrentQuestion(resumeIndex < totalItems ? resumeIndex : Math.max(0, totalItems - 1));
         hasProgress.current = true;
@@ -1090,6 +1103,7 @@ export default function SetQuizPage() {
           durationMinutes={setData.duration ?? undefined}
           setNumber={currentSetIndex >= 0 ? currentSetIndex + 1 : 1}
           sectionId={sectionId}
+          setId={setId}
         />
       );
     }
@@ -1123,6 +1137,7 @@ export default function SetQuizPage() {
         durationMinutes={setData.duration ?? undefined}
         setNumber={currentSetIndex >= 0 ? currentSetIndex + 1 : 1}
         sectionId={sectionId}
+        setId={setId}
         reviewItems={reviewItems}
       />
     );

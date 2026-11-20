@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Layers } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -8,6 +8,7 @@ import FormMeaningFillCard from '@/components/FormMeaningFillCard';
 import TestLayout from '@/components/TestLayout';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api-fetch';
+import { usePostHog } from '@/lib/posthog';
 import { clearBlankAnswers, loadBlankAnswers, saveBlankAnswers } from '@/lib/test-progress';
 import type { Blank } from '@/types/test';
 
@@ -56,6 +57,8 @@ export default function FormMeaningQuiz({
   const [correctCount, setCorrectCount] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [testStartedAt] = useState(() => new Date().toISOString());
+  const testStartedAtRef = useRef<number>(Date.now());
+  const posthog = usePostHog();
   const router = useRouter();
 
   useEffect(() => {
@@ -211,6 +214,19 @@ export default function FormMeaningQuiz({
       }
       setIsSubmitted(true);
       setCorrectCount(serverCorrect);
+      // form-meaning มี flow ส่งข้อสอบของตัวเอง → ต้องยิง event ที่นี่ ไม่งั้น
+      // พาร์ทนี้จะไม่ถูกนับใน funnel (เดิม 606 starts / 0 submitted ใน 30 วัน)
+      if (data.success) {
+        const total = totalBlanks;
+        posthog?.capture('test_submitted', {
+          section_id: sectionId,
+          test_set_id: setId,
+          score: serverCorrect,
+          total_questions: total,
+          score_percentage: total > 0 ? Math.round((serverCorrect / total) * 100) : 0,
+          time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
+        });
+      }
       // ส่งสำเร็จแล้ว = ไม่เก็บคำตอบค้างไว้อีก (กันการส่งซ้ำเงียบ ๆ หลัง refresh)
       if (data.success) clearBlankAnswers(sectionId, setId);
     } catch (err) {

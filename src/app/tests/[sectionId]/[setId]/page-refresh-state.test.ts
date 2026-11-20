@@ -29,7 +29,7 @@ describe('หน้าข้อสอบคืนคำตอบหลัง ref
     // helper ตรวจข้อที่จำไว้; ถ้าตรวจแล้วจับข้อแรกที่ยังไม่ผ่าน (ทั้งเส้น localStorage และ draft DB)
     expect(pageSrc).toContain('const firstUncheckedIndex =');
     expect(pageSrc).toContain('firstUncheckedIndex(');
-    expect(pageSrc).toContain('firstUncheckedIndex(draft.index, draft.checked, totalItems)');
+    expect(pageSrc).toContain('firstUncheckedIndex(draft.index, draftSeed ? draft.checked : {}, totalItems)');
   });
 
   it('ลำดับตัวเลือกคงเดิมตลอดรอบ — คำตอบที่จำไว้จึงยังชี้ตัวเดิมหลัง refresh', () => {
@@ -37,6 +37,8 @@ describe('หน้าข้อสอบคืนคำตอบหลัง ref
     expect(pageSrc).toContain('ensureChoiceSeed(sectionId, setId)');
     expect(pageSrc).toContain('seedExisted');
     expect(pageSrc).toContain('rotateChoiceSeed(sectionId, setId)');
+    // draft จาก DB ต้องพา seed ของรอบนั้นกลับมาด้วย (แท็บใหม่/เครื่องอื่น sessionStorage ว่าง)
+    expect(pageSrc).toContain('adoptChoiceSeed(sectionId, setId, draftSeed)');
     expect(pageSrc).not.toContain('const choiceShuffleSeed = `${setId}-${testStartedAt}`;');
   });
 
