@@ -696,6 +696,10 @@ export default function SetQuizPage() {
   // Track test_started when questions are loaded
   useEffect(() => {
     if (setData && posthog && testStartedAtRef.current === 0) {
+      // หน้านี้แสดง "ผลสอบ" ที่กู้คืนจาก sessionStorage ไม่ใช่การเริ่มรอบใหม่
+      // เดิมนับเป็น test_started → อัตราทำจนจบต่ำกว่าความจริง (form-meaning เสีย ~40%)
+      // เช็กแบบ synchronous ก่อน เพราะ setIsFinished ใน effect ก่อนหน้ายังไม่ทัน re-render
+      if (!previewMode && !isNaN(setId) && loadFinishedTest(sectionId, setId)) return;
       testStartedAtRef.current = Date.now();
       const attemptKeyValue = attemptKeyForAnalytics();
       // dedupe ต่อ "รอบการใช้งาน" ไม่ใช่ต่อแท็บ: sessionStorage แยกทุกแท็บ →
@@ -722,7 +726,7 @@ export default function SetQuizPage() {
         total_questions: mainSlots.length || setData.questions.length,
       });
     }
-  }, [setData, posthog, sectionId, setId, attemptKeyForAnalytics, mainSlots.length]);
+  }, [setData, posthog, sectionId, setId, attemptKeyForAnalytics, mainSlots.length, previewMode]);
 
   // test_abandoned — ออกจากหน้าโดยยังไม่ส่งข้อสอบ
   // ไม่มี event นี้ = มองไม่เห็นว่าคนหลุดตอนข้อไหน (เดิมรู้แค่ starts vs submits)
