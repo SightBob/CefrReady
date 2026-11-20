@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { calculateScore, parseStructuredAnswer } from './score-utils';
+import { calculateScore, countAnsweredItems, parseStructuredAnswer } from './score-utils';
+
+describe('countAnsweredItems', () => {
+  it('คำตอบเดี่ยว: ว่าง = 0, มีค่า = 1', () => {
+    expect(countAnsweredItems('')).toBe(0);
+    expect(countAnsweredItems('   ')).toBe(0);
+    expect(countAnsweredItems('A')).toBe(1);
+  });
+
+  it('Tap & Select / บทความเติมคำ (JSON): นับรายชิ้น ไม่ใช่รายข้อ', () => {
+    expect(countAnsweredItems(JSON.stringify({ 0: 'A', 1: '', 2: 'B' }))).toBe(2);
+    expect(countAnsweredItems(JSON.stringify({ 20: 'in', 21: 'his' }))).toBe(2);
+  });
+
+  it('JSON เสียรูปยังนับเป็น 1 ชิ้น ไม่ทำให้การส่งข้อสอบพัง', () => {
+    expect(countAnsweredItems('{not json')).toBe(1);
+  });
+});
 
 describe('authoritative scoring', () => {
   const questions = [{ id: 1, correctAnswer: 'A', explanation: null }, { id: 2, correctAnswer: 'B', explanation: null }];

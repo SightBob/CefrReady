@@ -63,6 +63,31 @@ export function parseStructuredAnswer(value: string): Record<string, string> | n
   }
 }
 
+/**
+ * นับ "ชิ้นคำตอบ" ที่ผู้เรียนตอบจริงจาก selectedAnswer หนึ่งค่า
+ *
+ * ปกติ 1 ข้อ = 1 คำตอบ แต่ Tap & Select และบทความเติมคำส่งเป็น JSON
+ * (คีย์ = item/blank) จึงต้องนับรายชิ้น ไม่ใช่รายข้อ — ไม่งั้น answered_count
+ * จะเป็น 1 ทั้งที่ตอบไป 8 ช่อง
+ */
+export function countAnsweredItems(userAnswer: string): number {
+  const raw = (userAnswer ?? '').trim();
+  if (!raw) return 0;
+  if (raw.startsWith('{')) {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return Object.values(parsed as Record<string, unknown>).filter(
+          (value) => typeof value === 'string' && value.trim() !== '',
+        ).length;
+      }
+    } catch {
+      // ไม่ใช่ JSON ที่สมบูรณ์ — นับเป็น 1 ชิ้นตามที่ผู้เรียนส่งมา
+    }
+  }
+  return 1;
+}
+
 export function calculateScore(
   answers: Answer[],
   dbQuestions: DbQuestion[]

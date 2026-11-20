@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { questions, testAttempts, userAnswers, testTypes, testSets, testSetQuestions, tapReasonSubmissions } from '@/db/schema';
 import { eq, inArray, and, sql, asc } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { calculateScore, parseStructuredAnswer } from '@/lib/score-utils';
+import { calculateScore, countAnsweredItems, parseStructuredAnswer } from '@/lib/score-utils';
 import { filterQuestionsForLearners } from '@/lib/tap-visibility';
 import { isAdminRequest } from '@/lib/admin-auth';
 import { MAX_TAP_REASON_LENGTH, collectTapReasonRows, computeTapReasonRewardPoints } from '@/lib/tap-reason-rewards';
@@ -303,9 +303,10 @@ async function submitRequest(request: NextRequest) {
   // test_scored — ความจริงจากฝั่งเซิร์ฟเวอร์ (client event หายได้: ปิดแท็บ/adblock)
   // ใช้ reconcile กับ test_submitted ของ browser และได้ answered_count จริงเสมอ
   if (!preview) {
-    const answeredCount = results.filter(
-      (result) => typeof result.userAnswer === 'string' && result.userAnswer.trim() !== '',
-    ).length;
+    const answeredCount = Math.min(
+      totalQuestions,
+      results.reduce((sum, result) => sum + countAnsweredItems(result.userAnswer), 0),
+    );
     // ต้อง await — serverless จะ freeze ฟังก์ชันทันทีที่คืน response
     // ถ้าปล่อยเป็น fire-and-forget request จะถูกตัดทิ้งก่อนถึง PostHog
     await captureServerEvent(user.id, 'test_scored', {
