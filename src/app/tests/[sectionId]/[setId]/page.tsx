@@ -547,6 +547,8 @@ export default function SetQuizPage() {
   // PostHog tracking
   const posthog = usePostHog();
   const testStartedAtRef = useRef<number>(0);
+  // ข้อที่ผู้เรียนเปิดเห็นแล้วในรอบนี้ — กัน question_viewed ยิงซ้ำเมื่อย้อนกลับมาข้อเดิม
+  const viewedSlotsRef = useRef<Set<string>>(new Set());
   // Marks when the learner arrived on the current question — used by
   // `question_answered` so we can see which questions people stare at (or rush).
   const questionEnteredAtRef = useRef<number>(Date.now());
@@ -775,6 +777,40 @@ export default function SetQuizPage() {
       fireAbandoned(false);
     };
   }, [posthog, sectionId, setId, mainSlots.length, attemptKeyForAnalytics]);
+
+  // question_viewed — ข้อที่ผู้เรียนเปิดเห็นจริง
+  // ไม่มี event นี้ = รู้แค่ว่าหลุดที่พาร์ท แต่ไม่รู้ว่าติดข้อไหน (สิ่งที่ต้องการที่สุด)
+  // dedupe ต่อ (attempt_key, slot) → ย้อนกลับมาข้อเดิมไม่นับซ้ำ และรีเซ็ตเองเมื่อ "ทำอีกครั้ง"
+  useEffect(() => {
+    if (!posthog || !setData || testStartedAtRef.current === 0) return;
+    const slot = mainSlots[currentQuestion];
+    if (!slot) return;
+    const attemptKeyValue = attemptKeyForAnalytics();
+    const marker = `${attemptKeyValue}:${currentQuestion}`;
+    if (viewedSlotsRef.current.has(marker)) return;
+    viewedSlotsRef.current.add(marker);
+    const question = setData.questions[slot.questionIndex];
+    posthog.capture('question_viewed', {
+      section_id: sectionId,
+      test_set_id: setId,
+      attempt_key: attemptKeyValue,
+      slot_index: currentQuestion,
+      slot_kind: slot.kind,
+      cefr_level: question?.cefrLevel ?? null,
+      total_slots: mainSlots.length,
+      answered_before: (answersRef.current[currentQuestion] ?? null) !== null,
+      // หน้านี้กู้ความคืบหน้ามาแสดง = ผู้เรียนกลับมาทำต่อ ไม่ได้เริ่มใหม่
+      resumed: hasProgress.current,
+    });
+  }, [
+    currentQuestion,
+    setData,
+    posthog,
+    sectionId,
+    setId,
+    mainSlots,
+    attemptKeyForAnalytics,
+  ]);
 
   const getQuestionChoices = useCallback((question: RawQuestion, salt: string): ShuffledChoiceOption[] => createQuestionChoiceOptions(
     [

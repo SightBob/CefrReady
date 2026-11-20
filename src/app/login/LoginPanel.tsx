@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { absoluteCallbackUrl } from '@/lib/redirect-safety';
@@ -14,6 +14,18 @@ export default function LoginPanel({ callbackUrl }: { callbackUrl: string }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const posthog = usePostHog();
+
+  // gate_viewed — เห็นหน้ากำแพงล็อกอินแล้ว (ก่อนกด Google)
+  // เดิมเห็นแค่ signup_started (คนที่กดปุ่ม) ทำให้ไม่รู้ว่ามีคนมากี่คน
+  // ที่ถูกกันไว้ก่อนถึงปุ่ม และหลุดไปกี่ % ระหว่างหน้า login กับ Google
+  useEffect(() => {
+    if (!posthog) return;
+    posthog.capture('gate_viewed', {
+      callback_url: callbackUrl,
+      // /tests = ถูกเด้งจากหน้าข้อสอบ (กำแพงของ funnel หลัก)
+      from: callbackUrl.startsWith('/tests') ? 'tests_gate' : 'login_page',
+    });
+  }, [posthog, callbackUrl]);
 
   const handleLogin = () => {
     setBusy(true);

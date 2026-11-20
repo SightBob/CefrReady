@@ -11,6 +11,7 @@ import { getTapReasonRewardSettingsSafe } from '@/lib/tap-reason-settings';
 import { checkIpThrottle, checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import { closeDraftAfterSubmit } from '@/lib/test-draft';
 import { rateLimit, rateLimitResponse, getRateLimitIdentifier } from '@/lib/rate-limit';
+import { captureServerEvent } from '@/lib/analytics-server';
 import { z } from 'zod';
 
 const submitBodySchema = z.object({
@@ -297,6 +298,24 @@ async function submitRequest(request: NextRequest) {
   if (!preview && testSetId !== undefined) {
     await closeDraftAfterSubmit(user.id, testTypeId, testSetId).catch((error) => {
       console.warn('[submit] Failed to close draft:', error);
+    });
+  }
+  // test_scored — ความจริงจากฝั่งเซิร์ฟเวอร์ (client event หายได้: ปิดแท็บ/adblock)
+  // ใช้ reconcile กับ test_submitted ของ browser และได้ answered_count จริงเสมอ
+  if (!preview) {
+    const answeredCount = results.filter(
+      (result) => typeof result.userAnswer === 'string' && result.userAnswer.trim() !== '',
+    ).length;
+    captureServerEvent(user.id, 'test_scored', {
+      section_id: testTypeId,
+      test_set_id: testSetId ?? null,
+      attempt_id: newAttempt.id,
+      score: Math.round(score),
+      correct: correctCount,
+      total: totalQuestions,
+      answered_count: answeredCount,
+      unanswered_count: Math.max(0, totalQuestions - answeredCount),
+      duration_seconds: Math.max(0, Math.round((now.getTime() - actualStartedAt.getTime()) / 1000)),
     });
   }
   return NextResponse.json({

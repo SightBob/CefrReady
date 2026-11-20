@@ -139,6 +139,20 @@ export default function TestResults({
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // result_action — ผู้เรียนเลือกอยูาต่อ (ทำอีกครั้ง) หรือออก (จบการสอบ)
+  // หน้าผลสอบเป็นจุดสุดท้ายของ funnel ที่เดิมมองไม่เห็นว่าคนไหลต่อไปทางไหน
+  const trackResultAction = (action: 'retake' | 'finish') => {
+    posthog?.capture('result_action', {
+      action,
+      section_id: sectionId,
+      test_set_id: setId ?? null,
+      attempt_id: attemptId ?? null,
+      score,
+      total_questions: totalQuestions,
+      score_percentage: percentage,
+    });
+  };
+
   // หน้า demo ยังคง UI เดิมไว้ตามเดิม
   if (isDemo) {
     return (
@@ -427,7 +441,10 @@ export default function TestResults({
       >
         <div className="flex items-center justify-center gap-4 md:gap-[270px]">
           <button
-            onClick={onRestart}
+            onClick={() => {
+              trackResultAction('retake');
+              onRestart();
+            }}
             className="flex h-[48px] w-[213px] shrink-0 items-center justify-center rounded-[10px] border border-[#eaeaea] bg-white px-5 py-3 text-center text-[16px] font-semibold text-[#524924] shadow-[3px_3px_0px_#d5d3d3]"
           >
             ทำอีกครั้ง
@@ -435,6 +452,7 @@ export default function TestResults({
           <Link
             href={endHref ?? '/tests'}
             aria-label="จบการสอบ"
+            onClick={() => trackResultAction('finish')}
             className="flex h-[49px] w-[216px] shrink-0 items-center justify-center rounded-[14px] border border-[#ffdb40] border-b-4 border-r-[3px] bg-[#fff0ae] px-[11px] py-[10px] text-center text-[16px] font-semibold text-[#524924]"
           >
             จบการสอบ

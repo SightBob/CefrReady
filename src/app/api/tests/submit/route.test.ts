@@ -11,11 +11,13 @@ const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   settings: vi.fn(),
   transaction: vi.fn(),
+  captureEvent: vi.fn(),
+  isAdmin: vi.fn(),
 }));
 
 vi.mock('@/lib/api-security', () => ({ checkIpThrottle: mocks.ip, checkUserRateLimit: mocks.userLimit, validateOrigin: () => null }));
 vi.mock('@/lib/auth-utils', () => ({ getCurrentUser: mocks.currentUser }));
-vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: vi.fn(async () => false) }));
+vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: (...args: unknown[]) => mocks.isAdmin(...args) }));
 vi.mock('@/lib/rate-limit', () => ({
   rateLimit: vi.fn(),
   rateLimitResponse: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock('@/db', () => ({
   },
 }));
 vi.mock('@/lib/tap-reason-settings', () => ({ getTapReasonRewardSettingsSafe: mocks.settings }));
+vi.mock('@/lib/analytics-server', () => ({ captureServerEvent: mocks.captureEvent }));
 
 import { POST } from './route';
 
@@ -102,6 +105,7 @@ beforeEach(() => {
   mocks.userLimit.mockResolvedValue(null);
   mocks.currentUser.mockResolvedValue({ id: 'learner' });
   mocks.settings.mockResolvedValue({ autoAward: true, points: 50 });
+  mocks.isAdmin.mockResolvedValue(false);
   mocks.select.mockReset();
   mocks.select.mockReturnValueOnce(testTypeChain()).mockReturnValueOnce(questionsChain()).mockReturnValueOnce(testTypeChain());
   mocks.insert.mockReset().mockImplementation(() => insertChain());
@@ -180,6 +184,36 @@ describe('submission integrity', () => {
     const response = await POST(request({ testSetId: 20, answers: [{ questionId: 1, selectedAnswer: 'A' }], tapReasons: {} }));
     expect(response.status).toBe(200);
     expect((await response.json()).data).toMatchObject({ score: 50, totalQuestions: 2, correctAnswers: 1 });
+  });
+});
+
+describe('POST /api/tests/submit — server-side score event', () => {
+  it('ส่ง test_scored ครั้งเดียวพร้อมตัวเลขที่ใช้ reconcile กับ client event', async () => {
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+
+    expect(mocks.captureEvent).toHaveBeenCalledTimes(1);
+    const [distinctId, event, properties] = mocks.captureEvent.mock.calls[0]!;
+    expect(distinctId).toBe('learner');
+    expect(event).toBe('test_scored');
+    expect(properties).toMatchObject({
+      section_id: 'focus-form',
+      test_set_id: 20,
+      attempt_id: 55,
+      correct: 1,
+      total: 1,
+      score: 100,
+    });
+    // answered + unanswered ต้องเท่ากับ total เสมอ (client event อาจหาย)
+    expect(properties.answered_count + properties.unanswered_count).toBe(properties.total);
+    expect(properties.duration_seconds).toBeGreaterThanOrEqual(0);
+  });
+
+  it('ไม่ส่ง event ตอน preview ของแอดมิน', async () => {
+    mocks.isAdmin.mockResolvedValue(true);
+    const response = await POST(request({ preview: true }));
+    expect(response.status).toBe(200);
+    expect(mocks.captureEvent).not.toHaveBeenCalled();
   });
 });
 
