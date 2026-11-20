@@ -150,6 +150,24 @@ export default function ReviewPage() {
     return () => window.removeEventListener('resize', revealActive);
   }, [currentIndex, orderedItems.length]);
 
+  // review_question_viewed — ข้อไหนที่ผู้เรียนย้อนกลับมาดู (วัด learning loop)
+  // dedupe ต่อข้อ: กดลูกศรไปกลับไม่ควรนับซ้ำ
+  const viewedQuestionsRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!currentItem || !attempt || !posthog) return;
+    if (viewedQuestionsRef.current.has(currentItem.questionId)) return;
+    viewedQuestionsRef.current.add(currentItem.questionId);
+    posthog.capture('review_question_viewed', {
+      attempt_id: Number(params.attemptId),
+      question_id: currentItem.questionId,
+      was_correct: currentItem.isCorrect,
+      position: currentIndex + 1,
+      total_questions: attempt.totalQuestions,
+      cefr_level: currentItem.question?.cefrLevel ?? null,
+      question_changed: currentItem.questionChanged === true,
+    });
+  }, [currentItem, currentIndex, attempt, posthog, params.attemptId]);
+
   // ─── Loading Skeleton ──────────────────────────────────────────
   if (loading) {
     return (

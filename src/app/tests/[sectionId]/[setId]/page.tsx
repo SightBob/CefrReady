@@ -571,6 +571,8 @@ export default function SetQuizPage() {
   answersRef.current = answers;
   const currentQuestionRef = useRef(0);
   currentQuestionRef.current = currentQuestion;
+  // จำนวนครั้งที่กดเล่นเสียงต่อข้อ — play_index ใช้ดูว่าต้องฟังซ้ำกี่ครั้ง
+  const audioPlaysRef = useRef<Record<number, number>>({});
 
   // ปุ่ม "โหมดทบทวน" — ใช้ร่วมกันทุก skill (Form & Meaning / Tap & Select /
   // Listening / Focus on Meaning / Focus on Form) แล้ว capture ก่อนเปิด overlay
@@ -1551,7 +1553,30 @@ export default function SetQuizPage() {
           hideFeedback={!activeChecked && !previewMode}
           correctAnswer={revealedCorrectKey}
           explanation={revealedExplanation ?? (revealedCorrectKey ? 'See transcript above.' : null)}
-          onAudioPlayed={() => setAudioPlayedMap(prev => ({ ...prev, [currentQuestion]: true }))}
+          onAudioStart={() => {
+            if (!posthog || previewMode) return;
+            const playIndex = (audioPlaysRef.current[question.id] ?? 0) + 1;
+            audioPlaysRef.current[question.id] = playIndex;
+            posthog.capture('audio_played', {
+              section_id: sectionId,
+              test_set_id: setId,
+              question_id: question.id,
+              play_index: playIndex,
+              attempt_key: attemptKeyForAnalytics(),
+              cefr_level: question.cefrLevel ?? null,
+            });
+          }}
+          onAudioPlayed={() => {
+            setAudioPlayedMap(prev => ({ ...prev, [currentQuestion]: true }));
+            if (!posthog || previewMode) return;
+            posthog.capture('audio_completed', {
+              section_id: sectionId,
+              test_set_id: setId,
+              question_id: question.id,
+              play_index: audioPlaysRef.current[question.id] ?? 1,
+              attempt_key: attemptKeyForAnalytics(),
+            });
+          }}
           onAnswerSelect={handleAnswer}
           disabled={submitting}
         />

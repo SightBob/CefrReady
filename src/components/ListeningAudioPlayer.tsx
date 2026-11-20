@@ -20,6 +20,8 @@ interface ListeningAudioPlayerProps {
   correctAnswer: string | null;
   explanation: string | null;
   onAudioPlayed?: () => void;
+  /** เริ่มเล่นเสียง (ยิงก่อนจบ) — ใช้แยก "กดเล่นแล้วออก" จาก "ฟังจบ" */
+  onAudioStart?: () => void;
   onAnswerSelect: (answer: string) => void;
   disabled?: boolean;
   hideFeedback?: boolean;
@@ -41,6 +43,7 @@ export default function ListeningAudioPlayer({
   correctAnswer,
   explanation,
   onAudioPlayed,
+  onAudioStart,
   onAnswerSelect,
   disabled = false,
   hideFeedback = false,
@@ -130,7 +133,8 @@ export default function ListeningAudioPlayer({
       setIsPlaying(false);
     });
     setIsPlaying(true);
-  }, [hasPlayed]);
+    onAudioStart?.();
+  }, [hasPlayed, onAudioStart]);
 
   const handlePause = useCallback(() => {
     if (audioRef.current) {
