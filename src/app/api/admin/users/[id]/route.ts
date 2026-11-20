@@ -1,11 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { testAttempts, users } from '@/db/schema';
+import { and, desc, eq } from 'drizzle-orm';
 import { withAdmin } from '@/lib/admin-route';
 import { DEFAULT_ADMIN_EMAIL } from '@/lib/admin-identity';
 
 export const dynamic = 'force-dynamic';
+
+/** GET — รายการผลสอบ (attempt ที่ส่งแล้ว) ของผู้ใช้คนนี้ ให้แอดมินเปิดหน้า /review ได้ */
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  const { error } = await withAdmin({ keySuffix: 'admin:users:[id]:attempts', maxRequests: 60 });
+  if (error) return error;
+
+  try {
+    const attempts = await db
+      .select({
+        id: testAttempts.id,
+        testTypeId: testAttempts.testTypeId,
+        score: testAttempts.score,
+        correctAnswers: testAttempts.correctAnswers,
+        totalQuestions: testAttempts.totalQuestions,
+        completedAt: testAttempts.completedAt,
+      })
+      .from(testAttempts)
+      .where(and(eq(testAttempts.userId, params.id), eq(testAttempts.status, 'completed')))
+      .orderBy(desc(testAttempts.completedAt))
+      .limit(50);
+
+    return NextResponse.json({ success: true, data: attempts });
+  } catch (err) {
+    console.error('[admin/users/[id]] attempts error:', err);
+    return NextResponse.json({ success: false, error: 'Failed to load attempts' }, { status: 500 });
+  }
+}
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;

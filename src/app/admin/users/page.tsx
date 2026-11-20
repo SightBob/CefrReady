@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Users, Search, Trash2, Mail, Calendar, BarChart2, ChevronUp, ChevronDown, Loader2, AlertTriangle, Shield, ShieldOff, FlaskConical } from 'lucide-react';
+import { ArrowLeft, Users, Search, Trash2, Mail, Calendar, BarChart2, ChevronUp, ChevronDown, Loader2, AlertTriangle, Shield, ShieldOff, FlaskConical, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -23,6 +23,24 @@ interface User {
 type SortKey = 'name' | 'email' | 'createdAt' | 'totalAttempts' | 'avgScore';
 type SortDir = 'asc' | 'desc';
 
+const TEST_TYPE_LABELS: Record<string, string> = {
+  'focus-form': 'Focus on Form',
+  'focus-meaning': 'Focus on Meaning',
+  'form-meaning': 'Form & Meaning',
+  listening: 'Listening',
+  full: 'Full Test',
+};
+
+/** ผลสอบของผู้ใช้หนึ่งคน — เปิดหน้า /review/[attemptId] ได้ */
+interface AttemptRow {
+  id: number;
+  testTypeId: string;
+  score: string | null;
+  correctAnswers: number | null;
+  totalQuestions: number | null;
+  completedAt: string | null;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +52,29 @@ export default function AdminUsersPage() {
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [tasterTarget, setTasterTarget] = useState<User | null>(null);
+  const [attemptsTarget, setAttemptsTarget] = useState<User | null>(null);
+  const [attemptRows, setAttemptRows] = useState<AttemptRow[]>([]);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
+
+  const openAttempts = async (user: User) => {
+    setAttemptsTarget(user);
+    setAttemptRows([]);
+    setAttemptsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`);
+      const json = await res.json();
+      if (json.success) {
+        setAttemptRows(json.data ?? []);
+      } else {
+        toast.error('โหลดผลสอบไม่สำเร็จ', { description: json.error || 'กรุณาลองใหม่อีกครั้ง' });
+      }
+    } catch (err) {
+      console.error('Failed to load attempts:', err);
+      toast.error('เชื่อมต่อระบบไม่สำเร็จ', { description: 'ไม่สามารถโหลดผลสอบได้ กรุณาลองใหม่อีกครั้ง' });
+    } finally {
+      setAttemptsLoading(false);
+    }
+  };
 
   const toggleTaster = async (user: User) => {
     const next = !user.isTaster;
@@ -289,6 +330,9 @@ export default function AdminUsersPage() {
                       ครั้งล่าสุด
                     </th>
                     <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      ผลสอบ
+                    </th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       แอดมิน
                     </th>
                     <th className="px-5 py-3.5" />
@@ -347,6 +391,19 @@ export default function AdminUsersPage() {
                       {/* Last attempt */}
                       <td className="px-5 py-4 text-slate-500 text-xs">
                         {formatDate(user.lastAttempt)}
+                      </td>
+
+                      {/* Review attempts */}
+                      <td className="px-5 py-4">
+                        <button
+                          onClick={() => void openAttempts(user)}
+                          disabled={user.totalAttempts === 0}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="ดูผลสอบ / เฉลยของผู้ใช้คนนี้"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          ดูผล
+                        </button>
                       </td>
 
                       {/* Admin toggle */}
@@ -496,6 +553,64 @@ export default function AdminUsersPage() {
           if (tasterTarget) void toggleTaster(tasterTarget);
         }}
       />
+
+      {/* ผลสอบของผู้ใช้ — เปิดหน้า /review/[attemptId] */}
+      {attemptsTarget && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">ผลสอบ</h2>
+                <p className="text-sm text-slate-500">{attemptsTarget.name ?? attemptsTarget.email}</p>
+              </div>
+              <button
+                onClick={() => setAttemptsTarget(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                aria-label="ปิด"
+              >
+                ✕
+              </button>
+            </div>
+
+            {attemptsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
+              </div>
+            ) : attemptRows.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-500">ยังไม่มีผลสอบที่ส่งแล้ว</p>
+            ) : (
+              <ul className="max-h-[60vh] overflow-y-auto divide-y divide-slate-100">
+                {attemptRows.map((attempt) => (
+                  <li key={attempt.id} className="py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800">
+                        {TEST_TYPE_LABELS[attempt.testTypeId] ?? attempt.testTypeId}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {formatDate(attempt.completedAt)}
+                        {attempt.totalQuestions ? ` · ${attempt.correctAnswers ?? 0}/${attempt.totalQuestions} ข้อ` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={`text-sm font-bold ${scoreColor(attempt.score === null ? null : Number(attempt.score))}`}>
+                        {attempt.score === null ? '—' : `${Math.round(Number(attempt.score))}%`}
+                      </span>
+                      <Link
+                        href={`/review/${attempt.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 transition-colors"
+                      >
+                        ดูเฉลย
+                      </Link>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
