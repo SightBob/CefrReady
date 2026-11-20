@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { testAttempts, userAnswers, questions, testTypes } from '@/db/schema';
-import { eq, and, inArray, asc } from 'drizzle-orm';
+import { eq, inArray, asc } from 'drizzle-orm';
 import type { AttemptPathEntry } from '@/lib/full-test/state';
 import type { DbQuestion } from '@/db/schema';
 import { getCurrentUser } from '@/lib/auth-utils';
+import { isAdminRequest } from '@/lib/admin-auth';
 import { isQuestionChangedSinceAttempt } from '@/lib/review-legacy';
 
 export const dynamic = 'force-dynamic';
@@ -33,18 +34,23 @@ export async function GET(request: NextRequest, props: { params: Promise<{ attem
       );
     }
 
-    // Fetch attempt and verify ownership
+    // Fetch attempt; owner only — ยกเว้นแอดมินที่ดูผลผู้เรียนจาก /admin/users
     const attempt = await db
       .select()
       .from(testAttempts)
-      .where(and(
-        eq(testAttempts.id, attemptId),
-        eq(testAttempts.userId, user.id)
-      ))
+      .where(eq(testAttempts.id, attemptId))
       .limit(1)
       .then(rows => rows[0]);
 
     if (!attempt || attempt.status !== 'completed') {
+      return NextResponse.json(
+        { success: false, error: 'Attempt not found' },
+        { status: 404 }
+      );
+    }
+
+    if (attempt.userId !== user.id && !(await isAdminRequest())) {
+      // 404 เหมือนไม่มี attempt นี้ — ไม่ให้เดาว่า id ไหนมีอยู่จริง
       return NextResponse.json(
         { success: false, error: 'Attempt not found' },
         { status: 404 }

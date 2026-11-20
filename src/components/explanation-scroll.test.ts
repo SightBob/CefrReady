@@ -53,9 +53,6 @@ describe('which pages scroll to the explanation', () => {
   // หน้าที่เฉลยมาพร้อมหน้าเลย หรือไม่ใช่หน้าทำข้อสอบ — ต้องไม่เลื่อน
   const NO_SCROLL_PAGES = [
     'src/app/review/[attemptId]/page.tsx',
-    'src/app/demo/focus-form/page.tsx',
-    'src/app/demo/listening/page.tsx',
-    'src/app/demo/focus-meaning/page.tsx',
   ] as const;
 
   it.each(NO_SCROLL_PAGES)('%s never opts in', (file) => {

@@ -17,17 +17,13 @@ const STATIC_PAGES: { path: string; priority: number; changeFrequency: 'daily' |
   { path: '/cefr-levels', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/cefr-vs-ielts', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/progress', priority: 0.7, changeFrequency: 'weekly' },
+  // Demo page — ทางเข้าเดียว (ชุดผสมทุกทักษะ) หน้า demo รายพาร์ทถูกลบแล้ว
   { path: '/demo', priority: 0.8, changeFrequency: 'monthly' },
   // Test section pages
   { path: '/tests/focus-form', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/tests/focus-meaning', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/tests/form-meaning', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/tests/listening', priority: 0.8, changeFrequency: 'weekly' },
-  // Demo pages
-  { path: '/demo/focus-form', priority: 0.7, changeFrequency: 'monthly' },
-  { path: '/demo/focus-meaning', priority: 0.7, changeFrequency: 'monthly' },
-  { path: '/demo/form-meaning', priority: 0.7, changeFrequency: 'monthly' },
-  { path: '/demo/listening', priority: 0.7, changeFrequency: 'monthly' },
   // หน้าข้อมูล/นโยบาย
   { path: '/packages', priority: 0.6, changeFrequency: 'monthly' },
   { path: '/privacy', priority: 0.3, changeFrequency: 'monthly' },

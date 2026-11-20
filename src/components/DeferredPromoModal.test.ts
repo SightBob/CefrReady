@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { shouldLoadPromoModal } from './DeferredPromoModal';
 
 describe('shouldLoadPromoModal', () => {
-  it.each(['/tests', '/tests/focus-form/1', '/demo/listening', '/checkout'])(
+  it.each(['/tests', '/tests/focus-form/1', '/demo/exam', '/checkout'])(
     'skips performance-sensitive route %s',
     (pathname) => {
       expect(shouldLoadPromoModal(pathname)).toBe(false);

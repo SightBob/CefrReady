@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import DemoTestsSection, { DemoInfoNote } from '@/components/DemoTestsSection';
+import Link from 'next/link';
 import TestsLandingShell from '@/components/TestsLandingShell';
-import { fetchDemoQuestionCounts } from '@/lib/demo-set';
 
 export const metadata: Metadata = {
   title: 'ทดลองทำข้อสอบ CEFR ฟรี',
@@ -20,14 +19,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * หน้า /demo ใช้โครงหน้าเดียวกับ /tests (ประกาศ + hero + เส้นคลื่น + หัวข้อหมวดหมู่)
- * แต่ flow เดิมของ demo ไว้ครบ: ไม่ต้อง login, ลิงก์ไป 4 หน้าเดิม, 5 ข้อต่อชุด
+ * หน้า /demo เหลือทางเข้าเดียว: ชุดตัวอย่างแบบผสมทุกทักษะ (/demo/intro → /demo/exam)
+ * หน้า demo รายพาร์ทเดิมถูกลบแล้ว — URL เก่าถูก redirect ไป /demo/intro (next.config.mjs)
  */
-export default async function DemoTestsPage() {
-  const counts = await fetchDemoQuestionCounts().catch((error) => {
-    console.error('[demo/page] Failed to count demo questions:', error);
-    return {} as Record<string, number>;
-  });
+export default function DemoTestsPage() {
   return (
     <TestsLandingShell
       hero={{
@@ -39,16 +34,20 @@ export default async function DemoTestsPage() {
             ครบทุกทักษะ ตั้งแต่ระดับ A1 ถึง C2
           </>
         ),
-        cta: { href: '/demo/focus-form', labelMobile: 'เริ่มทดลองเลย', labelDesktop: 'ทดลองทำข้อสอบ' },
+        cta: { href: '/demo/intro', labelMobile: 'เริ่มทดลองเลย', labelDesktop: 'ทดลองทำข้อสอบ' },
       }}
-      sectionTitle="เลือกทดลองตามทักษะ"
+      sectionTitle="ทดลองทำข้อสอบตัวอย่าง"
     >
-      {/* 200:9242 — การ์ดแรกขยับลง 8px ระยะห่างการ์ด 14px (ค่าเดียวกับหน้า /tests) */}
-      <div className="mt-[4px] grid grid-cols-1 gap-[14px] py-2 sm:grid-cols-2 lg:mt-[14px] lg:grid-cols-4 lg:gap-5 lg:py-0">
-        <DemoTestsSection counts={counts} />
+      <div className="mt-6 rounded-[14px] bg-[#F2F8FC] px-4 py-3 text-[13px] font-medium leading-[20px] text-[#53657F] lg:mt-8 lg:px-5">
+        <p>🎉 These are short sample tests.</p>
+        <p>
+          For full tests with 20-30 questions and progress tracking,{' '}
+          <Link href="/tests" className="font-semibold text-[#2A4246] underline underline-offset-2">
+            login here
+          </Link>
+          .
+        </p>
       </div>
-
-      <DemoInfoNote />
     </TestsLandingShell>
   );
 }
