@@ -209,8 +209,9 @@ export default function FormMeaningQuiz({
         onAttemptId?.(data.data.attemptId);
       }
       // เฉลยจริงมาจาก server (หลังส่งข้อสอบ) → ใช้แสดงผลถูก/ผิดในการ์ด
+      const parsedCorrect = data.success ? parseServerCorrectAnswers(data.data.results) : {};
       if (data.success) {
-        setServerCorrectAnswers(parseServerCorrectAnswers(data.data.results));
+        setServerCorrectAnswers(parsedCorrect);
       }
       setIsSubmitted(true);
       setCorrectCount(serverCorrect);
@@ -218,13 +219,38 @@ export default function FormMeaningQuiz({
       // พาร์ทนี้จะไม่ถูกนับใน funnel (เดิม 606 starts / 0 submitted ใน 30 วัน)
       if (data.success) {
         const total = totalBlanks;
+        const answeredCount = combinedArticle.blanks.filter((b) => (answers[b.id] ?? '').trim()).length;
         posthog?.capture('test_submitted', {
           section_id: sectionId,
           test_set_id: setId,
           score: serverCorrect,
           total_questions: total,
+          answered_count: answeredCount,
+          unanswered_count: Math.max(0, total - answeredCount),
           score_percentage: total > 0 ? Math.round((serverCorrect / total) * 100) : 0,
           time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
+        });
+        // Question-level analytics — form-meaning ตรวจทั้งชุดทีเดียว จึงยิงรายช่อง
+        // ตอนส่ง เพื่อให้รู้ว่าช่อง/ข้อไหนที่ผู้เรียนพลาดบ่อย
+        combinedArticle.blanks.forEach((blank, index) => {
+          const mapping = globalToOriginal.get(blank.id);
+          const userAnswer = (answers[blank.id] ?? '').trim();
+          const correctAnswer = (parsedCorrect[blank.id] ?? blank.correctAnswer ?? '').trim();
+          posthog?.capture('question_answered', {
+            section_id: sectionId,
+            test_set_id: setId,
+            question_id: mapping?.questionId ?? null,
+            // 'article' = ช่องว่างในบทความ (ตรงกับ slot kind ที่หน้า tests/[sectionId]/[setId] ใช้)
+            slot_kind: 'article',
+            blank_id: mapping?.originalBlankId ?? null,
+            question_position: index + 1,
+            total_questions: total,
+            is_correct:
+              userAnswer && correctAnswer
+                ? userAnswer.toLowerCase() === correctAnswer.toLowerCase()
+                : null,
+            answered: userAnswer.length > 0,
+          });
         });
       }
       // ส่งสำเร็จแล้ว = ไม่เก็บคำตอบค้างไว้อีก (กันการส่งซ้ำเงียบ ๆ หลัง refresh)

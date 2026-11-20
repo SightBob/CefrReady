@@ -6,6 +6,7 @@ import { accounts, users, verificationTokens } from '../db/schema';
 import { usersForAuth } from '../db/auth-compat';
 import { authConfig } from './auth.config';
 import { isAdminEmail } from './admin-identity';
+import { captureServerEvent } from './analytics-server';
 
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.warn('Missing Google OAuth env vars: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
@@ -57,6 +58,20 @@ export const {
   session: { strategy: 'jwt' },
 
   adapter,
+
+  events: {
+    /**
+     * Fires only when the adapter creates a brand-new user row (first Google
+     * sign-in) — the only reliable "this person just signed up" signal.
+     * Client-side user_signed_in also fires for returning users on a new
+     * browser, so a signup funnel built on it over-counts.
+     */
+    async createUser({ user }) {
+      if (user.id) {
+        captureServerEvent(user.id, 'signup_completed', { method: 'google' });
+      }
+    },
+  },
 
   callbacks: {
     ...authConfig.callbacks,

@@ -546,6 +546,12 @@ export default function SetQuizPage() {
   // PostHog tracking
   const posthog = usePostHog();
   const testStartedAtRef = useRef<number>(0);
+  // Marks when the learner arrived on the current question — used by
+  // `question_answered` so we can see which questions people stare at (or rush).
+  const questionEnteredAtRef = useRef<number>(Date.now());
+  useEffect(() => {
+    questionEnteredAtRef.current = Date.now();
+  }, [currentQuestion]);
 
   // ปุ่ม "โหมดทบทวน" — ใช้ร่วมกันทุก skill (Form & Meaning / Tap & Select /
   // Listening / Focus on Meaning / Focus on Form) แล้ว capture ก่อนเปิด overlay
@@ -769,12 +775,31 @@ export default function SetQuizPage() {
         aiTutorReady: typeof body.data.aiTutorReady === 'boolean' ? body.data.aiTutorReady : null,
       };
       setCheckedSlots(current => ({ ...current, [slotIndex]: result }));
+      // Question-level analytics: which exact question the learner got wrong,
+      // how long they spent, and in which skill. Without this a funnel only
+      // says "someone left" — not where.
+      if (!previewMode) {
+        posthog?.capture('question_answered', {
+          section_id: sectionId,
+          test_set_id: setId,
+          question_id: question.id,
+          slot_index: slotIndex,
+          slot_kind: slot.kind,
+          question_position: slotIndex + 1,
+          total_questions: mainSlots.length,
+          is_correct: result.isCorrect,
+          time_on_question_seconds: Math.round(
+            (Date.now() - questionEnteredAtRef.current) / 1000
+          ),
+          ...(slot.kind === 'article' ? { blank_id: slot.blankId } : {}),
+        });
+      }
     } catch (error) {
       setCheckErrors(current => ({ ...current, [slotIndex]: error instanceof Error ? error.message : 'ตรวจคำตอบไม่สำเร็จ กรุณาลองอีกครั้ง' }));
     } finally {
       setCheckingSlot(current => ({ ...current, [slotIndex]: false }));
     }
-  }, [checkingSlot, currentQuestion, mainSlots, selectedAnswer, setData, setId, submitting, toStoredAnswer]);
+  }, [checkingSlot, currentQuestion, mainSlots, selectedAnswer, setData, setId, submitting, toStoredAnswer, posthog, previewMode, sectionId]);
 
   const handleAnswer = (answer: string) => {
     if (!setData) return;
@@ -833,7 +858,25 @@ export default function SetQuizPage() {
         ai: body.data.ai === null ? null : tapAiFeedbackSchema.parse(body.data.ai),
         message: typeof body.data.message === 'string' ? body.data.message : undefined,
       };
-      if (tapRequestVersions.current[key] === version) setTapReasonResults(current => ({ ...current, [key]: result }));
+      if (tapRequestVersions.current[key] === version) {
+        setTapReasonResults(current => ({ ...current, [key]: result }));
+        if (!previewMode) {
+          posthog?.capture('question_answered', {
+            section_id: sectionId,
+            test_set_id: setId,
+            question_id: question.id,
+            slot_index: slotIndex,
+            slot_kind: 'tap',
+            item_index: slot.itemIndex,
+            question_position: slotIndex + 1,
+            total_questions: mainSlots.length,
+            is_correct: result.isCorrect,
+            time_on_question_seconds: Math.round(
+              (Date.now() - questionEnteredAtRef.current) / 1000
+            ),
+          });
+        }
+      }
     } catch (error) {
       if (tapRequestVersions.current[key] === version) setTapReasonErrors(current => ({
         ...current, [key]: error instanceof Error && error.name !== 'TimeoutError' ? error.message : 'ตรวจเหตุผลใช้เวลานาน กรุณาลองอีกครั้ง',
@@ -947,11 +990,14 @@ export default function SetQuizPage() {
             .filter((r: { isCorrect: boolean }) => !r.isCorrect)
             .map((r: { questionId: number }) => r.questionId);
           const scorePct = Math.round((data.data.correctAnswers / totalQuestions) * 100);
+          const answeredCount = answers.filter((a) => a !== null).length;
           posthog.capture('test_submitted', {
             section_id: sectionId,
             test_set_id: setId,
             score: data.data.correctAnswers,
             total_questions: totalQuestions,
+            answered_count: answeredCount,
+            unanswered_count: Math.max(0, totalQuestions - answeredCount),
             time_spent_seconds: Math.floor((Date.now() - testStartedAtRef.current) / 1000),
             wrong_question_ids: wrongIds,
             score_percentage: scorePct,

@@ -14,6 +14,10 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', '@phosphor-icons/react'],
   },
+  // PostHog API paths end with a slash (e.g. `/e/`), so without this setting
+  // Next would reply with a 308 before the rewrite below ever forwards the
+  // request. Required by the reverse-proxy setup.
+  skipTrailingSlashRedirect: true,
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
@@ -26,6 +30,28 @@ const nextConfig = {
         hostname: 'avatars.githubusercontent.com',
       },
     ],
+  },
+  async rewrites() {
+    // Reverse proxy for PostHog (ingest). Requests travel to our own origin,
+    // so ad blockers and Brave Shields no longer drop analytics traffic
+    // (`us.i.posthog.com` was blocked as a third-party tracker). src/proxy.ts
+    // excludes /ingest from the auth/maintenance gate; src/lib/posthog.tsx
+    // points the SDK at this path. Static + array rules must precede the
+    // catch-all; assets live on the *-assets host.
+    return [
+      {
+        source: '/ingest/static/:path*',
+        destination: 'https://us-assets.i.posthog.com/static/:path*',
+      },
+      {
+        source: '/ingest/array/:path*',
+        destination: 'https://us-assets.i.posthog.com/array/:path*',
+      },
+      {
+        source: '/ingest/:path*',
+        destination: 'https://us.i.posthog.com/:path*',
+      },
+    ];
   },
   async redirects() {
     return [

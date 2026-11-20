@@ -35,6 +35,12 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+    // Browser traffic goes through our own origin (next.config.mjs rewrites
+    // /ingest → PostHog) so ad blockers and Brave Shields stop dropping it.
+    // The direct host is only used as PostHog's `ui_host` for links.
+    const uiHost = (host ?? '').includes('eu.')
+      ? 'https://eu.posthog.com'
+      : 'https://us.posthog.com';
 
     if (!key) {
       setPosthogInstance(null);
@@ -48,13 +54,18 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       const { default: posthog } = await import('posthog-js');
       if (disposed) return;
       posthog.init(key, {
-        api_host: host || 'https://us.i.posthog.com',
+        api_host: '/ingest',
+        ui_host: uiHost,
         defaults: '2026-01-30',
         person_profiles: 'identified_only',
         capture_pageview: false,
         disable_surveys: true,
         autocapture: false,
-        capture_performance: false,
+        // Only web vitals (LCP/INP/CLS + FCP/TTFB) — network timing is left off
+        // because it only matters to session replay. Init is deferred to
+        // load+idle to protect INP; the web-vitals observer reads buffered
+        // entries, so earlier paint/interaction timings are still recovered.
+        capture_performance: { web_vitals: true },
         // Replay starts via startSessionRecording() on replay paths only.
         disable_session_recording: true,
         session_recording: {

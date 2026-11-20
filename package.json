@@ -37,7 +37,7 @@
     "next-auth": "^5.0.0-beta.32",
     "papaparse": "^5.5.3",
     "pg": "^8.11.5",
-    "posthog-js": "^1.384.1",
+    "posthog-js": "^1.453.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.8.1",

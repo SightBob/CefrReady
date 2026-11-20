@@ -85,6 +85,11 @@ export default function FullTestExamPage() {
   const selectedAnswerRef = useRef<string | null>(null);
   /** เวลาเริ่มรอบ Full Test (ไว้คำนวณ time_spent_seconds) — null = รอบที่กู้มา ไม่ใช่เริ่มใหม่ */
   const attemptStartedAtRef = useRef<number | null>(null);
+  /** เวลาที่เข้าข้อปัจจุบัน — ใช้ใน question_answered (ข้อไหนใช้เวลานาน/ข้าม) */
+  const questionEnteredAtRef = useRef<number>(Date.now());
+  useEffect(() => {
+    questionEnteredAtRef.current = Date.now();
+  }, [question]);
 
   useEffect(() => {
     attemptIdRef.current = attemptId;
@@ -423,6 +428,47 @@ export default function FullTestExamPage() {
         );
       } catch {
         // ignore
+      }
+
+      // Question-level analytics: ข้อไหนตอบถูก/ผิด ใช้เวลานานแค่ไหน หรือข้ามไป
+      // (Full Test ไม่มีหน้าเฉลยรายข้อหลังส่ง จึงต้องเก็บตรงนี้)
+      if (posthog) {
+        const submittedAnswer = selectedAnswerRef.current;
+        let isCorrect: boolean | null = null;
+        if (question.testTypeId === "form-meaning" && revealed?.blanks) {
+          try {
+            const picks = JSON.parse(submittedAnswer ?? "{}") as Record<
+              string,
+              string
+            >;
+            const entries = Object.entries(revealed.blanks);
+            if (entries.length > 0) {
+              isCorrect = entries.every(
+                ([blankId, correct]) =>
+                  (picks[blankId] ?? "").trim().toLowerCase() ===
+                  correct.trim().toLowerCase(),
+              );
+            }
+          } catch {
+            isCorrect = null;
+          }
+        } else if (revealed?.mcq) {
+          isCorrect = submittedAnswer === revealed.mcq;
+        }
+        posthog.capture("question_answered", {
+          section_id: "full-test",
+          test_set_id: null,
+          question_id: question.id,
+          question_position: questionIndex + 1,
+          total_questions: FULL_TEST_TOTAL_QUESTIONS,
+          slot_kind:
+            question.testTypeId === "form-meaning" ? "article" : "question",
+          is_correct: isCorrect,
+          answered: Boolean(submittedAnswer),
+          time_on_question_seconds: Math.round(
+            (Date.now() - questionEnteredAtRef.current) / 1000,
+          ),
+        });
       }
 
       if (data.data.finished) {
