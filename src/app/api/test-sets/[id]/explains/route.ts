@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { isAdminRequest } from '@/lib/admin-auth';
-import { explainsByTopic, fetchExplainsForSet, fetchExplainsForSetPreview } from '@/lib/test-explains';
+import { explainsByTopic, getCachedExplainsForSet, fetchExplainsForSetPreview } from '@/lib/test-explains';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +38,10 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   try {
     const explains = preview
       ? await fetchExplainsForSetPreview(setId)
-      : await fetchExplainsForSet(setId);
+      // โหมดผู้เรียนใช้ตัวที่มี unstable_cache (tag 'test-explains', TTL 300 วิ) —
+      // เดิมเรียก fetchExplainsForSet ทุกครั้ง → query + map JSON ซ้ำ (ตัวเลข audit:
+      // 211 ms/request). ผลลัพธ์เป็นข้อมูลทั่วไปไม่ผูกผู้ใช้ จึง cache ปลอดภัย
+      : await getCachedExplainsForSet(setId);
     return NextResponse.json(
       { success: true, data: explainsByTopic(explains) },
       { headers: { 'Cache-Control': 'private, no-store' } },

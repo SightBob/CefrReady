@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: mocks.admin }));
 vi.mock('@/lib/test-explains', () => ({
-  fetchExplainsForSet: mocks.published,
+  // โหมดผู้เรียนใช้ตัวที่มี unstable_cache (tag 'test-explains') — โหมดพรีวิวยัง uncached
+  getCachedExplainsForSet: mocks.published,
   fetchExplainsForSetPreview: mocks.preview,
   explainsByTopic: (rows: Array<{ grammarTopic: string }>) =>
     Object.fromEntries(rows.map((row) => [row.grammarTopic, row])),
@@ -48,10 +49,11 @@ describe('GET /api/test-sets/[id]/explains', () => {
     expect(mocks.published).not.toHaveBeenCalled();
   });
 
-  it('serves only published content by default', async () => {
+  it('serves only published content by default (ผ่านตัว cache ของ explains)', async () => {
     const payload = await (await GET(request(), props)).json();
 
     expect(payload.data).toEqual({ 'Present Perfect': publishedExplain });
+    expect(mocks.published).toHaveBeenCalledWith(7);
     expect(mocks.preview).not.toHaveBeenCalled();
     expect(mocks.admin).not.toHaveBeenCalled();
   });
