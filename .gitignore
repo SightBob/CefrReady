@@ -76,3 +76,4 @@ opencode.json
 .wrangler-dry/
 .dev.vars
 worker-size.zip
+.secrets.json
