@@ -17,7 +17,10 @@ export type RemoteDraft = {
   choiceSeed: string | null;
 };
 
-const SYNC_DELAY_MS = 2000;
+// 5 วิ = สมดุลระหว่าง "จำนวน PUT ระหว่างสอบ" กับ "คำตอบที่อาจหลุดถ้าปิดแท็บ"
+// การกันข้อมูลหายเป็นหน้าที่ของ flushNow() ที่ผูกกับ pagehide/visibilitychange
+// (ไม่ใช่การยิงถี่ขึ้น) — ดู SYNC_DELAY_MS ใน test-draft-sync.test.ts
+const SYNC_DELAY_MS = 5000;
 
 function endpoint(sectionId: string, setId: number | string): string {
   const params = new URLSearchParams({ sectionId, setId: String(setId) });

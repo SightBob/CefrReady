@@ -25,7 +25,9 @@ describe('createTestDraftPusher', () => {
     const pusher = createTestDraftPusher('focus-form', 58);
     pusher.push(state, null);
     expect(fetchMock).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(2000);
+    vi.advanceTimersByTime(4999);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PUT' });
   });
@@ -55,6 +57,43 @@ describe('createTestDraftPusher', () => {
     pusher.push(state, null);
     pusher.dispose();
     pusher.dispose();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('flushNow() sends immediately when work is pending', () => {
+    const fetchMock = stubFetch();
+    const pusher = createTestDraftPusher('focus-form', 58);
+    pusher.push(state, null);
+    pusher.flushNow();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // timer เดิมถูกยกเลิกแล้ว — ไม่ยิงซ้ำเมื่อครบกำหนด
+    vi.advanceTimersByTime(5000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('flushNow() does nothing when nothing is pending', () => {
+    const fetchMock = stubFetch();
+    const pusher = createTestDraftPusher('focus-form', 58);
+    pusher.flushNow();
+    pusher.flushNow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('flushNow() does nothing after cancel() (submitted / retake)', () => {
+    const fetchMock = stubFetch();
+    const pusher = createTestDraftPusher('focus-form', 58);
+    pusher.push(state, null);
+    pusher.cancel();
+    pusher.flushNow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('visibilitychange then pagehide does not send the same draft twice', () => {
+    const fetchMock = stubFetch();
+    const pusher = createTestDraftPusher('focus-form', 58);
+    pusher.push(state, null);
+    pusher.flushNow();
+    pusher.flushNow();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -415,6 +415,30 @@ export default function SetQuizPage() {
     };
   }, [previewMode, sectionId, setId]);
 
+  // draft sync ตอนออกจากหน้า: pusher มี debounce 5 วิ — ถ้าผู้เรียนปิดแท็บ/สลับแอป
+  // ก่อนครบกำหนด คำตอบจะไม่ถึงเซิร์ฟเวอร์ (sessionStorage ของแท็บนั้นก็หายไปด้วย)
+  // ฟังทั้ง pagehide และ visibilitychange เพราะบนมือถือ pagehide ไม่ค่อยทำงาน
+  //
+  // แยกจาก listener ของ analytics ที่ page.tsx (pagehide → test_abandoned) โดยเจตนา:
+  // อันนั้นยิง event อันนี้ sync draft — รวมกันจะทำให้ปิด analytics ไม่ได้โดยไม่กระทบ draft
+  // flushNow() ปลอดภัยเมื่อไม่มีอะไรค้าง: cancel()/dispose() ตั้ง disposed=true ไว้แล้ว
+  // และ flush() เซ็ต pending=null ก่อนส่ง → visibilitychange ต่อด้วย pagehide ไม่ยิงซ้ำ
+  useEffect(() => {
+    if (previewMode || isNaN(setId)) return;
+    const flushDraft = () => {
+      draftPusher.current?.flushNow();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushDraft();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', flushDraft);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', flushDraft);
+    };
+  }, [previewMode, setId]);
+
   useEffect(() => {
     if (previewMode || isNaN(setId) || !setData || draftRequested.current) return;
     if (progressScope.current !== progressKey) return;
@@ -467,7 +491,7 @@ export default function SetQuizPage() {
     };
   }, [previewMode, setId, setData, sectionId, progressKey]);
 
-  // push ขึ้นเซิร์ฟเวอร์หลังบันทึกในเครื่อง (debounce 2 วิ)
+  // push ขึ้นเซิร์ฟเวอร์หลังบันทึกในเครื่อง (debounce 5 วิ + flush ตอนออกจากหน้า)
   useEffect(() => {
     if (!draftHydrated) return;
     // ส่งข้อสอบแล้ว = จบรอบ ห้าม push draft ใหม่กลับไป
