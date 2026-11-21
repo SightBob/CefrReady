@@ -71,3 +71,8 @@ public/unlighthouse-urls-*.txt
 .freebuff/
 .env*
 opencode.json
+.open-next/
+.wrangler/
+.wrangler-dry/
+.dev.vars
+worker-size.zip

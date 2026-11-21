@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cefr-ready-staging",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // ตั้งค่าผ่าน `wrangler secret put` / dashboard ไม่ใส่ในไฟล์
+  // DATABASE_URL, NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+  // UPSTASH_*, NEXT_PUBLIC_POSTHOG_KEY, R2_*, SENTRY_*
+  "vars": {
+    "NEXTAUTH_URL": "https://staging.cefr-ready.site"
+  }
+}

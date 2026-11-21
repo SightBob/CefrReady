@@ -1,28 +1,37 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from './schema';
+import { withTransaction } from './transaction';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not defined');
+/**
+ * Database client (Cloudflare Workers-safe)
+ *
+ * ใช้ Neon **HTTP** driver สำหรับ query ปกติ — ไม่ถือ socket จึงใช้ singleton
+ * ระดับ module ได้ (Workers ห้าม object ที่ทำ I/O ข้าม request)
+ *
+ * `db.transaction(...)` ยังเรียกได้เหมือนเดิมทุกจุด แต่ถูกส่งต่อไปที่
+ * `withTransaction()` (Neon WebSocket, ต่อ connection ต่อ call) เพราะ HTTP
+ * driver ไม่รองรับ transaction
+ *
+ * หมายเหตุ: ไม่ throw ตอน import ถ้า env ยังไม่ถูก inject — จะ error ตอน query
+ */
+const connectionString = process.env.DATABASE_URL ?? '';
+
+if (!connectionString) {
+  console.warn('[db] DATABASE_URL is not defined yet — queries will fail until it is set');
 }
 
-const globalForDb = global as unknown as { db: ReturnType<typeof drizzle> | undefined };
+const httpDb = drizzle(neon(connectionString), { schema });
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 3,
-  // Keep pooled connections alive across invocations — Fluid compute holds
-  // warm instances, so a longer idle window avoids repeated TCP+TLS+auth
-  // handshakes to Neon on every burst of requests.
-  idleTimeoutMillis: 300_000,
-  connectionTimeoutMillis: 10_000,
-});
+type Db = Omit<typeof httpDb, 'transaction'> & { transaction: typeof withTransaction };
 
-pool.on('error', (err) => {
-  console.error('Unexpected pool error (idle connection):', err?.message);
-});
-
-export const db = globalForDb.db ?? drizzle(pool, { schema });
-if (process.env.NODE_ENV !== 'production') globalForDb.db = db;
+export const db = new Proxy(httpDb, {
+  get(target, prop, receiver) {
+    if (prop === 'transaction') return withTransaction;
+    // ผูก this กับ target เสมอ — การเรียกผ่าน Proxy ไม่ควรเปลี่ยน this ของ drizzle
+    const value = Reflect.get(target, prop, target);
+    return typeof value === 'function' ? value.bind(target) : value;
+  },
+}) as unknown as Db;
 
 export { schema };

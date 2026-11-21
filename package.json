@@ -19,11 +19,15 @@
     "db:seed": "npx tsx scripts/seed-test-types.ts",
     "db:seed-full-test": "npx tsx scripts/seed-full-test-type.ts",
     "db:add-questions": "npx tsx scripts/add-sample-questions.ts",
-    "db:normalize-glued-text": "npx tsx scripts/normalize-glued-text.ts"
+    "db:normalize-glued-text": "npx tsx scripts/normalize-glued-text.ts",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "1.11.3",
     "@aws-sdk/client-s3": "^3.1095.0",
+    "@neondatabase/serverless": "^1.2.1",
     "@phosphor-icons/react": "^2.1.10",
     "@sentry/nextjs": "^10.77.1",
     "@tailwindcss/typography": "^0.5.19",
@@ -48,6 +52,7 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.4.6",
+    "@opennextjs/cloudflare": "^1.20.18",
     "@types/node": "^20.12.12",
     "@types/pg": "^8.11.6",
     "@types/react": "^19.2.2",
@@ -63,7 +68,8 @@
     "postcss": "^8.5.23",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.5",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "wrangler": "^4.166.0"
   },
   "overrides": {
     "postcss": "$postcss",
