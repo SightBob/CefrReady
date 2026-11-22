@@ -1,0 +1,11 @@
+# Cloudflare Workers static assets: custom response headers
+# https://developers.cloudflare.com/workers/static-assets/headers
+# https://opennext.js.org/cloudflare/caching#static-assets-caching
+#
+# /_next/static/* is served directly by the Workers asset layer (it never
+# reaches the Next server), so it gets the Workers default
+# `Cache-Control: public, max-age=0, must-revalidate` even though every file
+# name already contains a content hash. Override it with a long-lived
+# immutable policy for those fingerprinted assets only.
+/_next/static/*
+  Cache-Control: public,max-age=31536000,immutable
