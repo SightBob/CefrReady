@@ -1,9 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cefr-ready-staging",
-  "main": ".open-next/worker.js",
+  "main": "worker.mjs",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
+  // AI Tutor retention (เดิม vercel.json cron) — worker.mjs มี `scheduled` handler
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

@@ -44,8 +44,9 @@ export default function HomeHero() {
 
   return (
     <section className="relative overflow-visible bg-[#FFFEFA]">
-      {/* Background pattern — เดสก์ท็อป ≥768px ใช้ bg-main1.png (6144×2044)
-          มือถือ ≤767px ใช้ bg-mobile.png (1560×1504) สลับที่ระดับ CSS ไม่แตะ layout เดสก์ท็อป */}
+      {/* Background pattern — เดสก์ท็อป ≥768px ใช้ bg-main1.webp (2880×958)
+          มือถือ ≤767px ใช้ bg-mobile.webp (1560×1504) สลับที่ระดับ CSS ไม่แตะ layout เดสก์ท็อป
+          webp เพราะ Cloudflare ไม่ได้เปิด image optimization → ไฟล์ต้นฉบับถูกส่งตรงทั้งดุ้น */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
         {/* ⚠️ ห้ามใส่ priority/preload กับภาพพื้นหลังทั้งสองใบนี้
             ภาพคู่นี้สลับกันด้วย CSS (ใบหนึ่ง display:none เสมอ) แต่ priority/preload
@@ -53,14 +54,14 @@ export default function HomeHero() {
             และ Chrome ฟ้อง "preloaded but not used" จาก <link rel="preload"> ที่ Next ฝังมา
             ใช้ lazy (ค่าเริ่มต้น) แทน: ภาพที่อยู่ในจอโหลดทันทีตอน layout ส่วนใบที่ซ่อนไม่ถูกโหลดเลย */}
         <Image
-          src="/bg/bg-main1.png"
+          src="/bg/bg-main1.webp"
           alt=""
           fill
           sizes="100vw"
           className="object-cover object-center max-md:hidden"
         />
         <Image
-          src="/bg/bg-mobile.png"
+          src="/bg/bg-mobile.webp"
           alt=""
           fill
           sizes="100vw"
