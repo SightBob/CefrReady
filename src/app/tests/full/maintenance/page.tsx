@@ -16,7 +16,7 @@ export default function FullTestMaintenancePage() {
         <div className="relative mx-auto mb-6 h-[93px] w-[90px]" aria-hidden="true">
           <div className="absolute left-[15.12px] top-[66.13px] h-[26.866px] w-[57.348px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
           <div className="absolute left-0 top-0 h-[76.449px] w-[89.985px] overflow-hidden">
-            <Image src="/tests/otter-exam-sign.png" alt="" width={90} height={90} unoptimized className="absolute left-0 top-0 max-w-none" />
+            <Image src="/tests/otter-exam-sign.webp" alt="" width={90} height={90} unoptimized className="absolute left-0 top-0 max-w-none" />
           </div>
         </div>
 

@@ -57,7 +57,7 @@ export default async function DemoIntroPage() {
           <div className="absolute left-[var(--intro-sign-left)] top-[var(--intro-sign-top)] z-0 h-[var(--intro-sign-h)] w-[var(--intro-sign-w)] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
           <div className="relative z-10 h-[var(--intro-otter-inner-h)] w-[var(--intro-otter-w)] overflow-hidden md:overflow-visible">
             <Image
-              src="/logo-otter/otter-exam.png"
+              src="/logo-otter/otter-exam.webp"
               alt=""
               width={174}
               height={174}

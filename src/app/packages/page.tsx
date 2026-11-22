@@ -29,7 +29,7 @@ export default function PackagesPage() {
             {/* 504:616 — นากอตเตอร์ถือป้าย 232×232 (ขนาด/ตำแหน่งตาม Figma) */}
             <div className="relative h-[150px] w-[150px] min-[992px]:h-[232px] min-[992px]:w-[232px]">
               <Image
-                src="/packages/otter-notice.png"
+                src="/packages/otter-notice.webp"
                 alt="นากอตเตอร์ถือป้ายแจ้งให้ทราบ"
                 width={232}
                 height={232}

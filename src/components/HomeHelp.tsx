@@ -67,7 +67,7 @@ export default function HomeHelp() {
         {/* Otter อยู่ด้านหน้า */}
         <div className="relative z-20 max-md:shrink-0">
           <Image
-            src="/logo-otter/otter-flag1.png"
+            src="/logo-otter/otter-flag1.webp"
             alt=""
             width={102}
             height={67}
@@ -250,7 +250,7 @@ export default function HomeHelp() {
         <div className="mt-6 max-md:mt-[16px] flex justify-end pb-5">
           <div className="relative md:w-[160px] max-md:w-[88px] max-[1024px]:translate-x-0 translate-x-[107px] max-md:translate-x-[23px] max-[1415px]:translate-x-[10px]">
             <Image
-              src="/logo-otter/otter-chear1.png"
+              src="/logo-otter/otter-chear1.webp"
               alt=""
               width={278}
               height={278}

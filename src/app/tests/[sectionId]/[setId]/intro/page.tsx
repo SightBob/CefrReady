@@ -98,7 +98,7 @@ export default async function TestSetIntroPage({ params }: { params: IntroParams
           {/* Otter — อยู่ด้านหน้า */}
           <div className="relative z-10 h-[var(--intro-otter-inner-h)] w-[var(--intro-otter-w)] overflow-hidden md:overflow-visible">
             <Image
-              src="/logo-otter/otter-exam.png"
+              src="/logo-otter/otter-exam.webp"
               alt=""
               width={174}
               height={174}

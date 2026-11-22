@@ -261,7 +261,7 @@ export default function TestResults({
           <div className="pointer-events-none absolute left-[55px] top-[36px] h-[229px] w-[115px] rounded-full bg-[rgba(182,216,255,0.17)] blur-[39.5px]" />
 
           <Image
-            src="/logo-otter/otter-result.png"
+            src="/logo-otter/otter-result.webp"
             alt=""
             width={96}
             height={96}

@@ -93,7 +93,7 @@ export default function TestsLandingShell({ hero, sectionTitle, children, showBa
           <div className="absolute right-0 top-[79px] h-[93px] w-[90px] lg:hidden" aria-hidden="true">
             <div className="absolute left-[15.12px] top-[66.13px] h-[26.866px] w-[57.348px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
             <div className="absolute left-0 top-0 h-[76.449px] w-[89.985px] overflow-hidden">
-              <Image src="/tests/otter-exam-sign.png" alt="" width={90} height={90} unoptimized className="absolute left-0 top-0 max-w-none" />
+              <Image src="/tests/otter-exam-sign.webp" alt="" width={90} height={90} unoptimized className="absolute left-0 top-0 max-w-none" />
             </div>
           </div>
 
@@ -101,7 +101,7 @@ export default function TestsLandingShell({ hero, sectionTitle, children, showBa
           <div className="absolute right-0 top-[41px] hidden h-[190px] w-[174px] lg:block" aria-hidden="true">
             <div className="absolute left-[29px] top-[128px] h-[62px] w-[111px] rounded-bl-[3px] rounded-br-[15px] border-r-[7px] border-[#FFDB40] bg-[#FFEDA0]" />
             <div className="absolute left-0 top-0 h-[148px] w-[174px] overflow-hidden">
-              <Image src="/logo-otter/otter-exam.png" alt="" width={174} height={174} className="absolute left-0 top-0 max-w-none" />
+              <Image src="/logo-otter/otter-exam.webp" alt="" width={174} height={174} className="absolute left-0 top-0 max-w-none" />
             </div>
           </div>
         </section>

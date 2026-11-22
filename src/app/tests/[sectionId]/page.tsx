@@ -76,7 +76,7 @@ export default async function SectionPage({
       >
         <div className="absolute left-0 top-0 h-[46.86px] w-[55.15px] overflow-hidden min-[760px]:h-[120.018px] min-[760px]:w-[141.271px]">
           <Image
-            src="/logo-otter/otter-exam.png"
+            src="/logo-otter/otter-exam.webp"
             alt=""
             width={141}
             height={141}

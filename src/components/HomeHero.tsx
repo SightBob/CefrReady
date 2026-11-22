@@ -138,7 +138,7 @@ export default function HomeHero() {
         {/* Otter */}
         <div className="absolute bottom-[-19px] left-1/2 h-[162px] w-[191px] -translate-x-1/2 max-md:bottom-[-12px] max-md:h-[100px] max-md:w-[116px]">
           <Image
-            src="/logo-otter/otter-flag1.png"
+            src="/logo-otter/otter-flag1.webp"
             alt=""
             width={167}
             height={159}

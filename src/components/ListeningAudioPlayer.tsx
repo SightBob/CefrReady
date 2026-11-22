@@ -207,7 +207,7 @@ export default function ListeningAudioPlayer({
             {/* 60:4447 — รูปหมีฟังเสียง 87×87 (ซ้อนทับแถบเวลา 4px) */}
             <div className="mb-[-4px] relative shrink-0 size-[87px]">
               <Image
-                src="/logo-otter/otter-audio-player.png"
+                src="/logo-otter/otter-audio-player.webp"
                 alt=""
                 width={87}
                 height={87}
@@ -342,7 +342,7 @@ export default function ListeningAudioPlayer({
           <div className="relative shrink-0 w-[252px] h-[35px] mb-[-2px]">
             <div className="absolute left-0 top-0 z-20 w-[52px] h-[35px] overflow-hidden">
               <Image
-                src="/logo-otter/otter-flag.png"
+                src="/logo-otter/otter-flag.webp"
                 alt=""
                 width={52}
                 height={35}

@@ -8,8 +8,8 @@ import SelectableText from './SelectableText';
 import ExplanationText from './ExplanationText';
 import { useScrollIntoViewOnReveal } from '@/lib/use-scroll-on-reveal';
 
-const OTTER_AVATAR = '/logo-otter/otter-avatar.png';
-const OTTER_FLAG = '/logo-otter/otter-flag1.png';
+const OTTER_AVATAR = '/logo-otter/otter-avatar.webp';
+const OTTER_FLAG = '/logo-otter/otter-flag1.webp';
 
 interface ConversationLine {
   speaker: string;

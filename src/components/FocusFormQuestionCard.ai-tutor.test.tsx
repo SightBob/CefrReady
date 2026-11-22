@@ -25,7 +25,7 @@ describe('FocusFormQuestionCard — โหมดเฉลยปกติ (ไม
   it('คงบล็อก "แวะอ่านสักนิด…" + อวตารเต่าต้มตามเดิม', () => {
     const html = renderToStaticMarkup(<FocusFormQuestionCard {...props} />);
     expect(html).toContain('แวะอ่านสักนิด ครั้งหน้าทำได้แน่');
-    expect(html).toContain('otter-flag1.png');
+    expect(html).toContain('otter-flag1.webp');
     expect(html).not.toContain('AI Tutor'); // ไม่มีกรอบ AI Tutor แซงมา
   });
 
@@ -40,7 +40,7 @@ describe('FocusFormQuestionCard — โหมด aiTutor (Figma 600:27645)', () 
   it('ยังขึ้นบล็อก "แวะอ่านสักนิด…" + อวตารเต่าต้มก่อน', () => {
     const html = renderToStaticMarkup(<FocusFormQuestionCard {...props} aiTutor questionId={7} />);
     expect(html).toContain('แวะอ่านสักนิด ครั้งหน้าทำได้แน่');
-    expect(html).toContain('otter-flag1.png');
+    expect(html).toContain('otter-flag1.webp');
   });
 
   it('มีเส้นคั่น + ปุ่ม "หากยังไม่เข้าใจ ลองถาม AI เพิ่มเติมได้เลย" ท้ายกล่องเฉลย', () => {

@@ -98,7 +98,7 @@ export default function FocusFormTutorMock({ initialQuestion = 7 }: { initialQue
           <div className="relative h-[343px] w-[295px] rounded-[16px] bg-white">
             {/* หัวข้อ (580:27862) */}
             <div className="absolute left-[19px] top-[16px] flex items-center gap-[8px]">
-              <img src={`${ASSET}/verb-icon.png`} alt="" className="size-[24px]" />
+              <img src={`${ASSET}/verb-icon.webp`} alt="" className="size-[24px]" />
               <p className="text-[14px] font-semibold text-[#454545]">คลังกริยา 3 ช่องจากข้อสอบจริง</p>
             </div>
             {/* ช่องค้นหา (580:27865) */}
