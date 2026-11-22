@@ -83,23 +83,29 @@ export async function POST(request: NextRequest) {
       } });
     }
     const startedAt = Date.now();
-    const logTapUsage = (usage: Parameters<NonNullable<Parameters<typeof evaluateTapReason>[2]>>[0]) => {
-      if (!usage) return;
-      void logAiUsage({
-        userId: session.user.id,
-        feature: AI_FEATURE_TAP_REASON,
-        model: usage.model,
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        totalTokens: usage.totalTokens,
-        status: 'ok',
-        latencyMs: usage.latencyMs,
-      });
-    };
+    type TapUsage = NonNullable<Parameters<NonNullable<Parameters<typeof evaluateTapReason>[2]>>[0]>;
+    // evaluateTapReason เรียก observer แบบ synchronous (ไม่ await) — เก็บ usage ไว้แล้ว
+    // บันทึกเองหลังฟังก์ชันคืนค่า เพราะบน Workers งานที่ไม่ถูก await อาจถูกตัดทิ้งเมื่อ
+    // ส่ง response ไปแล้ว ทำให้แถวใน ai_usage_logs หาย
+    const capturedUsages: TapUsage[] = [];
     const ai = await evaluateTapReason(settings, {
       title: row.tapExercise!.title, hint: row.tapExercise!.hint,
       item, selectedAnswer, selectedText, reason, explanation: row.explanation, grammarTopic: row.grammarTopic,
-    }, usage => logTapUsage(usage));
+    }, usage => { if (usage) capturedUsages.push(usage); });
+    const [usageToLog] = capturedUsages;
+    // logAiUsage กลืน error เอง จึง await ได้โดยไม่ทำให้ request ล้ม
+    if (usageToLog) {
+      await logAiUsage({
+        userId: session.user.id,
+        feature: AI_FEATURE_TAP_REASON,
+        model: usageToLog.model,
+        promptTokens: usageToLog.promptTokens,
+        completionTokens: usageToLog.completionTokens,
+        totalTokens: usageToLog.totalTokens,
+        status: 'ok',
+        latencyMs: usageToLog.latencyMs,
+      });
+    }
     return NextResponse.json({ success: true, data: { isCorrect, ai } });
   } catch (error) {
     if (error instanceof TapAiError) {

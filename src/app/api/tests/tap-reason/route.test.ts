@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 import { DEFAULT_TAP_AI_SETTINGS } from '@/lib/tap-ai';
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), rate: vi.fn(), select: vi.fn(), settings: vi.fn(), evaluate: vi.fn(), isAdmin: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), rate: vi.fn(), select: vi.fn(), settings: vi.fn(), evaluate: vi.fn(), isAdmin: vi.fn(), logUsage: vi.fn() }));
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
 vi.mock('@/lib/admin-auth', () => ({ isAdminRequest: mocks.isAdmin }));
 vi.mock('@/lib/api-security', () => ({ validateOrigin: mocks.origin, checkUserRateLimit: mocks.rate }));
 vi.mock('@/db', () => ({ db: { select: mocks.select } }));
 vi.mock('@/lib/tap-ai-settings', () => ({ getTapAiSettings: mocks.settings }));
+vi.mock('@/lib/ai-usage', () => ({ AI_FEATURE_TAP_REASON: 'tap_reason', logAiUsage: mocks.logUsage }));
 vi.mock('@/lib/openrouter', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/openrouter')>(), evaluateTapReason: mocks.evaluate }));
 import { POST } from './route';
 import { TapAiError } from '@/lib/openrouter';
@@ -29,6 +30,7 @@ beforeEach(() => {
   mocks.select.mockReturnValue(rows([row]));
   mocks.settings.mockResolvedValue({ ...DEFAULT_TAP_AI_SETTINGS, enabled: true, model: 'provider/model' });
   mocks.evaluate.mockResolvedValue({ understanding: 'correct', feedback: 'เข้าใจถูกต้อง' });
+  mocks.logUsage.mockResolvedValue(undefined);
   mocks.isAdmin.mockReset().mockResolvedValue(false);
 });
 
@@ -123,5 +125,28 @@ describe('POST tap-reason', () => {
     mocks.settings.mockRejectedValue(new Error('secret redis credentials'));
     const response = await POST(request()); expect(response.status).toBe(503);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
+  });
+  it('awaits the AI usage insert before returning the response', async () => {
+    // Workers ตัด promise ที่ไม่ถูก await เมื่อ response ถูกส่งแล้ว — log ต้องเสร็จก่อนตอบ
+    const usage = { model: 'provider/model', promptTokens: 10, completionTokens: 5, totalTokens: 15, latencyMs: 42 };
+    mocks.evaluate.mockImplementation(async (_settings: unknown, _context: unknown, onUsage: (value: typeof usage) => void) => {
+      onUsage(usage);
+      return { understanding: 'correct' as const, feedback: 'เข้าใจถูกต้อง' };
+    });
+    let releaseLog = () => {};
+    const logGate = new Promise<void>(resolve => { releaseLog = resolve; });
+    mocks.logUsage.mockReturnValue(logGate);
+
+    let settled = false;
+    const pending = POST(request()).then(response => { settled = true; return response; });
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    expect(settled).toBe(false);
+    expect(mocks.logUsage).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'learner', feature: 'tap_reason', model: 'provider/model', totalTokens: 15,
+    }));
+
+    releaseLog();
+    expect((await pending).status).toBe(200);
   });
 });

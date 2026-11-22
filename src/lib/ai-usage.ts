@@ -16,9 +16,10 @@ export type AiUsageToLog = {
   understanding?: 'correct' | 'partial' | 'incorrect' | 'unclear';
 };
 
-// Fire-and-forget: logging must never slow the learner down or fail the request.
-// Errors are swallowed with a console.warn so a broken table only costs telemetry,
-// never the main flow. The caller is expected to `void` this function.
+// Never throws: logging must never fail the request. Errors are swallowed with a
+// console.warn so a broken table only costs telemetry, never the main flow.
+// Callers may `void` it, but on Workers they should `await` it before returning the
+// response — unawaited promises can be discarded once the response is sent.
 export async function logAiUsage(entry: AiUsageToLog): Promise<void> {
   try {
     await db.insert(aiUsageLogs).values({
