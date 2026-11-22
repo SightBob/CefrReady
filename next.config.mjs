@@ -1,5 +1,3 @@
-import { withSentryConfig } from '@sentry/nextjs';
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -110,17 +108,6 @@ const nextConfig = {
   },
 };
 
-const sentryOptions = {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  silent: true,
-  tunnelRoute: '/sentry-tunnel',
-  webpack: {
-    autoInstrumentServerFunctions: false,
-    autoInstrumentMiddleware: false,
-  },
-};
-
 // Bundle analyzer (ANALYZE=true to generate report at .next/analyze)
 const withBundleAnalyzer = (await import('@next/bundle-analyzer')).default({
   enabled: process.env.ANALYZE === 'true',
@@ -129,9 +116,4 @@ const withBundleAnalyzer = (await import('@next/bundle-analyzer')).default({
   openAnalyzer: false,
 });
 
-// Only wrap with Sentry config when DSN is provided
-const finalConfig = process.env.NEXT_PUBLIC_SENTRY_DSN
-  ? withSentryConfig(nextConfig, sentryOptions)
-  : nextConfig;
-
-export default withBundleAnalyzer(finalConfig);
+export default withBundleAnalyzer(nextConfig);

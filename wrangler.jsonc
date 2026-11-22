@@ -13,7 +13,7 @@
   },
   // ตั้งค่าผ่าน `wrangler secret put` / dashboard ไม่ใส่ในไฟล์
   // DATABASE_URL, NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-  // UPSTASH_*, NEXT_PUBLIC_POSTHOG_KEY, R2_*, SENTRY_*
+  // UPSTASH_*, NEXT_PUBLIC_POSTHOG_KEY, R2_*
   "vars": {
     "NEXTAUTH_URL": "https://cefr-ready-staging.pawatsaekoo.workers.dev",
     "AUTH_TRUST_HOST": "true",

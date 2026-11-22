@@ -77,3 +77,5 @@ opencode.json
 .dev.vars
 worker-size.zip
 .secrets.json
+.test-cookie
+make-test-cookie.mjs

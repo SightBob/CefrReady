@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 export default function GlobalError({
@@ -10,17 +9,6 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    // โหลด Sentry ตอนเกิด error เท่านั้น (ดูเหตุผลใน src/app/error.tsx)
-    let cancelled = false;
-    void import('@sentry/nextjs').then((Sentry) => {
-      if (!cancelled) Sentry.captureException(error);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [error]);
-
   return (
     <html lang="th">
       <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0 }}>

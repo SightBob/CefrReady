@@ -1,11 +1,4 @@
 export async function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    await import('./sentry.server.config');
-  }
-  if (process.env.NEXT_RUNTIME === 'edge') {
-    await import('./sentry.server.config');
-  }
-
   // SECURITY: refuse to start the server in production with a weak JWT secret.
   // NextAuth signs the session JWT with NEXTAUTH_SECRET — a short/guessable
   // value lets anyone forge a session as any user (including the admin)
