@@ -15,7 +15,7 @@
   // DATABASE_URL, NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
   // UPSTASH_*, NEXT_PUBLIC_POSTHOG_KEY, R2_*
   "vars": {
-    "NEXTAUTH_URL": "https://cefr-ready-staging.pawatsaekoo.workers.dev",
+    "NEXTAUTH_URL": "https://cefr-ready.site",
     "AUTH_TRUST_HOST": "true",
     "NODE_ENV": "production"
   }
