@@ -16,7 +16,7 @@ export default function PrivacyPage() {
           นโยบายความเป็นส่วนตัว
         </h1>
         <p className="text-sm text-slate-500 mb-8">
-          Privacy Policy &nbsp;|&nbsp; ปรับปรุงล่าสุด: 1 มิถุนายน 2569 (2026)
+          Privacy Policy &nbsp;|&nbsp; ปรับปรุงล่าสุด: 22 พฤศจิกายน 2569 (2026)
         </p>
 
         <div className="prose prose-slate max-w-none space-y-6 text-[15px] leading-relaxed">
@@ -64,10 +64,8 @@ export default function PrivacyPage() {
               2.3 ข้อมูลจากบริการภายนอก (Third-Party Services)
             </h3>
             <ul className="list-disc pl-6 space-y-1">
-              <li>Google Analytics — วิเคราะห์การใช้งานเว็บไซต์</li>
+              <li>PostHog — วิเคราะห์การใช้งานเว็บไซต์ วัดประสิทธิภาพหน้าเว็บ (Web Vitals) และบันทึกช่วงการใช้งาน (session replay) โดยปิดบังข้อมูลที่ผู้ใช้พิมพ์ในช่องคำตอบ</li>
               <li>Google OAuth — การยืนยันตัวตนและการเข้าสู่ระบบ</li>
-              <li>Sentry — การติดตามข้อผิดพลาด (เฉพาะเมื่อเปิดใช้งาน)</li>
-              <li>Vercel Analytics — ประสิทธิภาพเว็บไซต์</li>
             </ul>
           </section>
 
@@ -111,7 +109,7 @@ export default function PrivacyPage() {
               เราอาจแชร์ข้อมูลกับ:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>ผู้ให้บริการชำระเงิน</strong> — เฉพาะข้อมูลที่จำเป็นสำหรับการดำเนินการชำระเงิน</li>
-              <li><strong>ผู้ให้บริการโฮสติ้งและโครงสร้างพื้นฐาน</strong> — Vercel (การโฮสต์), Neon (ฐานข้อมูล), Upstash (Redis), Cloudflare R2 (การเก็บไฟล์)</li>
+              <li><strong>ผู้ให้บริการโฮสติ้งและโครงสร้างพื้นฐาน</strong> — Cloudflare (การโฮสต์ Worker, การส่งเนื้อหาและความปลอดภัย/CDN), Neon (ฐานข้อมูล), Upstash (Redis), Cloudflare R2 (การเก็บไฟล์)</li>
               <li><strong>เจ้าหน้าที่ที่มีอำนาจตามกฎหมาย</strong> — เมื่อจำเป็นตามกฎหมาย</li>
             </ul>
           </section>
@@ -137,7 +135,7 @@ export default function PrivacyPage() {
             <p>เราใช้ประเภทคุกกี้ต่อไปนี้:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>จำเป็น (Essential)</strong> — NextAuth session cookie สำหรับการเข้าสู่ระบบ</li>
-              <li><strong>วิเคราะห์ (Analytics)</strong> — Google Analytics, Vercel Analytics สำหรับการวิเคราะห์การใช้งาน</li>
+              <li><strong>วิเคราะห์ (Analytics)</strong> — PostHog สำหรับการวิเคราะห์การใช้งานและวัดประสิทธิภาพหน้าเว็บ</li>
               <li><strong>การตั้งค่า (Preferences)</strong> — การตั้งค่าที่คุณเลือกบนเว็บไซต์</li>
             </ul>
             <p className="mt-2">
@@ -193,6 +191,13 @@ export default function PrivacyPage() {
             <p className="mt-2">
               เมื่อคุณลบบัญชี เราจะลบหรือทำให้ข้อมูลไม่สามารถระบุตัวตนได้ภายใน 30 วัน
               ยกเว้นข้อมูลที่จำเป็นต้องเก็บรักษาตามกฎหมาย
+            </p>
+            <p className="mt-2">
+              <strong>ข้อมูล AI Tutor</strong> — ข้อความแชทและผลตอบรับ (feedback) ของผู้เรียน
+              มีกำหนดเก็บไม่เกิน 180 วันนับจากวันที่สร้าง เรามีงานตามกำหนดเวลา (retention job)
+              สำหรับลบข้อมูลที่พ้นกำหนด ซึ่งปัจจุบันอยู่ระหว่างการเปิดใช้การลบจริง
+              (ค่าเริ่มต้นทำงานในโหมดตรวจนับโดยยังไม่ลบ) ระหว่างนี้ข้อมูลจะยังคงถูกเก็บไว้
+              และไม่ถูกนำไปใช้เพื่อวัตถุประสงค์อื่นนอกเหนือจากที่ระบุในนโยบายนี้
             </p>
           </section>
 
