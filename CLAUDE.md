@@ -42,15 +42,15 @@ CefrReady is an English proficiency testing platform aligned with the CEFR (Comm
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript 5.4 (strict mode) |
 | Styling | Tailwind CSS 3.4 + `@tailwindcss/typography` + `tailwindcss-animate` |
-| Database | PostgreSQL via Drizzle ORM (`pg` Pool) |
+| Database | Neon serverless PostgreSQL via Drizzle ORM (HTTP driver; WebSocket only for `transaction`) |
 | Auth | NextAuth v5 beta — JWT strategy + Google OAuth |
 | Cache | Upstash Redis (rate limiting) |
 | Storage | Cloudflare R2 (audio files for listening tests) |
-| Error Tracking | Sentry (conditional — only when `NEXT_PUBLIC_SENTRY_DSN` is set) |
-| Analytics | Vercel Analytics + Google Analytics |
+| Error Tracking | None — Workers Logs (`wrangler tail` / dashboard) |
+| Analytics | PostHog (single analytics provider) |
 | Charts | Recharts |
 | Validation | Zod |
-| Deployment | Vercel |
+| Deployment | Cloudflare Workers (OpenNext, manual deploy via `wrangler`) |
 
 ## Commands
 
@@ -81,7 +81,7 @@ src/
 ├── components/             # React components
 ├── db/
 │   ├── schema.ts           # All Drizzle table definitions
-│   └── index.ts            # DB connection (pg Pool)
+│   └── index.ts            # DB connection (Neon HTTP driver)
 ├── lib/
 │   ├── auth.ts             # Full NextAuth config (server-side, uses DB)
 │   ├── auth.config.ts      # Edge-safe auth config (no DB imports)
@@ -113,7 +113,8 @@ JWT strategy is used (not database sessions) so the proxy can verify sessions wi
 
 - All tables defined in single file: `src/db/schema.ts`
 - Migrations in `drizzle/` directory
-- Connection via `pg` Pool (`src/db/index.ts`)
+- Connection via Neon HTTP driver (`src/db/index.ts`); `db.transaction()` is routed to the
+  Neon WebSocket driver (`src/db/transaction.ts`) because HTTP does not support transactions
 - `AnyTable` type assertion required for DrizzleAdapter compatibility (known issue with NextAuth v5 + Drizzle)
 
 ### Content & Testing Model
@@ -128,9 +129,9 @@ Page CSP is issued **per request with a nonce from `src/proxy.ts`** (see `src/li
 `next.config.mjs` sets the non-CSP headers (HSTS, X-Frame-Options, …) plus a static
 `default-src 'none'` CSP for `/api/*` only — do not add the page CSP there or the two
 headers collide and break nonce handling. Key allowed origins:
-- Google OAuth, Google Analytics, Google Fonts
+- Google OAuth, Google Fonts
 - Cloudflare R2 for media (`pub-e915c92ac05f48ccabfe327469bf4599.r2.dev`)
-- Vercel Analytics scripts
+- PostHog (`*.posthog.com`)
 
 When adding external scripts/resources, update `src/lib/csp.ts`.
 
@@ -171,9 +172,6 @@ NEXTAUTH_SECRET          # JWT signing key
 NEXTAUTH_URL             # App URL
 UPSTASH_REDIS_REST_URL   # Rate limiting
 UPSTASH_REDIS_REST_TOKEN # Rate limiting
-NEXT_PUBLIC_SENTRY_DSN   # Optional — enables Sentry
-SENTRY_ORG               # Optional — Sentry org
-SENTRY_PROJECT           # Optional — Sentry project
 ```
 
 ## SEO

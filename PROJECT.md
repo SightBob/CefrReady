@@ -37,7 +37,7 @@
 - **Auth**: NextAuth v5 + Google OAuth
 - **Database**: PostgreSQL + Drizzle ORM
 - **UI**: Tailwind CSS + Lucide icons
-- **Deploy**: Vercel (cron ผ่าน `vercel.json`) และ Railway (`railway.json`, start ด้วย `npm start`)
+- **Deploy**: Cloudflare Workers (OpenNext, deploy ด้วย `wrangler`) — cron รายวันผ่าน `wrangler.jsonc`
 
 ## SEO
 - ✅ JSON-LD schemas: WebSite, Organization, Course, Quiz, Article, FAQ
@@ -48,5 +48,4 @@
 
 ## URL
 - Production: https://cefr-ready.site
-- Vercel: https://cefr-ready.vercel.app
 - GitHub: https://github.com/SightBob/CefrReady
