@@ -16,7 +16,10 @@ jobs:
   ci:
     name: lint / typecheck / test / build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 20 -> 35: job นี้ build Next สองรอบ (step Build + step OpenNext ซึ่งรัน
+    # `npm run build` ของตัวเองด้วย NEXT_PRIVATE_STANDALONE=true) บวก bundling
+    # ของ wrangler อีกชั้น จึงต้องเผื่อเวลาไว้ ไม่ให้ timeout กลายเป็น noise
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -57,3 +60,24 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5499/ci_placeholder
         run: npx next build
+
+      # ---- Cloudflare adapter: ของจริงที่ deploy คือ artifact จากสอง step ล่างนี้ ----
+      # `next build` ข้างบนพิสูจน์แค่ว่าแอปคอมไพล์ผ่าน ไม่ได้พิสูจน์ว่า bundle ลง
+      # workerd ได้ (import ที่ workerd ไม่รองรับ, entry override worker.mjs พัง,
+      # การอ่าน .next/standalone) ซึ่งเป็น error ที่เจอเฉพาะตอน deploy
+      - name: Build Cloudflare worker (OpenNext adapter)
+        # ไม่ใช้ --skipNextBuild โดยตั้งใจ: adapter ต้องการ .next/standalone ซึ่ง
+        # เกิดเฉพาะเมื่อมันเรียก next build เองพร้อม NEXT_PRIVATE_STANDALONE=true
+        # (ใช้ .next ของ step Build เดิมไม่ได้) — ยอมจ่ายเวลา build เพิ่มเพื่อให้
+        # ตรงกับ `npm run cf:build` ที่ใช้ deploy จริง
+        env:
+          # ค่าปลอมตัวเดียวกับ step Build — build ไม่ต่อ DB จริง (ดูคอมเมนต์ด้านบน)
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5499/ci_placeholder
+        run: npx opennextjs-cloudflare build
+
+      - name: Wrangler bundle dry-run
+        # --dry-run = คอมไพล์/bundle อย่างเดียว ไม่ upload จึงไม่ต้องใช้ API token
+        # หรือ account id จับ error ชั้น bundling: module resolution ของ worker.mjs,
+        # entry ที่ชี้ไฟล์ไม่มีจริง, config ใน wrangler.jsonc (main/assets/triggers)
+        # --outdir .wrangler-dry (gitignored) กันทับ artifact อื่น
+        run: npx wrangler deploy --dry-run --outdir .wrangler-dry
