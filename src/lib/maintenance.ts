@@ -44,11 +44,18 @@ async function redisSet(key: string, value: string): Promise<void> {
 }
 
 // Per-instance stale-while-revalidate cache: the REQUEST PATH never waits
-// on Upstash (except once, on the instance's very first call). A flip
-// propagates within REVALIDATE_MS via a background refresh.
+// on Upstash more than once per REVALIDATE_MS. A flip propagates within
+// REVALIDATE_MS via a refresh.
+//
+// IMPORTANT (Cloudflare Workers): never keep an in-flight Promise in a module
+// variable and await it from a later request. workerd binds a promise to the
+// request that created it; once that request ends, the settlement is dropped
+// and any other request awaiting it fails with
+// "This promise was created by a request that has since ended".
+// So each request creates (and awaits) only its own refresh promise; the
+// stampede guard below is a plain timestamp, not a shared promise.
 const REVALIDATE_MS = 30_000;
 let cache: { value: boolean; fetchedAt: number } | null = null;
-let inflightRefresh: Promise<void> | null = null;
 
 /**
  * Parse the stored flag value. REGRESSION GUARD: the Upstash client
@@ -73,21 +80,23 @@ async function refreshCache(): Promise<void> {
 }
 
 export async function isMaintenanceMode(): Promise<boolean> {
+  // Fresh cache: no I/O at all.
   if (cache && Date.now() - cache.fetchedAt < REVALIDATE_MS) return cache.value;
 
-  // Kick off a background refresh at most once at a time.
-  if (!inflightRefresh) {
-    inflightRefresh = refreshCache().finally(() => {
-      inflightRefresh = null;
-    });
+  // No value yet (first call on this instance): fetch inside THIS request.
+  if (!cache) {
+    await refreshCache();
+    return (cache as { value: boolean } | null)?.value ?? false;
   }
 
-  // First call on this instance has no cached value yet — wait for it.
-  // Every later call returns the cached value immediately while the
-  // background refresh updates it for the next request.
-  if (!cache) await inflightRefresh;
-
-  return cache?.value ?? false;
+  // Stale: serve the stale value and refresh synchronously in this request.
+  // Bump fetchedAt first so a burst of concurrent requests cannot stampede
+  // Upstash. The promise below belongs to this request only — if the request
+  // is cancelled, only this refresh is lost; it can never poison other calls.
+  const stale = cache as { value: boolean; fetchedAt: number };
+  cache = { value: stale.value, fetchedAt: Date.now() };
+  await refreshCache();
+  return (cache as { value: boolean } | null)?.value ?? false;
 }
 
 export async function setMaintenanceMode(enabled: boolean): Promise<void> {
