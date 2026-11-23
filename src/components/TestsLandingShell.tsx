@@ -11,7 +11,7 @@ import Link from 'next/link';
  * (ค่า ANNOUNCEMENT ตรงนี้ซ้ำกับ src/app/tests/TestsPageClient.tsx หนึ่งจุด —
  *  ถ้าภายหลังเปลี่ยนข้อความประกาศให้เปลี่ยนทั้งสองที่)
  */
-const ANNOUNCEMENT = 'เนื่องจาก CEFR Ready กำลังพัฒนาข้อสอบให้แม่นยำขึ้น เราจะเริ่มเก็บค่าบริการภายในสิ้นเดือนนี้ (30 พฤศจิกายน 2569) ระหว่างนี้เพื่อนๆ ยังใช้งานได้ “ ฟรี ” จนถึงกำหนดสิ้นสุด';
+const ANNOUNCEMENT = 'CEFR Ready ยังเปิดให้ใช้งาน “ ฟรี ” ทุกพาร์ทข้อสอบ ระหว่างที่เรากำลังพัฒนาข้อสอบให้แม่นยำขึ้น';
 
 export interface LandingHero {
   title: React.ReactNode;
