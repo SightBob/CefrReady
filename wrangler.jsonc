@@ -4,7 +4,7 @@
   "main": "worker.mjs",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
-  // AI Tutor retention (เดิม vercel.json cron) — worker.mjs มี `scheduled` handler
+  // AI Tutor retention (Cloudflare Cron Trigger) - worker.mjs มี scheduled handler
   "triggers": {
     "crons": ["0 3 * * *"]
   },

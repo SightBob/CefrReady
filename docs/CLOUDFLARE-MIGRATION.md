@@ -29,6 +29,7 @@
 - **CI** ครอบ adapter: `opennextjs-cloudflare build` + `wrangler deploy --dry-run` (timeout 35 นาที)
 - **`logAiUsage` ใน `api/tests/tap-reason`** await ก่อนตอบ response (เดิม promise ถูกตัดทิ้งบน Workers)
 - **cleanup**: ลบ `vercel.json`/`railway.json`, ตัด Sentry env, CSP ไม่ allow `va.vercel-scripts.com`, แก้ `CLAUDE.md`/`PROJECT.md`
+- **round 2 cleanup**: ลบ `HomePricing.tsx`, `ProgressStats.tsx`, `src/app/support/`; แก้ comment "Vercel Cron" ใน `route.ts`/`wrangler.jsonc`; เติม `AI_TUTOR_*` ลง `.env.example`
 
 ## ข้อจำกัดที่ต้องรู้ (ยังไม่แก้)
 

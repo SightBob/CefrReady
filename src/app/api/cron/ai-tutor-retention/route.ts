@@ -36,7 +36,7 @@ function bearerMatches(header: string | null, secret: string): boolean {
 /**
  * GET /api/cron/ai-tutor-retention — ล้างข้อมูล AI Tutor เก่าตามนโยบาย retention
  *
- * เรียกโดย Vercel Cron (vercel.json) — Vercel แนบ `Authorization: Bearer $CRON_SECRET` ให้เอง
+  * เรียกโดย Cloudflare Cron Trigger (wrangler.jsonc) - worker.mjs มี scheduled handler
  *
  * ความปลอดภัย (หลักการเดียวกับ scripts/ai-tutor-retention.ts):
  * - ไม่มี CRON_SECRET → 503 ปฏิเสธ (ไม่ยอมรันแบบไม่มีสิทธิ์)
