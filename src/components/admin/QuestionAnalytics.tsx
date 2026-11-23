@@ -24,6 +24,10 @@ const TYPE_GRADIENTS: Record<string, string> = {
   'full-test':       'from-rose-50 to-rose-100',
 };
 
+/** วันแบบสั้น ใช้บอกว่าสถิติมาจากช่วงไหน (พ.ศ. ตาม locale ไทย) */
+const formatDay = (iso: string) =>
+  new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+
 function HardQuestionRow({
   q,
   index,
@@ -34,6 +38,7 @@ function HardQuestionRow({
     testTypeId: string;
     testTypeName: string;
     wrongCount: number;
+    totalAnswers: number;
     correctRate: number;
   };
   index: number;
@@ -59,7 +64,7 @@ function HardQuestionRow({
       </div>
       <div className="text-right flex-shrink-0">
         <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${color}`}>
-          {q.wrongCount} ผิด
+          {q.wrongCount}/{q.totalAnswers} ผิด
         </span>
         <p className="text-xs text-slate-400 mt-1">{q.correctRate}% ถูก</p>
       </div>
@@ -81,6 +86,7 @@ function CustomBarTooltip({ active, payload }: TooltipContentProps) {
 export function QuestionAnalytics({
   correctRateByType,
   hardestQuestions,
+  answerWindow,
 }: {
   correctRateByType: Array<{
     testTypeId: string;
@@ -95,8 +101,10 @@ export function QuestionAnalytics({
     testTypeId: string;
     testTypeName: string;
     wrongCount: number;
+    totalAnswers: number;
     correctRate: number;
   }>;
+  answerWindow: { totalAnswers: number; firstAt: string | null; lastAt: string | null };
 }) {
   const [activeTab, setActiveTab] = useState<'chart' | 'hard'>('chart');
 
@@ -136,6 +144,14 @@ export function QuestionAnalytics({
       <p className="text-xs text-slate-400 mb-3">
         สถิติด้านล่างนับเฉพาะคำตอบที่ส่งหลังโจทย์ถูกแก้ — คำตอบก่อนแก้ไม่ถูกนับ เพราะคำนวณด้วยเฉลยเวอร์ชันเก่า
       </p>
+      {answerWindow.totalAnswers > 0 && (
+        <p className="text-xs text-slate-500 mb-3">
+          อิงจาก {answerWindow.totalAnswers.toLocaleString()} คำตอบ
+          {answerWindow.firstAt && answerWindow.lastAt &&
+            ` ระหว่าง ${formatDay(answerWindow.firstAt)} – ${formatDay(answerWindow.lastAt)}`}
+          {answerWindow.totalAnswers < 200 && ' · ข้อมูลยังน้อย สรุปแนวโน้มไม่ได้'}
+        </p>
+      )}
 
       {!hasData ? (
         <p className="text-slate-500 text-sm py-8 text-center">ยังไม่มีข้อมูลคำตอบ</p>

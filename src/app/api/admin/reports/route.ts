@@ -156,6 +156,18 @@ export async function GET(request: NextRequest) {
         : 0,
     }));
 
+    // 3. ช่วงข้อมูลจริง — บอกได้ว่าสถิติข้างบนมาจากคำตอบกี่รายการ ช่วงไหน
+    // ไม่มีตัวเลขนี้ แอดมินอ่านกราฟจากข้อมูล 2-3 คำตอบแล้วคิดว่าเป็นภาพรวมทั้งระบบ
+    const [answerWindow] = await db
+      .select({
+        totalAnswers: count(),
+        firstAt: sql<Date | null>`min(${userAnswers.createdAt})`,
+        lastAt: sql<Date | null>`max(${userAnswers.createdAt})`,
+      })
+      .from(userAnswers)
+      .innerJoin(questions, sql`${userAnswers.questionId} = ${questions.id}`)
+      .where(countableAnswerFilter());
+
     const hardestQuestions = hardestQuestionsRaw.map((q) => {
       const total = Number(q.totalAnswers);
       const wrong = total - Number(q.correctAnswers);
@@ -165,6 +177,7 @@ export async function GET(request: NextRequest) {
         testTypeId: q.testTypeId,
         testTypeName: testTypeMap.get(q.testTypeId) ?? q.testTypeId,
         wrongCount: wrong,
+        totalAnswers: total,
         correctRate: total > 0
           ? Math.round((Number(q.correctAnswers) / total) * 1000) / 10
           : 0,
@@ -414,6 +427,11 @@ export async function GET(request: NextRequest) {
         questionAnalytics: {
           correctRateByType: correctRateByTypeNamed,
           hardestQuestions,
+          answerWindow: {
+            totalAnswers: Number(answerWindow?.totalAnswers ?? 0),
+            firstAt: answerWindow?.firstAt ?? null,
+            lastAt: answerWindow?.lastAt ?? null,
+          },
         },
         userRetention: {
           newUsersThisMonth: Number(userRetention?.newUsersThisMonth ?? 0),

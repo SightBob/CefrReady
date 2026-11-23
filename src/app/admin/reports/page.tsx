@@ -48,8 +48,14 @@ interface ReportData {
       testTypeId: string;
       testTypeName: string;
       wrongCount: number;
+      totalAnswers: number;
       correctRate: number;
     }>;
+    answerWindow: {
+      totalAnswers: number;
+      firstAt: string | null;
+      lastAt: string | null;
+    };
   };
   userRetention: {
     newUsersThisMonth: number;
@@ -498,6 +504,7 @@ export default function AdminReportsPage() {
             <QuestionAnalytics
               correctRateByType={data.questionAnalytics.correctRateByType}
               hardestQuestions={data.questionAnalytics.hardestQuestions}
+              answerWindow={data.questionAnalytics.answerWindow}
             />
 
             {/* ─── Top Performers ─── */}
