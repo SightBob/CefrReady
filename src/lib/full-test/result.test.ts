@@ -72,6 +72,19 @@ describe('shared adaptive result', () => {
     ).toMatchObject({ totalQuestions: 1, correctAnswers: 1, perPart: { 'form-meaning': { total: 1, correct: 1 } } });
   });
 
+  it('accepts a curly apostrophe from a phone keyboard (i’m = i\'m)', () => {
+    // ของจริง พ.ย. 2026: 19 คำตอบที่ถูกถูกให้ 0 คะแนน เพราะมือถือพิมพ์ ’ แทน '
+    const saved = {
+      id: 1,
+      article: { blanks: [{ id: 1, correctAnswer: "i'm" }, { id: 2, correctAnswer: 'is' }] },
+    } as DbQuestion;
+    expect(
+      calculateFullTestResult([
+        entry({ testTypeId: 'form-meaning', selectedAnswer: '{"1":"i’m","2":" IS "}', wasCorrect: false, questionSnapshot: saved }),
+      ])
+    ).toMatchObject({ totalQuestions: 1, correctAnswers: 1 });
+  });
+
   it('keeps the total question count equal to the number of answered slots, not the number of blanks', () => {
     const saved = {
       id: 1,

@@ -14,7 +14,7 @@ const row = {
   correctAnswer: 'B',
   explanation: 'Third-person singular',
   tapExercise: { title: 'Practice', items: [{ prompt: 'She ___ daily.', choiceA: 'go', choiceB: 'goes', correct: 1 }] },
-  article: { title: 'A', text: 'x', blanks: [{ id: 4, correctAnswer: 'watches' }] },
+  article: { title: 'A', text: 'x', blanks: [{ id: 4, correctAnswer: 'watches' }, { id: 5, correctAnswer: "i'm" }] },
   active: 'true',
 };
 const request = (patch: Record<string, unknown> = {}) => new NextRequest('http://localhost:3000/api/tests/check-answer', {
@@ -121,6 +121,11 @@ describe('POST check-answer', () => {
   it('grades a cloze blank and returns the expected word', async () => {
     const body = await (await POST(request({ selectedAnswer: 'Watches', blankId: 4 }))).json();
     expect(body.data).toMatchObject({ isCorrect: true, correctKey: null, correctText: 'watches' });
+  });
+
+  it('accepts a curly apostrophe from a phone keyboard on a cloze blank', async () => {
+    const body = await (await POST(request({ selectedAnswer: 'I’m', blankId: 5 }))).json();
+    expect(body.data).toMatchObject({ isCorrect: true, correctText: "i'm" });
   });
 
   it('404s an unknown blank slot', async () => {

@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { calculateScore, countAnsweredItems, parseStructuredAnswer } from './score-utils';
+import { calculateScore, countAnsweredItems, normalizeFreeText, parseStructuredAnswer } from './score-utils';
+
+describe('normalizeFreeText', () => {
+  it.each([
+    ['i’m', "i'm"],
+    ['i‘m', "i'm"],
+    ['i`m', "i'm"],
+    ['  IS  ', 'is'],
+    ['two   words', 'two words'],
+    ['well–known', "well-known"],
+    ['“quoted”', '"quoted"'],
+  ])('ทนเครื่องหมายและช่องว่างที่ผู้ใช้พิมพ์: %s', (input, expected) => {
+    expect(normalizeFreeText(input)).toBe(expected);
+  });
+
+  it('ไม่ยอมรับคำตอบต่างความหมาย แม้ใช้ normalize แล้ว', () => {
+    expect(normalizeFreeText('is')).not.toBe(normalizeFreeText('are'));
+    expect(normalizeFreeText('was')).not.toBe(normalizeFreeText('were'));
+    expect(normalizeFreeText('')).toBe('');
+  });
+});
 
 describe('countAnsweredItems', () => {
   it('คำตอบเดี่ยว: ว่าง = 0, มีค่า = 1', () => {

@@ -46,10 +46,22 @@ interface ScoreCalculation {
 }
 
 /**
- * Calculates score from submitted answers against DB questions.
- * For form-meaning, selectedAnswer is JSON-encoded per-blank answers
- * (e.g. {"1":"running","2":"is"}) and scoring is done per-blank.
+ * เทียบคำตอบที่ผู้ใช้พิมพ์เอง — เครื่องหมายและช่องว่างที่พิมพ์ไม่ควรตัดสินถูกผิด
+ *
+ * มือถือใส่ apostrophe โค้ง (’) ให้อัตโนมัติ: ผู้เรียนตอบ i’m แต่เฉลยเก็บ i'm
+ * ระบบเดิมตัดสินว่าผิด (พ.ย. 2026 ข้อ 1984 มี 19 คำตอบที่ถูกแต่ถูกให้ 0 คะแนน)
+ * จงใจไม่แตะความหมายของคำ: is ≠ are, was ≠ were ยังต้องผิดตามเดิม
  */
+export function normalizeFreeText(value: string): string {
+  return value
+    .replace(/[’‘`´]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 /** JSON answers must be a string record, never null, an array or numeric values. */
 export function parseStructuredAnswer(value: string): Record<string, string> | null {
   if (value.trim() === '') return {};
@@ -88,6 +100,11 @@ export function countAnsweredItems(userAnswer: string): number {
   return 1;
 }
 
+/**
+ * Calculates score from submitted answers against DB questions.
+ * For form-meaning, selectedAnswer is JSON-encoded per-blank answers
+ * (e.g. {"1":"running","2":"is"}) and scoring is done per-blank.
+ */
 export function calculateScore(
   answers: Answer[],
   dbQuestions: DbQuestion[]
@@ -137,8 +154,8 @@ export function calculateScore(
       art.blanks.forEach((blank) => {
         totalItems++;
         correctJson[String(blank.id)] = blank.correctAnswer;
-        const userAns = parsedAnswers[String(blank.id)]?.toLowerCase().trim();
-        if (userAns && userAns === blank.correctAnswer.toLowerCase().trim()) {
+        const userAns = normalizeFreeText(parsedAnswers[String(blank.id)] ?? '');
+        if (userAns && userAns === normalizeFreeText(blank.correctAnswer)) {
           blankCorrect++;
           correctCount++;
         }
@@ -155,7 +172,7 @@ export function calculateScore(
 
     // MCQ types: direct string comparison
     totalItems++;
-    const isCorrect = !!question.correctAnswer?.trim() && answer.selectedAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
+    const isCorrect = !!question.correctAnswer?.trim() && normalizeFreeText(answer.selectedAnswer) === normalizeFreeText(question.correctAnswer);
     if (isCorrect) correctCount++;
 
     return {

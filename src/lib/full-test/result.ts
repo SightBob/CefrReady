@@ -1,5 +1,5 @@
 import type { DbQuestion } from '@/db/schema';
-import { parseStructuredAnswer } from '@/lib/score-utils';
+import { parseStructuredAnswer, normalizeFreeText } from '@/lib/score-utils';
 import {
   calculateRawScore,
   calculateMaxPossibleScore,
@@ -40,8 +40,8 @@ export function calculateFullTestResult(path: AttemptPathEntry[], legacyQuestion
     if (blanks.length) {
       const answers = parseStructuredAnswer(entry.selectedAnswer) ?? {};
       const correctBlanks = blanks.filter((blank) => {
-        const given = answers[String(blank.id)]?.trim();
-        return !!given && given.toLowerCase() === blank.correctAnswer.trim().toLowerCase();
+        const given = normalizeFreeText(answers[String(blank.id)] ?? '');
+        return !!given && given === normalizeFreeText(blank.correctAnswer);
       }).length;
       stats.blanksTotal = (stats.blanksTotal ?? 0) + blanks.length;
       stats.blanksCorrect = (stats.blanksCorrect ?? 0) + correctBlanks;

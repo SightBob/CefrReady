@@ -8,6 +8,7 @@ import { checkUserRateLimit, validateOrigin } from '@/lib/api-security';
 import { aiTutorMasterSwitchEnabled } from '@/lib/ai-tutor/flags';
 import { isProofSecretConfigured, issueAnswerProof } from '@/lib/ai-tutor/proof';
 import { localizedRateLimitError, warnWithSummary } from '@/lib/ai-tutor/errors';
+import { normalizeFreeText } from '@/lib/score-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,6 @@ const bodySchema = z.object({
   blankId: z.number().int().positive().optional(),
   selectedAnswer: z.string().trim().min(1).max(1500),
 }).strict();
-
-const normalize = (value: string) => value.trim().toLocaleLowerCase();
 
 /**
  * ออก proof ให้ผู้เรียนที่ล็อกอินแล้ว (ยืนยันว่า "กดตรวจคำตอบแล้ว")
@@ -139,7 +138,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'ไม่พบช่องคำตอบ' }, { status: 404 });
       }
       return NextResponse.json({ success: true, data: {
-        isCorrect: normalize(selectedAnswer) === normalize(blank.correctAnswer),
+        isCorrect: normalizeFreeText(selectedAnswer) === normalizeFreeText(blank.correctAnswer),
         correctKey: null,
         correctText: blank.correctAnswer,
         explanation: row.explanation ?? null,
@@ -153,7 +152,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'ข้อนี้ยังไม่ได้ตั้งเฉลย' }, { status: 409 });
     }
     return NextResponse.json({ success: true, data: {
-      isCorrect: normalize(selectedAnswer) === normalize(correctAnswer),
+      isCorrect: normalizeFreeText(selectedAnswer) === normalizeFreeText(correctAnswer),
       correctKey: correctAnswer,
       correctText: null,
       explanation: row.explanation ?? null,
